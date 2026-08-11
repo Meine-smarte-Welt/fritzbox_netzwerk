@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.0.0-blue)
+![Version](https://img.shields.io/badge/Version-1.1.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -20,7 +20,7 @@ passenden Home-Assistant-Gerätenamen.
 - [Dashboard-Karte](#dashboard-karte)
   - [Spalten](#spalten)
   - [Sortieren, filtern, suchen](#sortieren-filtern-suchen)
-  - [Wischen auf dem Smartphone](#wischen-auf-dem-smartphone)
+  - [Wischen und Blättern auf dem Smartphone](#wischen-und-blättern-auf-dem-smartphone)
   - [IP-Adresse öffnet die Weboberfläche](#ip-adresse-öffnet-die-weboberfläche)
   - [Detail-Popup](#detail-popup)
   - [Farben](#farben)
@@ -43,7 +43,8 @@ passenden Home-Assistant-Gerätenamen.
 - **Detail-Popup** bei Klick auf eine Zeile: zeigt alle Felder eines Geräts – auch die
   auf schmalen Karten ausgeblendeten wie die MAC-Adresse –, mit Kopier-Knöpfen,
   Wake-on-LAN und Sprung zum Home-Assistant-Gerät
-- **Wischen** zwischen den Kategorien auf dem Smartphone (nach links und rechts)
+- **Wischen und Blättern** auf dem Smartphone: alle Spalten per Wischen oder Pfeilen
+  erreichbar, Gerätename bleibt dabei stehen
 - **Klick auf die IP-Adresse** öffnet die Weboberfläche des Geräts im Browser
 - **IP-Typ** (DHCP oder statisch) inklusive Restlaufzeit der DHCP-Zuweisung
 - **Internetzugang gesperrt** (Kindersicherung) und **Firmware-Update verfügbar** auf
@@ -160,10 +161,10 @@ grafischen Editor einstellen.
 | Modell | aus | Nur AVM-Geräte melden hier etwas |
 | Gerätetyp | aus | Automatisch erkannte bzw. vom Nutzer gesetzte Geräteklasse |
 
-Wird die Karte schmal – etwa in einer schmalen Dashboard-Spalte oder auf dem Telefon –
-blendet sie Spalten nachrangiger Bedeutung selbst aus. Gemessen wird dabei die Breite der
-Karte, nicht die des Fensters: Media Queries würden in einer schmalen Spalte eines breiten
-Bildschirms danebenliegen.
+Passen auf einer schmalen Karte – etwa in einer schmalen Dashboard-Spalte oder auf dem
+Telefon – nicht alle Spalten nebeneinander, wird die Tabelle waagerecht scrollbar. So
+bleiben auch die hinteren Spalten wie *Home Assistant* erreichbar. Näheres unter
+[Wischen und Blättern auf dem Smartphone](#wischen-und-blättern-auf-dem-smartphone).
 
 ### Sortieren, filtern, suchen
 
@@ -176,13 +177,18 @@ Suchfeld und Filterleiste arbeiten zusammen: „Aktiv" plus Suchbegriff zeigt nu
 Geräte, auf die der Begriff passt. Beide Bedienelemente behalten ihren Inhalt, wenn der
 Sensor im Hintergrund neue Daten liefert.
 
-### Wischen auf dem Smartphone
+### Wischen und Blättern auf dem Smartphone
 
-Auf schmalen Karten – also typischerweise auf dem Telefon – lässt sich mit einer
-Wischgeste nach links oder rechts zwischen den Kategorien blättern (Alle → Aktiv → Inaktiv
-→ Gast → Gesperrt → Update). Das Wischen ist nur aktiv, wenn die Karte schmal ist, und
-kapert bewusst keine waagerecht scrollbare Tabelle. Abschaltbar über *Wischen wechselt die
-Kategorie* im Editor.
+Passen nicht alle Spalten nebeneinander, wird die Tabelle waagerecht scrollbar. Auf dem
+Telefon lässt sich einfach mit dem Finger nach links und rechts wischen, um die hinteren
+Spalten (MAC-Adresse, Home Assistant, IP-Typ, Tempo …) einzusehen. Zusätzlich erscheinen
+am linken und rechten Rand **Pfeile**, die sich auch anklicken lassen – jeder Klick blättert
+etwa eine halbe Kartenbreite weiter. Die Pfeile erscheinen nur, wenn in ihre Richtung noch
+etwas verborgen ist.
+
+Statuspunkt und Gerätename bleiben beim Blättern links stehen, damit immer klar ist, zu
+welchem Gerät die Werte gehören. Beides ist im Editor abschaltbar: *Blätter-Pfeile bei
+breiter Tabelle* und *Gerätename beim Blättern festhalten*.
 
 ### IP-Adresse öffnet die Weboberfläche
 
@@ -201,11 +207,9 @@ meldet.
 
 ### Detail-Popup
 
-Ein Klick oder Enter auf eine Zeile öffnet ein Popup mit **allen** Angaben zum Gerät –
-unabhängig davon, welche Spalten die Tabelle gerade zeigt. Auf einem schmalen Dashboard
-oder dem Telefon blendet die Tabelle Spalten wie die MAC-Adresse aus; im Popup steht sie
-trotzdem. IP- und MAC-Adresse lassen sich dort mit einem Knopf in die Zwischenablage
-kopieren.
+Ein Klick oder Enter auf eine Zeile öffnet ein Popup mit **allen** Angaben zum Gerät – auch
+den Feldern, die auf einer schmalen Karte gerade aus dem sichtbaren Bereich gescrollt sind.
+IP- und MAC-Adresse lassen sich dort mit einem Knopf in die Zwischenablage kopieren.
 
 Je nach Gerät bietet das Popup zusätzlich:
 
@@ -258,7 +262,8 @@ hide_inactive: false
 compact: false
 show_details_popup: true
 open_device_on_click: true
-enable_swipe: true
+show_scroll_arrows: true
+sticky_name: true
 ip_opens_web: true
 ip_web_fallback: true
 max_rows: 0
@@ -363,6 +368,19 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.1.0 – Blättern statt Spalten verstecken
+
+- Auf schmalen Karten werden **keine Spalten mehr versteckt**. Stattdessen wird die Tabelle
+  waagerecht scrollbar – die zuvor auf dem Smartphone fehlende Spalte *Home Assistant* (und
+  alle weiteren) ist damit wieder erreichbar.
+- **Blätter-Pfeile** am linken und rechten Rand, zusätzlich zum Wischen mit dem Finger. Sie
+  erscheinen nur, wenn in ihre Richtung noch etwas verborgen ist.
+- **Statuspunkt und Gerätename bleiben beim Blättern stehen** (fixierte Spalten).
+- Ersetzt das Kategorie-Wischen aus 1.0.0, das die eigentliche Ursache – ausgeblendete
+  Spalten auf dem Telefon – nicht behob.
+- Neue Schalter *Blätter-Pfeile bei breiter Tabelle* und *Gerätename beim Blättern
+  festhalten* (der frühere *Wischen wechselt die Kategorie* entfällt).
 
 ### 1.0.0 – Erste stabile Version
 

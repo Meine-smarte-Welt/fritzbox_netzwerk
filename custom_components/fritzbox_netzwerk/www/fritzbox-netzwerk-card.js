@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.0.0";
+const FBN_VERSION = "1.1.0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -50,7 +50,8 @@ const CONFIG_DEFAULTS = {
   max_rows: 0,
   show_details_popup: true,
   open_device_on_click: true,
-  enable_swipe: true,
+  show_scroll_arrows: true,
+  sticky_name: true,
   ip_opens_web: true,
   ip_web_fallback: true,
 
@@ -472,17 +473,29 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (config.title) card.setAttribute("header", config.title);
     card.innerHTML = `
       <style>${this._styles()}</style>
-      <div class="fbn-root${config.compact ? " fbn-compact" : ""}">
+      <div class="fbn-root${config.compact ? " fbn-compact" : ""}${
+      config.sticky_name ? " fbn-sticky" : ""
+    }">
         <div class="fbn-toolbar">
           <div class="fbn-filters"></div>
           <div class="fbn-searchwrap"></div>
         </div>
         <div class="fbn-summary"></div>
-        <div class="fbn-scroll">
-          <table class="fbn-table">
-            <thead><tr class="fbn-head"></tr></thead>
-            <tbody class="fbn-body"></tbody>
-          </table>
+        <div class="fbn-scrollwrap">
+          <button class="fbn-arrow fbn-arrow-left" type="button" hidden
+                  aria-label="Nach links blättern" tabindex="-1">
+            <ha-icon icon="mdi:chevron-left"></ha-icon>
+          </button>
+          <div class="fbn-scroll">
+            <table class="fbn-table">
+              <thead><tr class="fbn-head"></tr></thead>
+              <tbody class="fbn-body"></tbody>
+            </table>
+          </div>
+          <button class="fbn-arrow fbn-arrow-right" type="button" hidden
+                  aria-label="Nach rechts blättern" tabindex="-1">
+            <ha-icon icon="mdi:chevron-right"></ha-icon>
+          </button>
         </div>
         <div class="fbn-empty" hidden>Keine Geräte gefunden.</div>
       </div>
@@ -497,7 +510,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._buildHead();
     this._renderHead();
     this._observeWidth();
-    this._bindSwipe(card.querySelector(".fbn-scroll"));
+    this._bindScrollArrows(card.querySelector(".fbn-scrollwrap"));
   }
 
   _buildFilters() {
@@ -521,6 +534,68 @@ class FritzboxNetzwerkCard extends HTMLElement {
     });
   }
 
+  /* -- Waagerechtes Blättern (Smartphone) --------------------------- */
+
+  /**
+   * Auf schmalen Karten passen nicht alle Spalten nebeneinander. Statt
+   * Spalten zu verstecken, wird die Tabelle waagerecht scrollbar: per
+   * Wischgeste (nativer Touch-Scroll) oder ueber die beiden Pfeile am
+   * Rand. Der Gerätename bleibt dabei links stehen (siehe fbn-sticky).
+   */
+  _bindScrollArrows(wrapEl) {
+    if (!wrapEl || wrapEl.dataset.arrowsBound) return;
+    wrapEl.dataset.arrowsBound = "1";
+    const scrollEl = wrapEl.querySelector(".fbn-scroll");
+    const left = wrapEl.querySelector(".fbn-arrow-left");
+    const right = wrapEl.querySelector(".fbn-arrow-right");
+    if (!scrollEl) return;
+    this._scrollEl = scrollEl;
+
+    const step = () => Math.max(120, Math.round(scrollEl.clientWidth * 0.66));
+    if (left) {
+      left.addEventListener("click", () => {
+        scrollEl.scrollBy({ left: -step(), behavior: "smooth" });
+      });
+    }
+    if (right) {
+      right.addEventListener("click", () => {
+        scrollEl.scrollBy({ left: step(), behavior: "smooth" });
+      });
+    }
+    scrollEl.addEventListener("scroll", () => this._updateArrows(), {
+      passive: true,
+    });
+    this._updateArrows();
+  }
+
+  /**
+   * Blendet die Pfeile passend zur Scrollposition ein oder aus: linker
+   * Pfeil nur, wenn nach links scrollbar; rechter nur, wenn nach rechts.
+   * Ist die Tabelle komplett sichtbar, bleiben beide verborgen.
+   */
+  _updateArrows() {
+    const scrollEl = this._scrollEl;
+    if (!scrollEl) return;
+    const wrap = scrollEl.closest(".fbn-scrollwrap");
+    if (!wrap) return;
+    const left = wrap.querySelector(".fbn-arrow-left");
+    const right = wrap.querySelector(".fbn-arrow-right");
+    const arrowsOn = this._config.show_scroll_arrows;
+    const maxScroll = scrollEl.scrollWidth - scrollEl.clientWidth;
+    const pos = scrollEl.scrollLeft;
+    // 2px Toleranz gegen Rundungsfehler.
+    const canLeft = arrowsOn && pos > 2;
+    const canRight = arrowsOn && pos < maxScroll - 2;
+    if (left) {
+      left.hidden = !canLeft;
+      left.tabIndex = canLeft ? 0 : -1;
+    }
+    if (right) {
+      right.hidden = !canRight;
+      right.tabIndex = canRight ? 0 : -1;
+    }
+  }
+
   /** Setzt den aktiven Filter und aktualisiert Chips, Zusammenfassung, Liste. */
   _setFilter(key) {
     if (!FILTERS.some((filter) => filter.key === key)) return;
@@ -531,84 +606,6 @@ class FritzboxNetzwerkCard extends HTMLElement {
     });
     this._renderSummary();
     this._renderBody();
-  }
-
-  /* -- Wischgesten (Smartphone) ------------------------------------- */
-
-  /**
-   * Verkabelt die Wischerkennung auf dem Tabellenbereich. Nach links
-   * wischen bedeutet: naechste Filterkategorie, nach rechts: vorige -
-   * wie das Blaettern zwischen Reitern. Bewusst nur auf schmalen Karten
-   * aktiv und nur, wenn die Tabelle nicht selbst waagerecht scrollt.
-   */
-  _bindSwipe(scrollEl) {
-    if (!scrollEl || scrollEl.dataset.swipeBound) return;
-    scrollEl.dataset.swipeBound = "1";
-    let startX = 0;
-    let startY = 0;
-    let tracking = false;
-
-    scrollEl.addEventListener(
-      "touchstart",
-      (event) => {
-        if (!this._config.enable_swipe) return;
-        if (!event.touches || event.touches.length !== 1) return;
-        // Waagerecht scrollbare Tabelle nicht kapern.
-        if (scrollEl.scrollWidth - scrollEl.clientWidth > 4) return;
-        tracking = true;
-        startX = event.touches[0].clientX;
-        startY = event.touches[0].clientY;
-      },
-      { passive: true }
-    );
-
-    scrollEl.addEventListener(
-      "touchend",
-      (event) => {
-        if (!tracking) return;
-        tracking = false;
-        const touch =
-          event.changedTouches && event.changedTouches[0]
-            ? event.changedTouches[0]
-            : null;
-        if (!touch) return;
-        this._handleSwipe(touch.clientX - startX, touch.clientY - startY);
-      },
-      { passive: true }
-    );
-  }
-
-  /**
-   * Kernlogik der Geste, getrennt fuer die Testbarkeit. Liefert die
-   * gewaehlte Richtung (-1 vor, +1 zurueck, 0 keine) und wendet sie an.
-   */
-  _handleSwipe(dx, dy) {
-    const direction = this._swipeDirection(dx, dy);
-    if (direction !== 0) this._stepFilter(direction);
-    return direction;
-  }
-
-  /** Nur bei klar waagerechter Geste ueber der Schwelle und schmaler Karte. */
-  _swipeDirection(dx, dy) {
-    if (!this._config.enable_swipe) return 0;
-    if (this._root && !this._root.classList.contains("fbn-narrow")) return 0;
-    const THRESHOLD = 45;
-    if (Math.abs(dx) < THRESHOLD) return 0;
-    if (Math.abs(dx) < Math.abs(dy) * 1.8) return 0;
-    return dx < 0 ? -1 : 1;
-  }
-
-  /**
-   * Wechselt die Filterkategorie um einen Schritt. -1 = naechste (nach
-   * links gewischt), +1 = vorige. Am Rand wird nicht umgebrochen.
-   */
-  _stepFilter(direction) {
-    const index = FILTERS.findIndex((filter) => filter.key === this._filter);
-    const base = index < 0 ? 0 : index;
-    // Nach links wischen soll vorwaerts blaettern -> Index erhoehen.
-    const next = base - direction;
-    if (next < 0 || next >= FILTERS.length) return;
-    this._setFilter(FILTERS[next].key);
   }
 
   _buildSearch() {
@@ -771,6 +768,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
         this._activateRow(row.dataset.mac, row);
       });
     }
+
+    // Nach jedem Neuaufbau kann sich die Gesamtbreite geaendert haben.
+    this._updateArrows();
   }
 
   /**
@@ -1169,21 +1169,15 @@ class FritzboxNetzwerkCard extends HTMLElement {
   /* -- Breite ------------------------------------------------------- */
 
   /**
-   * Blendet Spalten geringerer Prioritaet aus, sobald die Karte schmal
-   * wird. Bewusst ueber eine Klasse am Wurzelelement statt ueber Media
-   * Queries: die Karte kann in einer schmalen Spalte eines breiten
-   * Bildschirms stehen, dann greifen Media Queries am Fenster nicht.
+   * Aktualisiert die Blätter-Pfeile, wenn sich die Kartenbreite aendert.
+   * Spalten werden bewusst NICHT mehr versteckt - auf schmalen Karten
+   * wird die Tabelle stattdessen waagerecht scrollbar, damit auch die
+   * hinteren Spalten (z. B. Home Assistant) erreichbar bleiben.
    */
   _observeWidth() {
     if (this._resizeObserver || typeof ResizeObserver === "undefined") return;
     if (!this._root) return;
-    this._resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const width = entry.contentRect.width;
-        this._root.classList.toggle("fbn-narrow", width < 620);
-        this._root.classList.toggle("fbn-xnarrow", width < 420);
-      }
-    });
+    this._resizeObserver = new ResizeObserver(() => this._updateArrows());
     this._resizeObserver.observe(this._root);
   }
 
@@ -1231,7 +1225,25 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-summary {
         padding: 2px 16px 8px; font-size: 0.82em; color: var(--fbn-header-text);
       }
-      .fbn-scroll { overflow-x: auto; }
+      .fbn-scrollwrap { position: relative; }
+      .fbn-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .fbn-arrow {
+        position: absolute; top: 0; bottom: 0; width: 34px; z-index: 5;
+        border: none; cursor: pointer; display: flex; align-items: center;
+        justify-content: center; color: var(--fbn-accent);
+        background: linear-gradient(
+          to var(--fbn-arrow-dir, right),
+          var(--card-background-color, rgba(255,255,255,0.96)),
+          rgba(0, 0, 0, 0)
+        );
+      }
+      .fbn-arrow[hidden] { display: none; }
+      .fbn-arrow ha-icon { --mdc-icon-size: 26px; width: 26px; height: 26px;
+        background: var(--card-background-color, #fff); border-radius: 50%;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+      .fbn-arrow-left { left: 0; --fbn-arrow-dir: right; }
+      .fbn-arrow-right { right: 0; --fbn-arrow-dir: left; }
+      .fbn-arrow:focus-visible { outline: 2px solid var(--fbn-accent); outline-offset: -2px; }
       .fbn-table { width: 100%; border-collapse: collapse; font-size: 0.92em; }
       .fbn-th {
         position: sticky; top: 0; z-index: 1;
@@ -1253,9 +1265,24 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-inactive { opacity: 0.55; }
       .fbn-clickable { cursor: pointer; }
       .fbn-clickable:hover { background: var(--fbn-header-bg); }
+      /* Sticky: Status und Gerätename bleiben beim Blättern links stehen. */
+      .fbn-sticky .fbn-col-status {
+        position: sticky; left: 0; z-index: 2; box-sizing: border-box;
+        width: 40px; min-width: 40px;
+        background: var(--card-background-color, #fff);
+      }
+      .fbn-sticky .fbn-col-name {
+        position: sticky; left: 40px; z-index: 2; box-sizing: border-box;
+        background: var(--card-background-color, #fff);
+      }
+      .fbn-sticky .fbn-th.fbn-col-status,
+      .fbn-sticky .fbn-th.fbn-col-name {
+        z-index: 3; background: var(--fbn-header-bg);
+      }
       .fbn-namecell { display: flex; align-items: center; gap: 6px; min-width: 0; }
       .fbn-rowicon { --mdc-icon-size: 18px; width: 18px; height: 18px; flex: 0 0 auto; }
-      .fbn-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .fbn-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        max-width: 40vw; }
       .fbn-mono { font-family: var(--code-font-family, monospace); font-size: 0.95em; }
       .fbn-iplink {
         color: var(--fbn-accent); text-decoration: none;
@@ -1284,8 +1311,6 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-icon-blocked { color: var(--fbn-blocked); --mdc-icon-size: 18px; width: 18px; height: 18px; }
       .fbn-icon-update { color: var(--fbn-update); --mdc-icon-size: 18px; width: 18px; height: 18px; }
       .fbn-empty { padding: 16px; text-align: center; color: var(--fbn-inactive); }
-      .fbn-narrow .fbn-prio-3 { display: none; }
-      .fbn-xnarrow .fbn-prio-2 { display: none; }
       .fbn-clickable:focus-visible { outline: 2px solid var(--fbn-accent); outline-offset: -2px; }
       @media (prefers-reduced-motion: no-preference) {
         .fbn-chip, .fbn-tr { transition: color 120ms ease, background 120ms ease; }
@@ -1413,7 +1438,8 @@ const EDITOR_SCHEMA = [
       { name: "compact", selector: { boolean: {} } },
       { name: "show_details_popup", selector: { boolean: {} } },
       { name: "open_device_on_click", selector: { boolean: {} } },
-      { name: "enable_swipe", selector: { boolean: {} } },
+      { name: "show_scroll_arrows", selector: { boolean: {} } },
+      { name: "sticky_name", selector: { boolean: {} } },
       { name: "ip_opens_web", selector: { boolean: {} } },
       { name: "ip_web_fallback", selector: { boolean: {} } },
       {
@@ -1479,7 +1505,8 @@ const EDITOR_LABELS = {
   compact: "Kompakte Zeilen",
   show_details_popup: "Klick öffnet ein Detail-Popup",
   open_device_on_click: "Klick öffnet das Home-Assistant-Gerät",
-  enable_swipe: "Wischen wechselt die Kategorie (Smartphone)",
+  show_scroll_arrows: "Blätter-Pfeile bei breiter Tabelle",
+  sticky_name: "Gerätename beim Blättern festhalten",
   ip_opens_web: "Klick auf die IP öffnet die Weboberfläche",
   ip_web_fallback: "Notfalls http://IP verwenden",
   max_rows: "Höchstzahl Zeilen (0 = alle)",
@@ -1492,7 +1519,8 @@ const EDITOR_HELPERS = {
   show_ha_name: "Zeigt den Gerätenamen aus Home Assistant, sofern das Gerät dort eine MAC-Adresse hinterlegt hat.",
   show_details_popup: "Zeigt beim Antippen alle Felder eines Geräts, auch die auf schmalen Karten ausgeblendeten wie die MAC-Adresse.",
   open_device_on_click: "Wirkt nur, wenn das Detail-Popup ausgeschaltet ist.",
-  enable_swipe: "Auf schmalen Karten nach links oder rechts wischen, um zwischen den Kategorien zu blättern.",
+  show_scroll_arrows: "Passen nicht alle Spalten nebeneinander (z. B. auf dem Smartphone), wird die Tabelle waagerecht scrollbar. Diese Pfeile blättern zusätzlich per Klick; wischen geht auch direkt.",
+  sticky_name: "Beim waagerechten Blättern bleiben Statuspunkt und Gerätename links stehen.",
   ip_opens_web: "Öffnet die von der FRITZ!Box gemeldete Geräteseite in einem neuen Browser-Tab.",
   ip_web_fallback: "Meldet die FRITZ!Box keine Adresse, wird http://<IP> versucht. Kann bei Geräten ohne Weboberfläche ins Leere laufen.",
   max_rows: "Begrenzt die Tabelle, zum Beispiel für eine Übersichtskarte.",
