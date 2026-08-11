@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "0.1.0";
+const FBN_VERSION = "0.2.0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -48,6 +48,7 @@ const CONFIG_DEFAULTS = {
   hide_inactive: false,
   compact: false,
   max_rows: 0,
+  show_details_popup: true,
   open_device_on_click: true,
 
   // Sortierung
@@ -273,6 +274,15 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._signature = "";
     this._built = false;
     this._resizeObserver = null;
+    // Popup: der Overlay-Knoten haengt am document.body, nicht in der
+    // Karte - so liegt er sicher ueber allem, unabhaengig von den
+    // Stapelkontexten des Dashboards. Gemerkt wird die MAC-Adresse des
+    // gerade gezeigten Geraets, um den Inhalt bei neuen Sensordaten
+    // aktualisieren zu koennen.
+    this._popup = null;
+    this._popupMac = null;
+    this._popupReturnFocus = null;
+    this._onPopupKeydown = null;
   }
 
   /* -- Lovelace-Schnittstelle -------------------------------------- */
@@ -286,6 +296,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._sortDir = this._config.sort_dir === "desc" ? "desc" : "asc";
     this._built = false;
     this._signature = "";
+    this._closePopup();
     this.innerHTML = "";
     if (this._hass) this._update();
   }
@@ -320,6 +331,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
       this._resizeObserver.disconnect();
       this._resizeObserver = null;
     }
+    // Ein offenes Popup nicht verwaist am body haengen lassen.
+    this._closePopup();
   }
 
   /* -- Daten -------------------------------------------------------- */
@@ -425,6 +438,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._renderSummary();
     this._renderBody();
     if (changed) this._renderHead();
+    if (this._popup) this._refreshPopup();
   }
 
   _build() {
@@ -634,21 +648,52 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (!body.dataset.bound) {
       body.dataset.bound = "1";
       body.addEventListener("click", (event) => {
-        const row = event.target.closest("tr[data-device]");
-        if (!row || !this._config.open_device_on_click) return;
-        this._openDevice(row.dataset.device);
+        const row = event.target.closest("tr[data-mac]");
+        if (row) this._activateRow(row.dataset.mac, row);
+      });
+      body.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        const row = event.target.closest("tr[data-mac]");
+        if (!row) return;
+        event.preventDefault();
+        this._activateRow(row.dataset.mac, row);
       });
     }
   }
 
+  /**
+   * Reagiert auf Klick oder Tastendruck einer Zeile. Vorrang hat das
+   * Detail-Popup (dort steht auch die MAC-Adresse, die in der schmalen
+   * Tabelle ausgeblendet sein kann). Ist das Popup abgeschaltet, gilt
+   * das bisherige Verhalten: sofort das Home-Assistant-Geraet oeffnen.
+   */
+  _activateRow(mac, rowEl) {
+    if (this._config.show_details_popup) {
+      const host = this._hosts().find((item) => item.mac === mac);
+      if (host) this._openPopup(host, rowEl);
+      return;
+    }
+    if (this._config.open_device_on_click) {
+      const host = this._hosts().find((item) => item.mac === mac);
+      if (host && host.ha_device_id) this._openDevice(host.ha_device_id);
+    }
+  }
+
+  /** Ob ein Zeilenklick ueberhaupt etwas ausloest. */
+  _rowInteractive(host) {
+    if (this._config.show_details_popup) return true;
+    return this._config.open_device_on_click && !!host.ha_device_id;
+  }
+
   _renderRow(host, columns) {
-    const deviceAttr = host.ha_device_id
-      ? ` data-device="${escapeHtml(host.ha_device_id)}"`
-      : "";
+    const macAttr = ` data-mac="${escapeHtml(host.mac)}"`;
+    const interactive = this._rowInteractive(host);
     const classes = ["fbn-tr"];
     if (!host.active) classes.push("fbn-inactive");
-    if (host.ha_device_id && this._config.open_device_on_click) {
+    let extra = "";
+    if (interactive) {
       classes.push("fbn-clickable");
+      extra = ' tabindex="0" role="button"';
     }
     const cells = columns
       .map(
@@ -658,7 +703,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
           }">${this._renderCell(host, column.key)}</td>`
       )
       .join("");
-    return `<tr class="${classes.join(" ")}"${deviceAttr}>${cells}</tr>`;
+    return `<tr class="${classes.join(" ")}"${macAttr}${extra}>${cells}</tr>`;
   }
 
   _renderCell(host, key) {
@@ -738,6 +783,255 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const path = `/config/devices/device/${deviceId}`;
     history.pushState(null, "", path);
     window.dispatchEvent(new Event("location-changed"));
+  }
+
+  /* -- Detail-Popup ------------------------------------------------- */
+
+  /**
+   * Oeffnet das Detail-Popup fuer ein Geraet. Der Overlay-Knoten wird
+   * bewusst an document.body gehaengt (nicht in die Karte), damit er
+   * ueber allem liegt, egal in welchem Stapelkontext die Karte steckt.
+   */
+  _openPopup(host, returnFocusEl) {
+    this._closePopup();
+    this._popupMac = host.mac;
+    this._popupReturnFocus = returnFocusEl || null;
+
+    const overlay = document.createElement("div");
+    overlay.className = "fbn-overlay";
+    overlay.innerHTML = `
+      <style>${this._popupStyles()}</style>
+      <div class="fbn-modal" role="dialog" aria-modal="true"
+           aria-label="Gerätedetails ${escapeHtml(host.name)}">
+        <div class="fbn-modal-head">
+          <ha-icon class="fbn-modal-icon" icon="${connectionIcon(host)}"></ha-icon>
+          <div class="fbn-modal-titles">
+            <div class="fbn-modal-title"></div>
+            <div class="fbn-modal-sub"></div>
+          </div>
+          <button class="fbn-modal-close" type="button" aria-label="Schließen">
+            <ha-icon icon="mdi:close"></ha-icon>
+          </button>
+        </div>
+        <div class="fbn-modal-body"></div>
+        <div class="fbn-modal-foot"></div>
+      </div>`;
+    document.body.appendChild(overlay);
+    this._popup = overlay;
+
+    // Schliessen ueber Klick auf den Hintergrund, aber nicht auf den
+    // Dialog selbst.
+    overlay.addEventListener("mousedown", (event) => {
+      if (event.target === overlay) this._closePopup();
+    });
+
+    this._onPopupKeydown = (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        this._closePopup();
+      }
+    };
+    overlay.addEventListener("keydown", this._onPopupKeydown);
+
+    overlay
+      .querySelector(".fbn-modal-close")
+      .addEventListener("click", () => this._closePopup());
+
+    this._refreshPopup();
+
+    const close = overlay.querySelector(".fbn-modal-close");
+    if (close && close.focus) close.focus();
+  }
+
+  /** Baut den Inhalt des Popups aus den jeweils aktuellen Daten neu auf. */
+  _refreshPopup() {
+    if (!this._popup) return;
+    const host =
+      this._hosts().find((item) => item.mac === this._popupMac) || null;
+    if (!host) {
+      // Geraet ist aus der Liste verschwunden - Popup mit Hinweis lassen,
+      // aber nicht abrupt schliessen.
+      const body = this._popup.querySelector(".fbn-modal-body");
+      if (body && !body.dataset.gone) {
+        body.dataset.gone = "1";
+        const note = document.createElement("div");
+        note.className = "fbn-modal-note";
+        note.textContent = "Dieses Gerät ist nicht mehr in der Liste.";
+        body.prepend(note);
+      }
+      return;
+    }
+
+    const title = this._popup.querySelector(".fbn-modal-title");
+    const sub = this._popup.querySelector(".fbn-modal-sub");
+    title.textContent = host.name;
+    sub.innerHTML = `
+      <span class="fbn-dot ${host.active ? "fbn-dot-on" : "fbn-dot-off"}"></span>
+      ${host.active ? "Verbunden" : "Nicht verbunden"} · ${escapeHtml(
+      host.connection_label || "—"
+    )}`;
+
+    this._popup.querySelector(".fbn-modal-body").innerHTML =
+      this._popupRows(host);
+    this._popup.querySelector(".fbn-modal-foot").innerHTML =
+      this._popupButtons(host);
+
+    // Kopier-Knoepfe verkabeln.
+    this._popup.querySelectorAll(".fbn-copy").forEach((button) => {
+      button.addEventListener("click", () => this._copy(button.dataset.copy, button));
+    });
+
+    // Home Assistant oeffnen.
+    const haButton = this._popup.querySelector(".fbn-act-ha");
+    if (haButton) {
+      haButton.addEventListener("click", () => {
+        this._closePopup();
+        this._openDevice(host.ha_device_id);
+      });
+    }
+
+    // Wake-on-LAN.
+    const wolButton = this._popup.querySelector(".fbn-act-wol");
+    if (wolButton) {
+      wolButton.addEventListener("click", () => this._wakeDevice(host, wolButton));
+    }
+
+    // Schliessen in der Fusszeile.
+    const footClose = this._popup.querySelector(".fbn-modal-close2");
+    if (footClose) footClose.addEventListener("click", () => this._closePopup());
+  }
+
+  /** Definitionsliste aller Felder eines Geraets. */
+  _popupRows(host) {
+    const rows = [];
+    const add = (label, value, options) => {
+      const opts = options || {};
+      const shown =
+        value === null || value === undefined || value === "" ? "—" : value;
+      const copy =
+        opts.copy && shown !== "—"
+          ? `<button class="fbn-copy" type="button" data-copy="${escapeHtml(
+              opts.copy
+            )}" aria-label="${escapeHtml(label)} kopieren"><ha-icon icon="mdi:content-copy"></ha-icon></button>`
+          : "";
+      rows.push(`
+        <div class="fbn-drow">
+          <div class="fbn-dt">${escapeHtml(label)}</div>
+          <div class="fbn-dd${opts.mono ? " fbn-mono" : ""}">${shown}${copy}</div>
+        </div>`);
+    };
+
+    add("Gerätename", escapeHtml(host.name));
+    add("IP-Adresse", escapeHtml(host.ip), { mono: true, copy: host.ip });
+    add("MAC-Adresse", escapeHtml(host.mac), { mono: true, copy: host.mac });
+    add("Verbindung", escapeHtml(host.connection_label));
+    add(
+      "Status",
+      host.active ? "Verbunden" : "Nicht verbunden"
+    );
+
+    let ipType = "—";
+    if (host.static_ip === true) ipType = "statisch";
+    else if (host.static_ip === false) {
+      const lease = formatLease(host.lease_time_remaining);
+      ipType = lease ? `DHCP (${escapeHtml(lease)})` : "DHCP";
+    }
+    add("IP-Typ", ipType);
+
+    add("Tempo", host.active ? escapeHtml(formatSpeed(host.speed)) : "—");
+    add("Internetzugang", host.blocked ? "gesperrt" : "erlaubt");
+    if (host.filter_profile) add("Filterprofil", escapeHtml(host.filter_profile));
+    add("Firmware-Update", host.update_available ? "verfügbar" : "keines");
+    if (host.model) add("Modell", escapeHtml(host.model));
+    add(
+      "Gerätetyp",
+      escapeHtml(host.device_class_user || host.device_class || "")
+    );
+    if (host.host_name && host.host_name !== host.name) {
+      add("Hostname", escapeHtml(host.host_name));
+    }
+
+    const flags = [];
+    if (host.guest) flags.push("Gastnetz");
+    if (host.vpn) flags.push("VPN");
+    if (host.priority) flags.push("Priorität");
+    if (host.meshable) flags.push("Mesh-fähig");
+    if (flags.length) add("Merkmale", escapeHtml(flags.join(", ")));
+
+    add(
+      "Home Assistant",
+      host.ha_name ? escapeHtml(host.ha_name) : ""
+    );
+
+    return rows.join("");
+  }
+
+  /** Fusszeile des Popups mit den moeglichen Aktionen. */
+  _popupButtons(host) {
+    const buttons = [];
+    if (host.ha_device_id) {
+      buttons.push(
+        '<button class="fbn-btn fbn-act-ha" type="button"><ha-icon icon="mdi:open-in-new"></ha-icon>In Home Assistant öffnen</button>'
+      );
+    }
+    // Aufwecken nur anbieten, wenn das Geraet gerade nicht verbunden ist
+    // und Home Assistant fuer den Dienstaufruf bereitsteht.
+    if (!host.active && this._hass) {
+      buttons.push(
+        '<button class="fbn-btn fbn-act-wol" type="button"><ha-icon icon="mdi:power"></ha-icon>Aufwecken (WoL)</button>'
+      );
+    }
+    buttons.push(
+      '<button class="fbn-btn fbn-btn-primary fbn-modal-close2" type="button">Schließen</button>'
+    );
+    return buttons.join("");
+  }
+
+  /** Kopiert einen Wert in die Zwischenablage, mit kurzer Rueckmeldung. */
+  _copy(value, button) {
+    const done = () => {
+      const icon = button.querySelector("ha-icon");
+      if (icon) icon.setAttribute("icon", "mdi:check");
+      setTimeout(() => {
+        if (icon) icon.setAttribute("icon", "mdi:content-copy");
+      }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value).then(done).catch(() => {});
+    }
+  }
+
+  /** Ruft den Wake-on-LAN-Dienst der Integration auf. */
+  _wakeDevice(host, button) {
+    if (!this._hass || !host.mac) return;
+    button.disabled = true;
+    const label = button;
+    this._hass
+      .callService("fritzbox_netzwerk", "wake_on_lan", { mac: host.mac })
+      .then(() => {
+        label.innerHTML = '<ha-icon icon="mdi:check"></ha-icon>Signal gesendet';
+      })
+      .catch(() => {
+        label.disabled = false;
+        label.innerHTML = '<ha-icon icon="mdi:alert"></ha-icon>Fehlgeschlagen';
+      });
+  }
+
+  /** Schliesst das Popup und raeumt Listener und Fokus auf. */
+  _closePopup() {
+    if (!this._popup) return;
+    if (this._onPopupKeydown) {
+      this._popup.removeEventListener("keydown", this._onPopupKeydown);
+      this._onPopupKeydown = null;
+    }
+    if (this._popup.parentNode) this._popup.parentNode.removeChild(this._popup);
+    this._popup = null;
+    this._popupMac = null;
+    const returnTo = this._popupReturnFocus;
+    this._popupReturnFocus = null;
+    if (returnTo && returnTo.focus && document.contains(returnTo)) {
+      returnTo.focus();
+    }
   }
 
   /* -- Breite ------------------------------------------------------- */
@@ -849,9 +1143,96 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-empty { padding: 16px; text-align: center; color: var(--fbn-inactive); }
       .fbn-narrow .fbn-prio-3 { display: none; }
       .fbn-xnarrow .fbn-prio-2 { display: none; }
+      .fbn-clickable:focus-visible { outline: 2px solid var(--fbn-accent); outline-offset: -2px; }
       @media (prefers-reduced-motion: no-preference) {
         .fbn-chip, .fbn-tr { transition: color 120ms ease, background 120ms ease; }
       }
+    `;
+  }
+
+  /**
+   * Styles des Detail-Popups. Getrennt von _styles(), weil der Overlay-
+   * Knoten am document.body haengt und dort sein eigenes <style> braucht.
+   */
+  _popupStyles() {
+    return `
+      .fbn-overlay {
+        position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0, 0, 0, 0.45);
+        display: flex; align-items: center; justify-content: center;
+        padding: 16px;
+      }
+      .fbn-modal {
+        background: var(--card-background-color, var(--ha-card-background, #fff));
+        color: var(--primary-text-color, #212121);
+        border-radius: var(--ha-card-border-radius, 12px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+        width: min(460px, 100%); max-height: min(80vh, 640px);
+        display: flex; flex-direction: column; overflow: hidden;
+        font-family: var(--primary-font-family, inherit);
+      }
+      .fbn-modal-head {
+        display: flex; align-items: center; gap: 12px;
+        padding: 16px 16px 12px; border-bottom: 1px solid var(--divider-color, #e0e0e0);
+      }
+      .fbn-modal-icon { --mdc-icon-size: 26px; width: 26px; height: 26px; flex: 0 0 auto; }
+      .fbn-modal-titles { flex: 1; min-width: 0; }
+      .fbn-modal-title {
+        font-size: 1.15em; font-weight: 500;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .fbn-modal-sub {
+        font-size: 0.82em; color: var(--secondary-text-color, #727272);
+        display: flex; align-items: center; gap: 6px; margin-top: 2px;
+      }
+      .fbn-modal-close {
+        border: none; background: none; cursor: pointer; padding: 4px;
+        color: var(--secondary-text-color, #727272); border-radius: 50%;
+        display: inline-flex; flex: 0 0 auto;
+      }
+      .fbn-modal-close:hover { background: var(--divider-color, #e0e0e0); }
+      .fbn-modal-body { padding: 8px 16px; overflow-y: auto; }
+      .fbn-modal-note {
+        background: var(--warning-color, #ffa600); color: #000;
+        border-radius: 6px; padding: 6px 10px; margin: 8px 0; font-size: 0.85em;
+      }
+      .fbn-drow {
+        display: flex; justify-content: space-between; gap: 16px;
+        padding: 7px 0; border-bottom: 1px solid var(--divider-color, #ededed);
+      }
+      .fbn-drow:last-child { border-bottom: none; }
+      .fbn-dt { color: var(--secondary-text-color, #727272); font-size: 0.9em; flex: 0 0 auto; }
+      .fbn-dd {
+        text-align: right; word-break: break-word;
+        display: inline-flex; align-items: center; gap: 6px; justify-content: flex-end;
+      }
+      .fbn-dd.fbn-mono { font-family: var(--code-font-family, monospace); }
+      .fbn-copy {
+        border: none; background: none; cursor: pointer; padding: 2px;
+        color: var(--secondary-text-color, #727272); display: inline-flex;
+        border-radius: 4px;
+      }
+      .fbn-copy:hover { color: var(--primary-color, #03a9f4); }
+      .fbn-copy ha-icon { --mdc-icon-size: 16px; width: 16px; height: 16px; }
+      .fbn-modal-foot {
+        display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end;
+        padding: 12px 16px 16px; border-top: 1px solid var(--divider-color, #e0e0e0);
+      }
+      .fbn-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        border: 1px solid var(--divider-color, #e0e0e0); border-radius: 8px;
+        background: none; color: inherit; font: inherit; font-size: 0.9em;
+        padding: 8px 14px; cursor: pointer;
+      }
+      .fbn-btn ha-icon { --mdc-icon-size: 18px; width: 18px; height: 18px; }
+      .fbn-btn:hover { background: var(--divider-color, #f0f0f0); }
+      .fbn-btn[disabled] { opacity: 0.6; cursor: default; }
+      .fbn-btn-primary {
+        border-color: var(--primary-color, #03a9f4); color: var(--primary-color, #03a9f4);
+      }
+      .fbn-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+      .fbn-dot-on { background: var(--success-color, #43a047); }
+      .fbn-dot-off { background: var(--disabled-text-color, #9e9e9e); }
     `;
   }
 }
@@ -886,6 +1267,7 @@ const EDITOR_SCHEMA = [
       { name: "show_filter", selector: { boolean: {} } },
       { name: "hide_inactive", selector: { boolean: {} } },
       { name: "compact", selector: { boolean: {} } },
+      { name: "show_details_popup", selector: { boolean: {} } },
       { name: "open_device_on_click", selector: { boolean: {} } },
       {
         name: "max_rows",
@@ -948,6 +1330,7 @@ const EDITOR_LABELS = {
   show_filter: "Filterleiste anzeigen",
   hide_inactive: "Nicht verbundene Geräte ausblenden",
   compact: "Kompakte Zeilen",
+  show_details_popup: "Klick öffnet ein Detail-Popup",
   open_device_on_click: "Klick öffnet das Home-Assistant-Gerät",
   max_rows: "Höchstzahl Zeilen (0 = alle)",
   sort_by: "Sortieren nach",
@@ -957,6 +1340,8 @@ const EDITOR_LABELS = {
 const EDITOR_HELPERS = {
   show_ip_type: "Braucht die eingeschaltete IP-Typ-Erfassung in den Einstellungen der Integration.",
   show_ha_name: "Zeigt den Gerätenamen aus Home Assistant, sofern das Gerät dort eine MAC-Adresse hinterlegt hat.",
+  show_details_popup: "Zeigt beim Antippen alle Felder eines Geräts, auch die auf schmalen Karten ausgeblendeten wie die MAC-Adresse.",
+  open_device_on_click: "Wirkt nur, wenn das Detail-Popup ausgeschaltet ist.",
   max_rows: "Begrenzt die Tabelle, zum Beispiel für eine Übersichtskarte.",
 };
 

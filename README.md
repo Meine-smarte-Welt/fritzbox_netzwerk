@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-0.1.0-blue)
+![Version](https://img.shields.io/badge/Version-0.2.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -20,6 +20,7 @@ passenden Home-Assistant-Gerätenamen.
 - [Dashboard-Karte](#dashboard-karte)
   - [Spalten](#spalten)
   - [Sortieren, filtern, suchen](#sortieren-filtern-suchen)
+  - [Detail-Popup](#detail-popup)
   - [Farben](#farben)
   - [Beispiel-YAML](#beispiel-yaml)
 - [Dienste](#dienste)
@@ -36,8 +37,10 @@ passenden Home-Assistant-Gerätenamen.
 - **Sortierbar** durch Klick auf jede Spaltenüberschrift, auch per Tastatur
 - **Suchfeld** über Name, IP-Adresse, MAC-Adresse, Modell und Home-Assistant-Namen
 - **Filterleiste**: Alle, Aktiv, Inaktiv, Gast, Gesperrt, Update
-- **Home-Assistant-Gerätename** je Zeile, automatisch über die MAC-Adresse zugeordnet;
-  ein Klick auf die Zeile öffnet die Geräteseite
+- **Home-Assistant-Gerätename** je Zeile, automatisch über die MAC-Adresse zugeordnet
+- **Detail-Popup** bei Klick auf eine Zeile: zeigt alle Felder eines Geräts – auch die
+  auf schmalen Karten ausgeblendeten wie die MAC-Adresse –, mit Kopier-Knöpfen,
+  Wake-on-LAN und Sprung zum Home-Assistant-Gerät
 - **IP-Typ** (DHCP oder statisch) inklusive Restlaufzeit der DHCP-Zuweisung
 - **Internetzugang gesperrt** (Kindersicherung) und **Firmware-Update verfügbar** auf
   einen Blick
@@ -169,6 +172,25 @@ Suchfeld und Filterleiste arbeiten zusammen: „Aktiv" plus Suchbegriff zeigt nu
 Geräte, auf die der Begriff passt. Beide Bedienelemente behalten ihren Inhalt, wenn der
 Sensor im Hintergrund neue Daten liefert.
 
+### Detail-Popup
+
+Ein Klick oder Enter auf eine Zeile öffnet ein Popup mit **allen** Angaben zum Gerät –
+unabhängig davon, welche Spalten die Tabelle gerade zeigt. Auf einem schmalen Dashboard
+oder dem Telefon blendet die Tabelle Spalten wie die MAC-Adresse aus; im Popup steht sie
+trotzdem. IP- und MAC-Adresse lassen sich dort mit einem Knopf in die Zwischenablage
+kopieren.
+
+Je nach Gerät bietet das Popup zusätzlich:
+
+- **In Home Assistant öffnen** – springt zur Geräteseite, sofern das Gerät in Home
+  Assistant über seine MAC-Adresse bekannt ist
+- **Aufwecken (WoL)** – sendet ein Wake-on-LAN-Signal, wird nur bei nicht verbundenen
+  Geräten angezeigt
+
+Das Popup ist der Standard. Wer stattdessen wie bisher direkt zur Home-Assistant-Geräteseite
+springen möchte, schaltet im Editor *Klick öffnet ein Detail-Popup* ab; dann greift wieder
+*Klick öffnet das Home-Assistant-Gerät*.
+
 ### Farben
 
 Alle zwölf Farben lassen sich im Abschnitt *Farben* des Editors setzen – wahlweise per
@@ -207,6 +229,7 @@ show_search: true
 show_filter: true
 hide_inactive: false
 compact: false
+show_details_popup: true
 open_device_on_click: true
 max_rows: 0
 
@@ -299,7 +322,7 @@ Home-Assistant-Instanz prüfbar:
 
 ```bash
 python3 tests/test_hosts.py     # 29 Fälle
-node tests/test_card.js         # 55 Fälle, jsdom gegen die echte Kartendatei
+node tests/test_card.js         # 73 Fälle, jsdom gegen die echte Kartendatei
 ```
 
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein echtes
@@ -310,6 +333,16 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 0.2.0 – Detail-Popup
+
+- Klick oder Enter auf eine Zeile öffnet ein Popup mit allen Feldern des Geräts,
+  einschließlich der MAC-Adresse, die auf schmalen Karten in der Tabelle ausgeblendet wird
+- Kopier-Knöpfe für IP- und MAC-Adresse
+- Aktionen im Popup: *In Home Assistant öffnen* und *Aufwecken (WoL)*
+- Zeilen sind jetzt per Tastatur erreichbar (Tab, Enter)
+- Neuer Schalter *Klick öffnet ein Detail-Popup* (Standard: an). Ist er aus, gilt wieder
+  das bisherige Verhalten des Schalters *Klick öffnet das Home-Assistant-Gerät*
 
 ### 0.1.0 – Erstveröffentlichung
 
