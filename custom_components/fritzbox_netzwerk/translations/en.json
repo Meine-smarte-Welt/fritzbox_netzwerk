@@ -1,0 +1,77 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "This FRITZ!Box is already set up.",
+      "reauth_successful": "The credentials have been updated."
+    },
+    "error": {
+      "cannot_connect": "The FRITZ!Box cannot be reached at this address.",
+      "invalid_auth": "Invalid username or password.",
+      "insufficient_permissions": "The account has no access to the FRITZ!Box settings. Grant the \"FRITZ!Box Settings\" permission under System > FRITZ!Box Users.",
+      "no_hosts_service": "The FRITZ!Box does not expose the \"Hosts\" service. Enable \"Allow access for applications\" under Home Network > Network > Network Settings."
+    },
+    "step": {
+      "user": {
+        "title": "Connect FRITZ!Box",
+        "data": {
+          "host": "Address",
+          "username": "Username",
+          "password": "Password",
+          "use_tls": "Connect using HTTPS"
+        },
+        "data_description": {
+          "host": "Hostname or IP address of the FRITZ!Box, usually fritz.box.",
+          "username": "A FRITZ!Box user with the \"FRITZ!Box Settings\" permission."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in again",
+        "description": "Signing in to {host} failed. Please enter the credentials again.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Settings",
+        "data": {
+          "scan_interval": "Update interval (seconds)",
+          "track_address_source": "Track IP type (DHCP or static)",
+          "address_source_interval": "IP type update interval (minutes)"
+        },
+        "data_description": {
+          "track_address_source": "This value is not part of the host list and costs one extra request per device. It rarely changes, so it runs on its own slower schedule.",
+          "address_source_interval": "Only applies when IP type tracking is enabled."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "geraete": { "name": "Devices" },
+      "updates": { "name": "Devices with update" },
+      "gesperrt": { "name": "Blocked devices" }
+    }
+  },
+  "services": {
+    "set_device_name": {
+      "name": "Rename device",
+      "description": "Changes the name of a network device on the FRITZ!Box.",
+      "fields": {
+        "mac": { "name": "MAC address", "description": "MAC address of the device." },
+        "name": { "name": "New name", "description": "The new device name." }
+      }
+    },
+    "wake_on_lan": {
+      "name": "Wake device",
+      "description": "Sends a Wake-on-LAN signal to a network device.",
+      "fields": {
+        "mac": { "name": "MAC address", "description": "MAC address of the device." }
+      }
+    }
+  }
+}

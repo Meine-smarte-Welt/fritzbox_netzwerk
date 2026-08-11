@@ -1,0 +1,14 @@
+{
+  "domain": "fritzbox_netzwerk",
+  "name": "FRITZ!Box Netzwerk",
+  "version": "0.1.0",
+  "documentation": "https://github.com/Meine-smarte-Welt/fritzbox_netzwerk",
+  "issue_tracker": "https://github.com/Meine-smarte-Welt/fritzbox_netzwerk/issues",
+  "codeowners": ["@Meine-smarte-Welt"],
+  "config_flow": true,
+  "dependencies": ["http", "lovelace"],
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "loggers": ["fritzconnection"],
+  "requirements": ["fritzconnection==1.15.1"]
+}

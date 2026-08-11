@@ -1,0 +1,20 @@
+set_device_name:
+  fields:
+    mac:
+      required: true
+      example: "3C:A6:F6:00:11:22"
+      selector:
+        text:
+    name:
+      required: true
+      example: "Drucker Arbeitszimmer"
+      selector:
+        text:
+
+wake_on_lan:
+  fields:
+    mac:
+      required: true
+      example: "3C:A6:F6:00:11:22"
+      selector:
+        text:

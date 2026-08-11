@@ -1,0 +1,77 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Diese FRITZ!Box ist bereits eingerichtet.",
+      "reauth_successful": "Die Anmeldedaten wurden aktualisiert."
+    },
+    "error": {
+      "cannot_connect": "Die FRITZ!Box ist unter dieser Adresse nicht erreichbar.",
+      "invalid_auth": "Benutzername oder Kennwort ist falsch.",
+      "insufficient_permissions": "Das Konto hat keinen Zugriff auf die FRITZ!Box-Einstellungen. Setze in der FRITZ!Box unter System > FRITZ!Box-Benutzer die Berechtigung \"FRITZ!Box Einstellungen\".",
+      "no_hosts_service": "Die FRITZ!Box liefert den Dienst \"Hosts\" nicht aus. Aktiviere unter Heimnetz > Netzwerk > Netzwerkeinstellungen die Option \"Zugriff für Anwendungen zulassen\"."
+    },
+    "step": {
+      "user": {
+        "title": "FRITZ!Box verbinden",
+        "data": {
+          "host": "Adresse",
+          "username": "Benutzername",
+          "password": "Kennwort",
+          "use_tls": "Verschlüsselt verbinden (HTTPS)"
+        },
+        "data_description": {
+          "host": "Hostname oder IP-Adresse der FRITZ!Box, üblicherweise fritz.box.",
+          "username": "Ein FRITZ!Box-Benutzer mit der Berechtigung \"FRITZ!Box Einstellungen\"."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Erneut anmelden",
+        "description": "Die Anmeldung an {host} ist fehlgeschlagen. Bitte Zugangsdaten erneut eingeben.",
+        "data": {
+          "username": "Benutzername",
+          "password": "Kennwort"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Einstellungen",
+        "data": {
+          "scan_interval": "Abfrageintervall (Sekunden)",
+          "track_address_source": "IP-Typ erfassen (DHCP oder statisch)",
+          "address_source_interval": "Intervall der IP-Typ-Abfrage (Minuten)"
+        },
+        "data_description": {
+          "track_address_source": "Diese Angabe steht nicht in der Geräteliste und kostet einen zusätzlichen Aufruf pro Gerät. Sie ändert sich selten, deshalb läuft sie in einem eigenen, langsameren Takt.",
+          "address_source_interval": "Wirkt nur, wenn die IP-Typ-Erfassung eingeschaltet ist."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "geraete": { "name": "Geräte" },
+      "updates": { "name": "Geräte mit Update" },
+      "gesperrt": { "name": "Gesperrte Geräte" }
+    }
+  },
+  "services": {
+    "set_device_name": {
+      "name": "Gerät umbenennen",
+      "description": "Ändert den Namen eines Netzwerkgeräts in der FRITZ!Box.",
+      "fields": {
+        "mac": { "name": "MAC-Adresse", "description": "MAC-Adresse des Geräts." },
+        "name": { "name": "Neuer Name", "description": "Der neue Gerätename." }
+      }
+    },
+    "wake_on_lan": {
+      "name": "Gerät aufwecken",
+      "description": "Sendet ein Wake-on-LAN-Signal an ein Netzwerkgerät.",
+      "fields": {
+        "mac": { "name": "MAC-Adresse", "description": "MAC-Adresse des Geräts." }
+      }
+    }
+  }
+}
