@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-0.2.0-blue)
+![Version](https://img.shields.io/badge/Version-1.0.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -20,6 +20,8 @@ passenden Home-Assistant-Gerätenamen.
 - [Dashboard-Karte](#dashboard-karte)
   - [Spalten](#spalten)
   - [Sortieren, filtern, suchen](#sortieren-filtern-suchen)
+  - [Wischen auf dem Smartphone](#wischen-auf-dem-smartphone)
+  - [IP-Adresse öffnet die Weboberfläche](#ip-adresse-öffnet-die-weboberfläche)
   - [Detail-Popup](#detail-popup)
   - [Farben](#farben)
   - [Beispiel-YAML](#beispiel-yaml)
@@ -41,6 +43,8 @@ passenden Home-Assistant-Gerätenamen.
 - **Detail-Popup** bei Klick auf eine Zeile: zeigt alle Felder eines Geräts – auch die
   auf schmalen Karten ausgeblendeten wie die MAC-Adresse –, mit Kopier-Knöpfen,
   Wake-on-LAN und Sprung zum Home-Assistant-Gerät
+- **Wischen** zwischen den Kategorien auf dem Smartphone (nach links und rechts)
+- **Klick auf die IP-Adresse** öffnet die Weboberfläche des Geräts im Browser
 - **IP-Typ** (DHCP oder statisch) inklusive Restlaufzeit der DHCP-Zuweisung
 - **Internetzugang gesperrt** (Kindersicherung) und **Firmware-Update verfügbar** auf
   einen Blick
@@ -172,6 +176,29 @@ Suchfeld und Filterleiste arbeiten zusammen: „Aktiv" plus Suchbegriff zeigt nu
 Geräte, auf die der Begriff passt. Beide Bedienelemente behalten ihren Inhalt, wenn der
 Sensor im Hintergrund neue Daten liefert.
 
+### Wischen auf dem Smartphone
+
+Auf schmalen Karten – also typischerweise auf dem Telefon – lässt sich mit einer
+Wischgeste nach links oder rechts zwischen den Kategorien blättern (Alle → Aktiv → Inaktiv
+→ Gast → Gesperrt → Update). Das Wischen ist nur aktiv, wenn die Karte schmal ist, und
+kapert bewusst keine waagerecht scrollbare Tabelle. Abschaltbar über *Wischen wechselt die
+Kategorie* im Editor.
+
+### IP-Adresse öffnet die Weboberfläche
+
+Ein Klick auf die IP-Adresse öffnet die Weboberfläche des Geräts in einem neuen
+Browser-Tab. Bevorzugt wird die Adresse, die die FRITZ!Box selbst zum Gerät meldet;
+ist keine hinterlegt, wird `http://<IP>` versucht (abschaltbar über *Notfalls http://IP
+verwenden*). Aus Sicherheitsgründen werden ausschließlich `http`- und `https`-Adressen
+geöffnet. Der Klick auf die IP öffnet nicht zusätzlich das Detail-Popup; das steht über den
+Rest der Zeile weiter zur Verfügung. Im Popup selbst gibt es dafür den Knopf *Weboberfläche
+öffnen*.
+
+Geräte ohne eigene Weboberfläche (viele IoT-Geräte, Sensoren) beantworten `http://<IP>`
+nicht – dann zeigt der Browser einen Fehler. Wer das vermeiden möchte, schaltet den
+Fallback ab; dann sind nur Geräte verlinkt, für die die FRITZ!Box tatsächlich eine Adresse
+meldet.
+
 ### Detail-Popup
 
 Ein Klick oder Enter auf eine Zeile öffnet ein Popup mit **allen** Angaben zum Gerät –
@@ -231,6 +258,9 @@ hide_inactive: false
 compact: false
 show_details_popup: true
 open_device_on_click: true
+enable_swipe: true
+ip_opens_web: true
+ip_web_fallback: true
 max_rows: 0
 
 # Sortierung
@@ -322,7 +352,7 @@ Home-Assistant-Instanz prüfbar:
 
 ```bash
 python3 tests/test_hosts.py     # 29 Fälle
-node tests/test_card.js         # 73 Fälle, jsdom gegen die echte Kartendatei
+node tests/test_card.js         # 95 Fälle, jsdom gegen die echte Kartendatei
 ```
 
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein echtes
@@ -333,6 +363,18 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.0.0 – Erste stabile Version
+
+- **Wischgeste** auf schmalen Karten: nach links oder rechts zwischen den Kategorien
+  blättern (Smartphone)
+- **Klick auf die IP-Adresse** öffnet die Weboberfläche des Geräts im Browser; im Popup
+  zusätzlich der Knopf *Weboberfläche öffnen*
+- Icons an die Schwester-Integration *FRITZ!Box Anrufe* angeglichen (Farben-Sektion
+  `mdi:palette-outline`, Zurücksetzen `mdi:restore`, sowie die geteilten Symbole
+  `mdi:close`, `mdi:check`, `mdi:chevron-down`, `mdi:table-column`)
+- Neue Schalter: *Wischen wechselt die Kategorie*, *Klick auf die IP öffnet die
+  Weboberfläche*, *Notfalls http://IP verwenden*
 
 ### 0.2.0 – Detail-Popup
 

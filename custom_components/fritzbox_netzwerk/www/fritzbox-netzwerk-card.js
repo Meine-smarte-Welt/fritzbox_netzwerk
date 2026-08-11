@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "0.2.0";
+const FBN_VERSION = "1.0.0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -50,6 +50,9 @@ const CONFIG_DEFAULTS = {
   max_rows: 0,
   show_details_popup: true,
   open_device_on_click: true,
+  enable_swipe: true,
+  ip_opens_web: true,
+  ip_web_fallback: true,
 
   // Sortierung
   sort_by: "ip",
@@ -221,6 +224,25 @@ function connectionIcon(host) {
   if (host.connection === "lan") return "mdi:ethernet";
   if (host.connection === "powerline") return "mdi:power-plug";
   return "mdi:help-network-outline";
+}
+
+/**
+ * Ermittelt die Webadresse eines Geraets fuer den Klick auf die
+ * IP-Adresse. Bevorzugt die von der FRITZ!Box gemeldete URL
+ * (X_AVM-DE_URL), faellt sonst - falls erlaubt - auf http://<ip> zurueck.
+ * Aus Sicherheitsgruenden werden ausschliesslich http/https zugelassen;
+ * alles andere (z. B. ein manipuliertes javascript:-Schema) wird
+ * verworfen.
+ */
+function webUrl(host, allowFallback) {
+  const raw = String(host.url || "").trim();
+  if (/^https?:\/\/\S+$/i.test(raw)) return raw;
+  if (allowFallback && host.ip) {
+    const ip = String(host.ip).trim();
+    // Nur eine plausible IPv4/Hostadresse akzeptieren.
+    if (/^[a-z0-9.:_-]+$/i.test(ip)) return `http://${ip}`;
+  }
+  return "";
 }
 
 /** Wert, nach dem eine bestimmte Spalte sortiert wird. */
@@ -475,6 +497,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._buildHead();
     this._renderHead();
     this._observeWidth();
+    this._bindSwipe(card.querySelector(".fbn-scroll"));
   }
 
   _buildFilters() {
@@ -494,13 +517,98 @@ class FritzboxNetzwerkCard extends HTMLElement {
     container.addEventListener("click", (event) => {
       const button = event.target.closest(".fbn-chip");
       if (!button) return;
-      this._filter = button.dataset.filter;
-      container.querySelectorAll(".fbn-chip").forEach((chip) => {
-        chip.setAttribute("aria-pressed", String(chip.dataset.filter === this._filter));
-      });
-      this._renderSummary();
-      this._renderBody();
+      this._setFilter(button.dataset.filter);
     });
+  }
+
+  /** Setzt den aktiven Filter und aktualisiert Chips, Zusammenfassung, Liste. */
+  _setFilter(key) {
+    if (!FILTERS.some((filter) => filter.key === key)) return;
+    if (key === this._filter) return;
+    this._filter = key;
+    this.querySelectorAll(".fbn-chip").forEach((chip) => {
+      chip.setAttribute("aria-pressed", String(chip.dataset.filter === key));
+    });
+    this._renderSummary();
+    this._renderBody();
+  }
+
+  /* -- Wischgesten (Smartphone) ------------------------------------- */
+
+  /**
+   * Verkabelt die Wischerkennung auf dem Tabellenbereich. Nach links
+   * wischen bedeutet: naechste Filterkategorie, nach rechts: vorige -
+   * wie das Blaettern zwischen Reitern. Bewusst nur auf schmalen Karten
+   * aktiv und nur, wenn die Tabelle nicht selbst waagerecht scrollt.
+   */
+  _bindSwipe(scrollEl) {
+    if (!scrollEl || scrollEl.dataset.swipeBound) return;
+    scrollEl.dataset.swipeBound = "1";
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+
+    scrollEl.addEventListener(
+      "touchstart",
+      (event) => {
+        if (!this._config.enable_swipe) return;
+        if (!event.touches || event.touches.length !== 1) return;
+        // Waagerecht scrollbare Tabelle nicht kapern.
+        if (scrollEl.scrollWidth - scrollEl.clientWidth > 4) return;
+        tracking = true;
+        startX = event.touches[0].clientX;
+        startY = event.touches[0].clientY;
+      },
+      { passive: true }
+    );
+
+    scrollEl.addEventListener(
+      "touchend",
+      (event) => {
+        if (!tracking) return;
+        tracking = false;
+        const touch =
+          event.changedTouches && event.changedTouches[0]
+            ? event.changedTouches[0]
+            : null;
+        if (!touch) return;
+        this._handleSwipe(touch.clientX - startX, touch.clientY - startY);
+      },
+      { passive: true }
+    );
+  }
+
+  /**
+   * Kernlogik der Geste, getrennt fuer die Testbarkeit. Liefert die
+   * gewaehlte Richtung (-1 vor, +1 zurueck, 0 keine) und wendet sie an.
+   */
+  _handleSwipe(dx, dy) {
+    const direction = this._swipeDirection(dx, dy);
+    if (direction !== 0) this._stepFilter(direction);
+    return direction;
+  }
+
+  /** Nur bei klar waagerechter Geste ueber der Schwelle und schmaler Karte. */
+  _swipeDirection(dx, dy) {
+    if (!this._config.enable_swipe) return 0;
+    if (this._root && !this._root.classList.contains("fbn-narrow")) return 0;
+    const THRESHOLD = 45;
+    if (Math.abs(dx) < THRESHOLD) return 0;
+    if (Math.abs(dx) < Math.abs(dy) * 1.8) return 0;
+    return dx < 0 ? -1 : 1;
+  }
+
+  /**
+   * Wechselt die Filterkategorie um einen Schritt. -1 = naechste (nach
+   * links gewischt), +1 = vorige. Am Rand wird nicht umgebrochen.
+   */
+  _stepFilter(direction) {
+    const index = FILTERS.findIndex((filter) => filter.key === this._filter);
+    const base = index < 0 ? 0 : index;
+    // Nach links wischen soll vorwaerts blaettern -> Index erhoehen.
+    const next = base - direction;
+    if (next < 0 || next >= FILTERS.length) return;
+    this._setFilter(FILTERS[next].key);
   }
 
   _buildSearch() {
@@ -648,11 +756,15 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (!body.dataset.bound) {
       body.dataset.bound = "1";
       body.addEventListener("click", (event) => {
+        // Klick auf den IP-Link oeffnet die Weboberflaeche, nicht das Popup.
+        if (event.target.closest("a")) return;
         const row = event.target.closest("tr[data-mac]");
         if (row) this._activateRow(row.dataset.mac, row);
       });
       body.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
+        // Enter auf dem fokussierten IP-Link folgt dem Link.
+        if (event.target.closest("a")) return;
         const row = event.target.closest("tr[data-mac]");
         if (!row) return;
         event.preventDefault();
@@ -726,8 +838,20 @@ class FritzboxNetzwerkCard extends HTMLElement {
           </div>`;
       }
 
-      case "ip":
-        return `<span class="fbn-mono">${escapeHtml(host.ip || "—")}</span>`;
+      case "ip": {
+        const plain = `<span class="fbn-mono">${escapeHtml(host.ip || "—")}</span>`;
+        if (!host.ip || !this._config.ip_opens_web) return plain;
+        const url = webUrl(host, this._config.ip_web_fallback);
+        if (!url) return plain;
+        // Der Link oeffnet die Weboberflaeche in einem neuen Tab. Der
+        // Klick darauf darf NICHT zusaetzlich das Zeilen-Popup oeffnen -
+        // das faengt der Zeilen-Handler ueber "closest('a')" ab.
+        return `<a class="fbn-iplink fbn-mono" href="${escapeHtml(url)}"
+                   target="_blank" rel="noopener noreferrer"
+                   title="Weboberfläche öffnen (${escapeHtml(url)})"
+                   aria-label="Weboberfläche von ${escapeHtml(host.name)} öffnen"
+                >${escapeHtml(host.ip)}<ha-icon class="fbn-iplink-icon" icon="mdi:open-in-new"></ha-icon></a>`;
+      }
 
       case "mac":
         return `<span class="fbn-mono fbn-dim">${escapeHtml(host.mac || "—")}</span>`;
@@ -969,6 +1093,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
   /** Fusszeile des Popups mit den moeglichen Aktionen. */
   _popupButtons(host) {
     const buttons = [];
+    const url = this._config.ip_opens_web
+      ? webUrl(host, this._config.ip_web_fallback)
+      : "";
+    if (url) {
+      buttons.push(
+        `<a class="fbn-btn fbn-act-web" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"><ha-icon icon="mdi:open-in-new"></ha-icon>Weboberfläche öffnen</a>`
+      );
+    }
     if (host.ha_device_id) {
       buttons.push(
         '<button class="fbn-btn fbn-act-ha" type="button"><ha-icon icon="mdi:open-in-new"></ha-icon>In Home Assistant öffnen</button>'
@@ -1125,6 +1257,17 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-rowicon { --mdc-icon-size: 18px; width: 18px; height: 18px; flex: 0 0 auto; }
       .fbn-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .fbn-mono { font-family: var(--code-font-family, monospace); font-size: 0.95em; }
+      .fbn-iplink {
+        color: var(--fbn-accent); text-decoration: none;
+        display: inline-flex; align-items: center; gap: 3px;
+      }
+      .fbn-iplink:hover { text-decoration: underline; }
+      .fbn-iplink-icon {
+        --mdc-icon-size: 13px; width: 13px; height: 13px; opacity: 0;
+        transition: opacity 120ms ease;
+      }
+      .fbn-iplink:hover .fbn-iplink-icon,
+      .fbn-iplink:focus-visible .fbn-iplink-icon { opacity: 0.7; }
       .fbn-dim { color: var(--fbn-inactive); }
       .fbn-lease { font-size: 0.85em; }
       .fbn-dot {
@@ -1225,6 +1368,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         padding: 8px 14px; cursor: pointer;
       }
       .fbn-btn ha-icon { --mdc-icon-size: 18px; width: 18px; height: 18px; }
+      a.fbn-btn { text-decoration: none; color: inherit; }
       .fbn-btn:hover { background: var(--divider-color, #f0f0f0); }
       .fbn-btn[disabled] { opacity: 0.6; cursor: default; }
       .fbn-btn-primary {
@@ -1269,6 +1413,9 @@ const EDITOR_SCHEMA = [
       { name: "compact", selector: { boolean: {} } },
       { name: "show_details_popup", selector: { boolean: {} } },
       { name: "open_device_on_click", selector: { boolean: {} } },
+      { name: "enable_swipe", selector: { boolean: {} } },
+      { name: "ip_opens_web", selector: { boolean: {} } },
+      { name: "ip_web_fallback", selector: { boolean: {} } },
       {
         name: "max_rows",
         selector: { number: { min: 0, max: 500, mode: "box" } },
@@ -1332,6 +1479,9 @@ const EDITOR_LABELS = {
   compact: "Kompakte Zeilen",
   show_details_popup: "Klick öffnet ein Detail-Popup",
   open_device_on_click: "Klick öffnet das Home-Assistant-Gerät",
+  enable_swipe: "Wischen wechselt die Kategorie (Smartphone)",
+  ip_opens_web: "Klick auf die IP öffnet die Weboberfläche",
+  ip_web_fallback: "Notfalls http://IP verwenden",
   max_rows: "Höchstzahl Zeilen (0 = alle)",
   sort_by: "Sortieren nach",
   sort_dir: "Richtung",
@@ -1342,6 +1492,9 @@ const EDITOR_HELPERS = {
   show_ha_name: "Zeigt den Gerätenamen aus Home Assistant, sofern das Gerät dort eine MAC-Adresse hinterlegt hat.",
   show_details_popup: "Zeigt beim Antippen alle Felder eines Geräts, auch die auf schmalen Karten ausgeblendeten wie die MAC-Adresse.",
   open_device_on_click: "Wirkt nur, wenn das Detail-Popup ausgeschaltet ist.",
+  enable_swipe: "Auf schmalen Karten nach links oder rechts wischen, um zwischen den Kategorien zu blättern.",
+  ip_opens_web: "Öffnet die von der FRITZ!Box gemeldete Geräteseite in einem neuen Browser-Tab.",
+  ip_web_fallback: "Meldet die FRITZ!Box keine Adresse, wird http://<IP> versucht. Kann bei Geräten ohne Weboberfläche ins Leere laufen.",
   max_rows: "Begrenzt die Tabelle, zum Beispiel für eine Übersichtskarte.",
 };
 
@@ -1382,12 +1535,12 @@ class FritzboxNetzwerkCardEditor extends HTMLElement {
           <div class="fbn-form"></div>
           <details class="fbn-color-editor">
             <summary>
-              <ha-icon icon="mdi:palette"></ha-icon>
+              <ha-icon icon="mdi:palette-outline"></ha-icon>
               <span class="fbn-color-title">Farben</span>
               <ha-icon class="fbn-color-chevron" icon="mdi:chevron-down"></ha-icon>
             </summary>
             <div class="fbn-color-body">
-              <button type="button" class="fbn-reset">Alle Farben zurücksetzen</button>
+              <button type="button" class="fbn-reset"><ha-icon icon="mdi:restore"></ha-icon>Alle Farben zurücksetzen</button>
               <div class="fbn-color-rows"></div>
             </div>
           </details>
@@ -1508,10 +1661,12 @@ class FritzboxNetzwerkCardEditor extends HTMLElement {
       .fbn-color-editor[open] > summary .fbn-color-chevron { transform: rotate(180deg); }
       .fbn-color-body { padding: 0 16px 16px; }
       .fbn-reset {
+        display: inline-flex; align-items: center; gap: 6px;
         border: 1px solid var(--divider-color); border-radius: 4px;
         background: none; color: var(--primary-color); font: inherit;
         font-size: 0.9em; padding: 6px 12px; cursor: pointer; margin-bottom: 12px;
       }
+      .fbn-reset ha-icon { --mdc-icon-size: 18px; width: 18px; height: 18px; }
       .fbn-color-row {
         display: flex; align-items: center; justify-content: space-between;
         gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--divider-color);
