@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.1.0-blue)
+![Version](https://img.shields.io/badge/Version-1.2.0b0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -46,6 +46,9 @@ passenden Home-Assistant-Gerätenamen.
 - **Wischen und Blättern** auf dem Smartphone: alle Spalten per Wischen oder Pfeilen
   erreichbar, Gerätename bleibt dabei stehen
 - **Klick auf die IP-Adresse** öffnet die Weboberfläche des Geräts im Browser
+- **Zuletzt online** je Gerät – von der Integration mitgeschrieben, da die FRITZ!Box das
+  nicht liefert
+- **Internetzugang schalten** per Dienst oder Popup-Knopf (experimentell)
 - **IP-Typ** (DHCP oder statisch) inklusive Restlaufzeit der DHCP-Zuweisung
 - **Internetzugang gesperrt** (Kindersicherung) und **Firmware-Update verfügbar** auf
   einen Blick
@@ -160,6 +163,7 @@ grafischen Editor einstellen.
 | Tempo | an | `X_AVM-DE_Speed` in Mbit/s bzw. Gbit/s |
 | Modell | aus | Nur AVM-Geräte melden hier etwas |
 | Gerätetyp | aus | Automatisch erkannte bzw. vom Nutzer gesetzte Geräteklasse |
+| Zuletzt online | aus | Wann das Gerät zuletzt aktiv war (von der Integration mitgeschrieben) |
 
 Passen auf einer schmalen Karte – etwa in einer schmalen Dashboard-Spalte oder auf dem
 Telefon – nicht alle Spalten nebeneinander, wird die Tabelle waagerecht scrollbar. So
@@ -302,6 +306,29 @@ data:
   mac: "3C:A6:F6:00:11:22"
 ```
 
+### `fritzbox_netzwerk.set_internet_access` (experimentell)
+
+Sperrt oder erlaubt den Internetzugang eines Geräts. Nützlich zum Beispiel, um ein Gerät
+kurz online gehen zu lassen (Update-Prüfung) und danach wieder zu sperren. Übergeben wird
+die MAC-Adresse (stabiler als die IP); die aktuelle IP wird intern aufgelöst.
+
+```yaml
+# kurz freigeben, prüfen lassen, dann wieder sperren
+- action: fritzbox_netzwerk.set_internet_access
+  data:
+    mac: "3C:A6:F6:00:11:22"
+    blocked: false
+- delay: "00:05:00"
+- action: fritzbox_netzwerk.set_internet_access
+  data:
+    mac: "3C:A6:F6:00:11:22"
+    blocked: true
+```
+
+Der Dienst nutzt TR-064 (`X_AVM-DE_HostFilter`). Ob er verfügbar ist, hängt von FRITZ!OS
+und Modell ab – deshalb ist er als experimentell gekennzeichnet. Im Detail-Popup gibt es
+denselben Schalter auch per Klick.
+
 ---
 
 ## Fehlerbehebung
@@ -356,8 +383,8 @@ Home-Assistant- noch fritzconnection-Importe. Sie ist damit ohne laufende
 Home-Assistant-Instanz prüfbar:
 
 ```bash
-python3 tests/test_hosts.py     # 29 Fälle
-node tests/test_card.js         # 95 Fälle, jsdom gegen die echte Kartendatei
+python3 tests/test_hosts.py     # 35 Fälle
+node tests/test_card.js         # 106 Fälle, jsdom gegen die echte Kartendatei
 ```
 
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein echtes
@@ -368,6 +395,17 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.2.0b0 – Zuletzt online + Internetzugang schalten (Vorabversion)
+
+- Neue Spalte **Zuletzt online** (standardmäßig aus). Die FRITZ!Box liefert diesen
+  Zeitstempel nicht – die Integration schreibt ihn ab Installation selbst mit und speichert
+  ihn dauerhaft, sodass er Neustarts übersteht. Anzeige relativ („vor 3 min", „gestern")
+  bzw. als Datum, aktive Geräte zeigen „jetzt online".
+- Neuer Dienst **`set_internet_access`** (MAC + an/aus) zum Sperren/Freigeben des
+  Internetzugangs über TR-064, plus ein Schalter im Detail-Popup. Experimentell, da je nach
+  FRITZ!OS/Modell verfügbar.
+- Vorabversion (b0) – bitte testen und Rückmeldung geben.
 
 ### 1.1.0 – Blättern statt Spalten verstecken
 
