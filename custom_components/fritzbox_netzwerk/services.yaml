@@ -18,3 +18,16 @@ wake_on_lan:
       example: "3C:A6:F6:00:11:22"
       selector:
         text:
+
+set_internet_access:
+  fields:
+    mac:
+      required: true
+      example: "3C:A6:F6:00:11:22"
+      selector:
+        text:
+    blocked:
+      required: true
+      example: true
+      selector:
+        boolean:

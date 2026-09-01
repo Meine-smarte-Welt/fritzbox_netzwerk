@@ -52,9 +52,15 @@
   },
   "entity": {
     "sensor": {
-      "geraete": { "name": "Devices" },
-      "updates": { "name": "Devices with update" },
-      "gesperrt": { "name": "Blocked devices" }
+      "geraete": {
+        "name": "Devices"
+      },
+      "updates": {
+        "name": "Devices with update"
+      },
+      "gesperrt": {
+        "name": "Blocked devices"
+      }
     }
   },
   "services": {
@@ -62,15 +68,38 @@
       "name": "Rename device",
       "description": "Changes the name of a network device on the FRITZ!Box.",
       "fields": {
-        "mac": { "name": "MAC address", "description": "MAC address of the device." },
-        "name": { "name": "New name", "description": "The new device name." }
+        "mac": {
+          "name": "MAC address",
+          "description": "MAC address of the device."
+        },
+        "name": {
+          "name": "New name",
+          "description": "The new device name."
+        }
       }
     },
     "wake_on_lan": {
       "name": "Wake device",
       "description": "Sends a Wake-on-LAN signal to a network device.",
       "fields": {
-        "mac": { "name": "MAC address", "description": "MAC address of the device." }
+        "mac": {
+          "name": "MAC address",
+          "description": "MAC address of the device."
+        }
+      }
+    },
+    "set_internet_access": {
+      "name": "Set internet access",
+      "description": "Blocks or allows a device's internet access (experimental, only on FRITZ!Boxes with the TR-064 HostFilter service).",
+      "fields": {
+        "mac": {
+          "name": "MAC address",
+          "description": "MAC address of the device."
+        },
+        "blocked": {
+          "name": "Blocked",
+          "description": "On = block internet access, Off = allow."
+        }
       }
     }
   }

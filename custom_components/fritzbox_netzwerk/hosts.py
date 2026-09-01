@@ -190,6 +190,10 @@ def normalize_host(raw: dict[str, Any]) -> dict[str, Any]:
         "ha_name": "",
         "ha_device_id": "",
         "ha_area": "",
+        # Wird in ``apply_last_seen()`` ergaenzt: Zeitpunkt (ISO), zu dem das
+        # Geraet zuletzt als aktiv gesehen wurde. Die FRITZ!Box liefert das
+        # NICHT - die Integration schreibt es selbst mit.
+        "last_seen": None,
     }
 
 
@@ -235,10 +239,29 @@ def apply_ha_devices(
     return hosts
 
 
+def apply_last_seen(
+    hosts: list[dict[str, Any]], last_seen: dict[str, str] | None
+) -> list[dict[str, Any]]:
+    """Ergaenzt den Zeitpunkt, zu dem ein Geraet zuletzt aktiv gesehen wurde.
+
+    ``last_seen`` bildet ``mac_key`` auf einen ISO-Zeitstempel ab. Die Werte
+    pflegt der Coordinator ueber die Zeit und speichert sie dauerhaft, da die
+    FRITZ!Box selbst keinen solchen Zeitstempel liefert.
+    """
+    if not last_seen:
+        return hosts
+    for host in hosts:
+        stamp = last_seen.get(mac_key(host["mac"]))
+        if stamp:
+            host["last_seen"] = stamp
+    return hosts
+
+
 def build_hosts(
     raw_hosts: list[dict[str, Any]],
     address_sources: dict[str, dict[str, Any]] | None = None,
     ha_devices: dict[str, dict[str, str]] | None = None,
+    last_seen: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Baut die vollstaendige, sortierte Hostliste fuer das Sensorattribut.
 
@@ -253,6 +276,7 @@ def build_hosts(
     ]
     apply_address_sources(hosts, address_sources)
     apply_ha_devices(hosts, ha_devices)
+    apply_last_seen(hosts, last_seen)
     hosts.sort(key=lambda host: ip_sort_key(host["ip"]))
     return hosts
 

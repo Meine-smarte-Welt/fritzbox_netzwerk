@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.1.0"
+VERSION: Final = "1.2.0b0"
 
 PLATFORMS: Final = [Platform.SENSOR]
 
@@ -45,9 +45,14 @@ ATTR_ADDRESS_SOURCE_STATE: Final = "ip_typ_erfassung"
 # --- Dienste -------------------------------------------------------------
 SERVICE_SET_DEVICE_NAME: Final = "set_device_name"
 SERVICE_WAKE_ON_LAN: Final = "wake_on_lan"
+SERVICE_SET_INTERNET_ACCESS: Final = "set_internet_access"
 
 ATTR_MAC: Final = "mac"
 ATTR_NAME: Final = "name"
+ATTR_BLOCKED_PARAM: Final = "blocked"
+
+# --- Speicher ------------------------------------------------------------
+LAST_SEEN_STORAGE_VERSION: Final = 1
 
 # --- Dashboard-Karte -----------------------------------------------------
 CARD_FILENAME: Final = "fritzbox-netzwerk-card.js"

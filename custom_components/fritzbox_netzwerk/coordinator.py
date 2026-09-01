@@ -18,6 +18,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -29,6 +30,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TRACK_ADDRESS_SOURCE,
     DOMAIN,
+    LAST_SEEN_STORAGE_VERSION,
 )
 from .hosts import build_hosts, mac_key, summarize
 
@@ -57,6 +59,14 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._address_sources: dict[str, dict[str, Any]] = {}
         self._address_source_scan: datetime | None = None
         self._address_source_failed = False
+
+        # "Zuletzt gesehen" pflegt die Integration selbst (die FRITZ!Box
+        # liefert es nicht) und speichert es dauerhaft, damit die Angabe
+        # einen Neustart uebersteht.
+        self._last_seen: dict[str, str] = {}
+        self._last_seen_store: Store[dict[str, str]] = Store(
+            hass, LAST_SEEN_STORAGE_VERSION, f"{DOMAIN}.last_seen.{entry.entry_id}"
+        )
 
         super().__init__(
             hass,
@@ -172,10 +182,13 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if refreshed:
             self._address_source_scan = dt_util.utcnow()
 
+        self._update_last_seen(raw_hosts)
+
         hosts = build_hosts(
             raw_hosts,
             self._address_sources if self.track_address_source else None,
             self._ha_device_map(),
+            self._last_seen,
         )
 
         return {
@@ -189,6 +202,37 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ),
             "track_address_source": self.track_address_source,
         }
+
+    # -- "Zuletzt gesehen" ------------------------------------------------
+
+    async def async_load_last_seen(self) -> None:
+        """Laedt die gespeicherten 'zuletzt gesehen'-Zeitstempel beim Start."""
+        stored = await self._last_seen_store.async_load()
+        if isinstance(stored, dict):
+            self._last_seen = {
+                str(key): str(value) for key, value in stored.items() if value
+            }
+
+    def _update_last_seen(self, raw_hosts: list[dict[str, Any]]) -> None:
+        """Schreibt fuer jedes aktuell aktive Geraet den Zeitpunkt mit.
+
+        Nur aktive Geraete werden aktualisiert; inaktive behalten ihren
+        letzten bekannten Wert. Geaendert wird nur bei tatsaechlicher
+        Aenderung, danach wird verzoegert gespeichert (die Store-Helfer
+        buendeln haeufige Schreibvorgaenge selbst).
+        """
+        now = dt_util.utcnow().isoformat()
+        changed = False
+        for raw in raw_hosts or []:
+            if not raw.get("Active"):
+                continue
+            key = mac_key(raw.get("MACAddress"))
+            if not key:
+                continue
+            self._last_seen[key] = now
+            changed = True
+        if changed:
+            self._last_seen_store.async_delay_save(lambda: dict(self._last_seen), 5)
 
     async def async_invalidate_address_sources(self) -> None:
         """Erzwingt beim naechsten Durchlauf eine neue IP-Typ-Abfrage."""

@@ -52,9 +52,15 @@
   },
   "entity": {
     "sensor": {
-      "geraete": { "name": "Geräte" },
-      "updates": { "name": "Geräte mit Update" },
-      "gesperrt": { "name": "Gesperrte Geräte" }
+      "geraete": {
+        "name": "Geräte"
+      },
+      "updates": {
+        "name": "Geräte mit Update"
+      },
+      "gesperrt": {
+        "name": "Gesperrte Geräte"
+      }
     }
   },
   "services": {
@@ -62,15 +68,38 @@
       "name": "Gerät umbenennen",
       "description": "Ändert den Namen eines Netzwerkgeräts in der FRITZ!Box.",
       "fields": {
-        "mac": { "name": "MAC-Adresse", "description": "MAC-Adresse des Geräts." },
-        "name": { "name": "Neuer Name", "description": "Der neue Gerätename." }
+        "mac": {
+          "name": "MAC-Adresse",
+          "description": "MAC-Adresse des Geräts."
+        },
+        "name": {
+          "name": "Neuer Name",
+          "description": "Der neue Gerätename."
+        }
       }
     },
     "wake_on_lan": {
       "name": "Gerät aufwecken",
       "description": "Sendet ein Wake-on-LAN-Signal an ein Netzwerkgerät.",
       "fields": {
-        "mac": { "name": "MAC-Adresse", "description": "MAC-Adresse des Geräts." }
+        "mac": {
+          "name": "MAC-Adresse",
+          "description": "MAC-Adresse des Geräts."
+        }
+      }
+    },
+    "set_internet_access": {
+      "name": "Internetzugang schalten",
+      "description": "Sperrt oder erlaubt den Internetzugang eines Geräts (experimentell, nur bei FRITZ!Boxen mit TR-064-HostFilter).",
+      "fields": {
+        "mac": {
+          "name": "MAC-Adresse",
+          "description": "MAC-Adresse des Geräts."
+        },
+        "blocked": {
+          "name": "Gesperrt",
+          "description": "An = Internetzugang sperren, Aus = freigeben."
+        }
       }
     }
   }

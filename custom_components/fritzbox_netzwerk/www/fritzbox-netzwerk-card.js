@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.1.0";
+const FBN_VERSION = "1.2.0b0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -40,6 +40,7 @@ const CONFIG_DEFAULTS = {
   show_speed: true,
   show_model: false,
   show_type: false,
+  show_last_seen: false,
 
   // Darstellung
   show_summary: true,
@@ -91,6 +92,7 @@ const COLUMNS = [
   { key: "speed", cfg: "show_speed", label: "Tempo", prio: 3, sortable: true, align: "right" },
   { key: "model", cfg: "show_model", label: "Modell", prio: 3, sortable: true },
   { key: "type", cfg: "show_type", label: "Gerätetyp", prio: 3, sortable: true },
+  { key: "last_seen", cfg: "show_last_seen", label: "Zuletzt online", prio: 3, sortable: true },
 ];
 
 const FILTERS = [
@@ -218,6 +220,31 @@ function formatLease(seconds) {
   return `noch ${Math.round(value / 86400)} Tage`;
 }
 
+/**
+ * "Zuletzt online" lesbar aufbereiten: relativ bei kurzer Zeit, sonst
+ * Datum. Erwartet einen ISO-Zeitstempel; ohne Wert kommt "—".
+ */
+function formatLastSeen(iso, now) {
+  if (!iso) return "—";
+  const then = Date.parse(iso);
+  if (Number.isNaN(then)) return "—";
+  const ref = now || Date.now();
+  const diff = Math.max(0, ref - then);
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "gerade eben";
+  if (min < 60) return `vor ${min} min`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `vor ${hours} h`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "gestern";
+  if (days < 7) return `vor ${days} Tagen`;
+  // Ab einer Woche das konkrete Datum.
+  const date = new Date(then);
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  return `${dd}.${mm}.${date.getFullYear()}`;
+}
+
 /** Icon je Verbindungsart. */
 function connectionIcon(host) {
   if (!host.active) return "mdi:lan-disconnect";
@@ -276,6 +303,13 @@ function sortValue(host, key) {
       return String(host.model || "").toLowerCase();
     case "type":
       return String(host.device_class_user || host.device_class || "").toLowerCase();
+    case "last_seen": {
+      // Groesserer Zeitstempel = kuerzlich online. Aufsteigend sortiert
+      // stehen damit die am laengsten offline Geraete oben; ohne Wert ganz
+      // unten. Negiert, damit "aufsteigend" = "zuletzt online zuerst".
+      const ts = Date.parse(host.last_seen || "");
+      return Number.isNaN(ts) ? Number.POSITIVE_INFINITY : -ts;
+    }
     default:
       return "";
   }
@@ -896,6 +930,17 @@ class FritzboxNetzwerkCard extends HTMLElement {
       case "type":
         return escapeHtml(host.device_class_user || host.device_class || "—");
 
+      case "last_seen": {
+        if (host.active) {
+          return '<span class="fbn-ls-now" title="Gerät ist gerade online">jetzt online</span>';
+        }
+        const text = formatLastSeen(host.last_seen);
+        const title = host.last_seen
+          ? `Zuletzt online: ${escapeHtml(host.last_seen)}`
+          : "Seit Installation der Integration nicht als online erfasst";
+        return `<span class="fbn-dim" title="${title}">${escapeHtml(text)}</span>`;
+      }
+
       default:
         return "";
     }
@@ -1020,6 +1065,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
       wolButton.addEventListener("click", () => this._wakeDevice(host, wolButton));
     }
 
+    // Internetzugang sperren/freigeben.
+    const inetButton = this._popup.querySelector(".fbn-act-inet");
+    if (inetButton) {
+      inetButton.addEventListener("click", () =>
+        this._setInternet(host, inetButton)
+      );
+    }
+
     // Schliessen in der Fusszeile.
     const footClose = this._popup.querySelector(".fbn-modal-close2");
     if (footClose) footClose.addEventListener("click", () => this._closePopup());
@@ -1087,6 +1140,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
       host.ha_name ? escapeHtml(host.ha_name) : ""
     );
 
+    add(
+      "Zuletzt online",
+      host.active ? "gerade online" : escapeHtml(formatLastSeen(host.last_seen))
+    );
+
     return rows.join("");
   }
 
@@ -1104,6 +1162,17 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (host.ha_device_id) {
       buttons.push(
         '<button class="fbn-btn fbn-act-ha" type="button"><ha-icon icon="mdi:open-in-new"></ha-icon>In Home Assistant öffnen</button>'
+      );
+    }
+    // Internetzugang sperren/freigeben - nur mit Home Assistant (Dienstaufruf)
+    // und bekannter MAC. Beschriftung richtet sich nach dem aktuellen Zustand.
+    if (this._hass && host.mac) {
+      const label = host.blocked ? "Internet freigeben" : "Internet sperren";
+      const icon = host.blocked ? "mdi:web" : "mdi:web-off";
+      buttons.push(
+        `<button class="fbn-btn fbn-act-inet" type="button" data-blocked="${
+          host.blocked ? "1" : "0"
+        }"><ha-icon icon="${icon}"></ha-icon>${label}</button>`
       );
     }
     // Aufwecken nur anbieten, wenn das Geraet gerade nicht verbunden ist
@@ -1146,6 +1215,32 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .catch(() => {
         label.disabled = false;
         label.innerHTML = '<ha-icon icon="mdi:alert"></ha-icon>Fehlgeschlagen';
+      });
+  }
+
+  /** Ruft den Internet-Sperr-Dienst auf und dreht den Zustand um. */
+  _setInternet(host, button) {
+    if (!this._hass || !host.mac) return;
+    const willBlock = button.dataset.blocked !== "1";
+    button.disabled = true;
+    button.innerHTML =
+      '<ha-icon icon="mdi:progress-clock"></ha-icon>' +
+      (willBlock ? "Sperre …" : "Gebe frei …");
+    this._hass
+      .callService("fritzbox_netzwerk", "set_internet_access", {
+        mac: host.mac,
+        blocked: willBlock,
+      })
+      .then(() => {
+        button.innerHTML =
+          '<ha-icon icon="mdi:check"></ha-icon>' +
+          (willBlock ? "Gesperrt" : "Freigegeben");
+        // Der Coordinator aktualisiert danach; beim nächsten Datenupdate
+        // baut _refreshPopup() den Knopf mit dem neuen Zustand neu.
+      })
+      .catch(() => {
+        button.disabled = false;
+        button.innerHTML = '<ha-icon icon="mdi:alert"></ha-icon>Fehlgeschlagen';
       });
   }
 
@@ -1296,6 +1391,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-iplink:hover .fbn-iplink-icon,
       .fbn-iplink:focus-visible .fbn-iplink-icon { opacity: 0.7; }
       .fbn-dim { color: var(--fbn-inactive); }
+      .fbn-ls-now { color: var(--fbn-active); }
       .fbn-lease { font-size: 0.85em; }
       .fbn-dot {
         display: inline-block; width: 10px; height: 10px; border-radius: 50%;
@@ -1498,6 +1594,7 @@ const EDITOR_LABELS = {
   show_speed: "Tempo",
   show_model: "Modell",
   show_type: "Gerätetyp",
+  show_last_seen: "Zuletzt online",
   show_summary: "Zusammenfassung anzeigen",
   show_search: "Suchfeld anzeigen",
   show_filter: "Filterleiste anzeigen",
@@ -1517,6 +1614,7 @@ const EDITOR_LABELS = {
 const EDITOR_HELPERS = {
   show_ip_type: "Braucht die eingeschaltete IP-Typ-Erfassung in den Einstellungen der Integration.",
   show_ha_name: "Zeigt den Gerätenamen aus Home Assistant, sofern das Gerät dort eine MAC-Adresse hinterlegt hat.",
+  show_last_seen: "Wann ein Gerät zuletzt online war. Die FRITZ!Box liefert das nicht – die Integration schreibt es ab Installation selbst mit und speichert es dauerhaft.",
   show_details_popup: "Zeigt beim Antippen alle Felder eines Geräts, auch die auf schmalen Karten ausgeblendeten wie die MAC-Adresse.",
   open_device_on_click: "Wirkt nur, wenn das Detail-Popup ausgeschaltet ist.",
   show_scroll_arrows: "Passen nicht alle Spalten nebeneinander (z. B. auf dem Smartphone), wird die Tabelle waagerecht scrollbar. Diese Pfeile blättern zusätzlich per Klick; wischen geht auch direkt.",

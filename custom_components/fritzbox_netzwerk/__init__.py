@@ -11,6 +11,7 @@ from fritzconnection.core.exceptions import (
     FritzAuthorizationError,
     FritzConnectionException,
     FritzSecurityError,
+    FritzServiceError,
 )
 from fritzconnection.lib.fritzhosts import FritzHosts
 from requests.exceptions import ConnectionError as RequestsConnectionError
@@ -23,6 +24,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady,
 from homeassistant.helpers import config_validation as cv
 
 from .const import (
+    ATTR_BLOCKED_PARAM,
     ATTR_MAC,
     ATTR_NAME,
     CARD_FILENAME,
@@ -32,12 +34,13 @@ from .const import (
     DOMAIN,
     PLATFORMS,
     SERVICE_SET_DEVICE_NAME,
+    SERVICE_SET_INTERNET_ACCESS,
     SERVICE_WAKE_ON_LAN,
     URL_BASE,
     VERSION,
 )
 from .coordinator import FritzboxNetzwerkCoordinator
-from .hosts import normalize_mac
+from .hosts import mac_key, normalize_mac
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,6 +50,13 @@ MAC_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_MAC): cv.string,
         vol.Optional(ATTR_NAME): cv.string,
+    }
+)
+
+INTERNET_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_MAC): cv.string,
+        vol.Required(ATTR_BLOCKED_PARAM): cv.boolean,
     }
 )
 
@@ -75,6 +85,7 @@ async def async_setup_entry(
         ) from err
 
     coordinator = FritzboxNetzwerkCoordinator(hass, entry, fritz_hosts)
+    await coordinator.async_load_last_seen()
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
 
@@ -92,7 +103,11 @@ async def async_unload_entry(
     """Entlaedt einen Konfigurationseintrag."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded and not hass.config_entries.async_loaded_entries(DOMAIN):
-        for service in (SERVICE_SET_DEVICE_NAME, SERVICE_WAKE_ON_LAN):
+        for service in (
+            SERVICE_SET_DEVICE_NAME,
+            SERVICE_WAKE_ON_LAN,
+            SERVICE_SET_INTERNET_ACCESS,
+        ):
             hass.services.async_remove(DOMAIN, service)
     return unloaded
 
@@ -221,6 +236,50 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 f"Aufwecken von {mac} fehlgeschlagen: {err}"
             ) from err
 
+    async def _handle_set_internet_access(call: ServiceCall) -> None:
+        """Sperrt oder erlaubt den Internetzugang eines Geraets.
+
+        Die FRITZ!Box-Aktion arbeitet mit der IPv4-Adresse. Diese kann sich
+        per DHCP aendern, deshalb wird der stabilere MAC-Schluessel
+        uebergeben und hier aus der aktuellen Hostliste aufgeloest.
+        """
+        coordinator = _first_coordinator()
+        mac = normalize_mac(call.data[ATTR_MAC])
+        blocked = bool(call.data[ATTR_BLOCKED_PARAM])
+        key = mac_key(mac)
+
+        ip = ""
+        for host in (coordinator.data or {}).get("hosts", []):
+            if mac_key(host.get("mac")) == key:
+                ip = str(host.get("ip") or "")
+                break
+        if not ip:
+            raise HomeAssistantError(
+                f"Zu {mac} ist derzeit keine IP-Adresse bekannt - ist das Geraet "
+                "der FRITZ!Box bekannt und hat es eine IPv4-Adresse?"
+            )
+
+        def _set() -> None:
+            coordinator.fritz_hosts.fc.call_action(
+                "X_AVM-DE_HostFilter1",
+                "DisallowWANAccessByIP",
+                NewIPv4Address=ip,
+                NewDisallow=blocked,
+            )
+
+        try:
+            await hass.async_add_executor_job(_set)
+        except FritzServiceError as err:
+            raise HomeAssistantError(
+                "Diese FRITZ!Box stellt das Sperren des Internetzugangs ueber "
+                "TR-064 nicht bereit (Dienst X_AVM-DE_HostFilter fehlt)."
+            ) from err
+        except FritzConnectionException as err:
+            raise HomeAssistantError(
+                f"Internetzugang fuer {mac} ({ip}) konnte nicht geaendert werden: {err}"
+            ) from err
+        await coordinator.async_request_refresh()
+
     if not hass.services.has_service(DOMAIN, SERVICE_SET_DEVICE_NAME):
         hass.services.async_register(
             DOMAIN, SERVICE_SET_DEVICE_NAME, _handle_set_device_name, schema=MAC_SCHEMA
@@ -228,4 +287,11 @@ def _async_register_services(hass: HomeAssistant) -> None:
     if not hass.services.has_service(DOMAIN, SERVICE_WAKE_ON_LAN):
         hass.services.async_register(
             DOMAIN, SERVICE_WAKE_ON_LAN, _handle_wake_on_lan, schema=MAC_SCHEMA
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_SET_INTERNET_ACCESS):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_SET_INTERNET_ACCESS,
+            _handle_set_internet_access,
+            schema=INTERNET_SCHEMA,
         )
