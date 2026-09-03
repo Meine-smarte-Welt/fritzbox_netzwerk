@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.2.0b0";
+const FBN_VERSION = "1.2.0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -26,6 +26,7 @@ const FBN_VERSION = "1.2.0b0";
 const CONFIG_DEFAULTS = {
   entity: "",
   title: "Netzwerkgeräte",
+  show_title: true,
 
   // Spalten
   show_status: true,
@@ -504,7 +505,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
 
     const card = document.createElement("ha-card");
     card.className = "fbn-card";
-    if (config.title) card.setAttribute("header", config.title);
+    if (config.show_title && config.title) {
+      card.setAttribute("header", config.title);
+    }
     card.innerHTML = `
       <style>${this._styles()}</style>
       <div class="fbn-root${config.compact ? " fbn-compact" : ""}${
@@ -1509,6 +1512,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
 const EDITOR_SCHEMA = [
   { name: "entity", required: true, selector: { entity: { domain: "sensor" } } },
   { name: "title", selector: { text: {} } },
+  { name: "show_title", selector: { boolean: {} } },
   {
     type: "expandable",
     name: "spalten",
@@ -1582,6 +1586,7 @@ const EDITOR_SCHEMA = [
 const EDITOR_LABELS = {
   entity: "Sensor mit der Geräteliste",
   title: "Titel",
+  show_title: "Titel anzeigen",
   show_status: "Status",
   show_name: "Gerät",
   show_ip: "IP-Adresse",
@@ -1612,6 +1617,7 @@ const EDITOR_LABELS = {
 };
 
 const EDITOR_HELPERS = {
+  show_title: "Blendet die Kopfzeile der Karte aus, z. B. für ein Popup oder eine kompakte Ansicht.",
   show_ip_type: "Braucht die eingeschaltete IP-Typ-Erfassung in den Einstellungen der Integration.",
   show_ha_name: "Zeigt den Gerätenamen aus Home Assistant, sofern das Gerät dort eine MAC-Adresse hinterlegt hat.",
   show_last_seen: "Wann ein Gerät zuletzt online war. Die FRITZ!Box liefert das nicht – die Integration schreibt es ab Installation selbst mit und speichert es dauerhaft.",

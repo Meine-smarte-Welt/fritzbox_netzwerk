@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.2.0b0-blue)
+![Version](https://img.shields.io/badge/Version-1.2.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -243,6 +243,7 @@ verwaltet – diese Integration hat dafür keinen eigenen Speicher.
 type: custom:fritzbox-netzwerk-card
 entity: sensor.fritz_box_5690_pro_netzwerk_gerate
 title: Heimnetz
+show_title: true
 
 # Spalten
 show_status: true
@@ -257,6 +258,7 @@ show_update: true
 show_speed: true
 show_model: false
 show_type: false
+show_last_seen: false
 
 # Darstellung
 show_summary: true
@@ -384,7 +386,7 @@ Home-Assistant-Instanz prüfbar:
 
 ```bash
 python3 tests/test_hosts.py     # 35 Fälle
-node tests/test_card.js         # 106 Fälle, jsdom gegen die echte Kartendatei
+node tests/test_card.js         # 109 Fälle, jsdom gegen die echte Kartendatei
 ```
 
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein echtes
@@ -396,7 +398,7 @@ Kartencodes im Testaufbau.
 
 ## Versionshistorie
 
-### 1.2.0b0 – Zuletzt online + Internetzugang schalten (Vorabversion)
+### 1.2.0 – Zuletzt online, Internetzugang schalten, Titel ausblendbar
 
 - Neue Spalte **Zuletzt online** (standardmäßig aus). Die FRITZ!Box liefert diesen
   Zeitstempel nicht – die Integration schreibt ihn ab Installation selbst mit und speichert
@@ -405,7 +407,8 @@ Kartencodes im Testaufbau.
 - Neuer Dienst **`set_internet_access`** (MAC + an/aus) zum Sperren/Freigeben des
   Internetzugangs über TR-064, plus ein Schalter im Detail-Popup. Experimentell, da je nach
   FRITZ!OS/Modell verfügbar.
-- Vorabversion (b0) – bitte testen und Rückmeldung geben.
+- **Titel ausblendbar** über den Editor-Schalter *Titel anzeigen* – praktisch für ein
+  Popup oder eine kompakte Ansicht.
 
 ### 1.1.0 – Blättern statt Spalten verstecken
 
