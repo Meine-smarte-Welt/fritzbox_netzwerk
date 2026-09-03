@@ -93,7 +93,10 @@ async def async_setup_entry(
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _async_register_services(hass)
 
-    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    # Kein add_update_listener: der Neuladen bei Options-Aenderungen wird von
+    # OptionsFlowWithReload (siehe config_flow.py) uebernommen. Beides zusammen
+    # loest seit einer aktuellen Home-Assistant-Version einen Fehler aus
+    # ("update listeners should not be used with OptionsFlowWithReload").
     return True
 
 
@@ -110,13 +113,6 @@ async def async_unload_entry(
         ):
             hass.services.async_remove(DOMAIN, service)
     return unloaded
-
-
-async def _async_update_listener(
-    hass: HomeAssistant, entry: FritzboxNetzwerkConfigEntry
-) -> None:
-    """Laedt den Eintrag nach Aenderung der Optionen neu."""
-    await hass.config_entries.async_reload(entry.entry_id)
 
 
 # ---------------------------------------------------------------------------

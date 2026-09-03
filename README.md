@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.2.0-blue)
+![Version](https://img.shields.io/badge/Version-1.2.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -386,7 +386,7 @@ Home-Assistant-Instanz prüfbar:
 
 ```bash
 python3 tests/test_hosts.py     # 35 Fälle
-node tests/test_card.js         # 109 Fälle, jsdom gegen die echte Kartendatei
+node tests/test_card.js         # 113 Fälle, jsdom gegen die echte Kartendatei
 ```
 
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein echtes
@@ -397,6 +397,17 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.2.1 – Fehlerbehebungen
+
+- **Große Netze (viele Geräte).** Die Karte hat den Tabellenkörper bei jeder
+  Zustandsänderung in Home Assistant neu aufgebaut – bei rund 160 Geräten trieb das CPU und
+  Speicher massiv nach oben und ließ den Browser einfrieren. Jetzt wird nur noch neu
+  gezeichnet, wenn sich die Gerätedaten tatsächlich geändert haben.
+- **500-Fehler beim Speichern der Integrationseinstellungen.** Der Options-Dialog nutzte
+  gleichzeitig `OptionsFlowWithReload` und einen eigenen Update-Listener, was aktuelle
+  Home-Assistant-Versionen mit einem Fehler quittieren. Der zusätzliche Listener wurde
+  entfernt; das Neuladen übernimmt weiterhin `OptionsFlowWithReload`.
 
 ### 1.2.0 – Zuletzt online, Internetzugang schalten, Titel ausblendbar
 

@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.2.0";
+const FBN_VERSION = "1.2.1";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -331,6 +331,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._sortDir = "asc";
     this._signature = "";
     this._built = false;
+    this._renderedOnce = false;
+    this._lastStateObj = null;
     this._resizeObserver = null;
     // Popup: der Overlay-Knoten haengt am document.body, nicht in der
     // Karte - so liegt er sicher ueber allem, unabhaengig von den
@@ -354,6 +356,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._sortDir = this._config.sort_dir === "desc" ? "desc" : "asc";
     this._built = false;
     this._signature = "";
+    this._renderedOnce = false;
+    this._lastStateObj = null;
     this._closePopup();
     this.innerHTML = "";
     if (this._hass) this._update();
@@ -489,13 +493,38 @@ class FritzboxNetzwerkCard extends HTMLElement {
       this._build();
       this._built = true;
     }
+
+    // Home Assistant ruft den hass-Setter bei JEDER Zustandsaenderung im
+    // ganzen System auf - viele Male pro Sekunde. Ohne Bremse wuerde die
+    // Karte den kompletten Tabellenkoerper jedes Mal neu aufbauen; bei
+    // vielen Geraeten (z. B. 160 Zeilen mit je mehreren <ha-icon>) treibt
+    // das CPU und Speicher massiv nach oben und laesst den Browser
+    // einfrieren.
+    //
+    // Zwei gestaffelte Bremsen:
+    // 1) Solange das Zustandsobjekt des Sensors dieselbe Referenz hat, kann
+    //    sich nichts geaendert haben - dann sofort abbrechen (O(1)).
+    // 2) Aendert sich die Referenz, entscheidet die inhaltliche Signatur,
+    //    ob wirklich neu gezeichnet werden muss.
+    const stateObj = this._stateObj();
+    if (this._renderedOnce && stateObj === this._lastStateObj) {
+      return;
+    }
+    this._lastStateObj = stateObj;
+
     const hosts = this._hosts();
     const signature = this._computeSignature(hosts);
-    const changed = signature !== this._signature;
+    if (this._renderedOnce && signature === this._signature) {
+      // Referenz war neu, Inhalt aber gleich - Popup ggf. auffrischen,
+      // aber die Tabelle unangetastet lassen.
+      if (this._popup) this._refreshPopup();
+      return;
+    }
     this._signature = signature;
+    this._renderedOnce = true;
+
     this._renderSummary();
     this._renderBody();
-    if (changed) this._renderHead();
     if (this._popup) this._refreshPopup();
   }
 
