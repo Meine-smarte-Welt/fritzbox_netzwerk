@@ -1,10 +1,12 @@
 # FRITZ!Box Netzwerk
 
+<img src="custom_components/fritzbox_netzwerk/brand/icon.png" width="96" align="right" alt="Logo">
+
 Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sortierbare
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.2.1-blue)
+![Version](https://img.shields.io/badge/Version-1.2.2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -378,6 +380,19 @@ Neuladen des Browsers, in der Companion App das Leeren des App-Zwischenspeichers
 
 ---
 
+## Icon
+
+Das Integrations-Icon liegt im Ordner `custom_components/fritzbox_netzwerk/brand/`
+(`icon.png` mit 256×256 und `icon@2x.png` mit 512×512). Ab Home Assistant 2026.3 liest Home
+Assistant dieses Icon direkt aus der Integration und zeigt es auf der Integrationsseite,
+den Geräteseiten und überall sonst in der Oberfläche an.
+
+Hinweis: Die HACS-Übersicht selbst holt Icons noch aus einer eigenen Quelle und zeigt für
+rein lokal mitgelieferte Icons unter Umständen ein leeres Bild an – das ist eine bekannte
+HACS-Einschränkung und betrifft nur die HACS-Kachel, nicht die Anzeige in Home Assistant.
+
+---
+
 ## Entwicklung und Tests
 
 Die eigentliche Aufbereitungslogik liegt in `hosts.py` und enthält weder
@@ -397,6 +412,15 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.2.2 – Eigenes Integrations-Icon
+
+- Die Integration bringt jetzt ein eigenes Icon mit. Es liegt im Ordner
+  `custom_components/fritzbox_netzwerk/brand/` (`icon.png` und `icon@2x.png`) und wird ab
+  Home Assistant 2026.3 direkt aus der Integration angezeigt – auf der Integrationsseite,
+  den Geräteseiten und überall sonst in der Oberfläche. Ein Eintrag im zentralen
+  `home-assistant/brands`-Repository ist dafür nicht mehr nötig.
+- Keine funktionalen Änderungen an Integration oder Karte.
 
 ### 1.2.1 – Fehlerbehebungen
 

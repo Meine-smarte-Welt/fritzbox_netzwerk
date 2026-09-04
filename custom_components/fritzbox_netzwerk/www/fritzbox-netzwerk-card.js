@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.2.1";
+const FBN_VERSION = "1.2.2";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */

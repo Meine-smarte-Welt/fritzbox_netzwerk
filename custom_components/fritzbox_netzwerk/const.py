@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.2.1"
+VERSION: Final = "1.2.2"
 
 PLATFORMS: Final = [Platform.SENSOR]
 
