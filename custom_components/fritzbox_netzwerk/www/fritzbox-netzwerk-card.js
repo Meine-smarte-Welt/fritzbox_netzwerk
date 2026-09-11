@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.2.2";
+const FBN_VERSION = "1.3.0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -47,9 +47,19 @@ const CONFIG_DEFAULTS = {
   show_summary: true,
   show_search: true,
   show_filter: true,
+  // Einzelne Filter-Buttons an/aus (nur wirksam, wenn show_filter an ist).
+  filter_alle: true,
+  filter_aktiv: true,
+  filter_inaktiv: true,
+  filter_gast: true,
+  filter_gesperrt: true,
+  filter_update: true,
   hide_inactive: false,
   compact: false,
   max_rows: 0,
+  // Höchstzahl gleichzeitig sichtbarer Zeilen; darüber wird der
+  // Datenbereich scrollbar, Kopf und Auswahl bleiben stehen. 0 = alle.
+  max_visible_rows: 0,
   show_details_popup: true,
   open_device_on_click: true,
   show_scroll_arrows: true,
@@ -579,20 +589,40 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._bindScrollArrows(card.querySelector(".fbn-scrollwrap"));
   }
 
+  /** Liste der aktuell eingeschalteten Filter-Buttons. */
+  _visibleFilters() {
+    return FILTERS.filter((filter) => this._config[`filter_${filter.key}`] !== false);
+  }
+
   _buildFilters() {
     const container = this.querySelector(".fbn-filters");
     if (!container) return;
-    if (!this._config.show_filter) {
+    const filters = this._visibleFilters();
+    if (!this._config.show_filter || filters.length === 0) {
       container.hidden = true;
       return;
     }
-    container.innerHTML = FILTERS.map(
-      (filter) => `
+    container.hidden = false;
+
+    // Ist der aktive Filter ausgeblendet, auf den ersten sichtbaren
+    // zurückfallen (bevorzugt "Alle"), damit nicht heimlich nach einer
+    // unsichtbaren Kategorie gefiltert wird.
+    if (!filters.some((filter) => filter.key === this._filter)) {
+      const fallback = filters.some((f) => f.key === "alle")
+        ? "alle"
+        : filters[0].key;
+      this._filter = fallback;
+    }
+
+    container.innerHTML = filters
+      .map(
+        (filter) => `
         <button class="fbn-chip" data-filter="${filter.key}" type="button"
                 aria-pressed="${filter.key === this._filter}">
           <ha-icon icon="${filter.icon}"></ha-icon><span>${escapeHtml(filter.label)}</span>
         </button>`
-    ).join("");
+      )
+      .join("");
     container.addEventListener("click", (event) => {
       const button = event.target.closest(".fbn-chip");
       if (!button) return;
@@ -819,6 +849,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (!body.dataset.bound) {
       body.dataset.bound = "1";
       body.addEventListener("click", (event) => {
+        // Klick auf den HA-Namen führt zum Home-Assistant-Gerät (SPA-Nav),
+        // nicht ins Popup.
+        const haLink = event.target.closest("a.fbn-halink");
+        if (haLink) {
+          event.preventDefault();
+          this._openDevice(haLink.dataset.device);
+          return;
+        }
         // Klick auf den IP-Link oeffnet die Weboberflaeche, nicht das Popup.
         if (event.target.closest("a")) return;
         const row = event.target.closest("tr[data-mac]");
@@ -826,6 +864,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
       });
       body.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
+        const haLink = event.target.closest("a.fbn-halink");
+        if (haLink) {
+          event.preventDefault();
+          this._openDevice(haLink.dataset.device);
+          return;
+        }
         // Enter auf dem fokussierten IP-Link folgt dem Link.
         if (event.target.closest("a")) return;
         const row = event.target.closest("tr[data-mac]");
@@ -837,6 +881,39 @@ class FritzboxNetzwerkCard extends HTMLElement {
 
     // Nach jedem Neuaufbau kann sich die Gesamtbreite geaendert haben.
     this._updateArrows();
+    this._applyMaxRows();
+  }
+
+  /**
+   * Begrenzt die Höhe des Datenbereichs auf eine feste Zeilenzahl. Kopf,
+   * Auswahl und Tabellenüberschrift bleiben stehen (die Überschrift ist
+   * position:sticky), der Rest wird senkrecht scrollbar. Gemessen wird
+   * die tatsächliche Höhe von Überschrift plus den ersten N Zeilen, damit
+   * kompakte und normale Zeilen gleichermaßen passen.
+   */
+  _applyMaxRows() {
+    const scroll = this._scrollEl;
+    if (!scroll) return;
+    const n = Number(this._config.max_visible_rows) || 0;
+    if (n <= 0) {
+      scroll.style.maxHeight = "";
+      scroll.style.overflowY = "";
+      return;
+    }
+    // Sobald begrenzt wird, ist senkrechtes Scrollen erlaubt.
+    scroll.style.overflowY = "auto";
+    const rows = scroll.querySelectorAll("tbody tr");
+    if (!rows.length) {
+      scroll.style.maxHeight = "";
+      return;
+    }
+    const thead = scroll.querySelector("thead");
+    let height = thead ? thead.offsetHeight : 0;
+    const count = Math.min(n, rows.length);
+    for (let i = 0; i < count; i += 1) height += rows[i].offsetHeight;
+    // Nur setzen, wenn tatsächlich messbar (Karte sichtbar). Sonst später
+    // beim nächsten Render/Resize erneut versuchen.
+    if (height > 0) scroll.style.maxHeight = `${height}px`;
   }
 
   /**
@@ -925,10 +1002,19 @@ class FritzboxNetzwerkCard extends HTMLElement {
       case "connection":
         return escapeHtml(host.connection_label || "—");
 
-      case "ha_name":
-        return host.ha_name
-          ? `<span class="fbn-ha">${escapeHtml(host.ha_name)}</span>`
-          : '<span class="fbn-dim">—</span>';
+      case "ha_name": {
+        if (!host.ha_name) return '<span class="fbn-dim">—</span>';
+        if (host.ha_device_id) {
+          // Link zur Home-Assistant-Geräteseite. Wie beim IP-Link fängt
+          // der Zeilen-Handler den Klick ab, sodass NICHT zusätzlich das
+          // Popup aufgeht; die SPA-Navigation macht _openDevice per JS.
+          return `<a class="fbn-halink" href="/config/devices/device/${escapeHtml(
+            host.ha_device_id
+          )}" data-device="${escapeHtml(host.ha_device_id)}"
+                    title="Zum Home-Assistant-Gerät">${escapeHtml(host.ha_name)}</a>`;
+        }
+        return `<span class="fbn-ha">${escapeHtml(host.ha_name)}</span>`;
+      }
 
       case "ip_type": {
         if (host.static_ip === true) {
@@ -1304,7 +1390,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
   _observeWidth() {
     if (this._resizeObserver || typeof ResizeObserver === "undefined") return;
     if (!this._root) return;
-    this._resizeObserver = new ResizeObserver(() => this._updateArrows());
+    this._resizeObserver = new ResizeObserver(() => {
+      this._updateArrows();
+      this._applyMaxRows();
+    });
     this._resizeObserver.observe(this._root);
   }
 
@@ -1422,6 +1511,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
       }
       .fbn-iplink:hover .fbn-iplink-icon,
       .fbn-iplink:focus-visible .fbn-iplink-icon { opacity: 0.7; }
+      .fbn-halink { color: var(--fbn-accent); text-decoration: none; }
+      .fbn-halink:hover { text-decoration: underline; }
+      .fbn-halink:focus-visible { outline: 2px solid var(--fbn-accent); outline-offset: 2px; border-radius: 2px; }
       .fbn-dim { color: var(--fbn-inactive); }
       .fbn-ls-now { color: var(--fbn-active); }
       .fbn-lease { font-size: 0.85em; }
@@ -1575,6 +1667,25 @@ const EDITOR_SCHEMA = [
         name: "max_rows",
         selector: { number: { min: 0, max: 500, mode: "box" } },
       },
+      {
+        name: "max_visible_rows",
+        selector: { number: { min: 0, max: 100, mode: "box" } },
+      },
+    ],
+  },
+  {
+    type: "expandable",
+    name: "filter_buttons",
+    title: "Filter-Buttons",
+    flatten: true,
+    icon: "mdi:filter-variant",
+    schema: [
+      { name: "filter_alle", selector: { boolean: {} } },
+      { name: "filter_aktiv", selector: { boolean: {} } },
+      { name: "filter_inaktiv", selector: { boolean: {} } },
+      { name: "filter_gast", selector: { boolean: {} } },
+      { name: "filter_gesperrt", selector: { boolean: {} } },
+      { name: "filter_update", selector: { boolean: {} } },
     ],
   },
   {
@@ -1621,7 +1732,7 @@ const EDITOR_LABELS = {
   show_ip: "IP-Adresse",
   show_mac: "MAC-Adresse",
   show_connection: "Verbindung",
-  show_ha_name: "Home-Assistant-Gerätename",
+  show_ha_name: "Home-Assistant-Gerätename (verlinkt)",
   show_ip_type: "IP-Typ (DHCP oder statisch)",
   show_wan: "Internetzugang",
   show_update: "Firmware-Update",
@@ -1632,6 +1743,12 @@ const EDITOR_LABELS = {
   show_summary: "Zusammenfassung anzeigen",
   show_search: "Suchfeld anzeigen",
   show_filter: "Filterleiste anzeigen",
+  filter_alle: "Button „Alle“",
+  filter_aktiv: "Button „Aktiv“",
+  filter_inaktiv: "Button „Inaktiv“",
+  filter_gast: "Button „Gast“",
+  filter_gesperrt: "Button „Gesperrt“",
+  filter_update: "Button „Update“",
   hide_inactive: "Nicht verbundene Geräte ausblenden",
   compact: "Kompakte Zeilen",
   show_details_popup: "Klick öffnet ein Detail-Popup",
@@ -1641,6 +1758,7 @@ const EDITOR_LABELS = {
   ip_opens_web: "Klick auf die IP öffnet die Weboberfläche",
   ip_web_fallback: "Notfalls http://IP verwenden",
   max_rows: "Höchstzahl Zeilen (0 = alle)",
+  max_visible_rows: "Sichtbare Zeilen, dann scrollen (0 = alle)",
   sort_by: "Sortieren nach",
   sort_dir: "Richtung",
 };
@@ -1648,7 +1766,7 @@ const EDITOR_LABELS = {
 const EDITOR_HELPERS = {
   show_title: "Blendet die Kopfzeile der Karte aus, z. B. für ein Popup oder eine kompakte Ansicht.",
   show_ip_type: "Braucht die eingeschaltete IP-Typ-Erfassung in den Einstellungen der Integration.",
-  show_ha_name: "Zeigt den Gerätenamen aus Home Assistant, sofern das Gerät dort eine MAC-Adresse hinterlegt hat.",
+  show_ha_name: "Zeigt den Gerätenamen aus Home Assistant, sofern das Gerät dort eine MAC-Adresse hinterlegt hat. Ein Klick auf den Namen führt direkt zum Gerät.",
   show_last_seen: "Wann ein Gerät zuletzt online war. Die FRITZ!Box liefert das nicht – die Integration schreibt es ab Installation selbst mit und speichert es dauerhaft.",
   show_details_popup: "Zeigt beim Antippen alle Felder eines Geräts, auch die auf schmalen Karten ausgeblendeten wie die MAC-Adresse.",
   open_device_on_click: "Wirkt nur, wenn das Detail-Popup ausgeschaltet ist.",
@@ -1657,6 +1775,7 @@ const EDITOR_HELPERS = {
   ip_opens_web: "Öffnet die von der FRITZ!Box gemeldete Geräteseite in einem neuen Browser-Tab.",
   ip_web_fallback: "Meldet die FRITZ!Box keine Adresse, wird http://<IP> versucht. Kann bei Geräten ohne Weboberfläche ins Leere laufen.",
   max_rows: "Begrenzt die Tabelle, zum Beispiel für eine Übersichtskarte.",
+  max_visible_rows: "Ab dieser Zeilenzahl wird der Datenbereich scrollbar; Titel, Auswahl und Tabellenüberschrift bleiben stehen. 0 zeigt alle Zeilen.",
 };
 
 class FritzboxNetzwerkCardEditor extends HTMLElement {

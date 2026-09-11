@@ -142,12 +142,18 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         Verbindung vom Typ ``mac`` hinterlegt hat, wird ueber genau diese
         MAC-Adresse zugeordnet. Es wird nichts geraten - Geraete ohne
         MAC-Verbindung bleiben in der Karte einfach ohne HA-Namen.
+
+        Auch deaktivierte Geraete werden beruecksichtigt: sie tragen
+        weiterhin Name und ID und sollen in der Karte erscheinen (das war
+        zuvor die Ursache dafuer, dass manche Geraete mit HA-MAC keinen
+        Namen bekamen).
         """
         registry = dr.async_get(self.hass)
         mapping: dict[str, dict[str, str]] = {}
-        for device in registry.devices.values():
-            if device.disabled_by is not None:
-                continue
+        # ``for device in registry.devices`` liefert die Geraete-Eintraege
+        # direkt. Der fruehere Zugriff ueber ``registry.devices.values()``
+        # ist als Mapping-Zugriff deprecated (Entfernung in HA 2027.9).
+        for device in registry.devices:
             name = device.name_by_user or device.name or ""
             for connection_type, connection_value in device.connections:
                 if connection_type != dr.CONNECTION_NETWORK_MAC:

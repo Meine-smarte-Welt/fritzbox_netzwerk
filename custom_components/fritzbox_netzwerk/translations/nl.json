@@ -1,0 +1,85 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Deze FRITZ!Box is al ingesteld.",
+      "reauth_successful": "De inloggegevens zijn bijgewerkt."
+    },
+    "error": {
+      "cannot_connect": "De FRITZ!Box is niet bereikbaar op dit adres.",
+      "invalid_auth": "Onjuiste gebruikersnaam of wachtwoord.",
+      "insufficient_permissions": "Het account heeft geen toegang tot de FRITZ!Box-instellingen. Ken onder Systeem > FRITZ!Box-gebruikers de rechten \"FRITZ!Box Instellingen\" toe.",
+      "no_hosts_service": "De FRITZ!Box stelt de dienst \"Hosts\" niet beschikbaar. Schakel onder Thuisnetwerk > Netwerk > Netwerkinstellingen de optie \"Toegang voor toepassingen toestaan\" in."
+    },
+    "step": {
+      "user": {
+        "title": "FRITZ!Box verbinden",
+        "data": {
+          "host": "Adres",
+          "username": "Gebruikersnaam",
+          "password": "Wachtwoord",
+          "use_tls": "Verbinden via HTTPS"
+        },
+        "data_description": {
+          "host": "Hostnaam of IP-adres van de FRITZ!Box, meestal fritz.box.",
+          "username": "Een FRITZ!Box-gebruiker met de rechten \"FRITZ!Box Instellingen\"."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Opnieuw aanmelden",
+        "description": "Aanmelden bij {host} is mislukt. Voer de inloggegevens opnieuw in.",
+        "data": {
+          "username": "Gebruikersnaam",
+          "password": "Wachtwoord"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Instellingen",
+        "data": {
+          "scan_interval": "Ophaalinterval (seconden)",
+          "track_address_source": "IP-type bijhouden (DHCP of statisch)",
+          "address_source_interval": "Interval van de IP-type-controle (minuten)"
+        },
+        "data_description": {
+          "track_address_source": "Deze waarde staat niet in de hostlijst en kost één extra verzoek per apparaat. Ze verandert zelden en loopt daarom op een eigen, langzamer schema.",
+          "address_source_interval": "Werkt alleen als het bijhouden van het IP-type is ingeschakeld."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "geraete": { "name": "Apparaten" },
+      "updates": { "name": "Apparaten met update" },
+      "gesperrt": { "name": "Geblokkeerde apparaten" }
+    }
+  },
+  "services": {
+    "set_device_name": {
+      "name": "Apparaat hernoemen",
+      "description": "Wijzigt de naam van een netwerkapparaat op de FRITZ!Box.",
+      "fields": {
+        "mac": { "name": "MAC-adres", "description": "MAC-adres van het apparaat." },
+        "name": { "name": "Nieuwe naam", "description": "De nieuwe apparaatnaam." }
+      }
+    },
+    "wake_on_lan": {
+      "name": "Apparaat wekken",
+      "description": "Stuurt een Wake-on-LAN-signaal naar een netwerkapparaat.",
+      "fields": {
+        "mac": { "name": "MAC-adres", "description": "MAC-adres van het apparaat." }
+      }
+    },
+    "set_internet_access": {
+      "name": "Internettoegang schakelen",
+      "description": "Blokkeert of staat de internettoegang van een apparaat toe (experimenteel, alleen op FRITZ!Boxen met de TR-064 HostFilter-dienst).",
+      "fields": {
+        "mac": { "name": "MAC-adres", "description": "MAC-adres van het apparaat." },
+        "blocked": { "name": "Geblokkeerd", "description": "Aan = internettoegang blokkeren, Uit = toestaan." }
+      }
+    }
+  }
+}

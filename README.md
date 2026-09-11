@@ -1,12 +1,10 @@
 # FRITZ!Box Netzwerk
 
-<img src="custom_components/fritzbox_netzwerk/brand/icon.png" width="96" align="right" alt="Logo">
-
 Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sortierbare
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.2.2-blue)
+![Version](https://img.shields.io/badge/Version-1.3.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -40,13 +38,17 @@ passenden Home-Assistant-Gerätenamen.
 - Alle bekannten Netzwerkgeräte der FRITZ!Box als **eine** Tabelle im Dashboard
 - **Sortierbar** durch Klick auf jede Spaltenüberschrift, auch per Tastatur
 - **Suchfeld** über Name, IP-Adresse, MAC-Adresse, Modell und Home-Assistant-Namen
-- **Filterleiste**: Alle, Aktiv, Inaktiv, Gast, Gesperrt, Update
-- **Home-Assistant-Gerätename** je Zeile, automatisch über die MAC-Adresse zugeordnet
+- **Filterleiste**: Alle, Aktiv, Inaktiv, Gast, Gesperrt, Update – jeder Button **einzeln
+  ausblendbar**
+- **Home-Assistant-Gerätename** je Zeile, automatisch über die MAC-Adresse zugeordnet und
+  **als Link zum HA-Gerät**
 - **Detail-Popup** bei Klick auf eine Zeile: zeigt alle Felder eines Geräts – auch die
   auf schmalen Karten ausgeblendeten wie die MAC-Adresse –, mit Kopier-Knöpfen,
   Wake-on-LAN und Sprung zum Home-Assistant-Gerät
 - **Wischen und Blättern** auf dem Smartphone: alle Spalten per Wischen oder Pfeilen
   erreichbar, Gerätename bleibt dabei stehen
+- **Feststehender Kopf, scrollbarer Datenbereich**: eine festlegbare Zeilenzahl anzeigen,
+  darüber scrollen – Titel, Auswahl und Tabellenüberschrift bleiben stehen
 - **Klick auf die IP-Adresse** öffnet die Weboberfläche des Geräts im Browser
 - **Zuletzt online** je Gerät – von der Integration mitgeschrieben, da die FRITZ!Box das
   nicht liefert
@@ -266,6 +268,13 @@ show_last_seen: false
 show_summary: true
 show_search: true
 show_filter: true
+# einzelne Filter-Buttons
+filter_alle: true
+filter_aktiv: true
+filter_inaktiv: true
+filter_gast: true
+filter_gesperrt: true
+filter_update: true
 hide_inactive: false
 compact: false
 show_details_popup: true
@@ -275,6 +284,7 @@ sticky_name: true
 ip_opens_web: true
 ip_web_fallback: true
 max_rows: 0
+max_visible_rows: 0   # 0 = alle; z. B. 15 = danach scrollen
 
 # Sortierung
 sort_by: ip
@@ -356,10 +366,38 @@ Zugeordnet wird ausschließlich über die MAC-Adresse in der Geräteregistrierun
 Integrationen hinterlegen dort keine MAC. Prüfbar unter Einstellungen → Geräte & Dienste →
 Gerät: steht dort keine MAC-Adresse, kann keine Zuordnung stattfinden.
 
-**Die Karte erscheint nicht oder zeigt „Custom element doesn't exist".**
-Läuft das Dashboard im YAML-Modus, kann die Integration die Ressource nicht selbst
-eintragen; das Protokoll nennt dann die einzutragende URL. Andernfalls hilft ein harter
-Neuladen des Browsers, in der Companion App das Leeren des App-Zwischenspeichers.
+**Die Karte wird nach der HACS-Installation nicht gefunden / „Custom element doesn't
+exist: fritzbox-netzwerk-card".**
+Die Integration liefert ihre Karte selbst mit und trägt sie automatisch als
+Lovelace-Ressource ein. Wird sie trotzdem nicht gefunden, hilft in dieser Reihenfolge:
+
+1. **Browser hart neu laden** (Strg/Cmd+Shift+R). In der Companion-App zusätzlich den
+   App-Zwischenspeicher leeren. Die Karte wird oft nur wegen einer alten zwischengespeicherten
+   Datei nicht gefunden.
+2. Prüfen, ob die Ressource eingetragen ist: Einstellungen → Dashboards → Menü oben rechts →
+   *Ressourcen*. Es sollte ein Eintrag `/fritzbox_netzwerk/fritzbox-netzwerk-card.js`
+   (Typ *JavaScript-Modul*) vorhanden sein.
+3. Fehlt er, manuell hinzufügen: *Ressource hinzufügen* → URL
+   `/fritzbox_netzwerk/fritzbox-netzwerk-card.js`, Typ *JavaScript-Modul* → speichern und den
+   Browser neu laden. (Im YAML-Dashboard-Modus verwaltet Home Assistant Ressourcen nicht über
+   die Oberfläche – dort den Eintrag in der `lovelace:`-Konfiguration ergänzen.)
+
+**Die Karte ist da, zeigt aber keine Geräte („Keine Geräte gefunden").**
+- Ist beim Anlegen der Karte der richtige Sensor gewählt? Es muss der Sensor mit der
+  Geräteliste sein, üblicherweise `sensor.<name>_gerate` (der Zustand ist die Anzahl aktiver
+  Geräte). Unter Entwicklerwerkzeuge → Zustände lässt sich prüfen, ob dieser Sensor das
+  Attribut `hosts` mit Einträgen enthält.
+- Ist ein Filter aktiv (z. B. „Gesperrt") oder ein Suchbegriff gesetzt, der nichts trifft?
+  Auf „Alle" stellen und das Suchfeld leeren.
+- Ist der Sensor „nicht verfügbar", liegt es an der Integration selbst – dann Protokoll
+  prüfen (Berechtigungen, Erreichbarkeit) wie oben beschrieben.
+
+---
+
+## Sprachen
+
+Die Integration ist auf **Deutsch**, **Englisch** und **Niederländisch** übersetzt
+(`de`, `en`, `nl`). Home Assistant wählt automatisch anhand der eingestellten Sprache.
 
 ---
 
@@ -380,19 +418,6 @@ Neuladen des Browsers, in der Companion App das Leeren des App-Zwischenspeichers
 
 ---
 
-## Icon
-
-Das Integrations-Icon liegt im Ordner `custom_components/fritzbox_netzwerk/brand/`
-(`icon.png` mit 256×256 und `icon@2x.png` mit 512×512). Ab Home Assistant 2026.3 liest Home
-Assistant dieses Icon direkt aus der Integration und zeigt es auf der Integrationsseite,
-den Geräteseiten und überall sonst in der Oberfläche an.
-
-Hinweis: Die HACS-Übersicht selbst holt Icons noch aus einer eigenen Quelle und zeigt für
-rein lokal mitgelieferte Icons unter Umständen ein leeres Bild an – das ist eine bekannte
-HACS-Einschränkung und betrifft nur die HACS-Kachel, nicht die Anzeige in Home Assistant.
-
----
-
 ## Entwicklung und Tests
 
 Die eigentliche Aufbereitungslogik liegt in `hosts.py` und enthält weder
@@ -401,7 +426,7 @@ Home-Assistant-Instanz prüfbar:
 
 ```bash
 python3 tests/test_hosts.py     # 35 Fälle
-node tests/test_card.js         # 113 Fälle, jsdom gegen die echte Kartendatei
+node tests/test_card.js         # 125 Fälle, jsdom gegen die echte Kartendatei
 ```
 
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein echtes
@@ -413,14 +438,31 @@ Kartencodes im Testaufbau.
 
 ## Versionshistorie
 
-### 1.2.2 – Eigenes Integrations-Icon
+### 1.3.0 – Verlinkter HA-Name, ausblendbare Filter, scrollbarer Datenbereich, Logo
 
-- Die Integration bringt jetzt ein eigenes Icon mit. Es liegt im Ordner
-  `custom_components/fritzbox_netzwerk/brand/` (`icon.png` und `icon@2x.png`) und wird ab
-  Home Assistant 2026.3 direkt aus der Integration angezeigt – auf der Integrationsseite,
-  den Geräteseiten und überall sonst in der Oberfläche. Ein Eintrag im zentralen
-  `home-assistant/brands`-Repository ist dafür nicht mehr nötig.
-- Keine funktionalen Änderungen an Integration oder Karte.
+- **HA-Gerätename verlinkt.** In der Spalte *Home Assistant* führt ein Klick auf den Namen
+  direkt zum Gerät in Home Assistant. Zusammen mit dem Klick auf die IP (Weboberfläche)
+  kommt man so ohne Umweg über das Detail-Popup ans Ziel.
+- **Filter-Buttons einzeln ausblendbar.** Nicht benötigte Auswahl-Buttons (z. B. Gast,
+  Gesperrt, Update) lassen sich im Editor einzeln abschalten.
+- **Feststehender Kopf, scrollbarer Datenbereich.** Über *Sichtbare Zeilen, dann scrollen*
+  lässt sich eine Zeilenzahl festlegen; darüber wird nur der Datenbereich gescrollt, während
+  Titel, Auswahl und Tabellenüberschrift stehen bleiben.
+- **Eigenes Logo.** Im Ordner `custom_components/fritzbox_netzwerk/brand/` liegt das
+  Integrations-Logo (`icon.png`, `icon@2x.png`, `logo.png`, `logo@2x.png`) im Format von
+  `home-assistant/brands`. Damit es in Home Assistant erscheint, müssen `icon.png` (256×256)
+  und `icon@2x.png` (512×512) per Pull Request bei
+  [home-assistant/brands](https://github.com/home-assistant/brands) unter
+  `custom_integrations/fritzbox_netzwerk/` eingereicht werden.
+- **Niederländische Übersetzung** ergänzt; die Integration spricht jetzt Deutsch, Englisch
+  und Niederländisch.
+- **Fehler behoben: Deprecation-Warnung im Protokoll.** Der Zugriff auf die
+  Geräteregistrierung nutzte `registry.devices.values()`, was Home Assistant als veraltet
+  markiert (Entfernung in 2027.9). Jetzt wird `registry.devices` direkt iteriert.
+- **Fehler behoben: HA-Namen fehlten teils.** Deaktivierte Home-Assistant-Geräte wurden bei
+  der MAC-Zuordnung übersprungen; dadurch blieb die HA-Spalte bei manchen Geräten leer,
+  obwohl ein passendes HA-Gerät mit MAC vorhanden war. Solche Geräte werden jetzt
+  berücksichtigt.
 
 ### 1.2.1 – Fehlerbehebungen
 
