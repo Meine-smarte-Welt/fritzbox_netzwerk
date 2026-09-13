@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.components.sensor import SensorEntity, SensorStateClass
-from homeassistant.const import CONF_HOST
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
+from homeassistant.const import CONF_HOST, UnitOfDataRate
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -45,6 +49,23 @@ async def async_setup_entry(
             FritzboxNetzwerkGeraeteSensor(coordinator, entry),
             FritzboxNetzwerkKennzahlSensor(coordinator, entry, "updates", "updates"),
             FritzboxNetzwerkKennzahlSensor(coordinator, entry, "blocked", "gesperrt"),
+            # Down/Up: aktuelle Rate (kByte/s) und Leitungs-Sync-Rate (Mbit/s).
+            FritzboxNetzwerkRateSensor(
+                coordinator, entry, "down_rate", "download",
+                UnitOfDataRate.KILOBYTES_PER_SECOND, "mdi:download",
+            ),
+            FritzboxNetzwerkRateSensor(
+                coordinator, entry, "up_rate", "upload",
+                UnitOfDataRate.KILOBYTES_PER_SECOND, "mdi:upload",
+            ),
+            FritzboxNetzwerkRateSensor(
+                coordinator, entry, "down_max", "download_max",
+                UnitOfDataRate.MEGABITS_PER_SECOND, "mdi:download-network",
+            ),
+            FritzboxNetzwerkRateSensor(
+                coordinator, entry, "up_max", "upload_max",
+                UnitOfDataRate.MEGABITS_PER_SECOND, "mdi:upload-network",
+            ),
         ]
     )
 
@@ -141,3 +162,34 @@ class FritzboxNetzwerkKennzahlSensor(FritzboxNetzwerkBase):
     def native_value(self) -> int | None:
         """Aktueller Zaehlerstand."""
         return self._summary.get(self._key)
+
+
+class FritzboxNetzwerkRateSensor(FritzboxNetzwerkBase):
+    """Down-/Upload-Rate der FRITZ!Box-Internetverbindung.
+
+    Liest den jeweiligen Wert aus dem ``connection``-Teil der
+    Coordinator-Daten. Ist keine Verbindung ermittelbar (z. B. FRITZ!Box im
+    Access-Point-Betrieb), bleibt der Zustand ``None`` und der Sensor damit
+    "unbekannt".
+    """
+
+    _attr_device_class = SensorDeviceClass.DATA_RATE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 1
+
+    def __init__(self, coordinator, entry, key: str, slug: str, unit, icon: str) -> None:
+        """Initialisiert den Rate-Sensor."""
+        super().__init__(coordinator, entry)
+        self._key = key
+        self._attr_translation_key = slug
+        self._attr_unique_id = f"{entry.entry_id}_{slug}"
+        self._attr_native_unit_of_measurement = unit
+        self._attr_icon = icon
+
+    @property
+    def native_value(self) -> float | None:
+        """Aktueller Wert oder None, wenn keine Verbindungsdaten vorliegen."""
+        connection = (self.coordinator.data or {}).get("connection")
+        if not connection:
+            return None
+        return connection.get(self._key)

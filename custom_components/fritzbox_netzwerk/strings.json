@@ -60,6 +60,18 @@
       },
       "gesperrt": {
         "name": "Gesperrte Geräte"
+      },
+      "download": {
+        "name": "Download (aktuell)"
+      },
+      "upload": {
+        "name": "Upload (aktuell)"
+      },
+      "download_max": {
+        "name": "Download (Leitungsrate)"
+      },
+      "upload_max": {
+        "name": "Upload (Leitungsrate)"
       }
     }
   },

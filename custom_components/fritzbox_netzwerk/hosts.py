@@ -293,3 +293,31 @@ def summarize(hosts: list[dict[str, Any]]) -> dict[str, int]:
         "updates": sum(1 for host in hosts if host["update_available"]),
         "static": sum(1 for host in hosts if host["static_ip"]),
     }
+
+
+# ---------------------------------------------------------------------------
+# Verbindungsdaten (Down/Up)
+# ---------------------------------------------------------------------------
+
+
+def to_kbytes_per_s(bytes_per_s: Any) -> float | None:
+    """Rechnet Bytes/s in kByte/s um (eine Nachkommastelle).
+
+    Fuer die aktuellen Down-/Upload-Raten der FRITZ!Box gedacht. Ungueltige
+    oder fehlende Werte ergeben ``None`` (Sensor wird dann "unbekannt").
+    """
+    value = as_int(bytes_per_s, default=-1)
+    if value < 0:
+        return None
+    return round(value / 1000, 1)
+
+
+def to_mbit_per_s(bits_per_s: Any) -> float | None:
+    """Rechnet Bit/s in Mbit/s um (eine Nachkommastelle).
+
+    Fuer die maximalen Leitungs-Sync-Raten der FRITZ!Box gedacht.
+    """
+    value = as_int(bits_per_s, default=-1)
+    if value < 0:
+        return None
+    return round(value / 1_000_000, 1)

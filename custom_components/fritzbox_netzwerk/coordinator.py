@@ -13,6 +13,7 @@ from fritzconnection.core.exceptions import (
     FritzServiceError,
 )
 from fritzconnection.lib.fritzhosts import FritzHosts
+from fritzconnection.lib.fritzstatus import FritzStatus
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -32,7 +33,7 @@ from .const import (
     DOMAIN,
     LAST_SEEN_STORAGE_VERSION,
 )
-from .hosts import build_hosts, mac_key, summarize
+from .hosts import build_hosts, mac_key, summarize, to_kbytes_per_s, to_mbit_per_s
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,6 +60,13 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._address_sources: dict[str, dict[str, Any]] = {}
         self._address_source_scan: datetime | None = None
         self._address_source_failed = False
+
+        # Verbindungsdaten (Down/Up). FritzStatus teilt sich die Verbindung
+        # mit FritzHosts. Fehlt der WAN-Dienst (z. B. FRITZ!Box im reinen
+        # Access-Point-Betrieb), wird nach dem ersten Fehlschlag nicht mehr
+        # abgefragt, um das Protokoll nicht vollzuschreiben.
+        self._fritz_status: FritzStatus | None = None
+        self._connection_supported = True
 
         # "Zuletzt gesehen" pflegt die Integration selbst (die FRITZ!Box
         # liefert es nicht) und speichert es dauerhaft, damit die Angabe
@@ -125,7 +133,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             }
         self._address_sources = sources
 
-    def _fetch(self) -> tuple[list[dict[str, Any]], bool]:
+    def _fetch(self) -> tuple[list[dict[str, Any]], bool, dict[str, Any] | None]:
         """Blockierender Teil des Abrufs, laeuft im Executor."""
         raw_hosts = self.fritz_hosts.get_hosts_attributes()
         refreshed = False
@@ -133,45 +141,95 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             macs = [str(host.get("MACAddress") or "") for host in raw_hosts]
             self._fetch_address_sources(macs)
             refreshed = True
-        return raw_hosts, refreshed
+        connection = self._fetch_connection()
+        return raw_hosts, refreshed, connection
+
+    def _fetch_connection(self) -> dict[str, Any] | None:
+        """Liest die aktuellen Down-/Upload-Raten und die Leitungs-Sync-Raten.
+
+        Aktuelle Rate: Bytes/s (WANCommonIFC/GetAddonInfos), umgerechnet in
+        kByte/s. Sync-Rate: Bit/s, umgerechnet in Mbit/s. Ohne WAN-Dienst
+        wird die Abfrage dauerhaft ausgesetzt.
+        """
+        if not self._connection_supported:
+            return None
+        try:
+            if self._fritz_status is None:
+                self._fritz_status = FritzStatus(fc=self.fritz_hosts.fc)
+            up_bytes, down_bytes = self._fritz_status.transmission_rate
+            up_max_bits, down_max_bits = self._fritz_status.max_bit_rate
+        except FritzServiceError:
+            # Dieser FRITZ!Box fehlt der WAN-Dienst (z. B. Access-Point-Modus).
+            self._connection_supported = False
+            _LOGGER.info(
+                "Verbindungsdaten (Down/Up) werden von dieser FRITZ!Box nicht "
+                "bereitgestellt und daher nicht mehr abgefragt."
+            )
+            return None
+        except FritzConnectionException as err:
+            _LOGGER.debug("Verbindungsdaten momentan nicht abrufbar: %s", err)
+            return None
+        return {
+            "down_rate": to_kbytes_per_s(down_bytes),
+            "up_rate": to_kbytes_per_s(up_bytes),
+            "down_max": to_mbit_per_s(down_max_bits),
+            "up_max": to_mbit_per_s(up_max_bits),
+        }
 
     def _ha_device_map(self) -> dict[str, dict[str, str]]:
         """Bildet MAC-Adressen auf Home-Assistant-Geraete ab.
 
-        Grundlage ist die Geraeteregistrierung: jedes Geraet, das eine
-        Verbindung vom Typ ``mac`` hinterlegt hat, wird ueber genau diese
-        MAC-Adresse zugeordnet. Es wird nichts geraten - Geraete ohne
-        MAC-Verbindung bleiben in der Karte einfach ohne HA-Namen.
+        Grundlage ist die Geraeteregistrierung. Zugeordnet wird ueber die
+        MAC-Adresse - primaer aus Verbindungen vom Typ ``mac``. Zusaetzlich
+        werden MAC-artige Werte aus anderen Verbindungstypen und aus den
+        Identifiern beruecksichtigt, weil manche Integrationen die MAC dort
+        ablegen. Erkannt wird nur, was eindeutig wie eine 12-stellige
+        MAC-Adresse aussieht; es wird nichts geraten.
 
         Auch deaktivierte Geraete werden beruecksichtigt: sie tragen
-        weiterhin Name und ID und sollen in der Karte erscheinen (das war
-        zuvor die Ursache dafuer, dass manche Geraete mit HA-MAC keinen
-        Namen bekamen).
+        weiterhin Name und ID und sollen in der Karte erscheinen.
+
+        Grenze: Findet sich zu einem Geraet ueberhaupt keine MAC in der
+        Registry (z. B. weil eine Integration die MAC nicht eintraegt -
+        bei manchen Matter-Geraeten der Fall), kann es nicht zugeordnet
+        werden. Das liegt an der jeweiligen Quell-Integration, nicht hier.
         """
         registry = dr.async_get(self.hass)
         mapping: dict[str, dict[str, str]] = {}
-        # ``for device in registry.devices`` liefert die Geraete-Eintraege
-        # direkt. Der fruehere Zugriff ueber ``registry.devices.values()``
-        # ist als Mapping-Zugriff deprecated (Entfernung in HA 2027.9).
+
+        def _add(raw_value: str, device: dr.DeviceEntry) -> None:
+            key = mac_key(raw_value)
+            # Nur echte 12-stellige MACs; die Null-MAC (00:00:...) taugt
+            # laut IEEE nicht als Kennung und wird verworfen.
+            if len(key) != 12 or key == "000000000000":
+                return
+            if key in mapping:
+                return
+            mapping[key] = {
+                "name": device.name_by_user or device.name or "",
+                "device_id": device.id,
+                "area": device.area_id or "",
+            }
+
         for device in registry.devices:
-            name = device.name_by_user or device.name or ""
+            # 1) Verbindungen vom Typ "mac" haben Vorrang.
             for connection_type, connection_value in device.connections:
-                if connection_type != dr.CONNECTION_NETWORK_MAC:
-                    continue
-                key = mac_key(connection_value)
-                if not key or key in mapping:
-                    continue
-                mapping[key] = {
-                    "name": name,
-                    "device_id": device.id,
-                    "area": device.area_id or "",
-                }
+                if connection_type == dr.CONNECTION_NETWORK_MAC:
+                    _add(connection_value, device)
+            # 2) MAC-artige Werte aus anderen Verbindungstypen.
+            for _connection_type, connection_value in device.connections:
+                _add(connection_value, device)
+            # 3) MAC-artige Identifier (z. B. ("integration", "aabbccddeeff")).
+            for _domain, identifier in device.identifiers:
+                _add(identifier, device)
         return mapping
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Holt die Geraeteliste und reichert sie an."""
         try:
-            raw_hosts, refreshed = await self.hass.async_add_executor_job(self._fetch)
+            raw_hosts, refreshed, connection = await self.hass.async_add_executor_job(
+                self._fetch
+            )
         except (FritzSecurityError, FritzAuthorizationError) as err:
             raise ConfigEntryAuthFailed(
                 "Das FRITZ!Box-Konto hat keine ausreichenden Rechte. Benoetigt wird "
@@ -200,6 +258,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return {
             "hosts": hosts,
             "summary": summarize(hosts),
+            "connection": connection,
             "last_scan": dt_util.utcnow().isoformat(),
             "address_source_scan": (
                 self._address_source_scan.isoformat()
