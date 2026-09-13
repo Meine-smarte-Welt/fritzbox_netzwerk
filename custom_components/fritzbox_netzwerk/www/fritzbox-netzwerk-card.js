@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.4.0";
+const FBN_VERSION = "1.4.1";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -2002,6 +2002,117 @@ const EDITOR_HELPERS = {
   max_visible_rows: "Ab dieser Zeilenzahl wird der Datenbereich scrollbar; Titel, Auswahl und Tabellenüberschrift bleiben stehen. 0 zeigt alle Zeilen.",
 };
 
+const EDITOR_TX = {
+  de: {
+    group_columns: "Spalten", group_display: "Darstellung",
+    group_filter: "Filter-Buttons", group_sort: "Sortierung",
+    colors_title: "Farben", reset: "Alle Farben zurücksetzen",
+    note_theme: "aktuell: Standard des Themes ({v})", note_current: "aktuell: {v}",
+    invalid: "Wert nicht gültig", asc: "Aufsteigend", desc: "Absteigend",
+    lang_auto: "Automatisch (Home Assistant)",
+  },
+  en: {
+    entity: "Sensor with the device list", title: "Title", show_title: "Show title",
+    language: "Card language",
+    show_status: "Status", show_name: "Device", show_ip: "IP address",
+    show_mac: "MAC address", show_connection: "Connection",
+    show_ha_name: "Home Assistant device name (linked)",
+    show_ip_type: "IP type (DHCP or static)", show_wan: "Internet access",
+    show_update: "Firmware update", show_speed: "Speed", show_model: "Model",
+    show_type: "Device type", show_last_seen: "Last seen",
+    show_summary: "Show summary", show_search: "Show search field",
+    show_filter: "Show filter bar",
+    filter_alle: '"All" button', filter_aktiv: '"Active" button',
+    filter_inaktiv: '"Inactive" button', filter_gast: '"Guest" button',
+    filter_gesperrt: '"Blocked" button', filter_update: '"Update" button',
+    hide_inactive: "Hide disconnected devices", compact: "Compact rows",
+    show_details_popup: "Click opens a detail popup",
+    open_device_on_click: "Click opens the Home Assistant device",
+    show_scroll_arrows: "Scroll arrows on wide tables",
+    sticky_name: "Keep device name while scrolling",
+    ip_opens_web: "Click on the IP opens the web interface",
+    ip_web_fallback: "Fall back to http://IP",
+    max_rows: "Maximum rows (0 = all)",
+    max_visible_rows: "Visible rows, then scroll (0 = all)",
+    sort_by: "Sort by", sort_dir: "Direction",
+    help_language: 'Language of the card labels. "Automatic" follows the language configured in Home Assistant (German, English, Dutch).',
+    help_show_title: "Hides the card header, e.g. for a popup or a compact view.",
+    help_show_ip_type: "Requires IP type tracking enabled in the integration settings.",
+    help_show_ha_name: "Shows the device name from Home Assistant if the device has a MAC address there. Clicking the name goes straight to the device.",
+    help_show_last_seen: "When a device was last online. The FRITZ!Box does not provide this – the integration records it from installation onward and stores it permanently.",
+    help_show_details_popup: "Shows all fields of a device on tap, including those hidden on narrow cards such as the MAC address.",
+    help_open_device_on_click: "Only applies when the detail popup is disabled.",
+    help_show_scroll_arrows: "If not all columns fit side by side (e.g. on a phone), the table scrolls horizontally. These arrows page on click; swiping works too.",
+    help_sticky_name: "While scrolling horizontally, the status dot and device name stay on the left.",
+    help_ip_opens_web: "Opens the device page reported by the FRITZ!Box in a new browser tab.",
+    help_ip_web_fallback: "If the FRITZ!Box reports no address, http://<IP> is tried. May lead nowhere for devices without a web interface.",
+    help_max_rows: "Limits the table, for example for an overview card.",
+    help_max_visible_rows: "From this row count the data area becomes scrollable; title, selection and table header stay fixed. 0 shows all rows.",
+    group_columns: "Columns", group_display: "Appearance",
+    group_filter: "Filter buttons", group_sort: "Sorting",
+    colors_title: "Colors", reset: "Reset all colors",
+    note_theme: "current: theme default ({v})", note_current: "current: {v}",
+    invalid: "invalid value", asc: "Ascending", desc: "Descending",
+    lang_auto: "Automatic (Home Assistant)",
+    color_header_bg: "Header background", color_header_text: "Header text",
+    color_row_text: "Row text", color_row_alt_bg: "Every other row",
+    color_border: "Divider lines", color_active: "Active",
+    color_inactive: "Inactive", color_guest: "Guest network",
+    color_blocked: "Blocked", color_update: "Update available",
+    color_static: "Static IP", color_accent: "Accent (sorting, filter)",
+  },
+  nl: {
+    entity: "Sensor met de apparaatlijst", title: "Titel", show_title: "Titel tonen",
+    language: "Taal van de kaart",
+    show_status: "Status", show_name: "Apparaat", show_ip: "IP-adres",
+    show_mac: "MAC-adres", show_connection: "Verbinding",
+    show_ha_name: "Home Assistant-apparaatnaam (gelinkt)",
+    show_ip_type: "IP-type (DHCP of statisch)", show_wan: "Internettoegang",
+    show_update: "Firmware-update", show_speed: "Snelheid", show_model: "Model",
+    show_type: "Apparaattype", show_last_seen: "Laatst online",
+    show_summary: "Samenvatting tonen", show_search: "Zoekveld tonen",
+    show_filter: "Filterbalk tonen",
+    filter_alle: 'Knop "Alle"', filter_aktiv: 'Knop "Actief"',
+    filter_inaktiv: 'Knop "Inactief"', filter_gast: 'Knop "Gast"',
+    filter_gesperrt: 'Knop "Geblokkeerd"', filter_update: 'Knop "Update"',
+    hide_inactive: "Niet-verbonden apparaten verbergen", compact: "Compacte rijen",
+    show_details_popup: "Klik opent een detailvenster",
+    open_device_on_click: "Klik opent het Home Assistant-apparaat",
+    show_scroll_arrows: "Bladerpijlen bij brede tabel",
+    sticky_name: "Apparaatnaam vasthouden bij bladeren",
+    ip_opens_web: "Klik op het IP opent de webinterface",
+    ip_web_fallback: "Zo nodig http://IP gebruiken",
+    max_rows: "Maximaal aantal rijen (0 = alle)",
+    max_visible_rows: "Zichtbare rijen, dan scrollen (0 = alle)",
+    sort_by: "Sorteren op", sort_dir: "Richting",
+    help_language: 'Taal van de kaartlabels. "Automatisch" volgt de in Home Assistant ingestelde taal (Duits, Engels, Nederlands).',
+    help_show_title: "Verbergt de kop van de kaart, bijv. voor een pop-up of een compacte weergave.",
+    help_show_ip_type: "Vereist dat het bijhouden van het IP-type is ingeschakeld in de integratie-instellingen.",
+    help_show_ha_name: "Toont de apparaatnaam uit Home Assistant als het apparaat daar een MAC-adres heeft. Klikken op de naam gaat direct naar het apparaat.",
+    help_show_last_seen: "Wanneer een apparaat laatst online was. De FRITZ!Box levert dit niet – de integratie houdt het vanaf de installatie zelf bij en slaat het permanent op.",
+    help_show_details_popup: "Toont bij tikken alle velden van een apparaat, ook die op smalle kaarten verborgen zijn zoals het MAC-adres.",
+    help_open_device_on_click: "Werkt alleen als het detailvenster is uitgeschakeld.",
+    help_show_scroll_arrows: "Passen niet alle kolommen naast elkaar (bijv. op een telefoon), dan schuift de tabel horizontaal. Deze pijlen bladeren ook per klik; vegen kan ook.",
+    help_sticky_name: "Bij horizontaal bladeren blijven de statusstip en de apparaatnaam links staan.",
+    help_ip_opens_web: "Opent de door de FRITZ!Box gemelde apparaatpagina in een nieuw browsertabblad.",
+    help_ip_web_fallback: "Meldt de FRITZ!Box geen adres, dan wordt http://<IP> geprobeerd. Kan doodlopen bij apparaten zonder webinterface.",
+    help_max_rows: "Beperkt de tabel, bijvoorbeeld voor een overzichtskaart.",
+    help_max_visible_rows: "Vanaf dit aantal rijen wordt het gegevensgebied scrollbaar; titel, selectie en tabelkop blijven staan. 0 toont alle rijen.",
+    group_columns: "Kolommen", group_display: "Weergave",
+    group_filter: "Filterknoppen", group_sort: "Sorteren",
+    colors_title: "Kleuren", reset: "Alle kleuren resetten",
+    note_theme: "huidig: standaard van het thema ({v})", note_current: "huidig: {v}",
+    invalid: "ongeldige waarde", asc: "Oplopend", desc: "Aflopend",
+    lang_auto: "Automatisch (Home Assistant)",
+    color_header_bg: "Kop-achtergrond", color_header_text: "Kop-tekst",
+    color_row_text: "Rij-tekst", color_row_alt_bg: "Elke tweede rij",
+    color_border: "Scheidingslijnen", color_active: "Actief",
+    color_inactive: "Inactief", color_guest: "Gastnetwerk",
+    color_blocked: "Geblokkeerd", color_update: "Update beschikbaar",
+    color_static: "Statisch IP", color_accent: "Accent (sorteren, filter)",
+  },
+};
+
 class FritzboxNetzwerkCardEditor extends HTMLElement {
   constructor() {
     super();
@@ -2014,11 +2125,147 @@ class FritzboxNetzwerkCardEditor extends HTMLElement {
   setConfig(config) {
     this._config = withDefaults(config);
     this._render();
+    this._applyLanguage();
   }
 
   set hass(hass) {
     this._hass = hass;
     if (this._form) this._form.hass = hass;
+    this._applyLanguage();
+  }
+
+  /* -- Sprache des Editors ------------------------------------------ */
+
+  _edLang() {
+    return resolveLang(this._config, this._hass);
+  }
+
+  /** Beschriftung eines Konfigurationsfeldes in der Editor-Sprache. */
+  _edLabel(name) {
+    const lang = this._edLang();
+    if (lang !== "de" && EDITOR_TX[lang] && EDITOR_TX[lang][name]) {
+      return EDITOR_TX[lang][name];
+    }
+    return EDITOR_LABELS[name] || name;
+  }
+
+  /** Hilfetext eines Feldes in der Editor-Sprache (oder leer). */
+  _edHelper(name) {
+    const lang = this._edLang();
+    if (lang !== "de" && EDITOR_TX[lang] && EDITOR_TX[lang][`help_${name}`]) {
+      return EDITOR_TX[lang][`help_${name}`];
+    }
+    return EDITOR_HELPERS[name] || "";
+  }
+
+  /** Sonstige Editor-Texte (Gruppen, Farben, Notizen) in der Editor-Sprache. */
+  _edUI(key, params) {
+    const lang = this._edLang();
+    const table = EDITOR_TX[lang] || EDITOR_TX.de;
+    let text = table[key];
+    if (text === undefined) text = EDITOR_TX.de[key];
+    if (text === undefined) return key;
+    if (params) {
+      for (const name of Object.keys(params)) {
+        text = text.replace(new RegExp(`\\{${name}\\}`, "g"), String(params[name]));
+      }
+    }
+    return text;
+  }
+
+  /** Farb-Beschriftung in der Editor-Sprache (DE aus COLOR_EDITOR_FIELDS). */
+  _edColorLabel(field) {
+    const lang = this._edLang();
+    if (lang !== "de" && EDITOR_TX[lang] && EDITOR_TX[lang][field.key]) {
+      return EDITOR_TX[lang][field.key];
+    }
+    return field.label;
+  }
+
+  /** Baut das ha-form-Schema mit übersetzten Gruppentiteln und Auswahllisten. */
+  _localizedSchema() {
+    const lang = this._edLang();
+    const groups = {
+      spalten: "group_columns",
+      darstellung: "group_display",
+      filter_buttons: "group_filter",
+      sortierung: "group_sort",
+    };
+    const localizeField = (field) => {
+      if (field.name === "sort_by") {
+        return {
+          ...field,
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: COLUMNS.map((column) => ({
+                value: column.key,
+                label: translate(lang, `col.${column.key}`),
+              })),
+            },
+          },
+        };
+      }
+      if (field.name === "sort_dir") {
+        return {
+          ...field,
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "asc", label: this._edUI("asc") },
+                { value: "desc", label: this._edUI("desc") },
+              ],
+            },
+          },
+        };
+      }
+      if (field.name === "language") {
+        return {
+          ...field,
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [
+                { value: "", label: this._edUI("lang_auto") },
+                { value: "de", label: "Deutsch" },
+                { value: "en", label: "English" },
+                { value: "nl", label: "Nederlands" },
+              ],
+            },
+          },
+        };
+      }
+      return field;
+    };
+    return EDITOR_SCHEMA.map((entry) => {
+      if (entry.type === "expandable") {
+        return {
+          ...entry,
+          title: this._edUI(groups[entry.name] || entry.name),
+          schema: entry.schema.map(localizeField),
+        };
+      }
+      return localizeField(entry);
+    });
+  }
+
+  /** Wendet die aktuelle Sprache auf Formular und Farbbereich an. */
+  _applyLanguage() {
+    if (!this._rendered || !this._form) return;
+    this._form.schema = this._localizedSchema();
+    this._form.computeLabel = (schema) => this._edLabel(schema.name);
+    this._form.computeHelper = (schema) => this._edHelper(schema.name);
+    this._form.data = this._config;
+    const title = this.querySelector(".fbn-color-title");
+    if (title) title.textContent = this._edUI("colors_title");
+    const reset = this.querySelector(".fbn-reset");
+    if (reset) {
+      reset.innerHTML = `<ha-icon icon="mdi:restore"></ha-icon>${escapeHtml(
+        this._edUI("reset")
+      )}`;
+    }
+    this._renderColors();
   }
 
   _fire(config) {
@@ -2090,23 +2337,27 @@ class FritzboxNetzwerkCardEditor extends HTMLElement {
       const safe = sanitizeColor(raw);
       const effective = safe || COLOR_FALLBACKS[field.key];
       const hex = normalizeHex(safe) || "#888888";
+      const label = this._edColorLabel(field);
       const note = safe
-        ? `aktuell: ${escapeHtml(safe)}`
-        : `aktuell: Standard des Themes (${escapeHtml(COLOR_FALLBACKS[field.key])})`;
-      const invalid = raw && !safe ? '<span class="fbn-invalid">Wert nicht gültig</span>' : "";
+        ? this._edUI("note_current", { v: safe })
+        : this._edUI("note_theme", { v: COLOR_FALLBACKS[field.key] });
+      const invalid =
+        raw && !safe
+          ? `<span class="fbn-invalid">${escapeHtml(this._edUI("invalid"))}</span>`
+          : "";
       return `
         <div class="fbn-color-row" data-key="${field.key}">
           <div class="fbn-color-meta">
-            <span class="fbn-color-label">${escapeHtml(field.label)}</span>
-            <span class="fbn-color-note">${note}</span>
+            <span class="fbn-color-label">${escapeHtml(label)}</span>
+            <span class="fbn-color-note">${escapeHtml(note)}</span>
             ${invalid}
           </div>
           <div class="fbn-color-controls">
             <span class="fbn-color-preview" style="background:${effective}"></span>
             <input class="fbn-color-text" type="text" value="${escapeHtml(raw)}"
-                   placeholder="z. B. #4caf50" aria-label="${escapeHtml(field.label)}">
+                   placeholder="z. B. #4caf50" aria-label="${escapeHtml(label)}">
             <input class="fbn-color-pick" type="color" value="${hex}"
-                   aria-label="${escapeHtml(field.label)} grafisch wählen">
+                   aria-label="${escapeHtml(label)}">
           </div>
         </div>`;
     }).join("");

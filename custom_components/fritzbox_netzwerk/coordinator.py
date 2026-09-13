@@ -211,7 +211,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "area": device.area_id or "",
             }
 
-        for device in registry.devices:
+        for device in self._iter_devices(registry):
             # 1) Verbindungen vom Typ "mac" haben Vorrang.
             for connection_type, connection_value in device.connections:
                 if connection_type == dr.CONNECTION_NETWORK_MAC:
@@ -223,6 +223,23 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             for _domain, identifier in device.identifiers:
                 _add(identifier, device)
         return mapping
+
+    @staticmethod
+    def _iter_devices(registry: dr.DeviceRegistry):
+        """Iteriert die Geraete-Eintraege der Registry versionsuebergreifend.
+
+        Seit Home Assistant 2026.9 liefert ``for x in registry.devices`` direkt
+        die ``DeviceEntry``-Objekte; auf aelteren Versionen liefert dieselbe
+        Iteration die Schluessel (Geraete-IDs als Strings). ``.values()`` waere
+        auf neuen Versionen wiederum als veraltet markiert. Daher wird hier
+        iteriert und ein String-Schluessel ueber die unterstuetzte Methode
+        ``async_get`` in seinen Eintrag aufgeloest - das funktioniert auf allen
+        Versionen ohne Absturz und ohne Deprecation-Warnung.
+        """
+        for item in registry.devices:
+            device = item if not isinstance(item, str) else registry.async_get(item)
+            if device is not None:
+                yield device
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Holt die Geraeteliste und reichert sie an."""

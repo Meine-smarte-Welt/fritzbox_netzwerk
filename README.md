@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.4.0-blue)
+![Version](https://img.shields.io/badge/Version-1.4.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -405,7 +405,8 @@ Lovelace-Ressource ein. Wird sie trotzdem nicht gefunden, hilft in dieser Reihen
 
 ## Sprachen
 
-Sowohl die **Integration** (Einrichtung, Dienste) als auch die **Dashboard-Karte** sind auf
+Sowohl die **Integration** (Einrichtung, Dienste) als auch die **Dashboard-Karte** – inklusive
+ihres **Konfigurations-Editors** – sind auf
 **Deutsch**, **Englisch** und **Niederländisch** übersetzt (`de`, `en`, `nl`). Die Karte
 folgt automatisch der in Home Assistant eingestellten Sprache; fehlt eine Übersetzung, wird
 auf Deutsch zurückgefallen.
@@ -447,7 +448,7 @@ Home-Assistant-Instanz prüfbar:
 
 ```bash
 python3 tests/test_hosts.py     # 38 Fälle
-node tests/test_card.js         # 137 Fälle, jsdom gegen die echte Kartendatei
+node tests/test_card.js         # 134 Fälle, jsdom gegen die echte Kartendatei
 ```
 
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein echtes
@@ -458,6 +459,19 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.4.1 – Absturz der Geräte-Zuordnung behoben, Editor übersetzt
+
+- **Karten-Editor mehrsprachig.** Auch die Konfigurationsoberfläche der Karte (Feldnamen,
+  Hilfetexte, Gruppentitel, Farbbereich) folgt jetzt der Home-Assistant-Sprache – Deutsch,
+  Englisch und Niederländisch.
+- **Behoben: Absturz beim Datenabruf** (`'str' object has no attribute 'connections'`). Die in
+  1.4.0 geänderte Iteration der Geräteregistrierung funktionierte nur auf Home Assistant
+  2026.9+, wo `for device in registry.devices` die Geräte-Einträge liefert. Auf älteren
+  Versionen liefert dieselbe Iteration die Schlüssel (Strings), was zum Absturz führte – und
+  weil dabei die gesamte Aktualisierung scheiterte, wurden **gar keine** Home-Assistant-Namen
+  mehr zugeordnet. Die Iteration ist jetzt versionsübergreifend: Strings werden über die
+  unterstützte Methode `async_get` aufgelöst. Kein Absturz, keine Deprecation-Warnung.
 
 ### 1.4.0 – Mehrsprachige Karte, robustere HA-Zuordnung
 
