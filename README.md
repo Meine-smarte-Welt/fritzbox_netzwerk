@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.3.0-blue)
+![Version](https://img.shields.io/badge/Version-1.4.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -58,6 +58,7 @@ passenden Home-Assistant-Gerätenamen.
   einen Blick
 - Vollständig über die Oberfläche konfigurierbar, inklusive **frei wählbarer Farben**
 - Zwei zusätzliche Zähler-Sensoren für Automatisierungen
+- **Verbindungs-Sensoren**: aktuelle Download-/Upload-Rate und die Leitungs-Sync-Raten
 
 Die Karte wird von der Integration mitgeliefert und automatisch als Lovelace-Ressource
 eingetragen. Es ist keine separate Installation der Karte nötig.
@@ -136,6 +137,14 @@ spart die Aufrufe vollständig.
 | `sensor.<name>_gerate` | Anzahl verbundener Geräte | Trägt die komplette Geräteliste im Attribut `hosts`; Datenquelle der Karte |
 | `sensor.<name>_gerate_mit_update` | Anzahl | Automatisierung „neue Firmware verfügbar" |
 | `sensor.<name>_gesperrte_gerate` | Anzahl | Überwachung der Kindersicherung |
+| `sensor.<name>_download` | kB/s | Aktuelle Download-Rate der Internetverbindung |
+| `sensor.<name>_upload` | kB/s | Aktuelle Upload-Rate der Internetverbindung |
+| `sensor.<name>_download_leitungsrate` | Mbit/s | Maximale Downstream-Rate der Leitung (Sync) |
+| `sensor.<name>_upload_leitungsrate` | Mbit/s | Maximale Upstream-Rate der Leitung (Sync) |
+
+Die vier Down/Up-Sensoren nutzen die WAN-Dienste der FRITZ!Box (TR-064). Fehlt der
+WAN-Dienst – etwa wenn die FRITZ!Box als reiner Access Point läuft –, bleiben diese Sensoren
+„unbekannt", ohne die Geräteliste zu beeinträchtigen.
 
 Das Attribut `hosts` ist per `_unrecorded_attributes` vom Recorder ausgenommen. Ohne das
 schriebe Home Assistant die vollständige Geräteliste bei jeder Änderung in die Datenbank –
@@ -396,8 +405,20 @@ Lovelace-Ressource ein. Wird sie trotzdem nicht gefunden, hilft in dieser Reihen
 
 ## Sprachen
 
-Die Integration ist auf **Deutsch**, **Englisch** und **Niederländisch** übersetzt
-(`de`, `en`, `nl`). Home Assistant wählt automatisch anhand der eingestellten Sprache.
+Sowohl die **Integration** (Einrichtung, Dienste) als auch die **Dashboard-Karte** sind auf
+**Deutsch**, **Englisch** und **Niederländisch** übersetzt (`de`, `en`, `nl`). Die Karte
+folgt automatisch der in Home Assistant eingestellten Sprache; fehlt eine Übersetzung, wird
+auf Deutsch zurückgefallen.
+
+Wer die Kartensprache unabhängig von Home Assistant festlegen möchte, wählt sie im
+Karten-Editor unter *Sprache der Karte* (Automatisch / Deutsch / English / Nederlands) oder
+setzt sie im YAML:
+
+```yaml
+type: custom:fritzbox-netzwerk-card
+entity: sensor.fritz_box_netzwerk_gerate
+language: nl   # "" = automatisch, sonst de | en | nl
+```
 
 ---
 
@@ -425,8 +446,8 @@ Home-Assistant- noch fritzconnection-Importe. Sie ist damit ohne laufende
 Home-Assistant-Instanz prüfbar:
 
 ```bash
-python3 tests/test_hosts.py     # 35 Fälle
-node tests/test_card.js         # 125 Fälle, jsdom gegen die echte Kartendatei
+python3 tests/test_hosts.py     # 38 Fälle
+node tests/test_card.js         # 137 Fälle, jsdom gegen die echte Kartendatei
 ```
 
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein echtes
@@ -437,6 +458,35 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.4.0 – Mehrsprachige Karte, robustere HA-Zuordnung
+
+- **Verbindungs-Sensoren (Down/Up).** Vier neue Sensoren: aktuelle Download- und Upload-Rate
+  (kB/s) sowie die maximalen Leitungs-Sync-Raten (Mbit/s). Fehlt der WAN-Dienst (Access-Point-
+  Betrieb), bleiben die Sensoren „unbekannt", ohne die Geräteliste zu stören.
+
+- **Karte mehrsprachig (Deutsch, Englisch, Niederländisch).** Alle Beschriftungen der Karte
+  – Spaltentitel, Filter, Suchfeld, Zusammenfassung, Zellen und das Detail-Popup – folgen
+  jetzt der in Home Assistant eingestellten Sprache. Im Editor lässt sich die Sprache über
+  *Sprache der Karte* auch fest wählen.
+- **HA-Geräte-Zuordnung robuster.** Die MAC-Adresse wird nun auch aus MAC-artigen Werten
+  anderer Verbindungstypen und aus den Geräte-Identifiern gelesen, nicht nur aus Verbindungen
+  vom Typ „mac". Die ungültige Null-MAC (00:00:…) wird ignoriert. Damit werden mehr Geräte
+  zugeordnet, die ihre MAC an anderer Stelle hinterlegen.
+
+  Grenze: Trägt eine Integration die MAC eines Geräts gar nicht in die Home-Assistant-
+  Geräteregistrierung ein (bei manchen Matter-Geräten der Fall, die ihre MAC nur in den
+  Matter-Diagnosedaten zeigen), kann es über diesen Weg nicht zugeordnet werden. Das liegt an
+  der jeweiligen Quell-Integration. Home Assistant speichert die IP-Adresse nicht als
+  Geräte-Kennung, daher ist eine Zuordnung über die IP nicht möglich.
+
+### 1.3.1 – Installations-/Veröffentlichungsfix
+
+- Kein funktionaler Unterschied zu 1.3.0. Diese Version stellt sicher, dass HACS die
+  Integration sauber neu einliest (die Domain der Integration wird wieder korrekt erkannt).
+  Falls HACS zuvor mit „custom_components/None/manifest.json" abbrach: Repository in HACS
+  entfernen und erneut hinzufügen, dann 1.3.1 herunterladen.
+
 
 ### 1.3.0 – Verlinkter HA-Name, ausblendbare Filter, scrollbarer Datenbereich, Logo
 
