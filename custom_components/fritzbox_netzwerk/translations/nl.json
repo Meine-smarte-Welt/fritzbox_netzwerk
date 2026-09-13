@@ -52,9 +52,27 @@
   },
   "entity": {
     "sensor": {
-      "geraete": { "name": "Apparaten" },
-      "updates": { "name": "Apparaten met update" },
-      "gesperrt": { "name": "Geblokkeerde apparaten" }
+      "geraete": {
+        "name": "Apparaten"
+      },
+      "updates": {
+        "name": "Apparaten met update"
+      },
+      "gesperrt": {
+        "name": "Geblokkeerde apparaten"
+      },
+      "download": {
+        "name": "Download (actueel)"
+      },
+      "upload": {
+        "name": "Upload (actueel)"
+      },
+      "download_max": {
+        "name": "Download (lijnsnelheid)"
+      },
+      "upload_max": {
+        "name": "Upload (lijnsnelheid)"
+      }
     }
   },
   "services": {
@@ -62,23 +80,38 @@
       "name": "Apparaat hernoemen",
       "description": "Wijzigt de naam van een netwerkapparaat op de FRITZ!Box.",
       "fields": {
-        "mac": { "name": "MAC-adres", "description": "MAC-adres van het apparaat." },
-        "name": { "name": "Nieuwe naam", "description": "De nieuwe apparaatnaam." }
+        "mac": {
+          "name": "MAC-adres",
+          "description": "MAC-adres van het apparaat."
+        },
+        "name": {
+          "name": "Nieuwe naam",
+          "description": "De nieuwe apparaatnaam."
+        }
       }
     },
     "wake_on_lan": {
       "name": "Apparaat wekken",
       "description": "Stuurt een Wake-on-LAN-signaal naar een netwerkapparaat.",
       "fields": {
-        "mac": { "name": "MAC-adres", "description": "MAC-adres van het apparaat." }
+        "mac": {
+          "name": "MAC-adres",
+          "description": "MAC-adres van het apparaat."
+        }
       }
     },
     "set_internet_access": {
       "name": "Internettoegang schakelen",
       "description": "Blokkeert of staat de internettoegang van een apparaat toe (experimenteel, alleen op FRITZ!Boxen met de TR-064 HostFilter-dienst).",
       "fields": {
-        "mac": { "name": "MAC-adres", "description": "MAC-adres van het apparaat." },
-        "blocked": { "name": "Geblokkeerd", "description": "Aan = internettoegang blokkeren, Uit = toestaan." }
+        "mac": {
+          "name": "MAC-adres",
+          "description": "MAC-adres van het apparaat."
+        },
+        "blocked": {
+          "name": "Geblokkeerd",
+          "description": "Aan = internettoegang blokkeren, Uit = toestaan."
+        }
       }
     }
   }

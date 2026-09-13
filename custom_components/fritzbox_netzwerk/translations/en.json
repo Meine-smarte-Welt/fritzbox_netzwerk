@@ -60,6 +60,18 @@
       },
       "gesperrt": {
         "name": "Blocked devices"
+      },
+      "download": {
+        "name": "Download (current)"
+      },
+      "upload": {
+        "name": "Upload (current)"
+      },
+      "download_max": {
+        "name": "Download (line rate)"
+      },
+      "upload_max": {
+        "name": "Upload (line rate)"
       }
     }
   },
