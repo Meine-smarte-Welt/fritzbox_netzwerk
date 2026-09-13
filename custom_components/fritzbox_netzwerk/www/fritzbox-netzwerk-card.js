@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.3.0";
+const FBN_VERSION = "1.4.0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -27,6 +27,7 @@ const CONFIG_DEFAULTS = {
   entity: "",
   title: "Netzwerkgeräte",
   show_title: true,
+  language: "",
 
   // Spalten
   show_status: true,
@@ -114,6 +115,179 @@ const FILTERS = [
   { key: "gesperrt", label: "Gesperrt", icon: "mdi:web-off" },
   { key: "update", label: "Update", icon: "mdi:package-down" },
 ];
+
+/**
+ * Übersetzungen der sichtbaren Karten-Beschriftungen. Ausgewählt wird
+ * anhand der in Home Assistant eingestellten Sprache (Fallback Deutsch).
+ * Fehlt ein Schlüssel in einer Sprache, wird auf Deutsch zurückgefallen,
+ * damit nie ein leeres Feld entsteht.
+ */
+const I18N = {
+  de: {
+    "col.name": "Gerät", "col.ip": "IP-Adresse", "col.mac": "MAC-Adresse",
+    "col.connection": "Verbindung", "col.ha_name": "Home Assistant",
+    "col.ip_type": "IP-Typ", "col.wan": "Internet", "col.update": "Update",
+    "col.speed": "Tempo", "col.model": "Modell", "col.type": "Gerätetyp",
+    "col.last_seen": "Zuletzt online", "col.status": "Status",
+    "flt.alle": "Alle", "flt.aktiv": "Aktiv", "flt.inaktiv": "Inaktiv",
+    "flt.gast": "Gast", "flt.gesperrt": "Gesperrt", "flt.update": "Update",
+    "search.placeholder": "Name, IP oder MAC", "search.aria": "Geräte durchsuchen",
+    "empty.none": "Keine Geräte gefunden.",
+    "empty.sensor": "Der Sensor {entity} ist nicht verfügbar.",
+    "sum.devices": "{n} Geräte", "sum.active": "{n} aktiv",
+    "sum.updates": "{n} mit Update", "sum.blocked": "{n} gesperrt",
+    "sum.shown": "{n} angezeigt",
+    "state.connected": "Verbunden", "state.disconnected": "Nicht verbunden",
+    "state.online_now": "jetzt online", "state.now_online": "gerade online",
+    "ls.just_now": "gerade eben", "ls.min": "vor {n} min", "ls.hour": "vor {n} h",
+    "ls.yesterday": "gestern", "ls.days": "vor {n} Tagen",
+    "iptype.static": "statisch", "iptype.dhcp": "DHCP",
+    "wan.blocked": "gesperrt", "wan.allowed": "erlaubt",
+    "upd.available": "verfügbar", "upd.none": "keines",
+    "badge.guest": "Gast", "badge.vpn": "VPN", "badge.priority": "Priorität",
+    "badge.mesh": "Mesh-fähig",
+    "field.name": "Gerätename", "field.status": "Status", "field.ip_type": "IP-Typ",
+    "field.speed": "Tempo", "field.wan": "Internetzugang",
+    "field.filter_profile": "Filterprofil", "field.update": "Firmware-Update",
+    "field.model": "Modell", "field.type": "Gerätetyp", "field.hostname": "Hostname",
+    "field.features": "Merkmale", "field.ha": "Home Assistant",
+    "field.last_seen": "Zuletzt online",
+    "btn.web": "Weboberfläche öffnen", "btn.ha": "In Home Assistant öffnen",
+    "btn.block": "Internet sperren", "btn.unblock": "Internet freigeben",
+    "btn.wol": "Aufwecken (WoL)", "btn.close": "Schließen",
+    "act.blocking": "Sperre …", "act.unblocking": "Gebe frei …",
+    "act.blocked": "Gesperrt", "act.unblocked": "Freigegeben",
+    "act.failed": "Fehlgeschlagen", "act.wol_sent": "Signal gesendet",
+    "act.wol_wait": "…", "copy.aria": "{label} kopieren",
+    "popup.gone": "Dieses Gerät ist nicht mehr in der Liste.",
+    "popup.aria": "Gerätedetails {name}",
+    "tip.web": "Weboberfläche öffnen ({url})", "tip.ha": "Zum Home-Assistant-Gerät",
+    "tip.blocked": "Internetzugang gesperrt", "tip.update": "Firmware-Update verfügbar",
+    "tip.online": "Gerät ist gerade online",
+    "tip.ls_unknown": "Seit Installation der Integration nicht als online erfasst",
+    "tip.ls_last": "Zuletzt online: {ts}", "tip.sort": "Nach {label} sortieren",
+    "arrow.left": "Nach links blättern", "arrow.right": "Nach rechts blättern",
+  },
+  en: {
+    "col.name": "Device", "col.ip": "IP address", "col.mac": "MAC address",
+    "col.connection": "Connection", "col.ha_name": "Home Assistant",
+    "col.ip_type": "IP type", "col.wan": "Internet", "col.update": "Update",
+    "col.speed": "Speed", "col.model": "Model", "col.type": "Device type",
+    "col.last_seen": "Last seen", "col.status": "Status",
+    "flt.alle": "All", "flt.aktiv": "Active", "flt.inaktiv": "Inactive",
+    "flt.gast": "Guest", "flt.gesperrt": "Blocked", "flt.update": "Update",
+    "search.placeholder": "Name, IP or MAC", "search.aria": "Search devices",
+    "empty.none": "No devices found.",
+    "empty.sensor": "The sensor {entity} is unavailable.",
+    "sum.devices": "{n} devices", "sum.active": "{n} active",
+    "sum.updates": "{n} with update", "sum.blocked": "{n} blocked",
+    "sum.shown": "{n} shown",
+    "state.connected": "Connected", "state.disconnected": "Not connected",
+    "state.online_now": "online now", "state.now_online": "online now",
+    "ls.just_now": "just now", "ls.min": "{n} min ago", "ls.hour": "{n} h ago",
+    "ls.yesterday": "yesterday", "ls.days": "{n} days ago",
+    "iptype.static": "static", "iptype.dhcp": "DHCP",
+    "wan.blocked": "blocked", "wan.allowed": "allowed",
+    "upd.available": "available", "upd.none": "none",
+    "badge.guest": "Guest", "badge.vpn": "VPN", "badge.priority": "Priority",
+    "badge.mesh": "Mesh-capable",
+    "field.name": "Device name", "field.status": "Status", "field.ip_type": "IP type",
+    "field.speed": "Speed", "field.wan": "Internet access",
+    "field.filter_profile": "Filter profile", "field.update": "Firmware update",
+    "field.model": "Model", "field.type": "Device type", "field.hostname": "Hostname",
+    "field.features": "Features", "field.ha": "Home Assistant",
+    "field.last_seen": "Last seen",
+    "btn.web": "Open web interface", "btn.ha": "Open in Home Assistant",
+    "btn.block": "Block internet", "btn.unblock": "Allow internet",
+    "btn.wol": "Wake (WoL)", "btn.close": "Close",
+    "act.blocking": "Blocking …", "act.unblocking": "Allowing …",
+    "act.blocked": "Blocked", "act.unblocked": "Allowed",
+    "act.failed": "Failed", "act.wol_sent": "Signal sent",
+    "act.wol_wait": "…", "copy.aria": "Copy {label}",
+    "popup.gone": "This device is no longer in the list.",
+    "popup.aria": "Device details {name}",
+    "tip.web": "Open web interface ({url})", "tip.ha": "Go to Home Assistant device",
+    "tip.blocked": "Internet access blocked", "tip.update": "Firmware update available",
+    "tip.online": "Device is currently online",
+    "tip.ls_unknown": "Not seen online since the integration was installed",
+    "tip.ls_last": "Last seen: {ts}", "tip.sort": "Sort by {label}",
+    "arrow.left": "Scroll left", "arrow.right": "Scroll right",
+  },
+  nl: {
+    "col.name": "Apparaat", "col.ip": "IP-adres", "col.mac": "MAC-adres",
+    "col.connection": "Verbinding", "col.ha_name": "Home Assistant",
+    "col.ip_type": "IP-type", "col.wan": "Internet", "col.update": "Update",
+    "col.speed": "Snelheid", "col.model": "Model", "col.type": "Apparaattype",
+    "col.last_seen": "Laatst online", "col.status": "Status",
+    "flt.alle": "Alle", "flt.aktiv": "Actief", "flt.inaktiv": "Inactief",
+    "flt.gast": "Gast", "flt.gesperrt": "Geblokkeerd", "flt.update": "Update",
+    "search.placeholder": "Naam, IP of MAC", "search.aria": "Apparaten zoeken",
+    "empty.none": "Geen apparaten gevonden.",
+    "empty.sensor": "De sensor {entity} is niet beschikbaar.",
+    "sum.devices": "{n} apparaten", "sum.active": "{n} actief",
+    "sum.updates": "{n} met update", "sum.blocked": "{n} geblokkeerd",
+    "sum.shown": "{n} weergegeven",
+    "state.connected": "Verbonden", "state.disconnected": "Niet verbonden",
+    "state.online_now": "nu online", "state.now_online": "nu online",
+    "ls.just_now": "zojuist", "ls.min": "{n} min geleden", "ls.hour": "{n} u geleden",
+    "ls.yesterday": "gisteren", "ls.days": "{n} dagen geleden",
+    "iptype.static": "statisch", "iptype.dhcp": "DHCP",
+    "wan.blocked": "geblokkeerd", "wan.allowed": "toegestaan",
+    "upd.available": "beschikbaar", "upd.none": "geen",
+    "badge.guest": "Gast", "badge.vpn": "VPN", "badge.priority": "Prioriteit",
+    "badge.mesh": "Mesh-geschikt",
+    "field.name": "Apparaatnaam", "field.status": "Status", "field.ip_type": "IP-type",
+    "field.speed": "Snelheid", "field.wan": "Internettoegang",
+    "field.filter_profile": "Filterprofiel", "field.update": "Firmware-update",
+    "field.model": "Model", "field.type": "Apparaattype", "field.hostname": "Hostnaam",
+    "field.features": "Kenmerken", "field.ha": "Home Assistant",
+    "field.last_seen": "Laatst online",
+    "btn.web": "Webinterface openen", "btn.ha": "In Home Assistant openen",
+    "btn.block": "Internet blokkeren", "btn.unblock": "Internet toestaan",
+    "btn.wol": "Wekken (WoL)", "btn.close": "Sluiten",
+    "act.blocking": "Blokkeren …", "act.unblocking": "Toestaan …",
+    "act.blocked": "Geblokkeerd", "act.unblocked": "Toegestaan",
+    "act.failed": "Mislukt", "act.wol_sent": "Signaal verzonden",
+    "act.wol_wait": "…", "copy.aria": "{label} kopiëren",
+    "popup.gone": "Dit apparaat staat niet meer in de lijst.",
+    "popup.aria": "Apparaatdetails {name}",
+    "tip.web": "Webinterface openen ({url})", "tip.ha": "Naar Home Assistant-apparaat",
+    "tip.blocked": "Internettoegang geblokkeerd", "tip.update": "Firmware-update beschikbaar",
+    "tip.online": "Apparaat is nu online",
+    "tip.ls_unknown": "Sinds installatie van de integratie niet online gezien",
+    "tip.ls_last": "Laatst online: {ts}", "tip.sort": "Sorteren op {label}",
+    "arrow.left": "Naar links bladeren", "arrow.right": "Naar rechts bladeren",
+  },
+};
+
+const SUPPORTED_LANGS = ["de", "en", "nl"];
+
+/** Ermittelt die anzuzeigende Sprache aus Konfig oder HA-Spracheinstellung. */
+function resolveLang(config, hass) {
+  const wanted = String(
+    (config && config.language) ||
+      (hass && hass.locale && hass.locale.language) ||
+      (hass && hass.language) ||
+      "de"
+  )
+    .slice(0, 2)
+    .toLowerCase();
+  return SUPPORTED_LANGS.includes(wanted) ? wanted : "de";
+}
+
+/** Übersetzt einen Schlüssel und ersetzt {platzhalter}. */
+function translate(lang, key, params) {
+  const table = I18N[lang] || I18N.de;
+  let text = table[key];
+  if (text === undefined) text = I18N.de[key];
+  if (text === undefined) return key;
+  if (params) {
+    for (const name of Object.keys(params)) {
+      text = text.replace(new RegExp(`\\{${name}\\}`, "g"), String(params[name]));
+    }
+  }
+  return text;
+}
 
 /** Standardfarbe je Farbschluessel, wenn der Nutzer nichts gesetzt hat. */
 const COLOR_FALLBACKS = {
@@ -235,20 +409,21 @@ function formatLease(seconds) {
  * "Zuletzt online" lesbar aufbereiten: relativ bei kurzer Zeit, sonst
  * Datum. Erwartet einen ISO-Zeitstempel; ohne Wert kommt "—".
  */
-function formatLastSeen(iso, now) {
+function formatLastSeen(iso, lang, now) {
+  const L = lang || "de";
   if (!iso) return "—";
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return "—";
   const ref = now || Date.now();
   const diff = Math.max(0, ref - then);
   const min = Math.floor(diff / 60000);
-  if (min < 1) return "gerade eben";
-  if (min < 60) return `vor ${min} min`;
+  if (min < 1) return translate(L, "ls.just_now");
+  if (min < 60) return translate(L, "ls.min", { n: min });
   const hours = Math.floor(min / 60);
-  if (hours < 24) return `vor ${hours} h`;
+  if (hours < 24) return translate(L, "ls.hour", { n: hours });
   const days = Math.floor(hours / 24);
-  if (days === 1) return "gestern";
-  if (days < 7) return `vor ${days} Tagen`;
+  if (days === 1) return translate(L, "ls.yesterday");
+  if (days < 7) return translate(L, "ls.days", { n: days });
   // Ab einer Woche das konkrete Datum.
   const date = new Date(then);
   const dd = String(date.getDate()).padStart(2, "0");
@@ -381,6 +556,31 @@ class FritzboxNetzwerkCard extends HTMLElement {
   getCardSize() {
     const rows = this._hosts().length;
     return Math.min(12, 3 + Math.ceil(rows / 3));
+  }
+
+  /** Aktuelle Sprache (Konfig-Override oder HA-Einstellung). */
+  _lang() {
+    return resolveLang(this._config, this._hass);
+  }
+
+  /** Übersetzt einen Schlüssel in der aktuellen Sprache. */
+  _t(key, params) {
+    return translate(this._lang(), key, params);
+  }
+
+  /** Lokalisierte Verbindungsbezeichnung aus Art, Port und Gastflag. */
+  _connLabel(host) {
+    const kind = host.connection;
+    let base;
+    if (kind === "lan") base = host.port ? `LAN ${host.port}` : "LAN";
+    else if (kind === "wlan") base = "WLAN";
+    else if (kind === "powerline") base = "Powerline";
+    else base = "—";
+    if (host.guest) {
+      const g = this._t("badge.guest");
+      return base === "—" ? g : `${base} (${g})`;
+    }
+    return base;
   }
 
   static getConfigElement() {
@@ -559,7 +759,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         <div class="fbn-summary"></div>
         <div class="fbn-scrollwrap">
           <button class="fbn-arrow fbn-arrow-left" type="button" hidden
-                  aria-label="Nach links blättern" tabindex="-1">
+                  aria-label="${escapeHtml(this._t('arrow.left'))}" tabindex="-1">
             <ha-icon icon="mdi:chevron-left"></ha-icon>
           </button>
           <div class="fbn-scroll">
@@ -569,11 +769,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
             </table>
           </div>
           <button class="fbn-arrow fbn-arrow-right" type="button" hidden
-                  aria-label="Nach rechts blättern" tabindex="-1">
+                  aria-label="${escapeHtml(this._t('arrow.right'))}" tabindex="-1">
             <ha-icon icon="mdi:chevron-right"></ha-icon>
           </button>
         </div>
-        <div class="fbn-empty" hidden>Keine Geräte gefunden.</div>
+        <div class="fbn-empty" hidden></div>
       </div>
     `;
     this.appendChild(card);
@@ -619,7 +819,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         (filter) => `
         <button class="fbn-chip" data-filter="${filter.key}" type="button"
                 aria-pressed="${filter.key === this._filter}">
-          <ha-icon icon="${filter.icon}"></ha-icon><span>${escapeHtml(filter.label)}</span>
+          <ha-icon icon="${filter.icon}"></ha-icon><span>${escapeHtml(this._t(`flt.${filter.key}`))}</span>
         </button>`
       )
       .join("");
@@ -714,7 +914,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     container.innerHTML = `
       <label class="fbn-search">
         <ha-icon icon="mdi:magnify"></ha-icon>
-        <input type="search" placeholder="Name, IP oder MAC" aria-label="Geräte durchsuchen">
+        <input type="search" placeholder="${escapeHtml(this._t('search.placeholder'))}" aria-label="${escapeHtml(this._t('search.aria'))}">
       </label>`;
     const input = container.querySelector("input");
     input.addEventListener("input", () => {
@@ -735,14 +935,16 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (!row) return;
     row.innerHTML = this._visibleColumns()
       .map((column) => {
-        const label = column.key === "status" ? "Status" : column.label;
+        const header = this._t(`col.${column.key}`);
+        // Statusspalte zeigt kein Textlabel, aber Tooltip/aria "Status".
+        const cellLabel = column.key === "status" ? "" : header;
         return `
           <th class="fbn-th fbn-col-${column.key} fbn-prio-${column.prio}"
               data-sort="${column.key}" scope="col" tabindex="0" role="columnheader"
               style="text-align:${column.align || "left"}"
-              title="Nach ${escapeHtml(label)} sortieren">
+              title="${escapeHtml(this._t("tip.sort", { label: header }))}">
             <span class="fbn-th-inner">
-              <span class="fbn-th-label">${escapeHtml(column.label)}</span>
+              <span class="fbn-th-label">${escapeHtml(cellLabel)}</span>
               <ha-icon class="fbn-sorticon" icon="mdi:arrow-up" hidden></ha-icon>
             </span>
           </th>`;
@@ -809,14 +1011,19 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const attributes = (state && state.attributes) || {};
     const shown = this._filteredHosts().length;
     const parts = [
-      `${attributes.gesamt || 0} Geräte`,
-      `${attributes.aktiv || 0} aktiv`,
+      this._t("sum.devices", { n: attributes.gesamt || 0 }),
+      this._t("sum.active", { n: attributes.aktiv || 0 }),
     ];
     if (attributes.updates_verfuegbar) {
-      parts.push(`${attributes.updates_verfuegbar} mit Update`);
+      parts.push(this._t("sum.updates", { n: attributes.updates_verfuegbar }));
     }
-    if (attributes.gesperrt) parts.push(`${attributes.gesperrt} gesperrt`);
-    const filtered = shown !== (attributes.gesamt || 0) ? ` · ${shown} angezeigt` : "";
+    if (attributes.gesperrt) {
+      parts.push(this._t("sum.blocked", { n: attributes.gesperrt }));
+    }
+    const filtered =
+      shown !== (attributes.gesamt || 0)
+        ? ` · ${this._t("sum.shown", { n: shown })}`
+        : "";
     container.textContent = parts.join(" · ") + filtered;
   }
 
@@ -830,7 +1037,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
       body.innerHTML = "";
       if (empty) {
         empty.hidden = false;
-        empty.textContent = `Der Sensor ${this._config.entity} ist nicht verfügbar.`;
+        empty.textContent = this._t("empty.sensor", { entity: this._config.entity });
       }
       return;
     }
@@ -838,7 +1045,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const hosts = this._filteredHosts();
     if (empty) {
       empty.hidden = hosts.length > 0;
-      empty.textContent = "Keine Geräte gefunden.";
+      empty.textContent = this._t("empty.none");
     }
 
     const columns = this._visibleColumns();
@@ -966,13 +1173,13 @@ class FritzboxNetzwerkCard extends HTMLElement {
       case "status":
         return `<span class="fbn-dot ${
           host.active ? "fbn-dot-on" : "fbn-dot-off"
-        }" title="${host.active ? "Verbunden" : "Nicht verbunden"}"></span>`;
+        }" title="${host.active ? this._t("state.connected") : this._t("state.disconnected")}"></span>`;
 
       case "name": {
         const badges = [];
-        if (host.guest) badges.push('<span class="fbn-badge fbn-badge-guest">Gast</span>');
-        if (host.vpn) badges.push('<span class="fbn-badge">VPN</span>');
-        if (host.priority) badges.push('<span class="fbn-badge">Priorität</span>');
+        if (host.guest) badges.push(`<span class="fbn-badge fbn-badge-guest">${escapeHtml(this._t("badge.guest"))}</span>`);
+        if (host.vpn) badges.push(`<span class="fbn-badge">${escapeHtml(this._t("badge.vpn"))}</span>`);
+        if (host.priority) badges.push(`<span class="fbn-badge">${escapeHtml(this._t("badge.priority"))}</span>`);
         return `
           <div class="fbn-namecell">
             <ha-icon class="fbn-rowicon" icon="${connectionIcon(host)}"></ha-icon>
@@ -991,8 +1198,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
         // das faengt der Zeilen-Handler ueber "closest('a')" ab.
         return `<a class="fbn-iplink fbn-mono" href="${escapeHtml(url)}"
                    target="_blank" rel="noopener noreferrer"
-                   title="Weboberfläche öffnen (${escapeHtml(url)})"
-                   aria-label="Weboberfläche von ${escapeHtml(host.name)} öffnen"
+                   title="${escapeHtml(this._t('tip.web', { url }))}"
+                   aria-label="${escapeHtml(this._t('btn.web'))}"
                 >${escapeHtml(host.ip)}<ha-icon class="fbn-iplink-icon" icon="mdi:open-in-new"></ha-icon></a>`;
       }
 
@@ -1000,7 +1207,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         return `<span class="fbn-mono fbn-dim">${escapeHtml(host.mac || "—")}</span>`;
 
       case "connection":
-        return escapeHtml(host.connection_label || "—");
+        return escapeHtml(this._connLabel(host));
 
       case "ha_name": {
         if (!host.ha_name) return '<span class="fbn-dim">—</span>';
@@ -1011,32 +1218,32 @@ class FritzboxNetzwerkCard extends HTMLElement {
           return `<a class="fbn-halink" href="/config/devices/device/${escapeHtml(
             host.ha_device_id
           )}" data-device="${escapeHtml(host.ha_device_id)}"
-                    title="Zum Home-Assistant-Gerät">${escapeHtml(host.ha_name)}</a>`;
+                    title="${escapeHtml(this._t('tip.ha'))}">${escapeHtml(host.ha_name)}</a>`;
         }
         return `<span class="fbn-ha">${escapeHtml(host.ha_name)}</span>`;
       }
 
       case "ip_type": {
         if (host.static_ip === true) {
-          return '<span class="fbn-badge fbn-badge-static">statisch</span>';
+          return `<span class="fbn-badge fbn-badge-static">${escapeHtml(this._t("iptype.static"))}</span>`;
         }
         if (host.static_ip === false) {
           const lease = formatLease(host.lease_time_remaining);
-          return `<span class="fbn-dim">DHCP${
+          return `<span class="fbn-dim">${escapeHtml(this._t("iptype.dhcp"))}${
             lease ? ` <span class="fbn-lease">(${escapeHtml(lease)})</span>` : ""
           }</span>`;
         }
-        return '<span class="fbn-dim" title="IP-Typ-Erfassung ist ausgeschaltet oder noch nicht gelaufen">—</span>';
+        return '<span class="fbn-dim">—</span>';
       }
 
       case "wan":
         return host.blocked
-          ? '<ha-icon class="fbn-icon-blocked" icon="mdi:web-off" title="Internetzugang gesperrt"></ha-icon>'
+          ? `<ha-icon class="fbn-icon-blocked" icon="mdi:web-off" title="${escapeHtml(this._t("tip.blocked"))}"></ha-icon>`
           : '<span class="fbn-dim">—</span>';
 
       case "update":
         return host.update_available
-          ? '<ha-icon class="fbn-icon-update" icon="mdi:package-down" title="Firmware-Update verfügbar"></ha-icon>'
+          ? `<ha-icon class="fbn-icon-update" icon="mdi:package-down" title="${escapeHtml(this._t("tip.update"))}"></ha-icon>`
           : '<span class="fbn-dim">—</span>';
 
       case "speed":
@@ -1050,13 +1257,13 @@ class FritzboxNetzwerkCard extends HTMLElement {
 
       case "last_seen": {
         if (host.active) {
-          return '<span class="fbn-ls-now" title="Gerät ist gerade online">jetzt online</span>';
+          return `<span class="fbn-ls-now" title="${escapeHtml(this._t("tip.online"))}">${escapeHtml(this._t("state.online_now"))}</span>`;
         }
-        const text = formatLastSeen(host.last_seen);
+        const text = formatLastSeen(host.last_seen, this._lang());
         const title = host.last_seen
-          ? `Zuletzt online: ${escapeHtml(host.last_seen)}`
-          : "Seit Installation der Integration nicht als online erfasst";
-        return `<span class="fbn-dim" title="${title}">${escapeHtml(text)}</span>`;
+          ? this._t("tip.ls_last", { ts: host.last_seen })
+          : this._t("tip.ls_unknown");
+        return `<span class="fbn-dim" title="${escapeHtml(title)}">${escapeHtml(text)}</span>`;
       }
 
       default:
@@ -1089,14 +1296,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
     overlay.innerHTML = `
       <style>${this._popupStyles()}</style>
       <div class="fbn-modal" role="dialog" aria-modal="true"
-           aria-label="Gerätedetails ${escapeHtml(host.name)}">
+           aria-label="${escapeHtml(this._t('popup.aria', { name: host.name }))}">
         <div class="fbn-modal-head">
           <ha-icon class="fbn-modal-icon" icon="${connectionIcon(host)}"></ha-icon>
           <div class="fbn-modal-titles">
             <div class="fbn-modal-title"></div>
             <div class="fbn-modal-sub"></div>
           </div>
-          <button class="fbn-modal-close" type="button" aria-label="Schließen">
+          <button class="fbn-modal-close" type="button" aria-label="${escapeHtml(this._t('btn.close'))}">
             <ha-icon icon="mdi:close"></ha-icon>
           </button>
         </div>
@@ -1143,7 +1350,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         body.dataset.gone = "1";
         const note = document.createElement("div");
         note.className = "fbn-modal-note";
-        note.textContent = "Dieses Gerät ist nicht mehr in der Liste.";
+        note.textContent = this._t("popup.gone");
         body.prepend(note);
       }
       return;
@@ -1154,8 +1361,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     title.textContent = host.name;
     sub.innerHTML = `
       <span class="fbn-dot ${host.active ? "fbn-dot-on" : "fbn-dot-off"}"></span>
-      ${host.active ? "Verbunden" : "Nicht verbunden"} · ${escapeHtml(
-      host.connection_label || "—"
+      ${host.active ? escapeHtml(this._t("state.connected")) : escapeHtml(this._t("state.disconnected"))} · ${escapeHtml(
+      this._connLabel(host)
     )}`;
 
     this._popup.querySelector(".fbn-modal-body").innerHTML =
@@ -1207,7 +1414,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         opts.copy && shown !== "—"
           ? `<button class="fbn-copy" type="button" data-copy="${escapeHtml(
               opts.copy
-            )}" aria-label="${escapeHtml(label)} kopieren"><ha-icon icon="mdi:content-copy"></ha-icon></button>`
+            )}" aria-label="${escapeHtml(this._t('copy.aria', { label }))}"><ha-icon icon="mdi:content-copy"></ha-icon></button>`
           : "";
       rows.push(`
         <div class="fbn-drow">
@@ -1216,51 +1423,52 @@ class FritzboxNetzwerkCard extends HTMLElement {
         </div>`);
     };
 
-    add("Gerätename", escapeHtml(host.name));
-    add("IP-Adresse", escapeHtml(host.ip), { mono: true, copy: host.ip });
-    add("MAC-Adresse", escapeHtml(host.mac), { mono: true, copy: host.mac });
-    add("Verbindung", escapeHtml(host.connection_label));
+    add(this._t("field.name"), escapeHtml(host.name));
+    add(this._t("col.ip"), escapeHtml(host.ip), { mono: true, copy: host.ip });
+    add(this._t("col.mac"), escapeHtml(host.mac), { mono: true, copy: host.mac });
+    add(this._t("col.connection"), escapeHtml(this._connLabel(host)));
     add(
-      "Status",
-      host.active ? "Verbunden" : "Nicht verbunden"
+      this._t("field.status"),
+      host.active ? this._t("state.connected") : this._t("state.disconnected")
     );
 
     let ipType = "—";
-    if (host.static_ip === true) ipType = "statisch";
+    if (host.static_ip === true) ipType = this._t("iptype.static");
     else if (host.static_ip === false) {
       const lease = formatLease(host.lease_time_remaining);
-      ipType = lease ? `DHCP (${escapeHtml(lease)})` : "DHCP";
+      const dhcp = this._t("iptype.dhcp");
+      ipType = lease ? `${dhcp} (${escapeHtml(lease)})` : dhcp;
     }
-    add("IP-Typ", ipType);
+    add(this._t("field.ip_type"), ipType);
 
-    add("Tempo", host.active ? escapeHtml(formatSpeed(host.speed)) : "—");
-    add("Internetzugang", host.blocked ? "gesperrt" : "erlaubt");
-    if (host.filter_profile) add("Filterprofil", escapeHtml(host.filter_profile));
-    add("Firmware-Update", host.update_available ? "verfügbar" : "keines");
-    if (host.model) add("Modell", escapeHtml(host.model));
+    add(this._t("field.speed"), host.active ? escapeHtml(formatSpeed(host.speed)) : "—");
+    add(this._t("field.wan"), host.blocked ? this._t("wan.blocked") : this._t("wan.allowed"));
+    if (host.filter_profile) add(this._t("field.filter_profile"), escapeHtml(host.filter_profile));
+    add(this._t("field.update"), host.update_available ? this._t("upd.available") : this._t("upd.none"));
+    if (host.model) add(this._t("field.model"), escapeHtml(host.model));
     add(
-      "Gerätetyp",
+      this._t("field.type"),
       escapeHtml(host.device_class_user || host.device_class || "")
     );
     if (host.host_name && host.host_name !== host.name) {
-      add("Hostname", escapeHtml(host.host_name));
+      add(this._t("field.hostname"), escapeHtml(host.host_name));
     }
 
     const flags = [];
-    if (host.guest) flags.push("Gastnetz");
-    if (host.vpn) flags.push("VPN");
-    if (host.priority) flags.push("Priorität");
-    if (host.meshable) flags.push("Mesh-fähig");
-    if (flags.length) add("Merkmale", escapeHtml(flags.join(", ")));
+    if (host.guest) flags.push(this._t("badge.guest"));
+    if (host.vpn) flags.push(this._t("badge.vpn"));
+    if (host.priority) flags.push(this._t("badge.priority"));
+    if (host.meshable) flags.push(this._t("badge.mesh"));
+    if (flags.length) add(this._t("field.features"), escapeHtml(flags.join(", ")));
 
     add(
-      "Home Assistant",
+      this._t("field.ha"),
       host.ha_name ? escapeHtml(host.ha_name) : ""
     );
 
     add(
-      "Zuletzt online",
-      host.active ? "gerade online" : escapeHtml(formatLastSeen(host.last_seen))
+      this._t("field.last_seen"),
+      host.active ? this._t("state.now_online") : escapeHtml(formatLastSeen(host.last_seen, this._lang()))
     );
 
     return rows.join("");
@@ -1274,34 +1482,34 @@ class FritzboxNetzwerkCard extends HTMLElement {
       : "";
     if (url) {
       buttons.push(
-        `<a class="fbn-btn fbn-act-web" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"><ha-icon icon="mdi:open-in-new"></ha-icon>Weboberfläche öffnen</a>`
+        `<a class="fbn-btn fbn-act-web" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"><ha-icon icon="mdi:open-in-new"></ha-icon>${escapeHtml(this._t("btn.web"))}</a>`
       );
     }
     if (host.ha_device_id) {
       buttons.push(
-        '<button class="fbn-btn fbn-act-ha" type="button"><ha-icon icon="mdi:open-in-new"></ha-icon>In Home Assistant öffnen</button>'
+        `<button class="fbn-btn fbn-act-ha" type="button"><ha-icon icon="mdi:open-in-new"></ha-icon>${escapeHtml(this._t("btn.ha"))}</button>`
       );
     }
     // Internetzugang sperren/freigeben - nur mit Home Assistant (Dienstaufruf)
     // und bekannter MAC. Beschriftung richtet sich nach dem aktuellen Zustand.
     if (this._hass && host.mac) {
-      const label = host.blocked ? "Internet freigeben" : "Internet sperren";
+      const label = host.blocked ? this._t("btn.unblock") : this._t("btn.block");
       const icon = host.blocked ? "mdi:web" : "mdi:web-off";
       buttons.push(
         `<button class="fbn-btn fbn-act-inet" type="button" data-blocked="${
           host.blocked ? "1" : "0"
-        }"><ha-icon icon="${icon}"></ha-icon>${label}</button>`
+        }"><ha-icon icon="${icon}"></ha-icon>${escapeHtml(label)}</button>`
       );
     }
     // Aufwecken nur anbieten, wenn das Geraet gerade nicht verbunden ist
     // und Home Assistant fuer den Dienstaufruf bereitsteht.
     if (!host.active && this._hass) {
       buttons.push(
-        '<button class="fbn-btn fbn-act-wol" type="button"><ha-icon icon="mdi:power"></ha-icon>Aufwecken (WoL)</button>'
+        `<button class="fbn-btn fbn-act-wol" type="button"><ha-icon icon="mdi:power"></ha-icon>${escapeHtml(this._t("btn.wol"))}</button>`
       );
     }
     buttons.push(
-      '<button class="fbn-btn fbn-btn-primary fbn-modal-close2" type="button">Schließen</button>'
+      `<button class="fbn-btn fbn-btn-primary fbn-modal-close2" type="button">${escapeHtml(this._t("btn.close"))}</button>`
     );
     return buttons.join("");
   }
@@ -1328,11 +1536,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._hass
       .callService("fritzbox_netzwerk", "wake_on_lan", { mac: host.mac })
       .then(() => {
-        label.innerHTML = '<ha-icon icon="mdi:check"></ha-icon>Signal gesendet';
+        label.innerHTML = `<ha-icon icon="mdi:check"></ha-icon>${escapeHtml(this._t("act.wol_sent"))}`;
       })
       .catch(() => {
         label.disabled = false;
-        label.innerHTML = '<ha-icon icon="mdi:alert"></ha-icon>Fehlgeschlagen';
+        label.innerHTML = `<ha-icon icon="mdi:alert"></ha-icon>${escapeHtml(this._t("act.failed"))}`;
       });
   }
 
@@ -1343,7 +1551,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     button.disabled = true;
     button.innerHTML =
       '<ha-icon icon="mdi:progress-clock"></ha-icon>' +
-      (willBlock ? "Sperre …" : "Gebe frei …");
+      escapeHtml(willBlock ? this._t("act.blocking") : this._t("act.unblocking"));
     this._hass
       .callService("fritzbox_netzwerk", "set_internet_access", {
         mac: host.mac,
@@ -1352,13 +1560,13 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .then(() => {
         button.innerHTML =
           '<ha-icon icon="mdi:check"></ha-icon>' +
-          (willBlock ? "Gesperrt" : "Freigegeben");
+          escapeHtml(willBlock ? this._t("act.blocked") : this._t("act.unblocked"));
         // Der Coordinator aktualisiert danach; beim nächsten Datenupdate
         // baut _refreshPopup() den Knopf mit dem neuen Zustand neu.
       })
       .catch(() => {
         button.disabled = false;
-        button.innerHTML = '<ha-icon icon="mdi:alert"></ha-icon>Fehlgeschlagen';
+        button.innerHTML = `<ha-icon icon="mdi:alert"></ha-icon>${escapeHtml(this._t("act.failed"))}`;
       });
   }
 
@@ -1635,6 +1843,20 @@ const EDITOR_SCHEMA = [
   { name: "title", selector: { text: {} } },
   { name: "show_title", selector: { boolean: {} } },
   {
+    name: "language",
+    selector: {
+      select: {
+        mode: "dropdown",
+        options: [
+          { value: "", label: "Automatisch (Home Assistant)" },
+          { value: "de", label: "Deutsch" },
+          { value: "en", label: "English" },
+          { value: "nl", label: "Nederlands" },
+        ],
+      },
+    },
+  },
+  {
     type: "expandable",
     name: "spalten",
     title: "Spalten",
@@ -1727,6 +1949,7 @@ const EDITOR_LABELS = {
   entity: "Sensor mit der Geräteliste",
   title: "Titel",
   show_title: "Titel anzeigen",
+  language: "Sprache der Karte",
   show_status: "Status",
   show_name: "Gerät",
   show_ip: "IP-Adresse",
@@ -1764,6 +1987,7 @@ const EDITOR_LABELS = {
 };
 
 const EDITOR_HELPERS = {
+  language: "Sprache der Beschriftungen in der Karte. „Automatisch“ folgt der in Home Assistant eingestellten Sprache (Deutsch, Englisch, Niederländisch).",
   show_title: "Blendet die Kopfzeile der Karte aus, z. B. für ein Popup oder eine kompakte Ansicht.",
   show_ip_type: "Braucht die eingeschaltete IP-Typ-Erfassung in den Einstellungen der Integration.",
   show_ha_name: "Zeigt den Gerätenamen aus Home Assistant, sofern das Gerät dort eine MAC-Adresse hinterlegt hat. Ein Klick auf den Namen führt direkt zum Gerät.",
