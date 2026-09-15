@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.4.1-blue)
+![Version](https://img.shields.io/badge/Version-1.4.2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -459,6 +459,17 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.4.2 – Absturz bei ungewöhnlichen Geräte-Identifiern behoben
+
+- **Behoben: Absturz beim Datenabruf** (`too many values to unpack (expected 2, got 3)`). Die
+  Geräte-Zuordnung ging davon aus, dass Verbindungen und Identifier in der
+  Home-Assistant-Geräteregistrierung immer 2-Tupel `(domain, id)` sind. Einige Integrationen
+  (z. B. SunSpec/Fronius) legen ihre Identifier aber als 3-Tupel an, worauf das feste Entpacken
+  abstürzte – und weil dabei die gesamte Aktualisierung scheiterte, funktionierte die
+  Integration auf betroffenen Systemen gar nicht. Verbindungen und Identifier werden jetzt
+  tolerant gegenüber abweichenden Tupellängen ausgewertet: Jedes enthaltene Textelement kommt
+  als MAC-Kandidat in Frage, alles andere wird verworfen. Kein Absturz mehr.
 
 ### 1.4.1 – Absturz der Geräte-Zuordnung behoben, Editor übersetzt
 

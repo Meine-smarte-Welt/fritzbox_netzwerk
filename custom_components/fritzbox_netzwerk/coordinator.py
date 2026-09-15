@@ -211,17 +211,41 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "area": device.area_id or "",
             }
 
+        def _string_parts(item):
+            """Liefert alle String-Elemente eines Tupels/einer Liste.
+
+            Verbindungen und Identifier sind laut Spezifikation 2-Tupel, doch
+            nicht jede Integration haelt sich daran: manche legen z. B. Identifier
+            als 3-Tupel an. Festes Entpacken (``a, b = item``) wuerde dann
+            abstuerzen. Deshalb wird hier ohne Annahme ueber die Laenge
+            gearbeitet - jedes String-Element kommt als MAC-Kandidat in Frage,
+            und ``_add`` verwirft alles, was keine echte MAC ist.
+            """
+            if isinstance(item, (tuple, list)):
+                for element in item:
+                    if isinstance(element, str):
+                        yield element
+            elif isinstance(item, str):
+                yield item
+
         for device in self._iter_devices(registry):
-            # 1) Verbindungen vom Typ "mac" haben Vorrang.
-            for connection_type, connection_value in device.connections:
-                if connection_type == dr.CONNECTION_NETWORK_MAC:
-                    _add(connection_value, device)
-            # 2) MAC-artige Werte aus anderen Verbindungstypen.
-            for _connection_type, connection_value in device.connections:
-                _add(connection_value, device)
-            # 3) MAC-artige Identifier (z. B. ("integration", "aabbccddeeff")).
-            for _domain, identifier in device.identifiers:
-                _add(identifier, device)
+            # 1) Verbindungen vom Typ "mac" haben Vorrang. Nur bei einem
+            #    sauberen 2-Tupel wird der Typ geprueft.
+            for connection in device.connections:
+                if (
+                    isinstance(connection, (tuple, list))
+                    and len(connection) == 2
+                    and connection[0] == dr.CONNECTION_NETWORK_MAC
+                ):
+                    _add(connection[1], device)
+            # 2) Alle MAC-artigen Werte aus Verbindungen und Identifiern -
+            #    tolerant gegenueber abweichenden Tupellaengen.
+            for connection in device.connections:
+                for value in _string_parts(connection):
+                    _add(value, device)
+            for identifier in device.identifiers:
+                for value in _string_parts(identifier):
+                    _add(value, device)
         return mapping
 
     @staticmethod
