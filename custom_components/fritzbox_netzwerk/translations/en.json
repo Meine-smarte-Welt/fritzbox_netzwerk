@@ -41,11 +41,15 @@
         "data": {
           "scan_interval": "Update interval (seconds)",
           "track_address_source": "Track IP type (DHCP or static)",
-          "address_source_interval": "IP type update interval (minutes)"
+          "address_source_interval": "IP type update interval (minutes)",
+          "enable_device_tracker": "Create device trackers",
+          "enable_controls": "FRITZ!Box controls (experimental)"
         },
         "data_description": {
           "track_address_source": "This value is not part of the host list and costs one extra request per device. It rarely changes, so it runs on its own slower schedule.",
-          "address_source_interval": "Only applies when IP type tracking is enabled."
+          "address_source_interval": "Only applies when IP type tracking is enabled.",
+          "enable_device_tracker": "Creates a device_tracker (home/away) per network device for presence and automations. May result in many entities on large networks.",
+          "enable_controls": "Adds switches for the WLAN bands (2.4 GHz, 5 GHz, guest) and buttons to reconnect and reboot. Availability and band mapping depend on the model."
         }
       }
     }
@@ -72,6 +76,25 @@
       },
       "upload_max": {
         "name": "Upload (line rate)"
+      }
+    },
+    "switch": {
+      "wlan_24": {
+        "name": "Wi-Fi 2.4 GHz"
+      },
+      "wlan_5": {
+        "name": "Wi-Fi 5 GHz"
+      },
+      "wlan_guest": {
+        "name": "Guest Wi-Fi"
+      }
+    },
+    "button": {
+      "reconnect": {
+        "name": "Reconnect"
+      },
+      "reboot": {
+        "name": "Reboot"
       }
     }
   },

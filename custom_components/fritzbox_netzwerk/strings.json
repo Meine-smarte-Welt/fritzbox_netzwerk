@@ -41,11 +41,15 @@
         "data": {
           "scan_interval": "Abfrageintervall (Sekunden)",
           "track_address_source": "IP-Typ erfassen (DHCP oder statisch)",
-          "address_source_interval": "Intervall der IP-Typ-Abfrage (Minuten)"
+          "address_source_interval": "Intervall der IP-Typ-Abfrage (Minuten)",
+          "enable_device_tracker": "Geräte-Tracker anlegen",
+          "enable_controls": "FRITZ!Box-Steuerung (experimentell)"
         },
         "data_description": {
           "track_address_source": "Diese Angabe steht nicht in der Geräteliste und kostet einen zusätzlichen Aufruf pro Gerät. Sie ändert sich selten, deshalb läuft sie in einem eigenen, langsameren Takt.",
-          "address_source_interval": "Wirkt nur, wenn die IP-Typ-Erfassung eingeschaltet ist."
+          "address_source_interval": "Wirkt nur, wenn die IP-Typ-Erfassung eingeschaltet ist.",
+          "enable_device_tracker": "Legt pro Netzwerkgerät einen device_tracker (zuhause/abwesend) für Anwesenheit und Automationen an. Kann bei vielen Geräten zu vielen Entitäten führen.",
+          "enable_controls": "Legt Schalter für die WLAN-Bänder (2,4 GHz, 5 GHz, Gast) sowie Buttons zum Neuverbinden und Neustarten an. Verfügbarkeit und Zuordnung der Bänder hängen vom Modell ab."
         }
       }
     }
@@ -72,6 +76,25 @@
       },
       "upload_max": {
         "name": "Upload (Leitungsrate)"
+      }
+    },
+    "switch": {
+      "wlan_24": {
+        "name": "WLAN 2,4 GHz"
+      },
+      "wlan_5": {
+        "name": "WLAN 5 GHz"
+      },
+      "wlan_guest": {
+        "name": "Gast-WLAN"
+      }
+    },
+    "button": {
+      "reconnect": {
+        "name": "Neu verbinden"
+      },
+      "reboot": {
+        "name": "Neustart"
       }
     }
   },

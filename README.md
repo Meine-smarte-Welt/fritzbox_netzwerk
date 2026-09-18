@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.4.2-blue)
+![Version](https://img.shields.io/badge/Version-1.5.0b2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -447,7 +447,7 @@ Home-Assistant- noch fritzconnection-Importe. Sie ist damit ohne laufende
 Home-Assistant-Instanz prüfbar:
 
 ```bash
-python3 tests/test_hosts.py     # 38 Fälle
+python3 tests/test_hosts.py     # 41 Fälle
 node tests/test_card.js         # 134 Fälle, jsdom gegen die echte Kartendatei
 ```
 
@@ -459,6 +459,28 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.5.0 – IP-Typ ehrlicher, kompakte Darstellung, Standardfilter
+
+- **IP-Typ zeigt jetzt „fest" bzw. „dynamisch" statt „DHCP/statisch".** Die FRITZ!Box meldet
+  auch eine dauerhaft zugewiesene IPv4 als „DHCP" – nur die Lease-Restzeit unterscheidet
+  wirklich. Die Spalte klassifiziert daher anhand der Lease: aus dem Pool zugewiesen
+  (Lease läuft ab) = *dynamisch*, sonst *fest*. Das ist die Angabe, die zählt.
+- **Geräte ohne IP-Adresse** (einfache Switches, Powerline-Adapter, Mesh-Master) werden
+  nicht mehr fälschlich als „statisch" angezeigt, sondern als „—".
+- **Kompakter Modus** kürzt platzsparend: IP-Typ als „fest" / „dyn. 10", Tempo als „866 M" /
+  „1 G" (die volle Angabe steht im Tooltip). Damit bleibt jede Zeile einzeilig.
+- **Standardfilter wählbar.** Über *Standardfilter beim Laden* lässt sich festlegen, welcher
+  Filter beim Laden oder Neuöffnen aktiv ist (z. B. „Aktiv"). Nach einem Refresh landet man
+  nicht mehr zwangsläufig auf „Alle".
+- **Device Tracker (optional).** In den Integrationseinstellungen aktivierbar: erzeugt pro
+  Netzwerkgerät einen `device_tracker` (zuhause/abwesend) für Anwesenheit und Automationen.
+  Neu auftauchende Geräte werden automatisch ergänzt. Standardmäßig aus, um bei großen Netzen
+  nicht ungefragt viele Entitäten anzulegen.
+- **FRITZ!Box-Steuerung (optional, experimentell).** In den Integrationseinstellungen
+  aktivierbar: Schalter für die WLAN-Bänder (2,4 GHz, 5 GHz, Gast) sowie Buttons zum
+  Neuverbinden (neue IP) und Neustarten der FRITZ!Box. Verfügbarkeit und Zuordnung der Bänder
+  hängen vom Modell ab, daher experimentell; standardmäßig aus.
 
 ### 1.4.2 – Absturz bei ungewöhnlichen Geräte-Identifiern behoben
 

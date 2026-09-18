@@ -26,10 +26,14 @@ from homeassistant.core import callback
 
 from .const import (
     CONF_ADDRESS_SOURCE_INTERVAL,
+    CONF_ENABLE_CONTROLS,
+    CONF_ENABLE_DEVICE_TRACKER,
     CONF_SCAN_INTERVAL,
     CONF_TRACK_ADDRESS_SOURCE,
     CONF_USE_TLS,
     DEFAULT_ADDRESS_SOURCE_INTERVAL,
+    DEFAULT_ENABLE_CONTROLS,
+    DEFAULT_ENABLE_DEVICE_TRACKER,
     DEFAULT_HOST,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TRACK_ADDRESS_SOURCE,
@@ -218,6 +222,18 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                         CONF_ADDRESS_SOURCE_INTERVAL, DEFAULT_ADDRESS_SOURCE_INTERVAL
                     ),
                 ): vol.All(vol.Coerce(int), vol.Range(min=1, max=1440)),
+                vol.Optional(
+                    CONF_ENABLE_DEVICE_TRACKER,
+                    default=options.get(
+                        CONF_ENABLE_DEVICE_TRACKER, DEFAULT_ENABLE_DEVICE_TRACKER
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_ENABLE_CONTROLS,
+                    default=options.get(
+                        CONF_ENABLE_CONTROLS, DEFAULT_ENABLE_CONTROLS
+                    ),
+                ): bool,
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

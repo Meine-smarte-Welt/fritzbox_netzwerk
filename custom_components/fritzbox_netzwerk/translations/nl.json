@@ -41,11 +41,15 @@
         "data": {
           "scan_interval": "Ophaalinterval (seconden)",
           "track_address_source": "IP-type bijhouden (DHCP of statisch)",
-          "address_source_interval": "Interval van de IP-type-controle (minuten)"
+          "address_source_interval": "Interval van de IP-type-controle (minuten)",
+          "enable_device_tracker": "Device-trackers aanmaken",
+          "enable_controls": "FRITZ!Box-bediening (experimenteel)"
         },
         "data_description": {
           "track_address_source": "Deze waarde staat niet in de hostlijst en kost één extra verzoek per apparaat. Ze verandert zelden en loopt daarom op een eigen, langzamer schema.",
-          "address_source_interval": "Werkt alleen als het bijhouden van het IP-type is ingeschakeld."
+          "address_source_interval": "Werkt alleen als het bijhouden van het IP-type is ingeschakeld.",
+          "enable_device_tracker": "Maakt per netwerkapparaat een device_tracker (thuis/afwezig) aan voor aanwezigheid en automatiseringen. Kan bij veel apparaten tot veel entiteiten leiden.",
+          "enable_controls": "Voegt schakelaars toe voor de wifi-banden (2,4 GHz, 5 GHz, gast) en knoppen om opnieuw te verbinden en te herstarten. Beschikbaarheid en bandtoewijzing zijn modelafhankelijk."
         }
       }
     }
@@ -72,6 +76,25 @@
       },
       "upload_max": {
         "name": "Upload (lijnsnelheid)"
+      }
+    },
+    "switch": {
+      "wlan_24": {
+        "name": "Wifi 2,4 GHz"
+      },
+      "wlan_5": {
+        "name": "Wifi 5 GHz"
+      },
+      "wlan_guest": {
+        "name": "Gast-wifi"
+      }
+    },
+    "button": {
+      "reconnect": {
+        "name": "Opnieuw verbinden"
+      },
+      "reboot": {
+        "name": "Herstart"
       }
     }
   },

@@ -68,6 +68,10 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._fritz_status: FritzStatus | None = None
         self._connection_supported = True
 
+        # WLAN-Baender fuer die Steuerung: gemerkt wird, welche Dienste die
+        # Box bereitstellt (1=2,4 GHz, 2=5 GHz, 3=Gast bei Dualband).
+        self._wlan_supported: dict[int, bool] = {1: True, 2: True, 3: True}
+
         # "Zuletzt gesehen" pflegt die Integration selbst (die FRITZ!Box
         # liefert es nicht) und speichert es dauerhaft, damit die Angabe
         # einen Neustart uebersteht.
@@ -133,7 +137,9 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             }
         self._address_sources = sources
 
-    def _fetch(self) -> tuple[list[dict[str, Any]], bool, dict[str, Any] | None]:
+    def _fetch(
+        self,
+    ) -> tuple[list[dict[str, Any]], bool, dict[str, Any] | None, dict[str, bool]]:
         """Blockierender Teil des Abrufs, laeuft im Executor."""
         raw_hosts = self.fritz_hosts.get_hosts_attributes()
         refreshed = False
@@ -142,7 +148,42 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._fetch_address_sources(macs)
             refreshed = True
         connection = self._fetch_connection()
-        return raw_hosts, refreshed, connection
+        wlan = self._fetch_wlan() if self._controls_enabled else {}
+        return raw_hosts, refreshed, connection, wlan
+
+    @property
+    def _controls_enabled(self) -> bool:
+        """Ob die FRITZ!Box-Steuerung (WLAN/Reconnect/Neustart) aktiv ist."""
+        from .const import CONF_ENABLE_CONTROLS, DEFAULT_ENABLE_CONTROLS
+
+        return self.entry.options.get(CONF_ENABLE_CONTROLS, DEFAULT_ENABLE_CONTROLS)
+
+    def call_action(self, service: str, action: str, **kwargs: Any) -> dict[str, Any]:
+        """Fuehrt einen TR-064-Aufruf aus (blockierend, im Executor nutzen)."""
+        return self.fritz_hosts.fc.call_action(service, action, **kwargs)
+
+    def _fetch_wlan(self) -> dict[str, bool]:
+        """Liest den An/Aus-Zustand der vorhandenen WLAN-Baender.
+
+        Nicht vorhandene Baender (z. B. kein 5-GHz- oder Gast-WLAN) werden
+        nach dem ersten Fehlschlag nicht mehr abgefragt.
+        """
+        state: dict[str, bool] = {}
+        for index in (1, 2, 3):
+            if not self._wlan_supported.get(index):
+                continue
+            try:
+                info = self.fritz_hosts.fc.call_action(
+                    f"WLANConfiguration{index}", "GetInfo"
+                )
+            except FritzServiceError:
+                self._wlan_supported[index] = False
+                continue
+            except FritzConnectionException as err:
+                _LOGGER.debug("WLAN %s momentan nicht abrufbar: %s", index, err)
+                continue
+            state[f"wlan{index}"] = bool(info.get("NewEnable"))
+        return state
 
     def _fetch_connection(self) -> dict[str, Any] | None:
         """Liest die aktuellen Down-/Upload-Raten und die Leitungs-Sync-Raten.
@@ -268,8 +309,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Holt die Geraeteliste und reichert sie an."""
         try:
-            raw_hosts, refreshed, connection = await self.hass.async_add_executor_job(
-                self._fetch
+            raw_hosts, refreshed, connection, wlan = (
+                await self.hass.async_add_executor_job(self._fetch)
             )
         except (FritzSecurityError, FritzAuthorizationError) as err:
             raise ConfigEntryAuthFailed(
@@ -300,6 +341,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "hosts": hosts,
             "summary": summarize(hosts),
             "connection": connection,
+            "wlan": wlan,
             "last_scan": dt_util.utcnow().isoformat(),
             "address_source_scan": (
                 self._address_source_scan.isoformat()

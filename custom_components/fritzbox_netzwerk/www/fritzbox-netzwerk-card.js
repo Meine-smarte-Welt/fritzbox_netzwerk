@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.4.2";
+const FBN_VERSION = "1.5.0b2";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -55,6 +55,8 @@ const CONFIG_DEFAULTS = {
   filter_gast: true,
   filter_gesperrt: true,
   filter_update: true,
+  // Welcher Filter beim Laden/Neuöffnen aktiv ist.
+  default_filter: "alle",
   hide_inactive: false,
   compact: false,
   max_rows: 0,
@@ -141,7 +143,7 @@ const I18N = {
     "state.online_now": "jetzt online", "state.now_online": "gerade online",
     "ls.just_now": "gerade eben", "ls.min": "vor {n} min", "ls.hour": "vor {n} h",
     "ls.yesterday": "gestern", "ls.days": "vor {n} Tagen",
-    "iptype.static": "statisch", "iptype.dhcp": "DHCP",
+    "iptype.fixed": "fest", "iptype.dynamic": "dynamisch", "iptype.dyn_short": "dyn.", "iptype.noip": "Gerät ohne IP-Adresse", "iptype.static": "statisch", "iptype.dhcp": "DHCP",
     "wan.blocked": "gesperrt", "wan.allowed": "erlaubt",
     "upd.available": "verfügbar", "upd.none": "keines",
     "badge.guest": "Gast", "badge.vpn": "VPN", "badge.priority": "Priorität",
@@ -186,7 +188,7 @@ const I18N = {
     "state.online_now": "online now", "state.now_online": "online now",
     "ls.just_now": "just now", "ls.min": "{n} min ago", "ls.hour": "{n} h ago",
     "ls.yesterday": "yesterday", "ls.days": "{n} days ago",
-    "iptype.static": "static", "iptype.dhcp": "DHCP",
+    "iptype.fixed": "fixed", "iptype.dynamic": "dynamic", "iptype.dyn_short": "dyn.", "iptype.noip": "Device without IP address", "iptype.static": "static", "iptype.dhcp": "DHCP",
     "wan.blocked": "blocked", "wan.allowed": "allowed",
     "upd.available": "available", "upd.none": "none",
     "badge.guest": "Guest", "badge.vpn": "VPN", "badge.priority": "Priority",
@@ -231,7 +233,7 @@ const I18N = {
     "state.online_now": "nu online", "state.now_online": "nu online",
     "ls.just_now": "zojuist", "ls.min": "{n} min geleden", "ls.hour": "{n} u geleden",
     "ls.yesterday": "gisteren", "ls.days": "{n} dagen geleden",
-    "iptype.static": "statisch", "iptype.dhcp": "DHCP",
+    "iptype.fixed": "vast", "iptype.dynamic": "dynamisch", "iptype.dyn_short": "dyn.", "iptype.noip": "Apparaat zonder IP-adres", "iptype.static": "statisch", "iptype.dhcp": "DHCP",
     "wan.blocked": "geblokkeerd", "wan.allowed": "toegestaan",
     "upd.available": "beschikbaar", "upd.none": "geen",
     "badge.guest": "Gast", "badge.vpn": "VPN", "badge.priority": "Prioriteit",
@@ -396,6 +398,14 @@ function formatSpeed(speed) {
   return `${value} Mbit/s`;
 }
 
+/** Kompakte Tempo-Formatierung: "866 M", "1 G" - passt in eine Zeile. */
+function formatSpeedCompact(speed) {
+  const value = Number(speed) || 0;
+  if (value <= 0) return "—";
+  if (value >= 1000 && value % 1000 === 0) return `${value / 1000} G`;
+  return `${value} M`;
+}
+
 /** Restlaufzeit der DHCP-Zuweisung in lesbarer Form. */
 function formatLease(seconds) {
   const value = Number(seconds);
@@ -475,10 +485,11 @@ function sortValue(host, key) {
     case "ha_name":
       // Geraete ohne Home-Assistant-Zuordnung ans Ende sortieren.
       return host.ha_name ? `0${String(host.ha_name).toLowerCase()}` : "1";
-    case "ip_type":
-      if (host.static_ip === true) return "0";
-      if (host.static_ip === false) return "1";
-      return "2";
+    case "ip_type": {
+      // fest zuerst, dann dynamisch, dann ohne IP/unbekannt.
+      const order = { fixed: 0, dynamic: 1, none: 2 };
+      return order[host.ip_class] ?? 3;
+    }
     case "wan":
       return host.blocked ? 0 : 1;
     case "update":
@@ -539,6 +550,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._config = withDefaults(config);
     this._sortBy = this._config.sort_by;
     this._sortDir = this._config.sort_dir === "desc" ? "desc" : "asc";
+    // Beim Laden/Neuöffnen mit dem konfigurierten Standardfilter starten.
+    const wanted = this._config.default_filter;
+    this._filter = FILTERS.some((f) => f.key === wanted) ? wanted : "alle";
     this._built = false;
     this._signature = "";
     this._renderedOnce = false;
@@ -581,6 +595,13 @@ class FritzboxNetzwerkCard extends HTMLElement {
       return base === "—" ? g : `${base} (${g})`;
     }
     return base;
+  }
+
+  /** Restlaufzeit der DHCP-Lease grob in Tagen (fuer die kompakte Anzeige). */
+  _leaseDays(seconds) {
+    const value = Number(seconds);
+    if (!Number.isFinite(value) || value <= 0) return 0;
+    return Math.max(1, Math.round(value / 86400));
   }
 
   static getConfigElement() {
@@ -1224,14 +1245,26 @@ class FritzboxNetzwerkCard extends HTMLElement {
       }
 
       case "ip_type": {
-        if (host.static_ip === true) {
-          return `<span class="fbn-badge fbn-badge-static">${escapeHtml(this._t("iptype.static"))}</span>`;
+        const compact = this._config.compact;
+        const days = this._leaseDays(host.lease_time_remaining);
+        if (host.ip_class === "fixed") {
+          return `<span class="fbn-badge fbn-badge-static">${escapeHtml(this._t("iptype.fixed"))}</span>`;
         }
-        if (host.static_ip === false) {
+        if (host.ip_class === "dynamic") {
+          // Kompakt: "dyn. 10" (Tage); normal: "dynamisch (noch 10 Tage)".
           const lease = formatLease(host.lease_time_remaining);
-          return `<span class="fbn-dim">${escapeHtml(this._t("iptype.dhcp"))}${
+          const label = compact ? this._t("iptype.dyn_short") : this._t("iptype.dynamic");
+          if (compact) {
+            return `<span class="fbn-dim" title="${escapeHtml(
+              lease || this._t("iptype.dynamic")
+            )}">${escapeHtml(label)}${days ? ` ${days}` : ""}</span>`;
+          }
+          return `<span class="fbn-dim">${escapeHtml(label)}${
             lease ? ` <span class="fbn-lease">(${escapeHtml(lease)})</span>` : ""
           }</span>`;
+        }
+        if (host.ip_class === "none") {
+          return `<span class="fbn-dim" title="${escapeHtml(this._t("iptype.noip"))}">—</span>`;
         }
         return '<span class="fbn-dim">—</span>';
       }
@@ -1246,8 +1279,16 @@ class FritzboxNetzwerkCard extends HTMLElement {
           ? `<ha-icon class="fbn-icon-update" icon="mdi:package-down" title="${escapeHtml(this._t("tip.update"))}"></ha-icon>`
           : '<span class="fbn-dim">—</span>';
 
-      case "speed":
-        return `<span class="fbn-mono fbn-dim">${escapeHtml(formatSpeed(host.speed))}</span>`;
+      case "speed": {
+        const text = this._config.compact
+          ? formatSpeedCompact(host.speed)
+          : formatSpeed(host.speed);
+        const title =
+          this._config.compact && host.speed
+            ? ` title="${escapeHtml(formatSpeed(host.speed))}"`
+            : "";
+        return `<span class="fbn-mono fbn-dim"${title}>${escapeHtml(text)}</span>`;
+      }
 
       case "model":
         return escapeHtml(host.model || "—");
@@ -1433,11 +1474,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
     );
 
     let ipType = "—";
-    if (host.static_ip === true) ipType = this._t("iptype.static");
-    else if (host.static_ip === false) {
+    if (host.ip_class === "fixed") {
+      ipType = this._t("iptype.fixed");
+    } else if (host.ip_class === "dynamic") {
       const lease = formatLease(host.lease_time_remaining);
-      const dhcp = this._t("iptype.dhcp");
-      ipType = lease ? `${dhcp} (${escapeHtml(lease)})` : dhcp;
+      const dyn = this._t("iptype.dynamic");
+      ipType = lease ? `${dyn} (${escapeHtml(lease)})` : dyn;
+    } else if (host.ip_class === "none") {
+      ipType = this._t("iptype.noip");
     }
     add(this._t("field.ip_type"), ipType);
 
@@ -1908,6 +1952,15 @@ const EDITOR_SCHEMA = [
       { name: "filter_gast", selector: { boolean: {} } },
       { name: "filter_gesperrt", selector: { boolean: {} } },
       { name: "filter_update", selector: { boolean: {} } },
+      {
+        name: "default_filter",
+        selector: {
+          select: {
+            mode: "dropdown",
+            options: FILTERS.map((filter) => ({ value: filter.key, label: filter.label })),
+          },
+        },
+      },
     ],
   },
   {
@@ -1984,9 +2037,11 @@ const EDITOR_LABELS = {
   max_visible_rows: "Sichtbare Zeilen, dann scrollen (0 = alle)",
   sort_by: "Sortieren nach",
   sort_dir: "Richtung",
+  default_filter: "Standardfilter beim Laden",
 };
 
 const EDITOR_HELPERS = {
+  default_filter: "Welcher Filter aktiv ist, wenn die Karte geladen oder neu geöffnet wird (z. B. „Aktiv“). Nach einem Refresh wird nicht mehr auf „Alle“ zurückgesetzt.",
   language: "Sprache der Beschriftungen in der Karte. „Automatisch“ folgt der in Home Assistant eingestellten Sprache (Deutsch, Englisch, Niederländisch).",
   show_title: "Blendet die Kopfzeile der Karte aus, z. B. für ein Popup oder eine kompakte Ansicht.",
   show_ip_type: "Braucht die eingeschaltete IP-Typ-Erfassung in den Einstellungen der Integration.",
@@ -2035,6 +2090,8 @@ const EDITOR_TX = {
     max_rows: "Maximum rows (0 = all)",
     max_visible_rows: "Visible rows, then scroll (0 = all)",
     sort_by: "Sort by", sort_dir: "Direction",
+    default_filter: "Default filter on load",
+    help_default_filter: "Which filter is active when the card loads or is reopened (e.g. \"Active\"). After a refresh it no longer resets to \"All\".",
     help_language: 'Language of the card labels. "Automatic" follows the language configured in Home Assistant (German, English, Dutch).',
     help_show_title: "Hides the card header, e.g. for a popup or a compact view.",
     help_show_ip_type: "Requires IP type tracking enabled in the integration settings.",
@@ -2085,6 +2142,8 @@ const EDITOR_TX = {
     max_rows: "Maximaal aantal rijen (0 = alle)",
     max_visible_rows: "Zichtbare rijen, dan scrollen (0 = alle)",
     sort_by: "Sorteren op", sort_dir: "Richting",
+    default_filter: "Standaardfilter bij laden",
+    help_default_filter: "Welk filter actief is als de kaart wordt geladen of opnieuw geopend (bijv. \"Actief\"). Na een refresh wordt niet meer teruggezet naar \"Alle\".",
     help_language: 'Taal van de kaartlabels. "Automatisch" volgt de in Home Assistant ingestelde taal (Duits, Engels, Nederlands).',
     help_show_title: "Verbergt de kop van de kaart, bijv. voor een pop-up of een compacte weergave.",
     help_show_ip_type: "Vereist dat het bijhouden van het IP-type is ingeschakeld in de integratie-instellingen.",
@@ -2216,6 +2275,20 @@ class FritzboxNetzwerkCardEditor extends HTMLElement {
                 { value: "asc", label: this._edUI("asc") },
                 { value: "desc", label: this._edUI("desc") },
               ],
+            },
+          },
+        };
+      }
+      if (field.name === "default_filter") {
+        return {
+          ...field,
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: FILTERS.map((filter) => ({
+                value: filter.key,
+                label: translate(lang, `flt.${filter.key}`),
+              })),
             },
           },
         };

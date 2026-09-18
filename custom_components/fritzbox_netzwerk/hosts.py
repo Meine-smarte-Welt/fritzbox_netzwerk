@@ -186,6 +186,10 @@ def normalize_host(raw: dict[str, Any]) -> dict[str, Any]:
         "address_source": None,
         "static_ip": None,
         "lease_time_remaining": None,
+        # Aussagekraeftige Klassifizierung der IP-Vergabe (in build_hosts
+        # gesetzt): "none" (kein IP), "dynamic" (aus dem DHCP-Pool, laeuft
+        # ab), "fixed" (fest/reserviert) oder None (noch unbekannt).
+        "ip_class": None,
         # Wird in ``apply_ha_devices()`` ergaenzt.
         "ha_name": "",
         "ha_device_id": "",
@@ -221,6 +225,31 @@ def apply_address_sources(
         if lease is not None:
             host["lease_time_remaining"] = as_int(lease)
     return hosts
+
+
+def classify_ip(host: dict[str, Any]) -> str | None:
+    """Ermittelt, wie die IP-Adresse eines Geraets vergeben ist.
+
+    Hintergrund: Die FRITZ!Box meldet auch eine dauerhaft zugewiesene
+    ("fixierte") IPv4 als AddressSource=DHCP - nur die Lease-Restzeit
+    unterscheidet wirklich. Ein Geraet aus dem DHCP-Pool hat eine
+    ablaufende Lease, eine feste/reservierte Adresse nicht. Fuer Nutzer
+    zaehlt genau diese Unterscheidung, nicht das rohe DHCP/Static der Box.
+
+    Rueckgabe:
+    - "none"   : Geraet ohne IP-Adresse (z. B. einfacher Switch, Powerline)
+    - "dynamic": aus dem DHCP-Pool zugewiesen (Lease laeuft ab)
+    - "fixed"  : fest zugewiesen bzw. reserviert
+    - None     : noch nicht bekannt (IP-Typ-Erfassung aus oder noch nicht gelaufen)
+    """
+    if not host.get("ip"):
+        return "none"
+    lease = host.get("lease_time_remaining")
+    if isinstance(lease, int) and lease > 0:
+        return "dynamic"
+    if host.get("address_source") or host.get("static_ip") is not None:
+        return "fixed"
+    return None
 
 
 def apply_ha_devices(
@@ -277,6 +306,8 @@ def build_hosts(
     apply_address_sources(hosts, address_sources)
     apply_ha_devices(hosts, ha_devices)
     apply_last_seen(hosts, last_seen)
+    for host in hosts:
+        host["ip_class"] = classify_ip(host)
     hosts.sort(key=lambda host: ip_sort_key(host["ip"]))
     return hosts
 
@@ -291,7 +322,9 @@ def summarize(hosts: list[dict[str, Any]]) -> dict[str, int]:
         "guests": sum(1 for host in hosts if host["guest"]),
         "blocked": sum(1 for host in hosts if host["blocked"]),
         "updates": sum(1 for host in hosts if host["update_available"]),
-        "static": sum(1 for host in hosts if host["static_ip"]),
+        # "static" bleibt als Attributname erhalten, zaehlt aber jetzt die
+        # fest zugewiesenen Adressen (fest/reserviert).
+        "static": sum(1 for host in hosts if host.get("ip_class") == "fixed"),
     }
 
 
