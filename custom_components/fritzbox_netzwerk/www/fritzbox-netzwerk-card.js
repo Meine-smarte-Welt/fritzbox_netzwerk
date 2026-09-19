@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.5.0b5";
+const FBN_VERSION = "1.5.0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -561,6 +561,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._search = "";
     this._filter = "alle";
     this._tab = "network";
+    // Ob der Leerzustands-Hinweis inhaltlich faellig waere. Getrennt vom
+    // hidden-Attribut gefuehrt, damit der Tab-Wechsel ihn korrekt wieder
+    // einblenden kann, ohne die Tabelle neu zu zeichnen.
+    this._emptyWanted = false;
+    this._hasControls = false;
     this._sortBy = "ip";
     this._sortDir = "asc";
     this._signature = "";
@@ -1210,35 +1215,61 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._applyTabs();
   }
 
-  /** Steuert Sichtbarkeit der Sektionen anhand des aktiven Tabs. */
+  /**
+   * Ist die Netzwerk-Kategorie gerade sichtbar? Ohne Tabs immer, mit Tabs
+   * nur im Reiter "Netzwerk". Wird auch vom Leerzustand ausgewertet.
+   */
+  _networkVisible() {
+    const tabs = this._tabList();
+    if (!this._config.show_tabs || tabs.length < 2) return true;
+    return this._tab === "network";
+  }
+
+  /**
+   * Steuert die Sichtbarkeit der Sektionen anhand des aktiven Tabs.
+   *
+   * Sind die Kategorien als Tabs eingeschaltet, gehoert jede Sektion genau
+   * EINER Kategorie: Netzwerk = Filterleiste, Suche, Zusammenfassung,
+   * Tabelle, Leerhinweis; Steuerung = Down/Up, WLAN-Schalter,
+   * Neuverbinden/Neustart. Es wird nichts doppelt gezeigt. Ohne Tabs
+   * erscheinen wie bisher beide Bereiche untereinander.
+   */
   _applyTabs() {
     const root = this._root;
     if (!root) return;
     const tabs = this._tabList();
     const tabbed = this._config.show_tabs && tabs.length > 1;
-
-    // Steuerungsleiste: ohne Inhalt immer aus.
     const controls = root.querySelector(".fbn-controls");
+    const empty = root.querySelector(".fbn-empty");
+
+    // WICHTIG: nur die direkten Sektionen von .fbn-root, nicht die
+    // Tab-Schaltflaechen in der Leiste - die tragen selbst ein data-tab.
+    const sections = Array.from(root.children).filter((el) =>
+      el.hasAttribute("data-tab")
+    );
 
     if (!tabbed) {
       // Ohne Tabs: Netzwerk-Sektionen sichtbar, Steuerung nur bei Inhalt.
-      root.querySelectorAll('[data-tab="network"]').forEach((el) => {
+      sections.forEach((el) => {
+        if (el.getAttribute("data-tab") !== "network") return;
         if (!el.classList.contains("fbn-empty")) el.hidden = false;
       });
+      if (empty) empty.hidden = !this._emptyWanted;
       if (controls) controls.hidden = !this._hasControls;
       return;
     }
-    // Mit Tabs: nur die Sektionen des aktiven Tabs zeigen.
+    // Mit Tabs: ausschliesslich die Sektionen des aktiven Tabs zeigen.
     if (!tabs.some((t) => t.key === this._tab)) this._tab = tabs[0].key;
-    root.querySelectorAll("[data-tab]").forEach((el) => {
+    sections.forEach((el) => {
       const belongs = el.getAttribute("data-tab") === this._tab;
-      // Die Leerzustands-Zeile verwaltet ihre Sichtbarkeit selbst.
+      // Der Leerhinweis erscheint nur, wenn er inhaltlich faellig ist.
       if (el.classList.contains("fbn-empty")) {
-        if (!belongs) el.hidden = true;
+        el.hidden = !belongs || !this._emptyWanted;
         return;
       }
       el.hidden = !belongs;
     });
+    if (controls && this._tab === "controls") controls.hidden = !this._hasControls;
   }
 
   /** Reagiert auf Klicks in der Steuerungsleiste. */
@@ -1304,16 +1335,18 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const state = this._stateObj();
     if (!state) {
       body.innerHTML = "";
+      this._emptyWanted = true;
       if (empty) {
-        empty.hidden = false;
+        empty.hidden = !this._networkVisible();
         empty.textContent = this._t("empty.sensor", { entity: this._config.entity });
       }
       return;
     }
 
     const hosts = this._filteredHosts();
+    this._emptyWanted = hosts.length === 0;
     if (empty) {
-      empty.hidden = hosts.length > 0;
+      empty.hidden = !this._emptyWanted || !this._networkVisible();
       empty.textContent = this._t("empty.none");
     }
 
@@ -1954,6 +1987,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
   _styles() {
     return `
       .fbn-root { padding: 0 0 8px; color: var(--fbn-row-text); }
+      /* Das hidden-Attribut muss staerker sein als die display-Regeln
+         weiter unten (.fbn-toolbar/.fbn-controls/... setzen display:flex,
+         was die Browser-Regel [hidden]{display:none} ueberstimmt). Ohne
+         diese Zeile blieben Filter/Suche und die Steuerungsleiste beim
+         Umschalten der Kategorien in BEIDEN Reitern sichtbar. */
+      .fbn-root [hidden] { display: none !important; }
       .fbn-tabbar {
         display: flex; gap: 4px; padding: 8px 16px 4px; flex-wrap: wrap;
       }
@@ -2381,7 +2420,7 @@ const EDITOR_LABELS = {
 };
 
 const EDITOR_HELPERS = {
-  show_tabs: "Zeigt oben Reiter für die Kategorien Netzwerk und Steuerung. Der Steuerungs-Reiter erscheint nur, wenn die Steuerungsleiste aktiviert ist.",
+  show_tabs: "Zeigt oben Reiter für die Kategorien Netzwerk und Steuerung. Jeder Reiter zeigt ausschließlich seine eigenen Elemente: Netzwerk die Filter, die Suche und die Geräteliste, Steuerung die Down/Up-Anzeige, die WLAN-Schalter und Neuverbinden/Neustart. Der Steuerungs-Reiter erscheint nur, wenn die Steuerungsleiste aktiviert ist. Ohne Reiter erscheinen beide Bereiche wie bisher untereinander.",
   show_controls: "Zeigt in der Karte eine Leiste mit Live-Down/Up sowie – wenn die FRITZ!Box-Steuerung in den Integrationseinstellungen aktiviert ist – WLAN-Schaltern und den Buttons Neuverbinden/Neustart.",
   default_filter: "Welcher Filter aktiv ist, wenn die Karte geladen oder neu geöffnet wird (z. B. „Aktiv“). Nach einem Refresh wird nicht mehr auf „Alle“ zurückgesetzt.",
   language: "Sprache der Beschriftungen in der Karte. „Automatisch“ folgt der in Home Assistant eingestellten Sprache (Deutsch, Englisch, Niederländisch).",
@@ -2421,7 +2460,7 @@ const EDITOR_TX = {
     show_filter: "Show filter bar",
     show_controls: "Show controls bar",
     show_tabs: "Show categories as tabs",
-    help_show_tabs: "Shows tabs for the Network and Controls categories at the top. The Controls tab only appears when the controls bar is enabled.",
+    help_show_tabs: "Shows tabs for the Network and Controls categories at the top. Each tab shows only its own elements: Network the filters, search and device list, Controls the download/upload display, Wi-Fi switches and reconnect/reboot. The Controls tab only appears when the controls bar is enabled. Without tabs, both areas appear below each other as before.",
     help_show_controls: "Shows a bar with live download/upload and \u2013 if FRITZ!Box controls are enabled in the integration settings \u2013 Wi-Fi switches and reconnect/reboot buttons.",
     filter_alle: '"All" button', filter_aktiv: '"Active" button',
     filter_inaktiv: '"Inactive" button', filter_gast: '"Guest" button',
@@ -2478,7 +2517,7 @@ const EDITOR_TX = {
     show_filter: "Filterbalk tonen",
     show_controls: "Bedieningsbalk tonen",
     show_tabs: "Categorieën als tabs tonen",
-    help_show_tabs: "Toont bovenaan tabs voor de categorieën Netwerk en Bediening. De tab Bediening verschijnt alleen als de bedieningsbalk is ingeschakeld.",
+    help_show_tabs: "Toont bovenaan tabs voor de categorieën Netwerk en Bediening. Elke tab toont uitsluitend de eigen elementen: Netwerk de filters, het zoekveld en de apparatenlijst, Bediening de download/upload-weergave, de wifi-schakelaars en opnieuw verbinden/herstarten. De tab Bediening verschijnt alleen als de bedieningsbalk is ingeschakeld. Zonder tabs verschijnen beide gebieden onder elkaar zoals voorheen.",
     help_show_controls: "Toont een balk met live download/upload en \u2013 als de FRITZ!Box-bediening in de integratie-instellingen is ingeschakeld \u2013 wifi-schakelaars en knoppen voor opnieuw verbinden/herstarten.",
     filter_alle: 'Knop "Alle"', filter_aktiv: 'Knop "Actief"',
     filter_inaktiv: 'Knop "Inactief"', filter_gast: 'Knop "Gast"',

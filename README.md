@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.5.0b5-blue)
+![Version](https://img.shields.io/badge/Version-1.5.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -20,6 +20,7 @@ passenden Home-Assistant-Gerätenamen.
 - [Dashboard-Karte](#dashboard-karte)
   - [Spalten](#spalten)
   - [Sortieren, filtern, suchen](#sortieren-filtern-suchen)
+  - [Steuerungsleiste und Kategorien als Tabs](#steuerungsleiste-und-kategorien-als-tabs)
   - [Wischen und Blättern auf dem Smartphone](#wischen-und-blättern-auf-dem-smartphone)
   - [IP-Adresse öffnet die Weboberfläche](#ip-adresse-öffnet-die-weboberfläche)
   - [Detail-Popup](#detail-popup)
@@ -194,6 +195,36 @@ Suchfeld und Filterleiste arbeiten zusammen: „Aktiv" plus Suchbegriff zeigt nu
 Geräte, auf die der Begriff passt. Beide Bedienelemente behalten ihren Inhalt, wenn der
 Sensor im Hintergrund neue Daten liefert.
 
+### Steuerungsleiste und Kategorien als Tabs
+
+Der Editor-Schalter *Steuerungsleiste anzeigen* blendet in der Karte eine zusätzliche Leiste
+ein: die **Live-Werte für Download und Upload** und – sofern die FRITZ!Box-Steuerung in den
+Integrationseinstellungen aktiviert ist – die **Schalter für die WLAN-Bänder** (2,4 GHz,
+5 GHz, Gast) sowie die Buttons **Neuverbinden** (neue öffentliche IP) und **Neustart**. Der
+Neustart verlangt zwei Klicks: der erste Klick färbt den Button, erst der zweite löst
+tatsächlich aus.
+
+Der Schalter *Kategorien als Tabs anzeigen* (standardmäßig aus) setzt darüber eine
+Reiterleiste im Stil von *FRITZ!Box Anrufe*:
+
+| Reiter | Was darin erscheint |
+| --- | --- |
+| **Netzwerk** (`mdi:lan`) | Filterleiste, Suchfeld, Zusammenfassung, Geräteliste |
+| **Steuerung** (`mdi:router-wireless-settings`) | Download/Upload, WLAN-Schalter, Neuverbinden, Neustart |
+
+Die Trennung ist strikt: Im Reiter *Netzwerk* erscheinen keine Steuerungselemente, im Reiter
+*Steuerung* keine Filter, kein Suchfeld und keine Geräteliste. Es wird nichts doppelt
+angezeigt.
+
+Der Reiter *Steuerung* wird nur angelegt, wenn es tatsächlich etwas zu steuern gibt – also
+wenn die Steuerungsleiste eingeschaltet ist und die FRITZ!Box entsprechende Werte liefert.
+Gibt es nur eine Kategorie, verschwindet die Reiterleiste ganz, statt einen toten Reiter zu
+zeigen.
+
+Sind die Tabs ausgeschaltet (Standard), verhält sich die Karte wie bisher: Filter, Suche,
+Liste und – falls aktiviert – die Steuerungsleiste erscheinen gemeinsam untereinander in
+einer einzigen Ansicht.
+
 ### Wischen und Blättern auf dem Smartphone
 
 Passen nicht alle Spalten nebeneinander, wird die Tabelle waagerecht scrollbar. Auf dem
@@ -234,6 +265,9 @@ Je nach Gerät bietet das Popup zusätzlich:
   Assistant über seine MAC-Adresse bekannt ist
 - **Aufwecken (WoL)** – sendet ein Wake-on-LAN-Signal, wird nur bei nicht verbundenen
   Geräten angezeigt
+- **Anwesenheit** – ist der Device Tracker in den Integrationseinstellungen aktiviert, zeigt
+  das Popup *zuhause* bzw. *abwesend* und verlinkt direkt auf die zugehörige
+  `device_tracker`-Entität; ein Klick öffnet deren Info-Dialog
 
 Das Popup ist der Standard. Wer stattdessen wie bisher direkt zur Home-Assistant-Geräteseite
 springen möchte, schaltet im Editor *Klick öffnet ein Detail-Popup* ab; dann greift wieder
@@ -449,6 +483,7 @@ Home-Assistant-Instanz prüfbar:
 ```bash
 python3 tests/test_hosts.py     # 41 Fälle
 node tests/test_card.js         # 134 Fälle, jsdom gegen die echte Kartendatei
+node tests/test_card_tabs.js    # 39 Fälle, Kategorien/Tabs und Steuerungsleiste
 ```
 
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein echtes
@@ -489,9 +524,13 @@ Kartencodes im Testaufbau.
   des Editors lässt sich die Symbolfarbe jeder Kategorie (Alle, Aktiv, Inaktiv, Gast,
   Gesperrt, Update) getrennt einstellen. Die Chips sind wie bisher einzeln ein-/ausblendbar.
 - **Tabs (Kategorien) in der Karte.** Über den Editor-Schalter *Kategorien als Tabs anzeigen*
-  bekommt die Karte oben Reiter: **Netzwerk** (die Tabelle) und – wenn die Steuerungsleiste
-  aktiviert ist – **Steuerung**. Der Steuerungs-Reiter erscheint nur, wenn es etwas zu steuern
-  gibt.
+  bekommt die Karte oben Reiter: **Netzwerk** und – wenn die Steuerungsleiste aktiviert ist –
+  **Steuerung**. Die Reiter trennen sauber: *Netzwerk* zeigt ausschließlich Filterleiste,
+  Suchfeld, Zusammenfassung und Geräteliste, *Steuerung* ausschließlich die Down/Up-Anzeige,
+  die WLAN-Schalter und die Buttons Neuverbinden/Neustart. Es erscheint nichts doppelt. Der
+  Steuerungs-Reiter wird nur angelegt, wenn es etwas zu steuern gibt. Sind die Tabs
+  ausgeschaltet (Standard), erscheinen wie bisher beide Bereiche untereinander in einer
+  einzigen Ansicht.
 - **Device-Tracker im Detail-Popup.** Ist der Device Tracker aktiviert, zeigt das Popup eines
   Geräts eine Zeile *Anwesenheit* mit Link direkt zur Tracker-Entität – statt einer
   redundanten eigenen Übersichtsseite.
