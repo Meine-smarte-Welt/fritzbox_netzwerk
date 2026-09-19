@@ -33,6 +33,7 @@ from .const import (
     VERSION,
 )
 from .coordinator import FritzboxNetzwerkCoordinator
+from .hosts import mac_key
 
 if TYPE_CHECKING:
     from . import FritzboxNetzwerkConfigEntry
@@ -145,8 +146,36 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             # die Karte sie generisch bedienen kann. None, wenn die Steuerung
             # in den Integrationseinstellungen nicht aktiviert ist.
             "controls": self._controls_attribute(),
+            "trackers": self._trackers_attribute(),
         }
         return attributes
+
+    def _trackers_attribute(self) -> dict[str, str] | None:
+        """Ordnet MAC-Schluessel den device_tracker-Entitaeten zu.
+
+        Ermoeglicht der Karte, im Detail-Popup direkt zum Anwesenheits-
+        Tracker eines Geraets zu verlinken. None, wenn die Tracker in den
+        Integrationseinstellungen nicht aktiviert sind.
+        """
+        from .const import CONF_ENABLE_DEVICE_TRACKER, DEFAULT_ENABLE_DEVICE_TRACKER
+
+        if not self._entry.options.get(
+            CONF_ENABLE_DEVICE_TRACKER, DEFAULT_ENABLE_DEVICE_TRACKER
+        ):
+            return None
+        registry = er.async_get(self.hass)
+        entry_id = self._entry.entry_id
+        mapping: dict[str, str] = {}
+        for host in (self.coordinator.data or {}).get("hosts", []):
+            key = mac_key(host.get("mac"))
+            if not key:
+                continue
+            eid = registry.async_get_entity_id(
+                "device_tracker", DOMAIN, f"{entry_id}_track_{key}"
+            )
+            if eid:
+                mapping[key] = eid
+        return mapping
 
     def _controls_attribute(self) -> dict[str, Any] | None:
         """Loest die Steuerungs-Entitaeten ueber die Registry auf.

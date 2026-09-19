@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.5.0b3";
+const FBN_VERSION = "1.5.0b5";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -49,6 +49,7 @@ const CONFIG_DEFAULTS = {
   show_search: true,
   show_filter: true,
   show_controls: false,
+  show_tabs: false,
   // Einzelne Filter-Buttons an/aus (nur wirksam, wenn show_filter an ist).
   filter_alle: true,
   filter_aktiv: true,
@@ -88,6 +89,13 @@ const CONFIG_DEFAULTS = {
   color_update: "",
   color_static: "",
   color_accent: "",
+  // Symbolfarbe je Kategorie-Chip (leer = folgt dem Akzent/Theme).
+  color_cat_alle: "",
+  color_cat_aktiv: "",
+  color_cat_inaktiv: "",
+  color_cat_gast: "",
+  color_cat_gesperrt: "",
+  color_cat_update: "",
 };
 
 /**
@@ -171,6 +179,7 @@ const I18N = {
     "tip.ls_last": "Zuletzt online: {ts}", "tip.sort": "Nach {label} sortieren",
     "arrow.left": "Nach links blättern", "arrow.right": "Nach rechts blättern",
     "ctl.throughput": "Aktueller Durchsatz (Download / Upload)", "ctl.wlan_24": "WLAN 2,4 GHz", "ctl.wlan_5": "WLAN 5 GHz", "ctl.wlan_guest": "Gast-WLAN", "ctl.reconnect": "Neu verbinden", "ctl.reboot": "Neustart", "ctl.reboot_confirm": "Wirklich neu starten?",
+    "field.tracker": "Anwesenheit", "tracker.home": "zuhause", "tracker.away": "abwesend", "tracker.open": "Tracker öffnen", "tab.network": "Netzwerk", "tab.controls": "Steuerung",
   },
   en: {
     "col.name": "Device", "col.ip": "IP address", "col.mac": "MAC address",
@@ -217,6 +226,7 @@ const I18N = {
     "tip.ls_last": "Last seen: {ts}", "tip.sort": "Sort by {label}",
     "arrow.left": "Scroll left", "arrow.right": "Scroll right",
     "ctl.throughput": "Current throughput (download / upload)", "ctl.wlan_24": "Wi-Fi 2.4 GHz", "ctl.wlan_5": "Wi-Fi 5 GHz", "ctl.wlan_guest": "Guest Wi-Fi", "ctl.reconnect": "Reconnect", "ctl.reboot": "Reboot", "ctl.reboot_confirm": "Really reboot?",
+    "field.tracker": "Presence", "tracker.home": "home", "tracker.away": "away", "tracker.open": "Open tracker", "tab.network": "Network", "tab.controls": "Controls",
   },
   nl: {
     "col.name": "Apparaat", "col.ip": "IP-adres", "col.mac": "MAC-adres",
@@ -263,6 +273,7 @@ const I18N = {
     "tip.ls_last": "Laatst online: {ts}", "tip.sort": "Sorteren op {label}",
     "arrow.left": "Naar links bladeren", "arrow.right": "Naar rechts bladeren",
     "ctl.throughput": "Huidige doorvoer (download / upload)", "ctl.wlan_24": "Wifi 2,4 GHz", "ctl.wlan_5": "Wifi 5 GHz", "ctl.wlan_guest": "Gast-wifi", "ctl.reconnect": "Opnieuw verbinden", "ctl.reboot": "Herstart", "ctl.reboot_confirm": "Echt herstarten?",
+    "field.tracker": "Aanwezigheid", "tracker.home": "thuis", "tracker.away": "afwezig", "tracker.open": "Tracker openen", "tab.network": "Netwerk", "tab.controls": "Bediening",
   },
 };
 
@@ -309,6 +320,13 @@ const COLOR_FALLBACKS = {
   color_update: "var(--info-color, #039be5)",
   color_static: "var(--primary-color)",
   color_accent: "var(--primary-color)",
+  // Kategorie-Symbolfarben: standardmäßig "inherit" (= Chip-Textfarbe/Akzent).
+  color_cat_alle: "inherit",
+  color_cat_aktiv: "inherit",
+  color_cat_inaktiv: "inherit",
+  color_cat_gast: "inherit",
+  color_cat_gesperrt: "inherit",
+  color_cat_update: "inherit",
 };
 
 const COLOR_EDITOR_FIELDS = [
@@ -324,6 +342,12 @@ const COLOR_EDITOR_FIELDS = [
   { key: "color_update", label: "Update verfügbar" },
   { key: "color_static", label: "Statische IP" },
   { key: "color_accent", label: "Akzent (Sortierung, Filter)" },
+  { key: "color_cat_alle", label: "Symbol Kategorie „Alle“" },
+  { key: "color_cat_aktiv", label: "Symbol Kategorie „Aktiv“" },
+  { key: "color_cat_inaktiv", label: "Symbol Kategorie „Inaktiv“" },
+  { key: "color_cat_gast", label: "Symbol Kategorie „Gast“" },
+  { key: "color_cat_gesperrt", label: "Symbol Kategorie „Gesperrt“" },
+  { key: "color_cat_update", label: "Symbol Kategorie „Update“" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -536,6 +560,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._hass = null;
     this._search = "";
     this._filter = "alle";
+    this._tab = "network";
     this._sortBy = "ip";
     this._sortDir = "asc";
     this._signature = "";
@@ -760,6 +785,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // sich unabhaengig von der Geraeteliste - daher bei jedem neuen
     // Zustandsobjekt aktualisieren, ohne die teure Tabelle anzufassen.
     this._renderControls();
+    this._renderTabs();
 
     const hosts = this._hosts();
     const signature = this._computeSignature(hosts);
@@ -791,13 +817,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
       <div class="fbn-root${config.compact ? " fbn-compact" : ""}${
       config.sticky_name ? " fbn-sticky" : ""
     }">
-        <div class="fbn-toolbar">
+        <div class="fbn-tabbar" role="tablist" hidden></div>
+        <div class="fbn-toolbar" data-tab="network">
           <div class="fbn-filters"></div>
           <div class="fbn-searchwrap"></div>
         </div>
-        <div class="fbn-summary"></div>
-        <div class="fbn-controls" hidden></div>
-        <div class="fbn-scrollwrap">
+        <div class="fbn-summary" data-tab="network"></div>
+        <div class="fbn-controls" data-tab="controls" hidden></div>
+        <div class="fbn-scrollwrap" data-tab="network">
           <button class="fbn-arrow fbn-arrow-left" type="button" hidden
                   aria-label="${escapeHtml(this._t('arrow.left'))}" tabindex="-1">
             <ha-icon icon="mdi:chevron-left"></ha-icon>
@@ -813,7 +840,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
             <ha-icon icon="mdi:chevron-right"></ha-icon>
           </button>
         </div>
-        <div class="fbn-empty" hidden></div>
+        <div class="fbn-empty" data-tab="network" hidden></div>
       </div>
     `;
     this.appendChild(card);
@@ -826,6 +853,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._buildHead();
     this._renderHead();
     this._renderControls();
+    this._renderTabs();
     this._observeWidth();
     this._bindScrollArrows(card.querySelector(".fbn-scrollwrap"));
   }
@@ -860,7 +888,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         (filter) => `
         <button class="fbn-chip" data-filter="${filter.key}" type="button"
                 aria-pressed="${filter.key === this._filter}">
-          <ha-icon icon="${filter.icon}"></ha-icon><span>${escapeHtml(this._t(`flt.${filter.key}`))}</span>
+          <ha-icon class="fbn-chip-icon" icon="${filter.icon}" style="color:var(--fbn-cat-${filter.key})"></ha-icon><span>${escapeHtml(this._t(`flt.${filter.key}`))}</span>
         </button>`
       )
       .join("");
@@ -1084,13 +1112,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const connection = attributes.connection || null;
     const controls = attributes.controls || null;
 
-    // Ohne Schalter (Einstellung aus) und ohne Verbindungsdaten: nichts zeigen.
+    // Ohne Schalter (Einstellung aus) und ohne Verbindungsdaten: leeren.
     if (!this._config.show_controls || (!connection && !controls)) {
-      box.hidden = true;
       box.innerHTML = "";
+      this._hasControls = false;
+      this._applyTabs();
       return;
     }
-    box.hidden = false;
+    this._hasControls = true;
 
     const parts = [];
     if (connection && (connection.down_rate != null || connection.up_rate != null)) {
@@ -1132,6 +1161,84 @@ class FritzboxNetzwerkCard extends HTMLElement {
       box.dataset.bound = "1";
       box.addEventListener("click", (event) => this._onControlClick(event));
     }
+    this._applyTabs();
+  }
+
+  /* -- Tabs (Kategorien) -------------------------------------------- */
+
+  /** Welche Tabs es aktuell gibt: Netzwerk immer, Steuerung wenn vorhanden. */
+  _tabList() {
+    const tabs = [{ key: "network", icon: "mdi:lan" }];
+    if (this._hasControls) {
+      tabs.push({ key: "controls", icon: "mdi:router-wireless-settings" });
+    }
+    return tabs;
+  }
+
+  /** Baut die Tab-Leiste (einmalig verkabelt). */
+  _renderTabs() {
+    const bar = this.querySelector(".fbn-tabbar");
+    if (!bar) return;
+    const tabs = this._tabList();
+    // Nur zeigen, wenn Tabs eingeschaltet UND mehr als eine Kategorie da ist.
+    if (!this._config.show_tabs || tabs.length < 2) {
+      bar.hidden = true;
+      bar.innerHTML = "";
+      this._applyTabs();
+      return;
+    }
+    bar.hidden = false;
+    if (!tabs.some((t) => t.key === this._tab)) this._tab = tabs[0].key;
+    bar.innerHTML = tabs
+      .map(
+        (t) => `
+        <button class="fbn-tab" type="button" role="tab" data-tab="${t.key}"
+                aria-selected="${t.key === this._tab}">
+          <ha-icon icon="${t.icon}"></ha-icon><span>${escapeHtml(this._t(`tab.${t.key}`))}</span>
+        </button>`
+      )
+      .join("");
+    if (!bar.dataset.bound) {
+      bar.dataset.bound = "1";
+      bar.addEventListener("click", (event) => {
+        const button = event.target.closest(".fbn-tab");
+        if (!button) return;
+        this._tab = button.dataset.tab;
+        this._renderTabs();
+      });
+    }
+    this._applyTabs();
+  }
+
+  /** Steuert Sichtbarkeit der Sektionen anhand des aktiven Tabs. */
+  _applyTabs() {
+    const root = this._root;
+    if (!root) return;
+    const tabs = this._tabList();
+    const tabbed = this._config.show_tabs && tabs.length > 1;
+
+    // Steuerungsleiste: ohne Inhalt immer aus.
+    const controls = root.querySelector(".fbn-controls");
+
+    if (!tabbed) {
+      // Ohne Tabs: Netzwerk-Sektionen sichtbar, Steuerung nur bei Inhalt.
+      root.querySelectorAll('[data-tab="network"]').forEach((el) => {
+        if (!el.classList.contains("fbn-empty")) el.hidden = false;
+      });
+      if (controls) controls.hidden = !this._hasControls;
+      return;
+    }
+    // Mit Tabs: nur die Sektionen des aktiven Tabs zeigen.
+    if (!tabs.some((t) => t.key === this._tab)) this._tab = tabs[0].key;
+    root.querySelectorAll("[data-tab]").forEach((el) => {
+      const belongs = el.getAttribute("data-tab") === this._tab;
+      // Die Leerzustands-Zeile verwaltet ihre Sichtbarkeit selbst.
+      if (el.classList.contains("fbn-empty")) {
+        if (!belongs) el.hidden = true;
+        return;
+      }
+      el.hidden = !belongs;
+    });
   }
 
   /** Reagiert auf Klicks in der Steuerungsleiste. */
@@ -1557,6 +1664,22 @@ class FritzboxNetzwerkCard extends HTMLElement {
       button.addEventListener("click", () => this._copy(button.dataset.copy, button));
     });
 
+    // Device-Tracker-Link: oeffnet den Info-Dialog der Entitaet.
+    const trackerLink = this._popup.querySelector(".fbn-tracker-link");
+    if (trackerLink) {
+      trackerLink.addEventListener("click", (event) => {
+        event.preventDefault();
+        this.dispatchEvent(
+          new CustomEvent("hass-more-info", {
+            detail: { entityId: trackerLink.dataset.entity },
+            bubbles: true,
+            composed: true,
+          })
+        );
+        this._closePopup();
+      });
+    }
+
     // Home Assistant oeffnen.
     const haButton = this._popup.querySelector(".fbn-act-ha");
     if (haButton) {
@@ -1656,7 +1779,32 @@ class FritzboxNetzwerkCard extends HTMLElement {
       host.active ? this._t("state.now_online") : escapeHtml(formatLastSeen(host.last_seen, this._lang()))
     );
 
+    // Device Tracker: verlinkt zur Anwesenheits-Entität, sofern aktiviert.
+    const tracker = this._trackerFor(host);
+    if (tracker) {
+      const stateText = host.active
+        ? this._t("tracker.home")
+        : this._t("tracker.away");
+      rows.push(`
+        <div class="fbn-drow">
+          <div class="fbn-dt">${escapeHtml(this._t("field.tracker"))}</div>
+          <div class="fbn-dd">
+            <a class="fbn-tracker-link" href="#" data-entity="${escapeHtml(tracker)}"
+               title="${escapeHtml(this._t("tracker.open"))}">${escapeHtml(stateText)}</a>
+          </div>
+        </div>`);
+    }
+
     return rows.join("");
+  }
+
+  /** Ermittelt die device_tracker-Entity eines Geraets (falls vorhanden). */
+  _trackerFor(host) {
+    const state = this._stateObj();
+    const trackers = (state && state.attributes && state.attributes.trackers) || null;
+    if (!trackers) return null;
+    const key = String(host.mac || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+    return trackers[key] || null;
   }
 
   /** Fusszeile des Popups mit den moeglichen Aktionen. */
@@ -1806,6 +1954,22 @@ class FritzboxNetzwerkCard extends HTMLElement {
   _styles() {
     return `
       .fbn-root { padding: 0 0 8px; color: var(--fbn-row-text); }
+      .fbn-tabbar {
+        display: flex; gap: 4px; padding: 8px 16px 4px; flex-wrap: wrap;
+      }
+      .fbn-tab {
+        display: inline-flex; align-items: center; gap: 6px;
+        border: none; border-bottom: 2px solid transparent; background: none;
+        color: var(--fbn-header-text); cursor: pointer; font: inherit;
+        font-size: 0.9em; padding: 6px 12px 8px;
+      }
+      .fbn-tab ha-icon { --mdc-icon-size: 18px; width: 18px; height: 18px; }
+      .fbn-tab[aria-selected="true"] {
+        color: var(--fbn-accent); border-bottom-color: var(--fbn-accent);
+      }
+      .fbn-tab:focus-visible { outline: 2px solid var(--fbn-accent); outline-offset: 2px; }
+      .fbn-tracker-link { color: var(--fbn-accent); text-decoration: none; }
+      .fbn-tracker-link:hover { text-decoration: underline; }
       .fbn-toolbar {
         display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
         justify-content: space-between; padding: 8px 16px 4px;
@@ -2094,6 +2258,7 @@ const EDITOR_SCHEMA = [
       { name: "show_search", selector: { boolean: {} } },
       { name: "show_filter", selector: { boolean: {} } },
       { name: "show_controls", selector: { boolean: {} } },
+      { name: "show_tabs", selector: { boolean: {} } },
       { name: "hide_inactive", selector: { boolean: {} } },
       { name: "compact", selector: { boolean: {} } },
       { name: "show_details_popup", selector: { boolean: {} } },
@@ -2193,6 +2358,7 @@ const EDITOR_LABELS = {
   show_search: "Suchfeld anzeigen",
   show_filter: "Filterleiste anzeigen",
   show_controls: "Steuerungsleiste anzeigen",
+  show_tabs: "Kategorien als Tabs anzeigen",
   filter_alle: "Button „Alle“",
   filter_aktiv: "Button „Aktiv“",
   filter_inaktiv: "Button „Inaktiv“",
@@ -2215,6 +2381,7 @@ const EDITOR_LABELS = {
 };
 
 const EDITOR_HELPERS = {
+  show_tabs: "Zeigt oben Reiter für die Kategorien Netzwerk und Steuerung. Der Steuerungs-Reiter erscheint nur, wenn die Steuerungsleiste aktiviert ist.",
   show_controls: "Zeigt in der Karte eine Leiste mit Live-Down/Up sowie – wenn die FRITZ!Box-Steuerung in den Integrationseinstellungen aktiviert ist – WLAN-Schaltern und den Buttons Neuverbinden/Neustart.",
   default_filter: "Welcher Filter aktiv ist, wenn die Karte geladen oder neu geöffnet wird (z. B. „Aktiv“). Nach einem Refresh wird nicht mehr auf „Alle“ zurückgesetzt.",
   language: "Sprache der Beschriftungen in der Karte. „Automatisch“ folgt der in Home Assistant eingestellten Sprache (Deutsch, Englisch, Niederländisch).",
@@ -2253,6 +2420,8 @@ const EDITOR_TX = {
     show_summary: "Show summary", show_search: "Show search field",
     show_filter: "Show filter bar",
     show_controls: "Show controls bar",
+    show_tabs: "Show categories as tabs",
+    help_show_tabs: "Shows tabs for the Network and Controls categories at the top. The Controls tab only appears when the controls bar is enabled.",
     help_show_controls: "Shows a bar with live download/upload and \u2013 if FRITZ!Box controls are enabled in the integration settings \u2013 Wi-Fi switches and reconnect/reboot buttons.",
     filter_alle: '"All" button', filter_aktiv: '"Active" button',
     filter_inaktiv: '"Inactive" button', filter_gast: '"Guest" button',
@@ -2294,6 +2463,7 @@ const EDITOR_TX = {
     color_inactive: "Inactive", color_guest: "Guest network",
     color_blocked: "Blocked", color_update: "Update available",
     color_static: "Static IP", color_accent: "Accent (sorting, filter)",
+    color_cat_alle: "Icon category \"All\"", color_cat_aktiv: "Icon category \"Active\"", color_cat_inaktiv: "Icon category \"Inactive\"", color_cat_gast: "Icon category \"Guest\"", color_cat_gesperrt: "Icon category \"Blocked\"", color_cat_update: "Icon category \"Update\"",
   },
   nl: {
     entity: "Sensor met de apparaatlijst", title: "Titel", show_title: "Titel tonen",
@@ -2307,6 +2477,8 @@ const EDITOR_TX = {
     show_summary: "Samenvatting tonen", show_search: "Zoekveld tonen",
     show_filter: "Filterbalk tonen",
     show_controls: "Bedieningsbalk tonen",
+    show_tabs: "Categorieën als tabs tonen",
+    help_show_tabs: "Toont bovenaan tabs voor de categorieën Netwerk en Bediening. De tab Bediening verschijnt alleen als de bedieningsbalk is ingeschakeld.",
     help_show_controls: "Toont een balk met live download/upload en \u2013 als de FRITZ!Box-bediening in de integratie-instellingen is ingeschakeld \u2013 wifi-schakelaars en knoppen voor opnieuw verbinden/herstarten.",
     filter_alle: 'Knop "Alle"', filter_aktiv: 'Knop "Actief"',
     filter_inaktiv: 'Knop "Inactief"', filter_gast: 'Knop "Gast"',
@@ -2348,6 +2520,7 @@ const EDITOR_TX = {
     color_inactive: "Inactief", color_guest: "Gastnetwerk",
     color_blocked: "Geblokkeerd", color_update: "Update beschikbaar",
     color_static: "Statisch IP", color_accent: "Accent (sorteren, filter)",
+    color_cat_alle: "Pictogram categorie \"Alle\"", color_cat_aktiv: "Pictogram categorie \"Actief\"", color_cat_inaktiv: "Pictogram categorie \"Inactief\"", color_cat_gast: "Pictogram categorie \"Gast\"", color_cat_gesperrt: "Pictogram categorie \"Geblokkeerd\"", color_cat_update: "Pictogram categorie \"Update\"",
   },
 };
 

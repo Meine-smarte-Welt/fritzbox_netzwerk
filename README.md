@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.5.0b3-blue)
+![Version](https://img.shields.io/badge/Version-1.5.0b5-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -485,6 +485,16 @@ Kartencodes im Testaufbau.
   blendet die Karte eine eigene Kategorie ein: Live-Download/-Upload sowie – wenn die
   FRITZ!Box-Steuerung aktiviert ist – die WLAN-Schalter und die Buttons Neuverbinden/Neustart
   (Neustart mit Zwei-Klick-Bestätigung).
+- **Einzeln färbbare Kategorie-Symbole** (einheitlich mit *FRITZ!Box Anrufe*). Im Farbbereich
+  des Editors lässt sich die Symbolfarbe jeder Kategorie (Alle, Aktiv, Inaktiv, Gast,
+  Gesperrt, Update) getrennt einstellen. Die Chips sind wie bisher einzeln ein-/ausblendbar.
+- **Tabs (Kategorien) in der Karte.** Über den Editor-Schalter *Kategorien als Tabs anzeigen*
+  bekommt die Karte oben Reiter: **Netzwerk** (die Tabelle) und – wenn die Steuerungsleiste
+  aktiviert ist – **Steuerung**. Der Steuerungs-Reiter erscheint nur, wenn es etwas zu steuern
+  gibt.
+- **Device-Tracker im Detail-Popup.** Ist der Device Tracker aktiviert, zeigt das Popup eines
+  Geräts eine Zeile *Anwesenheit* mit Link direkt zur Tracker-Entität – statt einer
+  redundanten eigenen Übersichtsseite.
 
 ### 1.4.2 – Absturz bei ungewöhnlichen Geräte-Identifiern behoben
 
