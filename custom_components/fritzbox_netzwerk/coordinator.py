@@ -158,6 +158,11 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         return self.entry.options.get(CONF_ENABLE_CONTROLS, DEFAULT_ENABLE_CONTROLS)
 
+    @property
+    def controls_enabled(self) -> bool:
+        """Oeffentlicher Zugriff auf den Steuerungs-Status (fuer den Sensor)."""
+        return self._controls_enabled
+
     def call_action(self, service: str, action: str, **kwargs: Any) -> dict[str, Any]:
         """Fuehrt einen TR-064-Aufruf aus (blockierend, im Executor nutzen)."""
         return self.fritz_hosts.fc.call_action(service, action, **kwargs)

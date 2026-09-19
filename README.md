@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.5.0b2-blue)
+![Version](https://img.shields.io/badge/Version-1.5.0b3-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -481,6 +481,10 @@ Kartencodes im Testaufbau.
   aktivierbar: Schalter für die WLAN-Bänder (2,4 GHz, 5 GHz, Gast) sowie Buttons zum
   Neuverbinden (neue IP) und Neustarten der FRITZ!Box. Verfügbarkeit und Zuordnung der Bänder
   hängen vom Modell ab, daher experimentell; standardmäßig aus.
+- **Steuerungsleiste in der Karte.** Über den Editor-Schalter *Steuerungsleiste anzeigen*
+  blendet die Karte eine eigene Kategorie ein: Live-Download/-Upload sowie – wenn die
+  FRITZ!Box-Steuerung aktiviert ist – die WLAN-Schalter und die Buttons Neuverbinden/Neustart
+  (Neustart mit Zwei-Klick-Bestätigung).
 
 ### 1.4.2 – Absturz bei ungewöhnlichen Geräte-Identifiern behoben
 

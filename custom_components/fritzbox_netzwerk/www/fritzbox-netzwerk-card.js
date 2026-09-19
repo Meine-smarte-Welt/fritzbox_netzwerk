@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.5.0b2";
+const FBN_VERSION = "1.5.0b3";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -48,6 +48,7 @@ const CONFIG_DEFAULTS = {
   show_summary: true,
   show_search: true,
   show_filter: true,
+  show_controls: false,
   // Einzelne Filter-Buttons an/aus (nur wirksam, wenn show_filter an ist).
   filter_alle: true,
   filter_aktiv: true,
@@ -169,6 +170,7 @@ const I18N = {
     "tip.ls_unknown": "Seit Installation der Integration nicht als online erfasst",
     "tip.ls_last": "Zuletzt online: {ts}", "tip.sort": "Nach {label} sortieren",
     "arrow.left": "Nach links blättern", "arrow.right": "Nach rechts blättern",
+    "ctl.throughput": "Aktueller Durchsatz (Download / Upload)", "ctl.wlan_24": "WLAN 2,4 GHz", "ctl.wlan_5": "WLAN 5 GHz", "ctl.wlan_guest": "Gast-WLAN", "ctl.reconnect": "Neu verbinden", "ctl.reboot": "Neustart", "ctl.reboot_confirm": "Wirklich neu starten?",
   },
   en: {
     "col.name": "Device", "col.ip": "IP address", "col.mac": "MAC address",
@@ -214,6 +216,7 @@ const I18N = {
     "tip.ls_unknown": "Not seen online since the integration was installed",
     "tip.ls_last": "Last seen: {ts}", "tip.sort": "Sort by {label}",
     "arrow.left": "Scroll left", "arrow.right": "Scroll right",
+    "ctl.throughput": "Current throughput (download / upload)", "ctl.wlan_24": "Wi-Fi 2.4 GHz", "ctl.wlan_5": "Wi-Fi 5 GHz", "ctl.wlan_guest": "Guest Wi-Fi", "ctl.reconnect": "Reconnect", "ctl.reboot": "Reboot", "ctl.reboot_confirm": "Really reboot?",
   },
   nl: {
     "col.name": "Apparaat", "col.ip": "IP-adres", "col.mac": "MAC-adres",
@@ -259,6 +262,7 @@ const I18N = {
     "tip.ls_unknown": "Sinds installatie van de integratie niet online gezien",
     "tip.ls_last": "Laatst online: {ts}", "tip.sort": "Sorteren op {label}",
     "arrow.left": "Naar links bladeren", "arrow.right": "Naar rechts bladeren",
+    "ctl.throughput": "Huidige doorvoer (download / upload)", "ctl.wlan_24": "Wifi 2,4 GHz", "ctl.wlan_5": "Wifi 5 GHz", "ctl.wlan_guest": "Gast-wifi", "ctl.reconnect": "Opnieuw verbinden", "ctl.reboot": "Herstart", "ctl.reboot_confirm": "Echt herstarten?",
   },
 };
 
@@ -404,6 +408,15 @@ function formatSpeedCompact(speed) {
   if (value <= 0) return "—";
   if (value >= 1000 && value % 1000 === 0) return `${value / 1000} G`;
   return `${value} M`;
+}
+
+/** Datenrate (kByte/s) lesbar: ab 1000 kB/s in MB/s. */
+function formatRate(kbytes) {
+  if (kbytes === null || kbytes === undefined || kbytes === "") return "—";
+  const value = Number(kbytes);
+  if (!Number.isFinite(value) || value < 0) return "—";
+  if (value >= 1000) return `${(value / 1000).toFixed(1).replace(".", ",")} MB/s`;
+  return `${Math.round(value)} kB/s`;
 }
 
 /** Restlaufzeit der DHCP-Zuweisung in lesbarer Form. */
@@ -743,6 +756,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
     }
     this._lastStateObj = stateObj;
 
+    // Die Steuerungsleiste (WLAN-Status, Down/Up) ist guenstig und aendert
+    // sich unabhaengig von der Geraeteliste - daher bei jedem neuen
+    // Zustandsobjekt aktualisieren, ohne die teure Tabelle anzufassen.
+    this._renderControls();
+
     const hosts = this._hosts();
     const signature = this._computeSignature(hosts);
     if (this._renderedOnce && signature === this._signature) {
@@ -778,6 +796,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
           <div class="fbn-searchwrap"></div>
         </div>
         <div class="fbn-summary"></div>
+        <div class="fbn-controls" hidden></div>
         <div class="fbn-scrollwrap">
           <button class="fbn-arrow fbn-arrow-left" type="button" hidden
                   aria-label="${escapeHtml(this._t('arrow.left'))}" tabindex="-1">
@@ -806,6 +825,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._buildSearch();
     this._buildHead();
     this._renderHead();
+    this._renderControls();
     this._observeWidth();
     this._bindScrollArrows(card.querySelector(".fbn-scrollwrap"));
   }
@@ -1046,6 +1066,127 @@ class FritzboxNetzwerkCard extends HTMLElement {
         ? ` · ${this._t("sum.shown", { n: shown })}`
         : "";
     container.textContent = parts.join(" · ") + filtered;
+  }
+
+  /* -- Steuerungsleiste (WLAN / Reconnect / Neustart / Down-Up) ------ */
+
+  /**
+   * Zeichnet die optionale Steuerungs-Kategorie: Live-Down/Up, WLAN-Schalter
+   * und die Buttons Neuverbinden/Neustart. Die eigentlichen Aktionen laufen
+   * ueber generische Dienstaufrufe an die vom Sensor gemeldeten Entitaeten,
+   * die Karte selbst bleibt also datengetrieben.
+   */
+  _renderControls() {
+    const box = this.querySelector(".fbn-controls");
+    if (!box) return;
+    const state = this._stateObj();
+    const attributes = (state && state.attributes) || {};
+    const connection = attributes.connection || null;
+    const controls = attributes.controls || null;
+
+    // Ohne Schalter (Einstellung aus) und ohne Verbindungsdaten: nichts zeigen.
+    if (!this._config.show_controls || (!connection && !controls)) {
+      box.hidden = true;
+      box.innerHTML = "";
+      return;
+    }
+    box.hidden = false;
+
+    const parts = [];
+    if (connection && (connection.down_rate != null || connection.up_rate != null)) {
+      parts.push(`
+        <span class="fbn-ctl-rate" title="${escapeHtml(this._t("ctl.throughput"))}">
+          <ha-icon icon="mdi:download"></ha-icon>${escapeHtml(formatRate(connection.down_rate))}
+          <ha-icon icon="mdi:upload"></ha-icon>${escapeHtml(formatRate(connection.up_rate))}
+        </span>`);
+    }
+    if (controls && Array.isArray(controls.wlan)) {
+      for (const w of controls.wlan) {
+        const on = w.on === true;
+        const pressed = w.on === false ? "false" : w.on === true ? "true" : "mixed";
+        parts.push(`
+          <button class="fbn-ctl-chip fbn-ctl-wlan" type="button"
+                  data-entity="${escapeHtml(w.entity_id)}" aria-pressed="${pressed}">
+            <ha-icon icon="${w.key === "wlan_guest" ? "mdi:wifi-lock" : on ? "mdi:wifi" : "mdi:wifi-off"}"></ha-icon>
+            <span>${escapeHtml(this._t(`ctl.${w.key}`))}</span>
+          </button>`);
+      }
+    }
+    if (controls && controls.reconnect) {
+      parts.push(`
+        <button class="fbn-ctl-btn fbn-ctl-reconnect" type="button"
+                data-entity="${escapeHtml(controls.reconnect)}">
+          <ha-icon icon="mdi:restart"></ha-icon><span>${escapeHtml(this._t("ctl.reconnect"))}</span>
+        </button>`);
+    }
+    if (controls && controls.reboot) {
+      parts.push(`
+        <button class="fbn-ctl-btn fbn-ctl-reboot" type="button"
+                data-entity="${escapeHtml(controls.reboot)}" data-armed="0">
+          <ha-icon icon="mdi:restart-alert"></ha-icon><span>${escapeHtml(this._t("ctl.reboot"))}</span>
+        </button>`);
+    }
+    box.innerHTML = parts.join("");
+
+    if (!box.dataset.bound) {
+      box.dataset.bound = "1";
+      box.addEventListener("click", (event) => this._onControlClick(event));
+    }
+  }
+
+  /** Reagiert auf Klicks in der Steuerungsleiste. */
+  _onControlClick(event) {
+    if (!this._hass) return;
+    const wlan = event.target.closest(".fbn-ctl-wlan");
+    if (wlan) {
+      this._hass.callService("switch", "toggle", { entity_id: wlan.dataset.entity });
+      return;
+    }
+    const reconnect = event.target.closest(".fbn-ctl-reconnect");
+    if (reconnect) {
+      this._pressButton(reconnect);
+      return;
+    }
+    const reboot = event.target.closest(".fbn-ctl-reboot");
+    if (reboot) {
+      // Zwei-Klick-Bestaetigung: der erste Klick "schaerft" den Button.
+      if (reboot.dataset.armed !== "1") {
+        reboot.dataset.armed = "1";
+        reboot.classList.add("fbn-ctl-armed");
+        reboot.querySelector("span").textContent = this._t("ctl.reboot_confirm");
+        clearTimeout(this._rebootTimer);
+        this._rebootTimer = setTimeout(() => {
+          reboot.dataset.armed = "0";
+          reboot.classList.remove("fbn-ctl-armed");
+          const span = reboot.querySelector("span");
+          if (span) span.textContent = this._t("ctl.reboot");
+        }, 4000);
+        return;
+      }
+      clearTimeout(this._rebootTimer);
+      this._pressButton(reboot);
+    }
+  }
+
+  /** Loest einen Button-Entity aus und gibt kurze Rueckmeldung. */
+  _pressButton(el) {
+    const entity = el.dataset.entity;
+    if (!entity) return;
+    el.disabled = true;
+    this._hass
+      .callService("button", "press", { entity_id: entity })
+      .then(() => {
+        const span = el.querySelector("span");
+        if (span) span.textContent = this._t("act.wol_sent");
+        setTimeout(() => {
+          el.disabled = false;
+        }, 1500);
+      })
+      .catch(() => {
+        el.disabled = false;
+        const span = el.querySelector("span");
+        if (span) span.textContent = this._t("act.failed");
+      });
   }
 
   _renderBody() {
@@ -1693,6 +1834,37 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-summary {
         padding: 2px 16px 8px; font-size: 0.82em; color: var(--fbn-header-text);
       }
+      .fbn-controls {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+        padding: 4px 16px 10px;
+      }
+      .fbn-ctl-rate {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 0.85em; color: var(--fbn-header-text);
+      }
+      .fbn-ctl-rate ha-icon { --mdc-icon-size: 16px; width: 16px; height: 16px; }
+      .fbn-ctl-chip, .fbn-ctl-btn {
+        display: inline-flex; align-items: center; gap: 5px;
+        border: 1px solid var(--fbn-border); border-radius: 16px;
+        background: none; color: inherit; cursor: pointer;
+        padding: 4px 12px; font: inherit; font-size: 0.85em; line-height: 1.4;
+      }
+      .fbn-ctl-chip ha-icon, .fbn-ctl-btn ha-icon {
+        --mdc-icon-size: 16px; width: 16px; height: 16px;
+      }
+      .fbn-ctl-wlan[aria-pressed="true"] {
+        border-color: var(--fbn-active); color: var(--fbn-active);
+      }
+      .fbn-ctl-wlan[aria-pressed="false"] { opacity: 0.6; }
+      .fbn-ctl-btn:hover, .fbn-ctl-chip:hover { background: var(--fbn-header-bg); }
+      .fbn-ctl-btn[disabled] { opacity: 0.6; cursor: default; }
+      .fbn-ctl-armed {
+        border-color: var(--fbn-blocked); color: var(--fbn-blocked);
+        font-weight: 600;
+      }
+      .fbn-ctl-chip:focus-visible, .fbn-ctl-btn:focus-visible {
+        outline: 2px solid var(--fbn-accent); outline-offset: 2px;
+      }
       .fbn-scrollwrap { position: relative; }
       .fbn-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
       .fbn-arrow {
@@ -1921,6 +2093,7 @@ const EDITOR_SCHEMA = [
       { name: "show_summary", selector: { boolean: {} } },
       { name: "show_search", selector: { boolean: {} } },
       { name: "show_filter", selector: { boolean: {} } },
+      { name: "show_controls", selector: { boolean: {} } },
       { name: "hide_inactive", selector: { boolean: {} } },
       { name: "compact", selector: { boolean: {} } },
       { name: "show_details_popup", selector: { boolean: {} } },
@@ -2019,6 +2192,7 @@ const EDITOR_LABELS = {
   show_summary: "Zusammenfassung anzeigen",
   show_search: "Suchfeld anzeigen",
   show_filter: "Filterleiste anzeigen",
+  show_controls: "Steuerungsleiste anzeigen",
   filter_alle: "Button „Alle“",
   filter_aktiv: "Button „Aktiv“",
   filter_inaktiv: "Button „Inaktiv“",
@@ -2041,6 +2215,7 @@ const EDITOR_LABELS = {
 };
 
 const EDITOR_HELPERS = {
+  show_controls: "Zeigt in der Karte eine Leiste mit Live-Down/Up sowie – wenn die FRITZ!Box-Steuerung in den Integrationseinstellungen aktiviert ist – WLAN-Schaltern und den Buttons Neuverbinden/Neustart.",
   default_filter: "Welcher Filter aktiv ist, wenn die Karte geladen oder neu geöffnet wird (z. B. „Aktiv“). Nach einem Refresh wird nicht mehr auf „Alle“ zurückgesetzt.",
   language: "Sprache der Beschriftungen in der Karte. „Automatisch“ folgt der in Home Assistant eingestellten Sprache (Deutsch, Englisch, Niederländisch).",
   show_title: "Blendet die Kopfzeile der Karte aus, z. B. für ein Popup oder eine kompakte Ansicht.",
@@ -2077,6 +2252,8 @@ const EDITOR_TX = {
     show_type: "Device type", show_last_seen: "Last seen",
     show_summary: "Show summary", show_search: "Show search field",
     show_filter: "Show filter bar",
+    show_controls: "Show controls bar",
+    help_show_controls: "Shows a bar with live download/upload and \u2013 if FRITZ!Box controls are enabled in the integration settings \u2013 Wi-Fi switches and reconnect/reboot buttons.",
     filter_alle: '"All" button', filter_aktiv: '"Active" button',
     filter_inaktiv: '"Inactive" button', filter_gast: '"Guest" button',
     filter_gesperrt: '"Blocked" button', filter_update: '"Update" button',
@@ -2129,6 +2306,8 @@ const EDITOR_TX = {
     show_type: "Apparaattype", show_last_seen: "Laatst online",
     show_summary: "Samenvatting tonen", show_search: "Zoekveld tonen",
     show_filter: "Filterbalk tonen",
+    show_controls: "Bedieningsbalk tonen",
+    help_show_controls: "Toont een balk met live download/upload en \u2013 als de FRITZ!Box-bediening in de integratie-instellingen is ingeschakeld \u2013 wifi-schakelaars en knoppen voor opnieuw verbinden/herstarten.",
     filter_alle: 'Knop "Alle"', filter_aktiv: 'Knop "Actief"',
     filter_inaktiv: 'Knop "Inactief"', filter_gast: 'Knop "Gast"',
     filter_gesperrt: 'Knop "Geblokkeerd"', filter_update: 'Knop "Update"',

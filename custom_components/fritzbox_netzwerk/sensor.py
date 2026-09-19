@@ -12,6 +12,7 @@ from homeassistant.components.sensor import (
 from homeassistant.const import CONF_HOST, UnitOfDataRate
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -121,10 +122,11 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Geraeteliste und Kennzahlen."""
+        """Geraeteliste, Kennzahlen sowie - fuer die Karte - Verbindungsdaten
+        und (falls aktiviert) die Steuerungs-Entitaeten."""
         data = self.coordinator.data or {}
         summary = self._summary
-        return {
+        attributes: dict[str, Any] = {
             ATTR_HOSTS: data.get("hosts", []),
             ATTR_TOTAL: summary.get("total", 0),
             ATTR_ACTIVE: summary.get("active", 0),
@@ -136,6 +138,43 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             ATTR_LAST_SCAN: data.get("last_scan"),
             ATTR_ADDRESS_SOURCE_SCAN: data.get("address_source_scan"),
             ATTR_ADDRESS_SOURCE_STATE: data.get("track_address_source", False),
+            # Live-Down/Up (kann None sein) - die Karte zeigt es in der
+            # optionalen Steuerungsleiste an.
+            "connection": data.get("connection"),
+            # Steuerungs-Entitaeten (WLAN-Schalter, Reconnect, Neustart), damit
+            # die Karte sie generisch bedienen kann. None, wenn die Steuerung
+            # in den Integrationseinstellungen nicht aktiviert ist.
+            "controls": self._controls_attribute(),
+        }
+        return attributes
+
+    def _controls_attribute(self) -> dict[str, Any] | None:
+        """Loest die Steuerungs-Entitaeten ueber die Registry auf.
+
+        Liefert deren entity_id (fuer generische Dienstaufrufe der Karte)
+        und - fuer die WLAN-Schalter - den aktuellen An/Aus-Zustand.
+        """
+        if not self.coordinator.controls_enabled:
+            return None
+        registry = er.async_get(self.hass)
+        entry_id = self._entry.entry_id
+
+        def _eid(platform: str, suffix: str) -> str | None:
+            return registry.async_get_entity_id(platform, DOMAIN, f"{entry_id}_{suffix}")
+
+        wlan_states = (self.coordinator.data or {}).get("wlan") or {}
+        wlan: list[dict[str, Any]] = []
+        for index, key in ((1, "wlan_24"), (2, "wlan_5"), (3, "wlan_guest")):
+            eid = _eid("switch", key)
+            if not eid:
+                continue
+            wlan.append(
+                {"key": key, "entity_id": eid, "on": wlan_states.get(f"wlan{index}")}
+            )
+        return {
+            "wlan": wlan,
+            "reconnect": _eid("button", "reconnect"),
+            "reboot": _eid("button", "reboot"),
         }
 
 
