@@ -28,19 +28,25 @@ from .const import (
     CONF_ADDRESS_SOURCE_INTERVAL,
     CONF_ENABLE_CONTROLS,
     CONF_ENABLE_DEVICE_TRACKER,
+    CONF_ENABLE_REPEATERS,
+    CONF_PAIRING_MINUTES,
     CONF_SCAN_INTERVAL,
     CONF_TRACK_ADDRESS_SOURCE,
     CONF_USE_TLS,
     DEFAULT_ADDRESS_SOURCE_INTERVAL,
     DEFAULT_ENABLE_CONTROLS,
     DEFAULT_ENABLE_DEVICE_TRACKER,
+    DEFAULT_ENABLE_REPEATERS,
     DEFAULT_HOST,
+    DEFAULT_PAIRING_MINUTES,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TRACK_ADDRESS_SOURCE,
     DEFAULT_USE_TLS,
     DEFAULT_USERNAME,
     DOMAIN,
+    MAX_PAIRING_MINUTES,
     MAX_SCAN_INTERVAL,
+    MIN_PAIRING_MINUTES,
     MIN_SCAN_INTERVAL,
 )
 
@@ -229,11 +235,26 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                     ),
                 ): bool,
                 vol.Optional(
+                    CONF_ENABLE_REPEATERS,
+                    default=options.get(
+                        CONF_ENABLE_REPEATERS, DEFAULT_ENABLE_REPEATERS
+                    ),
+                ): bool,
+                vol.Optional(
                     CONF_ENABLE_CONTROLS,
                     default=options.get(
                         CONF_ENABLE_CONTROLS, DEFAULT_ENABLE_CONTROLS
                     ),
                 ): bool,
+                vol.Optional(
+                    CONF_PAIRING_MINUTES,
+                    default=options.get(
+                        CONF_PAIRING_MINUTES, DEFAULT_PAIRING_MINUTES
+                    ),
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=MIN_PAIRING_MINUTES, max=MAX_PAIRING_MINUTES),
+                ),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.5.2b0-blue)
+![Version](https://img.shields.io/badge/Version-1.5.2b2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -17,6 +17,8 @@ passenden Home-Assistant-Gerätenamen.
 - [Einrichtung](#einrichtung)
 - [Einstellungen](#einstellungen)
 - [Sensoren](#sensoren)
+- [Repeater als eigene Geräte](#repeater-als-eigene-geräte)
+- [MAC-Filter und Pairing](#mac-filter-und-pairing)
 - [Dashboard-Karte](#dashboard-karte)
   - [Spalten](#spalten)
   - [Sortieren, filtern, suchen](#sortieren-filtern-suchen)
@@ -60,6 +62,8 @@ passenden Home-Assistant-Gerätenamen.
 - Vollständig über die Oberfläche konfigurierbar, inklusive **frei wählbarer Farben**
 - Zwei zusätzliche Zähler-Sensoren für Automatisierungen
 - **Verbindungs-Sensoren**: aktuelle Download-/Upload-Rate und die Leitungs-Sync-Raten
+- **WLAN-MAC-Filter** ein-/ausschalten und **temporär freigeben („Pairing“)**: neue Geräte
+  für ein paar Minuten ins WLAN lassen, danach schaltet sich der Filter selbst wieder ein
 
 Die Karte wird von der Integration mitgeliefert und automatisch als Lovelace-Ressource
 eingetragen. Es ist keine separate Installation der Karte nötig.
@@ -121,6 +125,10 @@ statt später still keine Daten zu liefern.
 | Abfrageintervall | 60 s | Wie oft die Geräteliste geholt wird (15–3600 s) |
 | IP-Typ erfassen | an | Ob DHCP/statisch ermittelt wird |
 | Intervall der IP-Typ-Abfrage | 15 min | Takt der IP-Typ-Erfassung |
+| Geräte-Tracker anlegen | aus | Ein `device_tracker` je Netzwerkgerät (zuhause/abwesend) |
+| Repeater als eigene Geräte anlegen | an | Ein Home-Assistant-Gerät je AVM-Repeater, siehe [Repeater als eigene Geräte](#repeater-als-eigene-geräte) |
+| FRITZ!Box-Steuerung (experimentell) | aus | WLAN-Schalter, MAC-Filter-Schalter, Pairing-Button sowie Buttons Neuverbinden und Neustart |
+| Pairing-Dauer | 5 min | Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt (1–120 min), siehe [MAC-Filter und Pairing](#mac-filter-und-pairing) |
 
 **Warum zwei Intervalle?** Die komplette Geräteliste kommt mit einem einzigen Aufruf von
 der FRITZ!Box. Die Angabe, ob eine IP-Adresse fest zugewiesen ist, steht dort aber nicht
@@ -147,12 +155,126 @@ Die vier Down/Up-Sensoren nutzen die WAN-Dienste der FRITZ!Box (TR-064). Fehlt d
 WAN-Dienst – etwa wenn die FRITZ!Box als reiner Access Point läuft –, bleiben diese Sensoren
 „unbekannt", ohne die Geräteliste zu beeinträchtigen.
 
+Die Einheit der drei Zähler-Sensoren (*Geräte* / *devices* / *apparaten*) folgt der in Home
+Assistant eingestellten Sprache.
+
 Das Attribut `hosts` ist per `_unrecorded_attributes` vom Recorder ausgenommen. Ohne das
 schriebe Home Assistant die vollständige Geräteliste bei jeder Änderung in die Datenbank –
 bei 60 Geräten rund 15–20 kB pro Eintrag.
 
 Weitere Attribute am Hauptsensor: `gesamt`, `aktiv`, `inaktiv`, `gastnetz`, `gesperrt`,
 `updates_verfuegbar`, `statische_ip`, `letzte_abfrage`, `letzte_ip_typ_abfrage`.
+
+---
+
+## Repeater als eigene Geräte
+
+AVM-Repeater im Mesh erscheinen in der Geräteliste der FRITZ!Box wie jedes andere
+Netzwerkgerät. Seit 1.5.2b1 legt die Integration für jeden von ihnen zusätzlich ein
+**eigenes Home-Assistant-Gerät** an, das an der FRITZ!Box hängt. Erkannt wird ein Repeater
+daran, dass sein von der FRITZ!Box gemeldetes Modell „Repeater“ enthält (etwa
+*FRITZ!Repeater 1200 AX*) – der Name wird nicht geraten.
+
+| Entität | Wann | Zweck |
+| --- | --- | --- |
+| `binary_sensor.<repeater>_verbunden` | immer | Ist der Repeater gerade mit der FRITZ!Box verbunden? Für Ausfall-Automationen |
+| `button.<repeater>_neustart` | nur mit *FRITZ!Box-Steuerung* | Startet den Repeater neu |
+
+Neu auftauchende Repeater werden automatisch ergänzt. Wer das nicht möchte, schaltet
+*Repeater als eigene Geräte anlegen* in den Einstellungen der Integration aus.
+
+**So funktioniert der Neustart.** Die Hauptbox kann fremde Geräte nicht neu starten. Die
+Integration verbindet sich deshalb mit denselben Zugangsdaten direkt mit dem Repeater
+(TR-064 an dessen IP-Adresse) und löst dort den Neustart aus. Das setzt voraus, dass der
+Repeater diese Anmeldung akzeptiert. Im Mesh übernehmen Repeater in der Regel die Zugangsdaten
+der FRITZ!Box; ist das bei dir nicht so oder ist der Zugriff für Anwendungen am Repeater
+abgeschaltet, meldet der Button, dass der Repeater die Anmeldung abgelehnt hat.
+
+**Die Zeile des Repeaters in der Karte** verweist – über die MAC-Adresse – auf dieses Gerät.
+
+---
+
+## MAC-Filter und Pairing
+
+Die FRITZ!Box kann das WLAN auf **bekannte Geräte beschränken** (WLAN → Sicherheit →
+*Zugang auf bekannte WLAN-Geräte beschränken*, im Folgenden „MAC-Filter“). Ist der Filter an,
+kommt ein neues Gerät auch mit dem richtigen WLAN-Kennwort nicht hinein. Seit 1.5.2b2 lässt
+sich das aus Home Assistant steuern – mit *FRITZ!Box-Steuerung* aktiviert:
+
+| Entität | Zweck |
+| --- | --- |
+| `switch.<name>_mac_filter` | Filter dauerhaft **ein** oder **aus** |
+| `button.<name>_pairing_starten` | Filter für die eingestellte Zeit ausschalten, danach **automatisch wieder ein** |
+
+Die Entitäten erscheinen nur, wenn die FRITZ!Box den Filter über TR-064 meldet.
+
+**Pairing – so läuft es ab.**
+
+1. Filter ist an. Du drückst *Pairing starten* (Button, Karte oder Dienst).
+2. Die Integration merkt sich den Endzeitpunkt, plant das Wiedereinschalten und schaltet
+   *danach* den Filter aus. Der Schalter zeigt jetzt *aus* und hat die Attribute
+   `pairing_active: true` und `pairing_ends`.
+3. Du verbindest das neue Gerät mit dem WLAN.
+4. Nach Ablauf der Pairing-Dauer schaltet die Integration den Filter wieder ein. Ist das
+   Gerät früher verbunden, genügt ein Klick auf den Schalter (*ein*), dann ist das Fenster
+   sofort zu.
+
+Ein Klick auf den Schalter beendet immer ein laufendes Pairing: *Einschalten* schließt das
+Fenster sofort, *Ausschalten* macht die Freigabe dauerhaft. Ein erneuter Klick auf
+*Pairing starten* während eines laufenden Pairings verlängert das Fenster um die volle
+Dauer ab jetzt.
+
+**Sicherheit vor Vergessen.** Der Endzeitpunkt wird gespeichert. Wird Home Assistant
+während des Pairings neu gestartet, plant die Integration beim Start den Termin neu – oder
+schaltet den Filter sofort ein, falls die Frist inzwischen verstrichen ist. Erreicht die
+Integration die FRITZ!Box zum Ablauf nicht, versucht sie es jede Minute erneut. Schlägt das
+Ausschalten beim Start des Pairings selbst fehl, wird der Filter, soweit nötig, wieder
+eingeschaltet, statt halb offen zu bleiben. **Wichtig:** Solange Home Assistant nicht läuft,
+kann auch nichts wieder eingeschaltet werden – das passiert dann erst beim nächsten Start.
+
+**Pairing startet nur bei eingeschaltetem Filter.** Ist der Filter aus, gäbe es nichts
+„temporär“ auszuschalten; der Button meldet das, statt später einen Filter einzuschalten,
+den du nie hattest.
+
+**Die Karte** zeigt in der Steuerungsleiste einen *MAC-Filter*-Chip (gedrückt = Filter an)
+und daneben, solange der Filter an ist, den Button *Pairing*. Läuft ein Pairing, steht im
+Chip „Pairing bis HH:MM“; ein Klick beendet es sofort.
+
+**Dienste.**
+
+```yaml
+# Filter dauerhaft schalten
+action: fritzbox_netzwerk.set_mac_filter
+data:
+  enabled: false
+```
+
+```yaml
+# Pairing mit der in den Einstellungen gewählten Dauer
+action: fritzbox_netzwerk.start_pairing
+
+# ... oder mit eigener Dauer (1-120 Minuten)
+action: fritzbox_netzwerk.start_pairing
+data:
+  minutes: 10
+```
+
+**Technik.** Der Filter steckt in `WLANConfiguration<n>` (TR-064). Die Aktion `SetConfig`
+verlangt dort alle Werte auf einmal; die Integration liest deshalb zuerst `GetInfo` und
+schreibt die aktuellen Werte unverändert mit zurück – nur der Filter-Wert ändert sich. Danach
+wird nachgelesen, ob die Box die Änderung übernommen hat. Der Filter gilt für die
+Hauptbänder (2,4 und 5 GHz); das Gast-WLAN wird nicht angefasst. Auf Boxen mit nur einem Band
+ist der zweite WLAN-Dienst das Gastnetz und bleibt deshalb außen vor.
+
+**Bitte beachten.**
+
+- Je nach Modell und FRITZ!OS kann die Box das WLAN beim Schreiben von `SetConfig` kurz neu
+  initialisieren; bereits verbundene Geräte verbinden sich dann selbst neu.
+- Ob die FRITZ!Box ein Gerät, das sich während des Pairings anmeldet, danach als „bekannt“
+  führt und beim Wiedereinschalten weiter zulässt, ist AVMs Verhalten und hängt vom
+  FRITZ!OS ab. Prüfe es beim ersten Einsatz mit einem Testgerät.
+- Die Funktion ist neu und konnte ohne FRITZ!Box nicht getestet werden – Rückmeldungen als
+  GitHub-Issue willkommen.
 
 ---
 
@@ -191,6 +313,12 @@ dreht die Richtung. IP-Adressen werden dabei numerisch sortiert, `192.168.178.9`
 korrekt vor `192.168.178.10`. Startsortierung und -richtung lassen sich im Editor
 festlegen.
 
+Die Karte startet standardmäßig mit dem Filter **Aktiv**, zeigt also zuerst nur verbundene
+Geräte. Wer lieber mit **Alle** (oder einem anderen Filter) beginnen möchte, stellt im Editor
+unter *Filter-Buttons* den *Standardfilter beim Laden* um bzw. setzt im YAML
+`default_filter: alle`. Ist der Button des Standardfilters ausgeblendet, fällt die Karte auf
+*Alle* zurück.
+
 Suchfeld und Filterleiste arbeiten zusammen: „Aktiv" plus Suchbegriff zeigt nur verbundene
 Geräte, auf die der Begriff passt. Beide Bedienelemente behalten ihren Inhalt, wenn der
 Sensor im Hintergrund neue Daten liefert.
@@ -200,7 +328,9 @@ Sensor im Hintergrund neue Daten liefert.
 Der Editor-Schalter *Steuerungsleiste anzeigen* blendet in der Karte eine zusätzliche Leiste
 ein: die **Live-Werte für Download und Upload** und – sofern die FRITZ!Box-Steuerung in den
 Integrationseinstellungen aktiviert ist – die **Schalter für die WLAN-Bänder** (2,4 GHz,
-5 GHz, Gast) sowie die Buttons **Neuverbinden** (neue öffentliche IP) und **Neustart**. Der
+5 GHz, Gast), der **MAC-Filter** mit dem Button **Pairing** (siehe
+[MAC-Filter und Pairing](#mac-filter-und-pairing)) sowie die Buttons **Neuverbinden** (neue
+ofentliche IP) und **Neustart**. Der
 Neustart verlangt zwei Klicks: der erste Klick färbt den Button, erst der zweite löst
 tatsächlich aus.
 
@@ -210,7 +340,7 @@ Reiterleiste im Stil von *FRITZ!Box Anrufe*:
 | Reiter | Was darin erscheint |
 | --- | --- |
 | **Netzwerk** (`mdi:lan`) | Filterleiste, Suchfeld, Zusammenfassung, Geräteliste |
-| **Steuerung** (`mdi:router-wireless-settings`) | Download/Upload, WLAN-Schalter, Neuverbinden, Neustart |
+| **Steuerung** (`mdi:router-wireless-settings`) | Download/Upload, WLAN-Schalter, MAC-Filter, Pairing, Neuverbinden, Neustart |
 
 Die Trennung ist strikt: Im Reiter *Netzwerk* erscheinen keine Steuerungselemente, im Reiter
 *Steuerung* keine Filter, kein Suchfeld und keine Geräteliste. Es wird nichts doppelt
@@ -321,6 +451,7 @@ filter_inaktiv: true
 filter_gast: true
 filter_gesperrt: true
 filter_update: true
+default_filter: aktiv   # alle | aktiv | inaktiv | gast | gesperrt | update
 hide_inactive: false
 compact: false
 show_details_popup: true
@@ -389,6 +520,29 @@ Der Dienst nutzt TR-064 (`X_AVM-DE_HostFilter`). Ob er verfügbar ist, hängt vo
 und Modell ab – deshalb ist er als experimentell gekennzeichnet. Im Detail-Popup gibt es
 denselben Schalter auch per Klick.
 
+### `fritzbox_netzwerk.set_mac_filter` (experimentell)
+
+Schaltet den WLAN-MAC-Filter („Zugang auf bekannte WLAN-Geräte beschränken“) ein oder aus.
+Beendet ein laufendes Pairing. Voraussetzung: *FRITZ!Box-Steuerung* ist aktiviert.
+
+```yaml
+action: fritzbox_netzwerk.set_mac_filter
+data:
+  enabled: true
+```
+
+### `fritzbox_netzwerk.start_pairing` (experimentell)
+
+Schaltet den MAC-Filter für `minutes` Minuten (1–120, ohne Angabe: Einstellung *Pairing-Dauer*)
+aus und danach automatisch wieder ein. Nur bei eingeschaltetem Filter oder laufendem Pairing
+möglich. Details unter [MAC-Filter und Pairing](#mac-filter-und-pairing).
+
+```yaml
+action: fritzbox_netzwerk.start_pairing
+data:
+  minutes: 5
+```
+
 ---
 
 ## Fehlerbehebung
@@ -401,6 +555,38 @@ Geräteliste nicht abrufen.
 **Die Einrichtung meldet, der Dienst „Hosts" fehle.**
 Unter Heimnetz → Netzwerk → Netzwerkeinstellungen die Option *Zugriff für Anwendungen
 zulassen* aktivieren. Ohne sie ist die TR-064-Schnittstelle komplett abgeschaltet.
+
+**Der Button *Neu verbinden* meldet einen Fehler (z. B. `errorCode: 606`).**
+Bis 1.5.2b0 nutzte der Button den UPnP-Dienst der FRITZ!Box, den manche Boxen mit Fehler 606
+(„nicht autorisiert“) ablehnen – vermutlich, weil dieser Weg an den UPnP-Einstellungen der Box
+hängt und nicht an den Rechten des Kontos. Der *Neustart* ging trotzdem, weil er über TR-064
+läuft. Ab 1.5.2b1 wird zuerst der TR-064-Weg mit der Anmeldung
+der Integration versucht, der UPnP-Weg nur noch als Rückfall. Meldet der Button weiterhin
+einen Fehler, prüfe, ob das Konto die Berechtigung *FRITZ!Box Einstellungen* hat und ob die
+FRITZ!Box die Internetverbindung selbst aufbaut. Hängt sie hinter einem vorgeschalteten Router
+oder Modem (oder ist sie ein Kabel-Modell), gibt es dort keine Einwahl, die neu aufgebaut
+werden könnte.
+
+**Der MAC-Filter-Schalter und der Pairing-Button fehlen.**
+Beide gibt es nur mit aktivierter *FRITZ!Box-Steuerung* und nur, wenn die Box den Filter
+(`NewMACAddressControlEnabled` in `WLANConfiguration1`) über TR-064 meldet. Fehlt er, ist der
+Filter auf dieser Box/FRITZ!OS-Version nicht per TR-064 erreichbar.
+
+**Das Pairing meldet „Der MAC-Filter ist ausgeschaltet“.**
+Pairing schaltet den Filter *temporär aus* und danach wieder ein. Ist er bereits aus, gibt es
+nichts zu tun – schalte ihn zuerst mit dem Schalter ein.
+
+**Die Box lehnt das Schalten des MAC-Filters ab.**
+Das Konto braucht die Berechtigung *FRITZ!Box Einstellungen*. Meldet die Integration, die Box
+habe die Änderung nicht übernommen, hat `SetConfig` zwar geantwortet, der Filter steht aber
+weiter auf dem alten Wert; die Protokolldetails nennen dann das betroffene Band.
+
+**Nach einem Update steht bei den Zählern eine andere Einheit / Home Assistant meldet
+geänderte Einheiten.**
+Die Einheit der Zähler-Sensoren (bis 1.5.2b0 fest „Geräte“) folgt jetzt der Sprache von Home
+Assistant. Wer Home Assistant nicht auf Deutsch betreibt, kann dadurch einmalig den Hinweis sehen,
+dass sich die Einheit einer Statistik geändert hat. Unter Entwicklerwerkzeuge → Statistiken
+lässt sich das mit *Problem beheben* bereinigen; die Werte selbst bleiben unberührt.
 
 **Die Spalte „IP-Typ" zeigt überall nur „—".**
 Entweder ist die IP-Typ-Erfassung in den Einstellungen der Integration ausgeschaltet, oder
@@ -467,9 +653,13 @@ language: nl   # "" = automatisch, sonst de | en | nl
   Wake-on-LAN, Echtzeitpriorität und Geräteklasse. Ein Setzen der IP-Adresse wäre nur über
   die Weboberfläche der FRITZ!Box möglich – undokumentiert und bei jedem FRITZ!OS-Update
   potenziell defekt. Das ist bewusst nicht Teil dieser Version.
-- **Kein Mesh.** WLAN-Band, Signalstärke und der Repeater, an dem ein Gerät hängt, stehen
-  in einer eigenen Schnittstelle (`X_AVM-DE_GetMeshListPath`) und sind noch nicht
-  ausgewertet.
+- **Mesh nur in Teilen.** Repeater werden als eigene Geräte geführt (siehe oben). WLAN-Band,
+  Signalstärke und der Repeater, an dem ein Gerät hängt, stehen dagegen in einer eigenen
+  Schnittstelle (`X_AVM-DE_GetMeshListPath`) und sind noch nicht ausgewertet.
+- **MAC-Filter/Pairing ist experimentell** und nur mit laufendem Home Assistant abgesichert:
+  Das automatische Wiedereinschalten übernimmt die Integration, nicht die FRITZ!Box.
+- **Repeater-Neustart ist experimentell.** Er hängt davon ab, dass der Repeater die
+  Anmeldung mit den Zugangsdaten der FRITZ!Box akzeptiert.
 - **Nur eine FRITZ!Box je Dienstaufruf.** Sind mehrere Boxen eingerichtet, wirken
   `set_device_name` und `wake_on_lan` auf die zuerst geladene.
 - Die Zuordnung zu Home-Assistant-Geräten erfolgt ausschließlich über die MAC-Adresse.
@@ -498,6 +688,61 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.5.2b2 – MAC-Filter schalten und temporär freigeben („Pairing“) (Beta)
+
+**Beta-Version**, baut auf 1.5.2b1 auf. Rückmeldungen bitte als GitHub-Issue.
+
+- **Neu: WLAN-MAC-Filter ein-/ausschalten.** Schalter `switch.<name>_mac_filter` (mit
+  aktivierter *FRITZ!Box-Steuerung*) und Dienst `fritzbox_netzwerk.set_mac_filter`.
+- **Neu: temporär ausschalten – „Pairing“.** Button `button.<name>_pairing_starten` und Dienst
+  `fritzbox_netzwerk.start_pairing` schalten den Filter für eine einstellbare Zeit aus und
+  danach von selbst wieder ein. Neue Option *Pairing-Dauer* (Standard 5 min, 1–120).
+  Ausfallsicher gebaut: Endzeitpunkt wird vor dem Ausschalten gespeichert, überlebt einen
+  Neustart von Home Assistant, Wiedereinschalten wird bei Fehlern jede Minute wiederholt,
+  ein fehlgeschlagener Start wird zurückgenommen.
+- **Karte:** MAC-Filter-Chip und Pairing-Button in der Steuerungsleiste, während des Pairings
+  „Pairing bis HH:MM“.
+- Übersetzungen (de/en/nl) für alle neuen Entitäten, Dienste, Optionen und Fehlermeldungen.
+- **Nicht an echter Hardware getestet.** Geprüft mit einer simulierten FRITZ!Box
+  (`WLANConfiguration1/2`), siehe [MAC-Filter und Pairing](#mac-filter-und-pairing).
+
+### 1.5.2b1 – Reconnect-Fehler behoben, Repeater als Geräte, Standardfilter Aktiv (Beta)
+
+**Beta-Version.** In HACS nur sichtbar, wenn für diese Integration *Beta-Versionen anzeigen*
+eingeschaltet ist. Rückmeldungen bitte als GitHub-Issue.
+
+- **Behoben: Der Button *Neu verbinden* schlug mit `UPnPError: errorCode: 606` fehl** (der
+  *Neustart* ging dabei). Ursache: `FritzConnection.reconnect()` ruft den UPnP-Dienst
+  `WANIPConn1` auf; diesen UPnP-Dienst lehnen manche FRITZ!Boxen mit 606 („nicht autorisiert“)
+  ab, obwohl das Konto berechtigt ist.
+  Der bisherige Rückfall auf PPPoE griff nie, weil er nur bei einem *fehlenden* Dienst
+  ansprang, nicht bei einem abgelehnten. Jetzt werden nacheinander die TR-064-Dienste
+  `WANIPConnection1` und `WANPPPConnection1` (mit der Anmeldung der Integration) und erst
+  danach die UPnP-Dienste versucht. Schlägt alles fehl, nennt die Meldung die Ursache und
+  was zu prüfen ist. Alle Fehlermeldungen der Buttons sind jetzt übersetzt (de/en/nl).
+- **Behoben: Einheit „Geräte“ war nicht übersetzt.** Die drei Zähler-Sensoren trugen die
+  Einheit fest auf Deutsch. Sie kommt jetzt aus den Übersetzungen: *Geräte* / *devices* /
+  *apparaten*. Hinweis zur einmaligen Statistik-Meldung siehe
+  [Fehlerbehebung](#fehlerbehebung).
+- **Neu: Standardfilter der Karte ist jetzt *Aktiv*** (vorher *Alle*). Gilt für alle Karten,
+  in denen `default_filter` nicht ausdrücklich gesetzt ist; wer weiter mit *Alle* starten
+  möchte, wählt es im Editor oder setzt `default_filter: alle`.
+- **Neu: Repeater als eigene Geräte.** Jeder AVM-Repeater bekommt ein eigenes Gerät mit
+  *Verbunden*-Status und – bei aktivierter FRITZ!Box-Steuerung – einem *Neustart*-Button, der
+  den Repeater direkt über dessen TR-064 neu startet. Neue Option *Repeater als eigene Geräte
+  anlegen* (standardmäßig an). Der Repeater-Neustart ist experimentell und konnte ohne
+  Repeater-Hardware nicht getestet werden – Rückmeldungen willkommen. Details unter
+  [Repeater als eigene Geräte](#repeater-als-eigene-geräte).
+- **Karte: automatische Sensor-Auswahl** beim Anlegen erkennt den Sammelsensor jetzt am
+  Attribut `hosts` statt am Namen `…_gerate`; bei englischer oder niederländischer
+  Home-Assistant-Sprache (`…_devices`, `…_apparaten`) wurde er bisher nicht gefunden.
+- **Zur Warnung `The deprecated alias ScannerEntity was used from fritzbox_netzwerk`:** sie
+  stammt aus Version 1.5.0 und älter und ist seit 1.5.1 behoben (der Import erfolgt aus
+  `homeassistant.components.device_tracker`). Gegen den Quellcode von Home Assistant 2026.9.3
+  geprüft: weder Tracker noch übrige Module greifen auf einen veralteten Alias zu. Wer sie
+  weiterhin sieht, hat noch eine ältere Version geladen – bitte Version prüfen und Home
+  Assistant neu starten.
 
 ### 1.5.2b0 – Anwesenheit im Detail-Popup wird endlich angezeigt (Beta)
 

@@ -6,10 +6,11 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.5.2b0"
+VERSION: Final = "1.5.2b2"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
+    Platform.BINARY_SENSOR,
     Platform.DEVICE_TRACKER,
     Platform.SWITCH,
     Platform.BUTTON,
@@ -28,13 +29,19 @@ CONF_TRACK_ADDRESS_SOURCE: Final = "track_address_source"
 CONF_ADDRESS_SOURCE_INTERVAL: Final = "address_source_interval"
 CONF_ENABLE_DEVICE_TRACKER: Final = "enable_device_tracker"
 CONF_ENABLE_CONTROLS: Final = "enable_controls"
+CONF_ENABLE_REPEATERS: Final = "enable_repeaters"
+CONF_PAIRING_MINUTES: Final = "pairing_minutes"
 
 DEFAULT_SCAN_INTERVAL: Final = 60  # Sekunden
 DEFAULT_TRACK_ADDRESS_SOURCE: Final = True
 DEFAULT_ADDRESS_SOURCE_INTERVAL: Final = 15  # Minuten
 DEFAULT_ENABLE_DEVICE_TRACKER: Final = False
 DEFAULT_ENABLE_CONTROLS: Final = False
+DEFAULT_ENABLE_REPEATERS: Final = True
+DEFAULT_PAIRING_MINUTES: Final = 5  # Minuten
 
+MIN_PAIRING_MINUTES: Final = 1
+MAX_PAIRING_MINUTES: Final = 120
 MIN_SCAN_INTERVAL: Final = 15
 MAX_SCAN_INTERVAL: Final = 3600
 
@@ -55,13 +62,18 @@ ATTR_ADDRESS_SOURCE_STATE: Final = "ip_typ_erfassung"
 SERVICE_SET_DEVICE_NAME: Final = "set_device_name"
 SERVICE_WAKE_ON_LAN: Final = "wake_on_lan"
 SERVICE_SET_INTERNET_ACCESS: Final = "set_internet_access"
+SERVICE_SET_MAC_FILTER: Final = "set_mac_filter"
+SERVICE_START_PAIRING: Final = "start_pairing"
 
 ATTR_MAC: Final = "mac"
 ATTR_NAME: Final = "name"
 ATTR_BLOCKED_PARAM: Final = "blocked"
+ATTR_ENABLED: Final = "enabled"
+ATTR_MINUTES: Final = "minutes"
 
 # --- Speicher ------------------------------------------------------------
 LAST_SEEN_STORAGE_VERSION: Final = 1
+PAIRING_STORAGE_VERSION: Final = 1
 
 # --- Dashboard-Karte -----------------------------------------------------
 CARD_FILENAME: Final = "fritzbox-netzwerk-card.js"

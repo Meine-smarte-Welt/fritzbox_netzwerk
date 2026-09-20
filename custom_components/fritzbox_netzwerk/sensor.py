@@ -105,8 +105,11 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
     _attr_translation_key = "geraete"
     _attr_icon = "mdi:lan"
     _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = "Geräte"
-    # Ohne diese Zeile schriebe der Recorder die komplette Geraeteliste bei
+    # Die Einheit ("Geräte" / "devices" / "apparaten") kommt aus den
+    # Uebersetzungen (``unit_of_measurement`` in strings.json) - sie darf hier
+    # NICHT als ``_attr_native_unit_of_measurement`` stehen: Home Assistant
+    # bricht bei beidem gleichzeitig mit einem Fehler ab.
+    # Ohne die naechste Zeile schriebe der Recorder die komplette Geraeteliste bei
     # jeder Zustandsaenderung in die Datenbank - bei 60 Geraeten sind das
     # schnell 15-20 kB pro Eintrag.
     _unrecorded_attributes = frozenset({ATTR_HOSTS})
@@ -213,10 +216,16 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             wlan.append(
                 {"key": key, "entity_id": eid, "on": wlan_states.get(f"wlan{index}")}
             )
+        until = self.coordinator.pairing_until
         return {
             "wlan": wlan,
             "reconnect": _eid("button", "reconnect"),
             "reboot": _eid("button", "reboot"),
+            # MAC-Filter und Pairing (None, wenn die Box den Filter nicht meldet).
+            "mac_filter": _eid("switch", "mac_filter"),
+            "mac_filter_on": wlan_states.get("mac_filter"),
+            "pairing": _eid("button", "pairing"),
+            "pairing_ends": until.isoformat() if until else None,
         }
 
 
@@ -237,7 +246,6 @@ class FritzboxNetzwerkKennzahlSensor(FritzboxNetzwerkBase):
         self._attr_translation_key = slug
         self._attr_unique_id = f"{entry.entry_id}_{slug}"
         self._attr_icon = self._ICONS.get(key, "mdi:counter")
-        self._attr_native_unit_of_measurement = "Geräte"
 
     @property
     def native_value(self) -> int | None:

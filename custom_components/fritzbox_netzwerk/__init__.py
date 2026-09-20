@@ -22,19 +22,27 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
 
 from .const import (
     ATTR_BLOCKED_PARAM,
+    ATTR_ENABLED,
     ATTR_MAC,
+    ATTR_MINUTES,
     ATTR_NAME,
     CARD_FILENAME,
     CARD_URL,
     CONF_USE_TLS,
     DEFAULT_USE_TLS,
     DOMAIN,
+    MANUFACTURER,
+    MAX_PAIRING_MINUTES,
+    MIN_PAIRING_MINUTES,
     PLATFORMS,
     SERVICE_SET_DEVICE_NAME,
     SERVICE_SET_INTERNET_ACCESS,
+    SERVICE_SET_MAC_FILTER,
+    SERVICE_START_PAIRING,
     SERVICE_WAKE_ON_LAN,
     URL_BASE,
     VERSION,
@@ -57,6 +65,16 @@ INTERNET_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_MAC): cv.string,
         vol.Required(ATTR_BLOCKED_PARAM): cv.boolean,
+    }
+)
+
+MAC_FILTER_SCHEMA = vol.Schema({vol.Required(ATTR_ENABLED): cv.boolean})
+
+PAIRING_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_MINUTES): vol.All(
+            vol.Coerce(int), vol.Range(min=MIN_PAIRING_MINUTES, max=MAX_PAIRING_MINUTES)
+        )
     }
 )
 
@@ -89,6 +107,21 @@ async def async_setup_entry(
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
 
+    # Lief beim letzten Stopp ein Pairing (MAC-Filter zeitweise aus), wird es
+    # hier fortgesetzt bzw. - bei abgelaufener Frist - sofort beendet.
+    await coordinator.async_restore_pairing()
+    entry.async_on_unload(coordinator.async_cancel_pairing_timer)
+
+    # Das Hauptgeraet (die FRITZ!Box) schon vor den Plattformen anlegen: die
+    # Repeater-Geraete haengen per ``via_device`` daran und brauchen es beim
+    # Anlegen bereits in der Geraeteregistrierung.
+    dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, entry.entry_id)},
+        manufacturer=MANUFACTURER,
+        name=entry.title,
+    )
+
     await _async_register_card(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _async_register_services(hass)
@@ -110,6 +143,8 @@ async def async_unload_entry(
             SERVICE_SET_DEVICE_NAME,
             SERVICE_WAKE_ON_LAN,
             SERVICE_SET_INTERNET_ACCESS,
+            SERVICE_SET_MAC_FILTER,
+            SERVICE_START_PAIRING,
         ):
             hass.services.async_remove(DOMAIN, service)
     return unloaded
@@ -276,6 +311,14 @@ def _async_register_services(hass: HomeAssistant) -> None:
             ) from err
         await coordinator.async_request_refresh()
 
+    async def _handle_set_mac_filter(call: ServiceCall) -> None:
+        """Schaltet den WLAN-MAC-Filter dauerhaft an oder aus."""
+        await _first_coordinator().async_set_mac_filter(call.data[ATTR_ENABLED])
+
+    async def _handle_start_pairing(call: ServiceCall) -> None:
+        """Schaltet den MAC-Filter fuer einige Minuten aus (Pairing)."""
+        await _first_coordinator().async_start_pairing(call.data.get(ATTR_MINUTES))
+
     if not hass.services.has_service(DOMAIN, SERVICE_SET_DEVICE_NAME):
         hass.services.async_register(
             DOMAIN, SERVICE_SET_DEVICE_NAME, _handle_set_device_name, schema=MAC_SCHEMA
@@ -290,4 +333,18 @@ def _async_register_services(hass: HomeAssistant) -> None:
             SERVICE_SET_INTERNET_ACCESS,
             _handle_set_internet_access,
             schema=INTERNET_SCHEMA,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_SET_MAC_FILTER):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_SET_MAC_FILTER,
+            _handle_set_mac_filter,
+            schema=MAC_FILTER_SCHEMA,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_START_PAIRING):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_START_PAIRING,
+            _handle_start_pairing,
+            schema=PAIRING_SCHEMA,
         )

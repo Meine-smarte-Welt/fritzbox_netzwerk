@@ -31,3 +31,23 @@ set_internet_access:
       example: true
       selector:
         boolean:
+
+set_mac_filter:
+  fields:
+    enabled:
+      required: true
+      example: true
+      selector:
+        boolean:
+
+start_pairing:
+  fields:
+    minutes:
+      required: false
+      example: 5
+      selector:
+        number:
+          min: 1
+          max: 120
+          unit_of_measurement: min
+          mode: box

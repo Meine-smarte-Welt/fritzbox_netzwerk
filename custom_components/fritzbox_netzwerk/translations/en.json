@@ -43,13 +43,17 @@
           "track_address_source": "Track IP type (DHCP or static)",
           "address_source_interval": "IP type update interval (minutes)",
           "enable_device_tracker": "Create device trackers",
-          "enable_controls": "FRITZ!Box controls (experimental)"
+          "enable_repeaters": "Create repeaters as their own devices",
+          "enable_controls": "FRITZ!Box controls (experimental)",
+          "pairing_minutes": "Pairing duration (minutes)"
         },
         "data_description": {
           "track_address_source": "This value is not part of the host list and costs one extra request per device. It rarely changes, so it runs on its own slower schedule.",
           "address_source_interval": "Only applies when IP type tracking is enabled.",
           "enable_device_tracker": "Creates a device_tracker (home/away) per network device for presence and automations. May result in many entities on large networks.",
-          "enable_controls": "Adds switches for the WLAN bands (2.4 GHz, 5 GHz, guest) and buttons to reconnect and reboot. Availability and band mapping depend on the model."
+          "enable_repeaters": "Creates a separate device with a connected status for every AVM repeater in the home network, plus a reboot button when the FRITZ!Box controls are enabled. Devices whose model contains \"Repeater\" are detected.",
+          "enable_controls": "Creates switches for the Wi-Fi bands (2.4 GHz, 5 GHz, guest) and for the Wi-Fi MAC filter, plus buttons to reconnect, reboot and start a pairing (MAC filter temporarily off), and a reboot button per repeater when repeater devices are enabled. Availability and assignment depend on the model.",
+          "pairing_minutes": "How long the MAC filter stays off during pairing before it switches itself back on. Applies to the \"Start pairing\" button and to the service when no duration is given."
         }
       }
     }
@@ -57,13 +61,16 @@
   "entity": {
     "sensor": {
       "geraete": {
-        "name": "Devices"
+        "name": "Devices",
+        "unit_of_measurement": "devices"
       },
       "updates": {
-        "name": "Devices with update"
+        "name": "Devices with update",
+        "unit_of_measurement": "devices"
       },
       "gesperrt": {
-        "name": "Blocked devices"
+        "name": "Blocked devices",
+        "unit_of_measurement": "devices"
       },
       "download": {
         "name": "Download (current)"
@@ -78,6 +85,11 @@
         "name": "Upload (line rate)"
       }
     },
+    "binary_sensor": {
+      "repeater_online": {
+        "name": "Connected"
+      }
+    },
     "switch": {
       "wlan_24": {
         "name": "Wi-Fi 2.4 GHz"
@@ -87,6 +99,9 @@
       },
       "wlan_guest": {
         "name": "Guest Wi-Fi"
+      },
+      "mac_filter": {
+        "name": "MAC filter"
       }
     },
     "button": {
@@ -95,6 +110,9 @@
       },
       "reboot": {
         "name": "Reboot"
+      },
+      "pairing": {
+        "name": "Start pairing"
       }
     }
   },
@@ -136,6 +154,58 @@
           "description": "On = block internet access, Off = allow."
         }
       }
+    },
+    "set_mac_filter": {
+      "name": "Set MAC filter",
+      "description": "Turns the Wi-Fi MAC filter (restrict access to known Wi-Fi devices) on or off permanently. Ends a running pairing.",
+      "fields": {
+        "enabled": {
+          "name": "Filter active",
+          "description": "On = only known devices may join the Wi-Fi, off = any device with the correct Wi-Fi password."
+        }
+      }
+    },
+    "start_pairing": {
+      "name": "Start pairing",
+      "description": "Turns the MAC filter off for a few minutes so a new device can join the Wi-Fi, then turns it back on automatically. Only works while the filter is on.",
+      "fields": {
+        "minutes": {
+          "name": "Duration (minutes)",
+          "description": "How long the filter stays off. If omitted, the integration setting is used."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "reconnect_failed": {
+      "message": "Reconnect failed: {error}"
+    },
+    "reconnect_denied": {
+      "message": "Reconnect failed: the FRITZ!Box did not allow the action ({error}). Check that the account has the \"FRITZ!Box settings\" permission and that the FRITZ!Box itself establishes the internet connection (not behind another router or modem)."
+    },
+    "reboot_failed": {
+      "message": "Reboot failed: {error}"
+    },
+    "repeater_no_ip": {
+      "message": "No IP address is currently known for the repeater {name}. Is it powered on and connected to the FRITZ!Box?"
+    },
+    "repeater_denied": {
+      "message": "The repeater {name} ({address}) rejected the login ({error}). Check that access for applications (TR-064) is allowed on the repeater and that it has taken over the FRITZ!Box credentials."
+    },
+    "repeater_reboot_failed": {
+      "message": "Rebooting the repeater {name} ({address}) failed: {error}"
+    },
+    "mac_filter_failed": {
+      "message": "Could not change the MAC filter: {error}"
+    },
+    "mac_filter_unsupported": {
+      "message": "This FRITZ!Box does not offer the MAC filter via TR-064 ({error})."
+    },
+    "mac_filter_not_applied": {
+      "message": "The FRITZ!Box did not apply the MAC filter change ({error}). Please check the state in the FRITZ!Box interface."
+    },
+    "pairing_filter_off": {
+      "message": "The MAC filter is off. Pairing only works while the filter is on, otherwise it would be switched on unexpectedly afterwards."
     }
   }
 }

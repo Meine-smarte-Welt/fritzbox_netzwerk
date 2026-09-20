@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.5.2b0";
+const FBN_VERSION = "1.5.2b2";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -57,8 +57,9 @@ const CONFIG_DEFAULTS = {
   filter_gast: true,
   filter_gesperrt: true,
   filter_update: true,
-  // Welcher Filter beim Laden/Neuöffnen aktiv ist.
-  default_filter: "alle",
+  // Welcher Filter beim Laden/Neuöffnen aktiv ist. Seit 1.5.2b1 standardmäßig
+  // "aktiv" (vorher "alle"); über den Editor oder default_filter änderbar.
+  default_filter: "aktiv",
   hide_inactive: false,
   compact: false,
   max_rows: 0,
@@ -178,7 +179,7 @@ const I18N = {
     "tip.ls_unknown": "Seit Installation der Integration nicht als online erfasst",
     "tip.ls_last": "Zuletzt online: {ts}", "tip.sort": "Nach {label} sortieren",
     "arrow.left": "Nach links blättern", "arrow.right": "Nach rechts blättern",
-    "ctl.throughput": "Aktueller Durchsatz (Download / Upload)", "ctl.wlan_24": "WLAN 2,4 GHz", "ctl.wlan_5": "WLAN 5 GHz", "ctl.wlan_guest": "Gast-WLAN", "ctl.reconnect": "Neu verbinden", "ctl.reboot": "Neustart", "ctl.reboot_confirm": "Wirklich neu starten?",
+    "ctl.throughput": "Aktueller Durchsatz (Download / Upload)", "ctl.wlan_24": "WLAN 2,4 GHz", "ctl.wlan_5": "WLAN 5 GHz", "ctl.wlan_guest": "Gast-WLAN", "ctl.reconnect": "Neu verbinden", "ctl.reboot": "Neustart", "ctl.reboot_confirm": "Wirklich neu starten?", "ctl.mac_filter": "MAC-Filter", "ctl.mac_filter_tip": "WLAN-Zugang auf bekannte Geräte beschränken", "ctl.pairing": "Pairing starten", "ctl.pairing_tip": "MAC-Filter kurz ausschalten, damit sich ein neues Gerät anmelden kann", "ctl.pairing_until": "Pairing bis {time}", "ctl.pairing_end_tip": "Klicken: Filter sofort wieder einschalten",
     "field.tracker": "Anwesenheit", "tracker.home": "zuhause", "tracker.away": "abwesend", "tracker.open": "Tracker öffnen",
     "tracker.unknown": "unbekannt", "tracker.disabled": "Entität deaktiviert",
     "tracker.disabled_hint": "Die Tracker-Entität ist in Home Assistant deaktiviert – hier klicken und im Zahnrad-Dialog aktivieren.",
@@ -229,7 +230,7 @@ const I18N = {
     "tip.ls_unknown": "Not seen online since the integration was installed",
     "tip.ls_last": "Last seen: {ts}", "tip.sort": "Sort by {label}",
     "arrow.left": "Scroll left", "arrow.right": "Scroll right",
-    "ctl.throughput": "Current throughput (download / upload)", "ctl.wlan_24": "Wi-Fi 2.4 GHz", "ctl.wlan_5": "Wi-Fi 5 GHz", "ctl.wlan_guest": "Guest Wi-Fi", "ctl.reconnect": "Reconnect", "ctl.reboot": "Reboot", "ctl.reboot_confirm": "Really reboot?",
+    "ctl.throughput": "Current throughput (download / upload)", "ctl.wlan_24": "Wi-Fi 2.4 GHz", "ctl.wlan_5": "Wi-Fi 5 GHz", "ctl.wlan_guest": "Guest Wi-Fi", "ctl.reconnect": "Reconnect", "ctl.reboot": "Reboot", "ctl.reboot_confirm": "Really reboot?", "ctl.mac_filter": "MAC filter", "ctl.mac_filter_tip": "Restrict Wi-Fi access to known devices", "ctl.pairing": "Start pairing", "ctl.pairing_tip": "Turn the MAC filter off briefly so a new device can join", "ctl.pairing_until": "Pairing until {time}", "ctl.pairing_end_tip": "Click: turn the filter back on now",
     "field.tracker": "Presence", "tracker.home": "home", "tracker.away": "away", "tracker.open": "Open tracker",
     "tracker.unknown": "unknown", "tracker.disabled": "entity disabled",
     "tracker.disabled_hint": "The tracker entity is disabled in Home Assistant – click here and enable it in the settings dialog.",
@@ -280,7 +281,7 @@ const I18N = {
     "tip.ls_unknown": "Sinds installatie van de integratie niet online gezien",
     "tip.ls_last": "Laatst online: {ts}", "tip.sort": "Sorteren op {label}",
     "arrow.left": "Naar links bladeren", "arrow.right": "Naar rechts bladeren",
-    "ctl.throughput": "Huidige doorvoer (download / upload)", "ctl.wlan_24": "Wifi 2,4 GHz", "ctl.wlan_5": "Wifi 5 GHz", "ctl.wlan_guest": "Gast-wifi", "ctl.reconnect": "Opnieuw verbinden", "ctl.reboot": "Herstart", "ctl.reboot_confirm": "Echt herstarten?",
+    "ctl.throughput": "Huidige doorvoer (download / upload)", "ctl.wlan_24": "Wifi 2,4 GHz", "ctl.wlan_5": "Wifi 5 GHz", "ctl.wlan_guest": "Gast-wifi", "ctl.reconnect": "Opnieuw verbinden", "ctl.reboot": "Herstart", "ctl.reboot_confirm": "Echt herstarten?", "ctl.mac_filter": "MAC-filter", "ctl.mac_filter_tip": "Wifi-toegang beperken tot bekende apparaten", "ctl.pairing": "Koppelen starten", "ctl.pairing_tip": "MAC-filter kort uitschakelen zodat een nieuw apparaat zich kan aanmelden", "ctl.pairing_until": "Koppelen tot {time}", "ctl.pairing_end_tip": "Klik: filter meteen weer inschakelen",
     "field.tracker": "Aanwezigheid", "tracker.home": "thuis", "tracker.away": "afwezig", "tracker.open": "Tracker openen",
     "tracker.unknown": "onbekend", "tracker.disabled": "entiteit uitgeschakeld",
     "tracker.disabled_hint": "De trackerentiteit is uitgeschakeld in Home Assistant – klik hier en schakel deze in via het instellingenvenster.",
@@ -664,9 +665,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
   }
 
   static getStubConfig(hass) {
-    const entity = Object.keys(hass && hass.states ? hass.states : {}).find(
-      (id) => id.startsWith("sensor.") && id.includes("gerate")
-    );
+    // Den Sammelsensor erkennt man am Attribut "hosts" (eine Liste) - nicht am
+    // Namen: die entity_id hängt von der Sprache ab (…_gerate, …_devices,
+    // …_apparaten). Der Namenstreffer bleibt als Rückfall.
+    const states = hass && hass.states ? hass.states : {};
+    const ids = Object.keys(states).filter((id) => id.startsWith("sensor."));
+    const entity =
+      ids.find((id) => Array.isArray(states[id].attributes && states[id].attributes.hosts)) ||
+      ids.find((id) => /gerate|devices|apparaten/.test(id));
     return { type: "custom:fritzbox-netzwerk-card", entity: entity || "" };
   }
 
@@ -1158,6 +1164,31 @@ class FritzboxNetzwerkCard extends HTMLElement {
           </button>`);
       }
     }
+    if (controls && controls.mac_filter) {
+      const pairingEnds = controls.pairing_ends || null;
+      const filterOn = controls.mac_filter_on === true;
+      const pressed = pairingEnds ? "false" : controls.mac_filter_on === false ? "false" : filterOn ? "true" : "mixed";
+      const label = pairingEnds
+        ? this._t("ctl.pairing_until", { time: this._formatTime(pairingEnds) })
+        : this._t("ctl.mac_filter");
+      const tip = pairingEnds ? this._t("ctl.pairing_end_tip") : this._t("ctl.mac_filter_tip");
+      parts.push(`
+        <button class="fbn-ctl-chip fbn-ctl-mac${pairingEnds ? " fbn-ctl-armed" : ""}" type="button"
+                data-entity="${escapeHtml(controls.mac_filter)}" aria-pressed="${pressed}"
+                title="${escapeHtml(tip)}">
+          <ha-icon icon="${filterOn ? "mdi:shield-lock" : pairingEnds ? "mdi:shield-key" : "mdi:shield-off"}"></ha-icon>
+          <span>${escapeHtml(label)}</span>
+        </button>`);
+    }
+    // Pairing nur anbieten, solange der Filter an ist und kein Pairing laeuft.
+    if (controls && controls.pairing && controls.mac_filter_on === true && !controls.pairing_ends) {
+      parts.push(`
+        <button class="fbn-ctl-btn fbn-ctl-pairing" type="button"
+                data-entity="${escapeHtml(controls.pairing)}"
+                title="${escapeHtml(this._t("ctl.pairing_tip"))}">
+          <ha-icon icon="mdi:shield-key"></ha-icon><span>${escapeHtml(this._t("ctl.pairing"))}</span>
+        </button>`);
+    }
     if (controls && controls.reconnect) {
       parts.push(`
         <button class="fbn-ctl-btn fbn-ctl-reconnect" type="button"
@@ -1292,6 +1323,16 @@ class FritzboxNetzwerkCard extends HTMLElement {
       this._hass.callService("switch", "toggle", { entity_id: wlan.dataset.entity });
       return;
     }
+    const mac = event.target.closest(".fbn-ctl-mac");
+    if (mac) {
+      this._hass.callService("switch", "toggle", { entity_id: mac.dataset.entity });
+      return;
+    }
+    const pairing = event.target.closest(".fbn-ctl-pairing");
+    if (pairing) {
+      this._pressButton(pairing);
+      return;
+    }
     const reconnect = event.target.closest(".fbn-ctl-reconnect");
     if (reconnect) {
       this._pressButton(reconnect);
@@ -1315,6 +1356,17 @@ class FritzboxNetzwerkCard extends HTMLElement {
       }
       clearTimeout(this._rebootTimer);
       this._pressButton(reboot);
+    }
+  }
+
+  /** Uhrzeit (HH:MM, in der Sprache der Karte) aus einem ISO-Zeitstempel. */
+  _formatTime(iso) {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return "";
+    try {
+      return date.toLocaleTimeString(this._lang() || undefined, { hour: "2-digit", minute: "2-digit" });
+    } catch (err) {
+      return date.toTimeString().slice(0, 5);
     }
   }
 
@@ -2105,10 +2157,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-ctl-chip ha-icon, .fbn-ctl-btn ha-icon {
         --mdc-icon-size: 16px; width: 16px; height: 16px;
       }
-      .fbn-ctl-wlan[aria-pressed="true"] {
+      .fbn-ctl-wlan[aria-pressed="true"], .fbn-ctl-mac[aria-pressed="true"] {
         border-color: var(--fbn-active); color: var(--fbn-active);
       }
-      .fbn-ctl-wlan[aria-pressed="false"] { opacity: 0.6; }
+      .fbn-ctl-wlan[aria-pressed="false"], .fbn-ctl-mac[aria-pressed="false"]:not(.fbn-ctl-armed) { opacity: 0.6; }
       .fbn-ctl-btn:hover, .fbn-ctl-chip:hover { background: var(--fbn-header-bg); }
       .fbn-ctl-btn[disabled] { opacity: 0.6; cursor: default; }
       .fbn-ctl-armed {

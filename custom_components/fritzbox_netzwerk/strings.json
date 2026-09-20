@@ -43,13 +43,17 @@
           "track_address_source": "IP-Typ erfassen (DHCP oder statisch)",
           "address_source_interval": "Intervall der IP-Typ-Abfrage (Minuten)",
           "enable_device_tracker": "Geräte-Tracker anlegen",
-          "enable_controls": "FRITZ!Box-Steuerung (experimentell)"
+          "enable_repeaters": "Repeater als eigene Geräte anlegen",
+          "enable_controls": "FRITZ!Box-Steuerung (experimentell)",
+          "pairing_minutes": "Pairing-Dauer (Minuten)"
         },
         "data_description": {
           "track_address_source": "Diese Angabe steht nicht in der Geräteliste und kostet einen zusätzlichen Aufruf pro Gerät. Sie ändert sich selten, deshalb läuft sie in einem eigenen, langsameren Takt.",
           "address_source_interval": "Wirkt nur, wenn die IP-Typ-Erfassung eingeschaltet ist.",
           "enable_device_tracker": "Legt pro Netzwerkgerät einen device_tracker (zuhause/abwesend) für Anwesenheit und Automationen an. Kann bei vielen Geräten zu vielen Entitäten führen.",
-          "enable_controls": "Legt Schalter für die WLAN-Bänder (2,4 GHz, 5 GHz, Gast) sowie Buttons zum Neuverbinden und Neustarten an. Verfügbarkeit und Zuordnung der Bänder hängen vom Modell ab."
+          "enable_repeaters": "Legt für jeden AVM-Repeater im Heimnetz ein eigenes Gerät mit Verbunden-Status an, bei aktivierter FRITZ!Box-Steuerung zusätzlich mit einem Neustart-Button. Erkannt werden Geräte, deren Modell „Repeater“ enthält.",
+          "enable_controls": "Legt Schalter für die WLAN-Bänder (2,4 GHz, 5 GHz, Gast) und für den WLAN-MAC-Filter an, dazu Buttons zum Neuverbinden, Neustarten und zum Starten eines Pairings (MAC-Filter zeitweise aus), bei eingeschalteten Repeater-Geräten auch je einen Neustart-Button pro Repeater. Verfügbarkeit und Zuordnung hängen vom Modell ab.",
+          "pairing_minutes": "Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt, bevor er sich von selbst wieder einschaltet. Gilt für den Button „Pairing starten“ und für den Dienst ohne Zeitangabe."
         }
       }
     }
@@ -57,13 +61,16 @@
   "entity": {
     "sensor": {
       "geraete": {
-        "name": "Geräte"
+        "name": "Geräte",
+        "unit_of_measurement": "Geräte"
       },
       "updates": {
-        "name": "Geräte mit Update"
+        "name": "Geräte mit Update",
+        "unit_of_measurement": "Geräte"
       },
       "gesperrt": {
-        "name": "Gesperrte Geräte"
+        "name": "Gesperrte Geräte",
+        "unit_of_measurement": "Geräte"
       },
       "download": {
         "name": "Download (aktuell)"
@@ -78,6 +85,11 @@
         "name": "Upload (Leitungsrate)"
       }
     },
+    "binary_sensor": {
+      "repeater_online": {
+        "name": "Verbunden"
+      }
+    },
     "switch": {
       "wlan_24": {
         "name": "WLAN 2,4 GHz"
@@ -87,6 +99,9 @@
       },
       "wlan_guest": {
         "name": "Gast-WLAN"
+      },
+      "mac_filter": {
+        "name": "MAC-Filter"
       }
     },
     "button": {
@@ -95,6 +110,9 @@
       },
       "reboot": {
         "name": "Neustart"
+      },
+      "pairing": {
+        "name": "Pairing starten"
       }
     }
   },
@@ -136,6 +154,58 @@
           "description": "An = Internetzugang sperren, Aus = freigeben."
         }
       }
+    },
+    "set_mac_filter": {
+      "name": "MAC-Filter schalten",
+      "description": "Schaltet den WLAN-MAC-Filter (Zugang auf bekannte WLAN-Geräte beschränken) dauerhaft ein oder aus. Beendet ein laufendes Pairing.",
+      "fields": {
+        "enabled": {
+          "name": "Filter aktiv",
+          "description": "An = nur bekannte Geräte dürfen ins WLAN, Aus = alle Geräte mit dem richtigen WLAN-Kennwort."
+        }
+      }
+    },
+    "start_pairing": {
+      "name": "Pairing starten",
+      "description": "Schaltet den MAC-Filter für einige Minuten aus, damit sich ein neues Gerät am WLAN anmelden kann, und danach automatisch wieder ein. Nur bei eingeschaltetem Filter.",
+      "fields": {
+        "minutes": {
+          "name": "Dauer (Minuten)",
+          "description": "Wie lange der Filter aus bleibt. Ohne Angabe gilt die Einstellung der Integration."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "reconnect_failed": {
+      "message": "Neuverbindung fehlgeschlagen: {error}"
+    },
+    "reconnect_denied": {
+      "message": "Neuverbindung fehlgeschlagen: Die FRITZ!Box hat die Aktion nicht zugelassen ({error}). Prüfe, ob das Konto die Berechtigung „FRITZ!Box Einstellungen“ hat und ob die FRITZ!Box die Internetverbindung selbst aufbaut (nicht hinter einem vorgeschalteten Router oder Modem)."
+    },
+    "reboot_failed": {
+      "message": "Neustart fehlgeschlagen: {error}"
+    },
+    "repeater_no_ip": {
+      "message": "Für den Repeater {name} ist derzeit keine IP-Adresse bekannt. Ist er eingeschaltet und mit der FRITZ!Box verbunden?"
+    },
+    "repeater_denied": {
+      "message": "Der Repeater {name} ({address}) hat die Anmeldung abgelehnt ({error}). Prüfe, ob am Repeater der Zugriff für Anwendungen (TR-064) erlaubt ist und er die Zugangsdaten der FRITZ!Box übernommen hat."
+    },
+    "repeater_reboot_failed": {
+      "message": "Neustart des Repeaters {name} ({address}) fehlgeschlagen: {error}"
+    },
+    "mac_filter_failed": {
+      "message": "MAC-Filter konnte nicht geändert werden: {error}"
+    },
+    "mac_filter_unsupported": {
+      "message": "Diese FRITZ!Box bietet den MAC-Filter über TR-064 nicht an ({error})."
+    },
+    "mac_filter_not_applied": {
+      "message": "Die FRITZ!Box hat die Änderung des MAC-Filters nicht übernommen ({error}). Bitte den Zustand in der FRITZ!Box-Oberfläche prüfen."
+    },
+    "pairing_filter_off": {
+      "message": "Der MAC-Filter ist ausgeschaltet. Ein Pairing ist nur bei eingeschaltetem Filter möglich, weil er danach sonst ungewollt eingeschaltet würde."
     }
   }
 }

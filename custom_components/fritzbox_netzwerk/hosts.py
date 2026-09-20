@@ -129,6 +129,17 @@ def connection_label(kind: str, port: int, guest: bool) -> str:
     return label
 
 
+def is_repeater(model: Any) -> bool:
+    """Erkennt einen AVM-Repeater anhand der gemeldeten Modellbezeichnung.
+
+    Die FRITZ!Box traegt bei eigenen Geraeten im Mesh das Modell ein, z. B.
+    ``FRITZ!Repeater 1200 AX`` oder ``FRITZ!Repeater 6000``. Erkannt wird
+    ausschliesslich das, was das Modell ausdruecklich als Repeater ausweist -
+    es wird nichts aus dem Hostnamen geraten.
+    """
+    return "repeater" in str(model or "").strip().lower()
+
+
 def display_name(raw: dict[str, Any]) -> str:
     """Bester verfuegbarer Anzeigename des Geraets.
 
@@ -150,6 +161,7 @@ def normalize_host(raw: dict[str, Any]) -> dict[str, Any]:
     port = as_int(raw.get("X_AVM-DE_Port"))
     guest = as_bool(raw.get("X_AVM-DE_Guest"))
     wan_access = str(raw.get("X_AVM-DE_WANAccess") or "unknown").strip().lower()
+    model = str(raw.get("X_AVM-DE_Model") or "").strip()
 
     return {
         "index": as_int(raw.get("Index")),
@@ -168,7 +180,10 @@ def normalize_host(raw: dict[str, Any]) -> dict[str, Any]:
         "vpn": as_bool(raw.get("X_AVM-DE_VPN")),
         "meshable": as_bool(raw.get("X_AVM-DE_IsMeshable")),
         "priority": as_bool(raw.get("X_AVM-DE_Priority")),
-        "model": str(raw.get("X_AVM-DE_Model") or "").strip(),
+        "model": model,
+        # AVM-Repeater im Mesh - bekommen (optional) ein eigenes Geraet in
+        # Home Assistant, siehe binary_sensor.py und button.py.
+        "repeater": is_repeater(model),
         "device_class": str(raw.get("X_AVM-DE_DeviceClass") or "").strip(),
         "device_class_user": str(raw.get("X_AVM-DE_DeviceClassUser") or "").strip(),
         "update_available": as_bool(raw.get("X_AVM-DE_UpdateAvailable")),
@@ -326,6 +341,70 @@ def summarize(hosts: list[dict[str, Any]]) -> dict[str, int]:
         # fest zugewiesenen Adressen (fest/reserviert).
         "static": sum(1 for host in hosts if host.get("ip_class") == "fixed"),
     }
+
+
+# ---------------------------------------------------------------------------
+# WLAN-MAC-Filter ("WLAN-Zugang auf bekannte Geraete beschraenken")
+# ---------------------------------------------------------------------------
+
+# Der Filter gilt an der FRITZ!Box fuer die beiden Hauptbaender (2,4 und
+# 5 GHz), nicht fuers Gast-WLAN. TR-064 fuehrt ihn je WLANConfiguration-Dienst.
+MAC_FILTER_INFO_KEY = "NewMACAddressControlEnabled"
+MAC_FILTER_INPUT_KEY = "newmacaddresscontrolenabled"
+
+
+def is_5ghz_band(band: Any) -> bool:
+    """Ob die gemeldete Frequenzangabe (``NewX_AVM-DE_FrequencyBand``) 5 GHz ist."""
+    return str(band or "").strip().lower().startswith("5")
+
+
+def is_mac_filter_band(index: int, info: dict[str, Any]) -> bool:
+    """Entscheidet, ob ein WLANConfiguration-Dienst zum MAC-Filter gehoert.
+
+    Dienst 1 ist immer das Hauptband. Dienst 2 zaehlt nur, wenn er sich
+    ausdruecklich als 5-GHz-Band ausweist: bei Einzelband-Boxen ist Dienst 2
+    das Gast-WLAN, und dort darf nichts umgeschaltet werden. Fehlt die
+    Frequenzangabe (aeltere FRITZ!OS), bleibt es bei Dienst 1 - der Filter
+    gilt an der Box ohnehin gemeinsam fuer beide Baender.
+    """
+    if MAC_FILTER_INFO_KEY not in info:
+        return False
+    if index == 1:
+        return True
+    return index == 2 and is_5ghz_band(info.get("NewX_AVM-DE_FrequencyBand"))
+
+
+def set_config_arguments(
+    input_names: list[str], info: dict[str, Any], enabled: bool
+) -> dict[str, Any]:
+    """Baut die Argumente fuer ``WLANConfiguration.SetConfig``.
+
+    ``SetConfig`` verlangt ALLE Einstellungen auf einmal (SSID, Kanal,
+    Verschluesselung ...). Damit nichts verstellt wird, werden die aktuellen
+    Werte aus ``GetInfo`` unveraendert zurueckgeschrieben und nur der
+    MAC-Filter gesetzt. Welche Eingabeargumente es gibt, richtet sich nach
+    dem, was die Box selbst meldet (``input_names``); Gross-/Kleinschreibung
+    wird dabei ignoriert (``MacAddress...`` vs. ``MACAddress...``).
+
+    Fehlt zu einem Eingabeargument der aktuelle Wert, wird ``ValueError``
+    geworfen - lieber gar nichts schreiben als etwas Halbes.
+    """
+    values = {str(name).lower(): value for name, value in info.items()}
+    arguments: dict[str, Any] = {}
+    missing: list[str] = []
+    for name in input_names:
+        key = name.lower()
+        if key == MAC_FILTER_INPUT_KEY:
+            arguments[name] = bool(enabled)
+        elif key in values:
+            arguments[name] = values[key]
+        else:
+            missing.append(name)
+    if missing:
+        raise ValueError(", ".join(missing))
+    if not any(name.lower() == MAC_FILTER_INPUT_KEY for name in arguments):
+        raise ValueError("NewMacAddressControlEnabled")
+    return arguments
 
 
 # ---------------------------------------------------------------------------

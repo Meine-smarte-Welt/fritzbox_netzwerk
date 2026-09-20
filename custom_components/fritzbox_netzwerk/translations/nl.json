@@ -43,13 +43,17 @@
           "track_address_source": "IP-type bijhouden (DHCP of statisch)",
           "address_source_interval": "Interval van de IP-type-controle (minuten)",
           "enable_device_tracker": "Device-trackers aanmaken",
-          "enable_controls": "FRITZ!Box-bediening (experimenteel)"
+          "enable_repeaters": "Repeaters als eigen apparaten aanmaken",
+          "enable_controls": "FRITZ!Box-bediening (experimenteel)",
+          "pairing_minutes": "Duur van het koppelen (minuten)"
         },
         "data_description": {
           "track_address_source": "Deze waarde staat niet in de hostlijst en kost één extra verzoek per apparaat. Ze verandert zelden en loopt daarom op een eigen, langzamer schema.",
           "address_source_interval": "Werkt alleen als het bijhouden van het IP-type is ingeschakeld.",
           "enable_device_tracker": "Maakt per netwerkapparaat een device_tracker (thuis/afwezig) aan voor aanwezigheid en automatiseringen. Kan bij veel apparaten tot veel entiteiten leiden.",
-          "enable_controls": "Voegt schakelaars toe voor de wifi-banden (2,4 GHz, 5 GHz, gast) en knoppen om opnieuw te verbinden en te herstarten. Beschikbaarheid en bandtoewijzing zijn modelafhankelijk."
+          "enable_repeaters": "Maakt voor elke AVM-repeater in het thuisnetwerk een eigen apparaat met verbindingsstatus aan, bij ingeschakelde FRITZ!Box-bediening ook met een herstartknop. Herkend worden apparaten waarvan het model \"Repeater\" bevat.",
+          "enable_controls": "Maakt schakelaars voor de wifi-banden (2,4 GHz, 5 GHz, gast) en voor het wifi-MAC-filter aan, plus knoppen voor opnieuw verbinden, herstarten en het starten van een koppelmoment (MAC-filter tijdelijk uit), en bij ingeschakelde repeater-apparaten een herstartknop per repeater. Beschikbaarheid en toewijzing hangen af van het model.",
+          "pairing_minutes": "Hoe lang het MAC-filter tijdens het koppelen uitgeschakeld blijft voordat het zichzelf weer inschakelt. Geldt voor de knop \"Koppelen starten\" en voor de service zonder tijdsduur."
         }
       }
     }
@@ -57,13 +61,16 @@
   "entity": {
     "sensor": {
       "geraete": {
-        "name": "Apparaten"
+        "name": "Apparaten",
+        "unit_of_measurement": "apparaten"
       },
       "updates": {
-        "name": "Apparaten met update"
+        "name": "Apparaten met update",
+        "unit_of_measurement": "apparaten"
       },
       "gesperrt": {
-        "name": "Geblokkeerde apparaten"
+        "name": "Geblokkeerde apparaten",
+        "unit_of_measurement": "apparaten"
       },
       "download": {
         "name": "Download (actueel)"
@@ -78,6 +85,11 @@
         "name": "Upload (lijnsnelheid)"
       }
     },
+    "binary_sensor": {
+      "repeater_online": {
+        "name": "Verbonden"
+      }
+    },
     "switch": {
       "wlan_24": {
         "name": "Wifi 2,4 GHz"
@@ -87,6 +99,9 @@
       },
       "wlan_guest": {
         "name": "Gast-wifi"
+      },
+      "mac_filter": {
+        "name": "MAC-filter"
       }
     },
     "button": {
@@ -95,6 +110,9 @@
       },
       "reboot": {
         "name": "Herstart"
+      },
+      "pairing": {
+        "name": "Koppelen starten"
       }
     }
   },
@@ -136,6 +154,58 @@
           "description": "Aan = internettoegang blokkeren, Uit = toestaan."
         }
       }
+    },
+    "set_mac_filter": {
+      "name": "MAC-filter schakelen",
+      "description": "Schakelt het wifi-MAC-filter (toegang beperken tot bekende wifi-apparaten) blijvend in of uit. Beëindigt een lopend koppelmoment.",
+      "fields": {
+        "enabled": {
+          "name": "Filter actief",
+          "description": "Aan = alleen bekende apparaten mogen op de wifi, uit = elk apparaat met het juiste wifi-wachtwoord."
+        }
+      }
+    },
+    "start_pairing": {
+      "name": "Koppelen starten",
+      "description": "Schakelt het MAC-filter enkele minuten uit zodat een nieuw apparaat zich op de wifi kan aanmelden, en daarna automatisch weer in. Alleen bij ingeschakeld filter.",
+      "fields": {
+        "minutes": {
+          "name": "Duur (minuten)",
+          "description": "Hoe lang het filter uit blijft. Zonder opgave geldt de instelling van de integratie."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "reconnect_failed": {
+      "message": "Opnieuw verbinden mislukt: {error}"
+    },
+    "reconnect_denied": {
+      "message": "Opnieuw verbinden mislukt: de FRITZ!Box heeft de actie niet toegestaan ({error}). Controleer of het account de machtiging \"FRITZ!Box-instellingen\" heeft en of de FRITZ!Box zelf de internetverbinding opbouwt (niet achter een andere router of modem)."
+    },
+    "reboot_failed": {
+      "message": "Herstarten mislukt: {error}"
+    },
+    "repeater_no_ip": {
+      "message": "Voor de repeater {name} is momenteel geen IP-adres bekend. Staat hij aan en is hij met de FRITZ!Box verbonden?"
+    },
+    "repeater_denied": {
+      "message": "De repeater {name} ({address}) heeft de aanmelding geweigerd ({error}). Controleer of toegang voor toepassingen (TR-064) op de repeater is toegestaan en of hij de inloggegevens van de FRITZ!Box heeft overgenomen."
+    },
+    "repeater_reboot_failed": {
+      "message": "Herstarten van de repeater {name} ({address}) mislukt: {error}"
+    },
+    "mac_filter_failed": {
+      "message": "MAC-filter kon niet worden gewijzigd: {error}"
+    },
+    "mac_filter_unsupported": {
+      "message": "Deze FRITZ!Box biedt het MAC-filter niet aan via TR-064 ({error})."
+    },
+    "mac_filter_not_applied": {
+      "message": "De FRITZ!Box heeft de wijziging van het MAC-filter niet overgenomen ({error}). Controleer de status in de FRITZ!Box-interface."
+    },
+    "pairing_filter_off": {
+      "message": "Het MAC-filter is uitgeschakeld. Koppelen werkt alleen bij ingeschakeld filter, anders zou het daarna ongewenst worden ingeschakeld."
     }
   }
 }
