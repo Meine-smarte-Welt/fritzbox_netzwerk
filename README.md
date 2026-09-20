@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.5.2b2-blue)
+![Version](https://img.shields.io/badge/Version-1.5.2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -17,6 +17,7 @@ passenden Home-Assistant-Gerätenamen.
 - [Einrichtung](#einrichtung)
 - [Einstellungen](#einstellungen)
 - [Sensoren](#sensoren)
+- [Mesh: FRITZ!Box und Repeater als Gruppe](#mesh-fritzbox-und-repeater-als-gruppe)
 - [Repeater als eigene Geräte](#repeater-als-eigene-geräte)
 - [MAC-Filter und Pairing](#mac-filter-und-pairing)
 - [Dashboard-Karte](#dashboard-karte)
@@ -62,6 +63,8 @@ passenden Home-Assistant-Gerätenamen.
 - Vollständig über die Oberfläche konfigurierbar, inklusive **frei wählbarer Farben**
 - Zwei zusätzliche Zähler-Sensoren für Automatisierungen
 - **Verbindungs-Sensoren**: aktuelle Download-/Upload-Rate und die Leitungs-Sync-Raten
+- **Mesh-Gruppe**: FRITZ!Box und Repeater als eine Einheit – mit Online-Zähler in Home Assistant
+  und in der Karte, dazu ein Button **„Alle FRITZ!-Geräte neu starten“** (Repeater zuerst, Box zuletzt)
 - **WLAN-MAC-Filter** ein-/ausschalten und **temporär freigeben („Pairing“)**: neue Geräte
   für ein paar Minuten ins WLAN lassen, danach schaltet sich der Filter selbst wieder ein
 
@@ -126,8 +129,8 @@ statt später still keine Daten zu liefern.
 | IP-Typ erfassen | an | Ob DHCP/statisch ermittelt wird |
 | Intervall der IP-Typ-Abfrage | 15 min | Takt der IP-Typ-Erfassung |
 | Geräte-Tracker anlegen | aus | Ein `device_tracker` je Netzwerkgerät (zuhause/abwesend) |
-| Repeater als eigene Geräte anlegen | an | Ein Home-Assistant-Gerät je AVM-Repeater, siehe [Repeater als eigene Geräte](#repeater-als-eigene-geräte) |
-| FRITZ!Box-Steuerung (experimentell) | aus | WLAN-Schalter, MAC-Filter-Schalter, Pairing-Button sowie Buttons Neuverbinden und Neustart |
+| Repeater als eigene Geräte anlegen | an | Ein Home-Assistant-Gerät je AVM-Repeater sowie Mesh-Sensor und „Alle neu starten“-Button, siehe [Mesh](#mesh-fritzbox-und-repeater-als-gruppe) und [Repeater als eigene Geräte](#repeater-als-eigene-geräte) |
+| FRITZ!Box-Steuerung (experimentell) | aus | WLAN-Schalter, MAC-Filter-Schalter, Pairing-Button, Buttons Neuverbinden und Neustart sowie „Alle FRITZ!-Geräte neu starten“ |
 | Pairing-Dauer | 5 min | Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt (1–120 min), siehe [MAC-Filter und Pairing](#mac-filter-und-pairing) |
 
 **Warum zwei Intervalle?** Die komplette Geräteliste kommt mit einem einzigen Aufruf von
@@ -148,6 +151,7 @@ spart die Aufrufe vollständig.
 | `sensor.<name>_gesperrte_gerate` | Anzahl | Überwachung der Kindersicherung |
 | `sensor.<name>_download` | kB/s | Aktuelle Download-Rate der Internetverbindung |
 | `sensor.<name>_upload` | kB/s | Aktuelle Upload-Rate der Internetverbindung |
+| `sensor.<name>_mesh` | Anzahl online | Erreichbare FRITZ!-Geräte (Box + Repeater), Attribute `gesamt`, `vollstaendig`, `members`; nur mit Repeatern, siehe [Mesh](#mesh-fritzbox-und-repeater-als-gruppe) |
 | `sensor.<name>_download_leitungsrate` | Mbit/s | Maximale Downstream-Rate der Leitung (Sync) |
 | `sensor.<name>_upload_leitungsrate` | Mbit/s | Maximale Upstream-Rate der Leitung (Sync) |
 
@@ -167,10 +171,66 @@ Weitere Attribute am Hauptsensor: `gesamt`, `aktiv`, `inaktiv`, `gastnetz`, `ges
 
 ---
 
+## Mesh: FRITZ!Box und Repeater als Gruppe
+
+Die FRITZ!Box und ihre AVM-Repeater bilden zusammen das Mesh. Die Integration behandelt sie
+als **eine Gruppe**: in Home Assistant, in der Karte und beim Neustart.
+
+**In Home Assistant.** Die Repeater hängen als eigene Geräte unter der FRITZ!Box („Verbunden
+über“), die Geräteseite der Box zeigt sie als angeschlossene Geräte. Dazu gibt es am
+FRITZ!Box-Gerät:
+
+| Entität | Zweck |
+| --- | --- |
+| `sensor.<name>_mesh` | Zahl der erreichbaren FRITZ!-Geräte (Box + Repeater). Attribute: `gesamt`, `vollstaendig` (`true`, wenn alle erreichbar sind) und `members` mit Rolle, Name, Modell, IP-Adresse und Online-Status je Gerät – etwa für die Automation „ein Repeater ist ausgefallen“ |
+| `button.<name>_alle_fritz_gerate_neu_starten` | Startet **alle** FRITZ!-Geräte neu, siehe unten. Nur mit *FRITZ!Box-Steuerung* |
+
+Beide Entitäten entstehen erst, wenn es neben der Box mindestens einen Repeater gibt, und sind
+mit der Option *Repeater als eigene Geräte anlegen* abschaltbar. Die Box selbst zählt als
+erreichbar, sobald sie antwortet.
+
+**Alle neu starten – so läuft es ab.**
+
+1. Zuerst werden **die Repeater** neu gestartet, einer nach dem anderen, jeweils direkt über
+   ihr eigenes TR-064 (siehe [Repeater als eigene Geräte](#repeater-als-eigene-geräte)).
+   Repeater, die gerade offline sind oder keine IP-Adresse haben, werden übersprungen und im
+   Protokoll vermerkt.
+2. Nach einer kurzen Pause von drei Sekunden folgt **die FRITZ!Box**. Die Reihenfolge ist
+   Absicht: Die Repeater werden über das Netz der Box angesprochen – wäre die Box zuerst weg,
+   käme der Befehl bei ihnen nicht mehr an.
+3. Schlägt ein Repeater fehl, laufen die übrigen und die Box trotzdem durch. Zum Schluss meldet
+   Home Assistant, welche Repeater sich nicht neu starten ließen. Scheitert die Box selbst,
+   steht in der Meldung, wie viele Repeater bereits neu gestartet wurden.
+
+Das Heimnetz ist danach für einige Minuten offline, auch Home Assistant verliert währenddessen
+die Verbindung zur FRITZ!Box. Der Dienst dafür:
+
+```yaml
+action: fritzbox_netzwerk.reboot_mesh
+```
+
+**In der Karte** erscheint in der Steuerungsleiste (Editor: *Steuerungsleiste anzeigen*) ein
+Rahmen „Mesh“ mit dem Online-Zähler („3 von 3 online“), der FRITZ!Box und jedem Repeater samt
+Status – ein ausgefallener Repeater färbt den Rahmen rot und erscheint abgeblendet. Ist die
+FRITZ!Box-Steuerung aktiv, sitzt im Rahmen der Button **Alle neu starten**; er verlangt wie
+*Neustart* zwei Klicks (der erste färbt ihn, erst der zweite löst aus). Ohne Repeater
+erscheint der Rahmen nicht.
+
+**Hinweise.**
+
+- Der Sammel-Neustart setzt voraus, dass die Repeater die Anmeldung mit den Zugangsdaten der
+  FRITZ!Box akzeptieren – dieselbe Bedingung wie beim Neustart eines einzelnen Repeaters.
+- Erkannt werden Repeater am Modell („…Repeater…“); andere Mesh-Geräte, etwa Powerline-Adapter
+  mit Mesh-Funktion, gehören derzeit nicht zur Gruppe.
+- Die Funktion ist neu und konnte ohne Repeater-Hardware nicht getestet werden –
+  Rückmeldungen als GitHub-Issue willkommen.
+
+---
+
 ## Repeater als eigene Geräte
 
 AVM-Repeater im Mesh erscheinen in der Geräteliste der FRITZ!Box wie jedes andere
-Netzwerkgerät. Seit 1.5.2b1 legt die Integration für jeden von ihnen zusätzlich ein
+Netzwerkgerät. Die Integration legt für jeden von ihnen zusätzlich ein
 **eigenes Home-Assistant-Gerät** an, das an der FRITZ!Box hängt. Erkannt wird ein Repeater
 daran, dass sein von der FRITZ!Box gemeldetes Modell „Repeater“ enthält (etwa
 *FRITZ!Repeater 1200 AX*) – der Name wird nicht geraten.
@@ -192,14 +252,17 @@ abgeschaltet, meldet der Button, dass der Repeater die Anmeldung abgelehnt hat.
 
 **Die Zeile des Repeaters in der Karte** verweist – über die MAC-Adresse – auf dieses Gerät.
 
+Alle Repeater zusammen mit der FRITZ!Box als Gruppe – samt Sammel-Neustart – beschreibt der
+nächste Abschnitt.
+
 ---
 
 ## MAC-Filter und Pairing
 
 Die FRITZ!Box kann das WLAN auf **bekannte Geräte beschränken** (WLAN → Sicherheit →
 *Zugang auf bekannte WLAN-Geräte beschränken*, im Folgenden „MAC-Filter“). Ist der Filter an,
-kommt ein neues Gerät auch mit dem richtigen WLAN-Kennwort nicht hinein. Seit 1.5.2b2 lässt
-sich das aus Home Assistant steuern – mit *FRITZ!Box-Steuerung* aktiviert:
+kommt ein neues Gerät auch mit dem richtigen WLAN-Kennwort nicht hinein. Das lässt
+sich aus Home Assistant steuern – mit *FRITZ!Box-Steuerung* aktiviert:
 
 | Entität | Zweck |
 | --- | --- |
@@ -330,7 +393,8 @@ ein: die **Live-Werte für Download und Upload** und – sofern die FRITZ!Box-St
 Integrationseinstellungen aktiviert ist – die **Schalter für die WLAN-Bänder** (2,4 GHz,
 5 GHz, Gast), der **MAC-Filter** mit dem Button **Pairing** (siehe
 [MAC-Filter und Pairing](#mac-filter-und-pairing)) sowie die Buttons **Neuverbinden** (neue
-ofentliche IP) und **Neustart**. Der
+öffentliche IP) und **Neustart**. Gibt es Repeater, kommt die **Mesh-Gruppe** mit dem Button
+**Alle neu starten** hinzu (siehe [Mesh](#mesh-fritzbox-und-repeater-als-gruppe)). Der
 Neustart verlangt zwei Klicks: der erste Klick färbt den Button, erst der zweite löst
 tatsächlich aus.
 
@@ -340,7 +404,7 @@ Reiterleiste im Stil von *FRITZ!Box Anrufe*:
 | Reiter | Was darin erscheint |
 | --- | --- |
 | **Netzwerk** (`mdi:lan`) | Filterleiste, Suchfeld, Zusammenfassung, Geräteliste |
-| **Steuerung** (`mdi:router-wireless-settings`) | Download/Upload, WLAN-Schalter, MAC-Filter, Pairing, Neuverbinden, Neustart |
+| **Steuerung** (`mdi:router-wireless-settings`) | Download/Upload, WLAN-Schalter, MAC-Filter, Pairing, Neuverbinden, Neustart, Mesh-Gruppe |
 
 Die Trennung ist strikt: Im Reiter *Netzwerk* erscheinen keine Steuerungselemente, im Reiter
 *Steuerung* keine Filter, kein Suchfeld und keine Geräteliste. Es wird nichts doppelt
@@ -395,7 +459,7 @@ Je nach Gerät bietet das Popup zusätzlich:
   Assistant über seine MAC-Adresse bekannt ist
 - **Aufwecken (WoL)** – sendet ein Wake-on-LAN-Signal, wird nur bei nicht verbundenen
   Geräten angezeigt
-- **Anwesenheit** – diese Zeile steht seit Version 1.5.2b0 immer im Popup und zeigt den
+- **Anwesenheit** – diese Zeile steht immer im Popup und zeigt den
   Zustand der zugehörigen `device_tracker`-Entität: *zuhause* bzw. *abwesend*, verlinkt auf
   die Entität (ein Klick öffnet deren Info-Dialog). Gibt es keinen nutzbaren Tracker, sagt
   die Zeile, warum: *nicht aktiviert* (Device Tracker ist in den Integrationseinstellungen
@@ -543,6 +607,17 @@ data:
   minutes: 5
 ```
 
+### `fritzbox_netzwerk.reboot_mesh` (experimentell)
+
+Startet alle FRITZ!-Geräte neu: zuerst die erreichbaren Repeater, nach einer kurzen Pause die
+FRITZ!Box. Gleichwertig zum Button *Alle FRITZ!-Geräte neu starten*; ohne Repeater wird nur die
+Box neu gestartet. Das Heimnetz ist danach einige Minuten offline. Details unter
+[Mesh](#mesh-fritzbox-und-repeater-als-gruppe).
+
+```yaml
+action: fritzbox_netzwerk.reboot_mesh
+```
+
 ---
 
 ## Fehlerbehebung
@@ -557,15 +632,26 @@ Unter Heimnetz → Netzwerk → Netzwerkeinstellungen die Option *Zugriff für A
 zulassen* aktivieren. Ohne sie ist die TR-064-Schnittstelle komplett abgeschaltet.
 
 **Der Button *Neu verbinden* meldet einen Fehler (z. B. `errorCode: 606`).**
-Bis 1.5.2b0 nutzte der Button den UPnP-Dienst der FRITZ!Box, den manche Boxen mit Fehler 606
+Bis 1.5.1 nutzte der Button den UPnP-Dienst der FRITZ!Box, den manche Boxen mit Fehler 606
 („nicht autorisiert“) ablehnen – vermutlich, weil dieser Weg an den UPnP-Einstellungen der Box
 hängt und nicht an den Rechten des Kontos. Der *Neustart* ging trotzdem, weil er über TR-064
-läuft. Ab 1.5.2b1 wird zuerst der TR-064-Weg mit der Anmeldung
+läuft. Seit 1.5.2 wird zuerst der TR-064-Weg mit der Anmeldung
 der Integration versucht, der UPnP-Weg nur noch als Rückfall. Meldet der Button weiterhin
 einen Fehler, prüfe, ob das Konto die Berechtigung *FRITZ!Box Einstellungen* hat und ob die
 FRITZ!Box die Internetverbindung selbst aufbaut. Hängt sie hinter einem vorgeschalteten Router
 oder Modem (oder ist sie ein Kabel-Modell), gibt es dort keine Einwahl, die neu aufgebaut
 werden könnte.
+
+**„Alle neu starten“ meldet, dass Repeater nicht neu gestartet werden konnten.**
+Die FRITZ!Box wurde trotzdem neu gestartet, die Meldung nennt die betroffenen Repeater.
+Meist lehnt der Repeater die Anmeldung ab: Am Repeater muss der Zugriff für Anwendungen
+(TR-064) erlaubt sein, und er muss die Zugangsdaten der FRITZ!Box übernommen haben (im Mesh
+üblich). Ein einzelner Repeater lässt sich über seinen eigenen *Neustart*-Button testen.
+
+**Der Mesh-Sensor und der Button „Alle neu starten“ fehlen.**
+Beide entstehen erst, sobald die FRITZ!Box mindestens einen Repeater in der Geräteliste führt
+(Modell enthält „Repeater“), und nur bei eingeschalteter Option *Repeater als eigene Geräte
+anlegen*. Der Button braucht außerdem die *FRITZ!Box-Steuerung*.
 
 **Der MAC-Filter-Schalter und der Pairing-Button fehlen.**
 Beide gibt es nur mit aktivierter *FRITZ!Box-Steuerung* und nur, wenn die Box den Filter
@@ -583,7 +669,7 @@ weiter auf dem alten Wert; die Protokolldetails nennen dann das betroffene Band.
 
 **Nach einem Update steht bei den Zählern eine andere Einheit / Home Assistant meldet
 geänderte Einheiten.**
-Die Einheit der Zähler-Sensoren (bis 1.5.2b0 fest „Geräte“) folgt jetzt der Sprache von Home
+Die Einheit der Zähler-Sensoren (bis 1.5.1 fest „Geräte“) folgt jetzt der Sprache von Home
 Assistant. Wer Home Assistant nicht auf Deutsch betreibt, kann dadurch einmalig den Hinweis sehen,
 dass sich die Einheit einer Statistik geändert hat. Unter Entwicklerwerkzeuge → Statistiken
 lässt sich das mit *Problem beheben* bereinigen; die Werte selbst bleiben unberührt.
@@ -653,13 +739,13 @@ language: nl   # "" = automatisch, sonst de | en | nl
   Wake-on-LAN, Echtzeitpriorität und Geräteklasse. Ein Setzen der IP-Adresse wäre nur über
   die Weboberfläche der FRITZ!Box möglich – undokumentiert und bei jedem FRITZ!OS-Update
   potenziell defekt. Das ist bewusst nicht Teil dieser Version.
-- **Mesh nur in Teilen.** Repeater werden als eigene Geräte geführt (siehe oben). WLAN-Band,
+- **Mesh nur in Teilen.** FRITZ!Box und Repeater bilden eine Gruppe (siehe oben). WLAN-Band,
   Signalstärke und der Repeater, an dem ein Gerät hängt, stehen dagegen in einer eigenen
   Schnittstelle (`X_AVM-DE_GetMeshListPath`) und sind noch nicht ausgewertet.
 - **MAC-Filter/Pairing ist experimentell** und nur mit laufendem Home Assistant abgesichert:
   Das automatische Wiedereinschalten übernimmt die Integration, nicht die FRITZ!Box.
-- **Repeater-Neustart ist experimentell.** Er hängt davon ab, dass der Repeater die
-  Anmeldung mit den Zugangsdaten der FRITZ!Box akzeptiert.
+- **Repeater-Neustart und „Alle neu starten“ sind experimentell.** Sie hängen davon ab, dass
+  der Repeater die Anmeldung mit den Zugangsdaten der FRITZ!Box akzeptiert.
 - **Nur eine FRITZ!Box je Dienstaufruf.** Sind mehrere Boxen eingerichtet, wirken
   `set_device_name` und `wake_on_lan` auf die zuerst geladene.
 - Die Zuordnung zu Home-Assistant-Geräten erfolgt ausschließlich über die MAC-Adresse.
@@ -689,87 +775,82 @@ Kartencodes im Testaufbau.
 
 ## Versionshistorie
 
-### 1.5.2b2 – MAC-Filter schalten und temporär freigeben („Pairing“) (Beta)
+### 1.5.2 – Mesh-Gruppe, MAC-Filter/Pairing, Repeater als Geräte, Reconnect-Fix
 
-**Beta-Version**, baut auf 1.5.2b1 auf. Rückmeldungen bitte als GitHub-Issue.
+**Neu**
 
-- **Neu: WLAN-MAC-Filter ein-/ausschalten.** Schalter `switch.<name>_mac_filter` (mit
-  aktivierter *FRITZ!Box-Steuerung*) und Dienst `fritzbox_netzwerk.set_mac_filter`.
-- **Neu: temporär ausschalten – „Pairing“.** Button `button.<name>_pairing_starten` und Dienst
-  `fritzbox_netzwerk.start_pairing` schalten den Filter für eine einstellbare Zeit aus und
+- **Mesh-Gruppe: FRITZ!Box und Repeater als eine Einheit.** Neuer Sensor `sensor.<name>_mesh`
+  (Zahl der erreichbaren FRITZ!-Geräte, Attribute `gesamt`, `vollstaendig`, `members`) und in der
+  Karte ein Rahmen „Mesh“ mit Online-Zähler und Status jedes Geräts. Details unter
+  [Mesh](#mesh-fritzbox-und-repeater-als-gruppe).
+- **Neu: „Alle FRITZ!-Geräte neu starten“.** Button `button.<name>_alle_fritz_gerate_neu_starten`,
+  Dienst `fritzbox_netzwerk.reboot_mesh` und Button in der Karte (mit Zwei-Klick-Bestätigung).
+  Erst die Repeater, dann die FRITZ!Box; ein fehlgeschlagener Repeater hält die übrigen nicht auf,
+  offline Repeater werden übersprungen.
+- **Neu: WLAN-MAC-Filter ein-/ausschalten.** Schalter `switch.<name>_mac_filter` (mit aktivierter
+  *FRITZ!Box-Steuerung*) und Dienst `fritzbox_netzwerk.set_mac_filter`.
+- **Neu: MAC-Filter temporär ausschalten – „Pairing“.** Button `button.<name>_pairing_starten` und
+  Dienst `fritzbox_netzwerk.start_pairing` schalten den Filter für eine einstellbare Zeit aus und
   danach von selbst wieder ein. Neue Option *Pairing-Dauer* (Standard 5 min, 1–120).
-  Ausfallsicher gebaut: Endzeitpunkt wird vor dem Ausschalten gespeichert, überlebt einen
-  Neustart von Home Assistant, Wiedereinschalten wird bei Fehlern jede Minute wiederholt,
-  ein fehlgeschlagener Start wird zurückgenommen.
-- **Karte:** MAC-Filter-Chip und Pairing-Button in der Steuerungsleiste, während des Pairings
-  „Pairing bis HH:MM“.
-- Übersetzungen (de/en/nl) für alle neuen Entitäten, Dienste, Optionen und Fehlermeldungen.
-- **Nicht an echter Hardware getestet.** Geprüft mit einer simulierten FRITZ!Box
-  (`WLANConfiguration1/2`), siehe [MAC-Filter und Pairing](#mac-filter-und-pairing).
-
-### 1.5.2b1 – Reconnect-Fehler behoben, Repeater als Geräte, Standardfilter Aktiv (Beta)
-
-**Beta-Version.** In HACS nur sichtbar, wenn für diese Integration *Beta-Versionen anzeigen*
-eingeschaltet ist. Rückmeldungen bitte als GitHub-Issue.
-
-- **Behoben: Der Button *Neu verbinden* schlug mit `UPnPError: errorCode: 606` fehl** (der
-  *Neustart* ging dabei). Ursache: `FritzConnection.reconnect()` ruft den UPnP-Dienst
-  `WANIPConn1` auf; diesen UPnP-Dienst lehnen manche FRITZ!Boxen mit 606 („nicht autorisiert“)
-  ab, obwohl das Konto berechtigt ist.
-  Der bisherige Rückfall auf PPPoE griff nie, weil er nur bei einem *fehlenden* Dienst
-  ansprang, nicht bei einem abgelehnten. Jetzt werden nacheinander die TR-064-Dienste
-  `WANIPConnection1` und `WANPPPConnection1` (mit der Anmeldung der Integration) und erst
-  danach die UPnP-Dienste versucht. Schlägt alles fehl, nennt die Meldung die Ursache und
-  was zu prüfen ist. Alle Fehlermeldungen der Buttons sind jetzt übersetzt (de/en/nl).
-- **Behoben: Einheit „Geräte“ war nicht übersetzt.** Die drei Zähler-Sensoren trugen die
-  Einheit fest auf Deutsch. Sie kommt jetzt aus den Übersetzungen: *Geräte* / *devices* /
-  *apparaten*. Hinweis zur einmaligen Statistik-Meldung siehe
-  [Fehlerbehebung](#fehlerbehebung).
-- **Neu: Standardfilter der Karte ist jetzt *Aktiv*** (vorher *Alle*). Gilt für alle Karten,
-  in denen `default_filter` nicht ausdrücklich gesetzt ist; wer weiter mit *Alle* starten
-  möchte, wählt es im Editor oder setzt `default_filter: alle`.
-- **Neu: Repeater als eigene Geräte.** Jeder AVM-Repeater bekommt ein eigenes Gerät mit
-  *Verbunden*-Status und – bei aktivierter FRITZ!Box-Steuerung – einem *Neustart*-Button, der
-  den Repeater direkt über dessen TR-064 neu startet. Neue Option *Repeater als eigene Geräte
-  anlegen* (standardmäßig an). Der Repeater-Neustart ist experimentell und konnte ohne
-  Repeater-Hardware nicht getestet werden – Rückmeldungen willkommen. Details unter
+  Ausfallsicher gebaut: Der Endzeitpunkt wird vor dem Ausschalten gespeichert, überlebt einen
+  Neustart von Home Assistant, das Wiedereinschalten wird bei Fehlern jede Minute wiederholt,
+  ein fehlgeschlagener Start wird zurückgenommen. In der Karte: MAC-Filter-Chip und
+  Pairing-Button, während des Pairings „Pairing bis HH:MM“. Details unter
+  [MAC-Filter und Pairing](#mac-filter-und-pairing).
+- **Neu: Repeater als eigene Geräte.** Jeder AVM-Repeater bekommt ein eigenes Gerät (hängt an der
+  FRITZ!Box) mit *Verbunden*-Status und – bei aktivierter FRITZ!Box-Steuerung – einem
+  *Neustart*-Button, der den Repeater direkt über dessen TR-064 neu startet. Neue Option
+  *Repeater als eigene Geräte anlegen* (standardmäßig an). Details unter
   [Repeater als eigene Geräte](#repeater-als-eigene-geräte).
-- **Karte: automatische Sensor-Auswahl** beim Anlegen erkennt den Sammelsensor jetzt am
-  Attribut `hosts` statt am Namen `…_gerate`; bei englischer oder niederländischer
-  Home-Assistant-Sprache (`…_devices`, `…_apparaten`) wurde er bisher nicht gefunden.
-- **Zur Warnung `The deprecated alias ScannerEntity was used from fritzbox_netzwerk`:** sie
-  stammt aus Version 1.5.0 und älter und ist seit 1.5.1 behoben (der Import erfolgt aus
-  `homeassistant.components.device_tracker`). Gegen den Quellcode von Home Assistant 2026.9.3
-  geprüft: weder Tracker noch übrige Module greifen auf einen veralteten Alias zu. Wer sie
-  weiterhin sieht, hat noch eine ältere Version geladen – bitte Version prüfen und Home
-  Assistant neu starten.
+- **Neu: Standardfilter der Karte ist jetzt *Aktiv*** (vorher *Alle*). Gilt für alle Karten, in
+  denen `default_filter` nicht ausdrücklich gesetzt ist; wer weiter mit *Alle* starten möchte,
+  wählt es im Editor oder setzt `default_filter: alle`.
 
-### 1.5.2b0 – Anwesenheit im Detail-Popup wird endlich angezeigt (Beta)
+**Behoben**
 
-**Beta-Version.** In HACS nur sichtbar, wenn für diese Integration *Beta-Versionen anzeigen*
-eingeschaltet ist. Rückmeldungen bitte als GitHub-Issue.
-
-- **Behoben: Die Zeile *Anwesenheit* fehlte im Detail-Popup immer.** Die in 1.5.0 eingeführte
-  Verlinkung zum `device_tracker` eines Geräts hat nie funktioniert: Home Assistants
-  `ScannerEntity` überschreibt die `unique_id` fest mit der MAC-Adresse, das eigene
-  `_attr_unique_id` der Integration (`<entry_id>_track_<mac>`) kam also nie in der
-  Entitätsregistrierung an. Gesucht wurde aber genau danach – die Zuordnung blieb dadurch
-  immer leer, und die Karte ließ die Zeile kommentarlos weg. Die Auflösung erfolgt jetzt über
-  die MAC-Adresse (mit dem alten Schlüssel als Rückfallweg); die `unique_id` des Trackers
-  wird zusätzlich explizit auf denselben Wert gesetzt, damit beide Wege übereinstimmen.
-  Bestehende Tracker-Entitäten bleiben unverändert erhalten – es entstehen keine Duplikate.
+- **Der Button *Neu verbinden* schlug mit `UPnPError: errorCode: 606` fehl** (der *Neustart* ging
+  dabei). Ursache: `FritzConnection.reconnect()` ruft den UPnP-Dienst `WANIPConn1` auf; diesen
+  lehnen manche FRITZ!Boxen mit 606 („nicht autorisiert“) ab, obwohl das Konto berechtigt ist.
+  Der bisherige Rückfall auf PPPoE griff nie, weil er nur bei einem *fehlenden* Dienst ansprang,
+  nicht bei einem abgelehnten. Jetzt werden nacheinander die TR-064-Dienste `WANIPConnection1`
+  und `WANPPPConnection1` (mit der Anmeldung der Integration) und erst danach die UPnP-Dienste
+  versucht. Schlägt alles fehl, nennt die Meldung die Ursache und was zu prüfen ist. Alle
+  Fehlermeldungen der Buttons sind jetzt übersetzt (de/en/nl).
+- **Einheit „Geräte“ war nicht übersetzt.** Die drei Zähler-Sensoren trugen die Einheit fest auf
+  Deutsch. Sie kommt jetzt aus den Übersetzungen: *Geräte* / *devices* / *apparaten*. Hinweis
+  zur einmaligen Statistik-Meldung siehe [Fehlerbehebung](#fehlerbehebung).
+- **Die Zeile *Anwesenheit* fehlte im Detail-Popup immer.** Die in 1.5.0 eingeführte Verlinkung
+  zum `device_tracker` eines Geräts hat nie funktioniert: Home Assistants `ScannerEntity`
+  überschreibt die `unique_id` fest mit der MAC-Adresse, das eigene `_attr_unique_id` der
+  Integration (`<entry_id>_track_<mac>`) kam also nie in der Entitätsregistrierung an. Gesucht
+  wurde aber genau danach – die Zuordnung blieb dadurch immer leer, und die Karte ließ die Zeile
+  kommentarlos weg. Die Auflösung erfolgt jetzt über die MAC-Adresse (mit dem alten Schlüssel
+  als Rückfallweg); die `unique_id` des Trackers wird zusätzlich explizit auf denselben Wert
+  gesetzt, damit beide Wege übereinstimmen. Bestehende Tracker-Entitäten bleiben unverändert
+  erhalten – es entstehen keine Duplikate.
 - **Die Zeile *Anwesenheit* ist jetzt immer sichtbar** und sagt, was los ist, statt zu
-  verschwinden: *zuhause* / *abwesend* (verlinkt auf die Entität), *Entität deaktiviert*
-  (falls die Tracker-Entität in Home Assistant ausgeschaltet ist), *nicht aktiviert* (falls
-  der Device Tracker in den Integrationseinstellungen gar nicht eingeschaltet ist – der
-  Tooltip nennt den Weg dorthin) oder „—", wenn es für dieses Gerät keinen Tracker gibt.
-- **Der angezeigte Zustand kommt jetzt aus der Tracker-Entität selbst**, nicht mehr aus dem
-  Aktiv-Status der FRITZ!Box. Beides kann auseinanderlaufen, etwa während der Karenzzeit
-  (`consider_home`) oder wenn die Entität nicht verfügbar ist.
-- **Behoben: Die Karte meldete sich in der Browser-Konsole weiterhin als 1.5.0.** Die
-  Versionskennung in der Kartendatei war beim Release 1.5.1 nicht mitgezogen worden. Auf die
-  Cache-Invalidierung hatte das keinen Einfluss – die läuft über den Parameter `?v=` an der
-  Ressourcen-URL und war korrekt.
+  verschwinden: *zuhause* / *abwesend* (verlinkt auf die Entität), *Entität deaktiviert* (falls
+  die Tracker-Entität in Home Assistant ausgeschaltet ist), *nicht aktiviert* (falls der Device
+  Tracker in den Integrationseinstellungen gar nicht eingeschaltet ist – der Tooltip nennt den
+  Weg dorthin) oder „—“, wenn es für dieses Gerät keinen Tracker gibt. Der angezeigte Zustand
+  kommt jetzt aus der Tracker-Entität selbst, nicht mehr aus dem Aktiv-Status der FRITZ!Box.
+- **Karte: automatische Sensor-Auswahl** beim Anlegen erkennt den Sammelsensor jetzt am Attribut
+  `hosts` statt am Namen `…_gerate`; bei englischer oder niederländischer Home-Assistant-Sprache
+  (`…_devices`, `…_apparaten`) wurde er bisher nicht gefunden.
+- **Die Karte meldete sich in der Browser-Konsole weiterhin als 1.5.0.** Die Versionskennung in
+  der Kartendatei war beim Release 1.5.1 nicht mitgezogen worden. Auf die Cache-Invalidierung
+  hatte das keinen Einfluss – die läuft über den Parameter `?v=` an der Ressourcen-URL.
+
+**Zur Warnung `The deprecated alias ScannerEntity was used from fritzbox_netzwerk`:** sie stammt
+aus Version 1.5.0 und älter und ist seit 1.5.1 behoben (der Import erfolgt aus
+`homeassistant.components.device_tracker`). Gegen den Quellcode von Home Assistant 2026.9.3
+geprüft: weder Tracker noch übrige Module greifen auf einen veralteten Alias zu. Wer sie
+weiterhin sieht, hat noch eine ältere Version geladen – bitte Version prüfen und Home Assistant
+neu starten.
+
+**Nicht an echter Hardware getestet.** MAC-Filter/Pairing, Repeater-Neustart und der
+Sammel-Neustart wurden mit einer simulierten FRITZ!Box und Repeatern geprüft, nicht an echten
+Geräten. Rückmeldungen bitte als GitHub-Issue.
 
 ### 1.5.1 – Deprecation-Warnung im Protokoll beseitigt
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timedelta
 from typing import Any, Final
 
@@ -18,7 +19,7 @@ from fritzconnection.lib.fritzstatus import FritzStatus
 from requests.exceptions import RequestException
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
+from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers import device_registry as dr
@@ -48,6 +49,8 @@ from .hosts import (
     build_hosts,
     is_mac_filter_band,
     mac_key,
+    mesh_members,
+    mesh_reboot_plan,
     set_config_arguments,
     summarize,
     to_kbytes_per_s,
@@ -59,7 +62,7 @@ _LOGGER = logging.getLogger(__name__)
 # Aktionen, mit denen die Internetverbindung neu aufgebaut wird - in dieser
 # Reihenfolge probiert. Zuerst die TR-064-Dienste: sie laufen mit der
 # Anmeldung der Integration (derselben, die auch den Neustart erlaubt).
-# Der bis 1.5.2b0 allein genutzte UPnP-IGD-Dienst ``WANIPConn1`` (das ist
+# Der frueher allein genutzte UPnP-IGD-Dienst ``WANIPConn1`` (das ist
 # ``FritzConnection.reconnect()``) wird von manchen FRITZ!Boxen mit Fehler
 # 606 (nicht autorisiert) abgelehnt - obwohl das Konto voll berechtigt ist und
 # der Neustart ueber TR-064 funktioniert. Vermutlich haengt der IGD-Zugriff an
@@ -74,6 +77,10 @@ RECONNECT_ACTIONS: Final = (
 
 # Zeitlimit fuer die Verbindung zu einem Repeater (Sekunden).
 REPEATER_TIMEOUT: Final = 15
+
+# Pause zwischen dem Neustart der Repeater und dem der FRITZ!Box (Sekunden):
+# Die Repeater sollen den Befehl sicher bekommen, bevor das Netz wegbricht.
+MESH_REBOOT_DELAY: Final = 3
 
 # Bis zum naechsten Versuch, den MAC-Filter nach dem Pairing wieder
 # einzuschalten, falls die FRITZ!Box gerade nicht antwortet (Sekunden).
@@ -282,6 +289,84 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             timeout=REPEATER_TIMEOUT,
         )
         connection.call_action("DeviceConfig1", "Reboot")
+
+    @property
+    def box_model(self) -> str:
+        """Modellname der FRITZ!Box (leer, wenn nicht ermittelbar)."""
+        try:
+            return str(getattr(self.fritz_hosts.fc, "modelname", "") or "")
+        except Exception:  # noqa: BLE001 - reine Anzeige, darf nie stoeren
+            return ""
+
+    # -- Mesh: alle FRITZ!-Geraete gemeinsam ------------------------------
+
+    def _mesh_members(self, hosts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """FRITZ!Box + Repeater als Gruppe (siehe ``hosts.mesh_members``)."""
+        model = self.box_model
+        return mesh_members(
+            hosts,
+            box_name=model or "FRITZ!Box",
+            box_model=model,
+            box_ip=str(self.entry.data.get(CONF_HOST, "")),
+        )
+
+    def reboot_mesh(self, targets: list[dict[str, Any]]) -> dict[str, Any]:
+        """Startet erst die Repeater, dann die FRITZ!Box neu (blockierend).
+
+        Die Repeater kommen zuerst, weil sie ueber das Netz der Box angesprochen
+        werden - ist die Box schon weg, erreicht der Befehl sie nicht mehr.
+        Ein fehlgeschlagener Repeater haelt die uebrigen und die Box nicht auf;
+        jeder Fehler wird gesammelt und dem Aufrufer gemeldet.
+        """
+        failed: list[dict[str, str]] = []
+        for target in targets:
+            name = str(target.get("name") or target.get("ip"))
+            try:
+                self.reboot_repeater(str(target["ip"]))
+            except (FritzConnectionException, RequestException) as err:
+                _LOGGER.warning("Repeater %s liess sich nicht neu starten: %s", name, err)
+                failed.append({"name": name, "error": str(err)})
+        if targets:
+            time.sleep(MESH_REBOOT_DELAY)
+        box_error: str | None = None
+        try:
+            self.call_action("DeviceConfig1", "Reboot")
+        except (FritzConnectionException, RequestException) as err:
+            _LOGGER.warning("FRITZ!Box liess sich nicht neu starten: %s", err)
+            box_error = str(err)
+        return {"failed": failed, "box_error": box_error}
+
+    async def async_reboot_mesh(self) -> None:
+        """Startet alle FRITZ!-Geraete neu: Repeater zuerst, die Box zuletzt."""
+        members = (self.data or {}).get("mesh") or self._mesh_members(
+            (self.data or {}).get("hosts", [])
+        )
+        targets, skipped = mesh_reboot_plan(members)
+        for member in skipped:
+            _LOGGER.warning(
+                "Repeater %s ist nicht erreichbar (offline oder ohne IP-Adresse) "
+                "und wird uebersprungen",
+                member.get("name"),
+            )
+        result = await self.hass.async_add_executor_job(self.reboot_mesh, targets)
+        if result["box_error"] is not None:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="mesh_reboot_box_failed",
+                translation_placeholders={
+                    "error": result["box_error"],
+                    "restarted": str(len(targets) - len(result["failed"])),
+                },
+            )
+        if result["failed"]:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="mesh_reboot_partial",
+                translation_placeholders={
+                    "names": ", ".join(item["name"] for item in result["failed"]),
+                    "error": result["failed"][0]["error"],
+                },
+            )
 
     # -- MAC-Filter und Pairing -------------------------------------------
 
@@ -707,6 +792,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         return {
             "hosts": hosts,
+            "mesh": self._mesh_members(hosts),
             "summary": summarize(hosts),
             "connection": connection,
             "wlan": wlan,

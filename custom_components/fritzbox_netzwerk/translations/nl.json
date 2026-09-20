@@ -51,7 +51,7 @@
           "track_address_source": "Deze waarde staat niet in de hostlijst en kost één extra verzoek per apparaat. Ze verandert zelden en loopt daarom op een eigen, langzamer schema.",
           "address_source_interval": "Werkt alleen als het bijhouden van het IP-type is ingeschakeld.",
           "enable_device_tracker": "Maakt per netwerkapparaat een device_tracker (thuis/afwezig) aan voor aanwezigheid en automatiseringen. Kan bij veel apparaten tot veel entiteiten leiden.",
-          "enable_repeaters": "Maakt voor elke AVM-repeater in het thuisnetwerk een eigen apparaat met verbindingsstatus aan, bij ingeschakelde FRITZ!Box-bediening ook met een herstartknop. Herkend worden apparaten waarvan het model \"Repeater\" bevat.",
+          "enable_repeaters": "Maakt voor elke AVM-repeater in het thuisnetwerk een eigen apparaat met verbindingsstatus aan, bij ingeschakelde FRITZ!Box-bediening ook met een herstartknop. Ook komt er een mesh-sensor (FRITZ!Box + repeaters) en, met bediening, de knop \"Alle FRITZ!-apparaten herstarten\". Herkend worden apparaten waarvan het model \"Repeater\" bevat.",
           "enable_controls": "Maakt schakelaars voor de wifi-banden (2,4 GHz, 5 GHz, gast) en voor het wifi-MAC-filter aan, plus knoppen voor opnieuw verbinden, herstarten en het starten van een koppelmoment (MAC-filter tijdelijk uit), en bij ingeschakelde repeater-apparaten een herstartknop per repeater. Beschikbaarheid en toewijzing hangen af van het model.",
           "pairing_minutes": "Hoe lang het MAC-filter tijdens het koppelen uitgeschakeld blijft voordat het zichzelf weer inschakelt. Geldt voor de knop \"Koppelen starten\" en voor de service zonder tijdsduur."
         }
@@ -83,6 +83,10 @@
       },
       "upload_max": {
         "name": "Upload (lijnsnelheid)"
+      },
+      "mesh": {
+        "name": "Mesh",
+        "unit_of_measurement": "apparaten"
       }
     },
     "binary_sensor": {
@@ -113,6 +117,9 @@
       },
       "pairing": {
         "name": "Koppelen starten"
+      },
+      "reboot_mesh": {
+        "name": "Alle FRITZ!-apparaten herstarten"
       }
     }
   },
@@ -174,6 +181,10 @@
           "description": "Hoe lang het filter uit blijft. Zonder opgave geldt de instelling van de integratie."
         }
       }
+    },
+    "reboot_mesh": {
+      "name": "Mesh herstarten",
+      "description": "Herstart alle FRITZ!-apparaten: eerst de repeaters, daarna de FRITZ!Box. Repeaters die niet bereikbaar zijn, worden overgeslagen. Het thuisnetwerk is daarna enkele minuten offline."
     }
   },
   "exceptions": {
@@ -206,6 +217,12 @@
     },
     "pairing_filter_off": {
       "message": "Het MAC-filter is uitgeschakeld. Koppelen werkt alleen bij ingeschakeld filter, anders zou het daarna ongewenst worden ingeschakeld."
+    },
+    "mesh_reboot_box_failed": {
+      "message": "De FRITZ!Box kon niet worden herstart: {error} Repeaters herstart: {restarted}."
+    },
+    "mesh_reboot_partial": {
+      "message": "De FRITZ!Box wordt herstart, maar deze repeaters konden niet worden herstart: {names} ({error})"
     }
   }
 }

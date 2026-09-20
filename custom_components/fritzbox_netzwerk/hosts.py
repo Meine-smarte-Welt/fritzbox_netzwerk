@@ -408,6 +408,85 @@ def set_config_arguments(
 
 
 # ---------------------------------------------------------------------------
+# Mesh: FRITZ!Box und Repeater als Gruppe
+# ---------------------------------------------------------------------------
+
+
+def mesh_members(
+    hosts: list[dict[str, Any]],
+    box_name: str,
+    box_model: str = "",
+    box_ip: str = "",
+) -> list[dict[str, Any]]:
+    """Die FRITZ!-Geraete des Heimnetzes: zuerst die Box, dann die Repeater.
+
+    Die Box ist in ihrer eigenen Hostliste nicht enthalten; sie antwortet
+    aber gerade (sonst gaebe es diese Daten nicht) und gilt deshalb als online.
+    Repeater sind die Hosts, die ``build_hosts`` als solche markiert hat - ohne
+    gueltige MAC-Adresse werden sie nicht aufgenommen. Die Repeater sind nach
+    Namen sortiert, damit die Reihenfolge von Abruf zu Abruf stabil bleibt.
+    """
+    members: list[dict[str, Any]] = [
+        {
+            "role": "box",
+            "name": box_name,
+            "model": box_model,
+            "ip": box_ip,
+            "mac": None,
+            "online": True,
+        }
+    ]
+    repeaters = [
+        host for host in hosts if host.get("repeater") and mac_key(host.get("mac"))
+    ]
+    repeaters.sort(key=lambda h: (str(h.get("name") or "").lower(), str(h.get("mac"))))
+    for host in repeaters:
+        members.append(
+            {
+                "role": "repeater",
+                "name": host.get("name") or host.get("mac"),
+                "model": host.get("model") or "",
+                "ip": host.get("ip") or "",
+                "mac": host.get("mac"),
+                "online": bool(host.get("active")),
+            }
+        )
+    return members
+
+
+def mesh_summary(members: list[dict[str, Any]]) -> dict[str, Any]:
+    """Anzahl und Vollstaendigkeit der Mesh-Gruppe (Box zaehlt mit)."""
+    online = sum(1 for member in members if member.get("online"))
+    return {
+        "total": len(members),
+        "online": online,
+        "complete": online == len(members),
+    }
+
+
+def mesh_reboot_plan(
+    members: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Wer beim "Alle neu starten" drankommt.
+
+    Liefert ``(ziele, uebersprungen)``: Ziele sind die Repeater, die online sind
+    und eine IP-Adresse haben; alle anderen (ausgeschaltet oder ohne IP)
+    koennen nicht angesprochen werden und landen in ``uebersprungen``. Die
+    Box selbst ist nie Teil der Liste - sie kommt immer zuletzt.
+    """
+    targets: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
+    for member in members:
+        if member.get("role") != "repeater":
+            continue
+        if member.get("online") and member.get("ip"):
+            targets.append(member)
+        else:
+            skipped.append(member)
+    return targets, skipped
+
+
+# ---------------------------------------------------------------------------
 # Verbindungsdaten (Down/Up)
 # ---------------------------------------------------------------------------
 

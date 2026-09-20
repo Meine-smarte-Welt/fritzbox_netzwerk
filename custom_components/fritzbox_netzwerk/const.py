@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.5.2b2"
+VERSION: Final = "1.5.2"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -64,6 +64,7 @@ SERVICE_WAKE_ON_LAN: Final = "wake_on_lan"
 SERVICE_SET_INTERNET_ACCESS: Final = "set_internet_access"
 SERVICE_SET_MAC_FILTER: Final = "set_mac_filter"
 SERVICE_START_PAIRING: Final = "start_pairing"
+SERVICE_REBOOT_MESH: Final = "reboot_mesh"
 
 ATTR_MAC: Final = "mac"
 ATTR_NAME: Final = "name"

@@ -39,6 +39,7 @@ from .const import (
     MAX_PAIRING_MINUTES,
     MIN_PAIRING_MINUTES,
     PLATFORMS,
+    SERVICE_REBOOT_MESH,
     SERVICE_SET_DEVICE_NAME,
     SERVICE_SET_INTERNET_ACCESS,
     SERVICE_SET_MAC_FILTER,
@@ -145,6 +146,7 @@ async def async_unload_entry(
             SERVICE_SET_INTERNET_ACCESS,
             SERVICE_SET_MAC_FILTER,
             SERVICE_START_PAIRING,
+            SERVICE_REBOOT_MESH,
         ):
             hass.services.async_remove(DOMAIN, service)
     return unloaded
@@ -319,6 +321,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
         """Schaltet den MAC-Filter fuer einige Minuten aus (Pairing)."""
         await _first_coordinator().async_start_pairing(call.data.get(ATTR_MINUTES))
 
+    async def _handle_reboot_mesh(call: ServiceCall) -> None:
+        """Startet Repeater und FRITZ!Box neu (Repeater zuerst)."""
+        await _first_coordinator().async_reboot_mesh()
+
     if not hass.services.has_service(DOMAIN, SERVICE_SET_DEVICE_NAME):
         hass.services.async_register(
             DOMAIN, SERVICE_SET_DEVICE_NAME, _handle_set_device_name, schema=MAC_SCHEMA
@@ -347,4 +353,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
             SERVICE_START_PAIRING,
             _handle_start_pairing,
             schema=PAIRING_SCHEMA,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_REBOOT_MESH):
+        hass.services.async_register(
+            DOMAIN, SERVICE_REBOOT_MESH, _handle_reboot_mesh, schema=vol.Schema({})
         )

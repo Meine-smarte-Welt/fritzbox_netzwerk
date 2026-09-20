@@ -51,7 +51,7 @@
           "track_address_source": "Diese Angabe steht nicht in der Geräteliste und kostet einen zusätzlichen Aufruf pro Gerät. Sie ändert sich selten, deshalb läuft sie in einem eigenen, langsameren Takt.",
           "address_source_interval": "Wirkt nur, wenn die IP-Typ-Erfassung eingeschaltet ist.",
           "enable_device_tracker": "Legt pro Netzwerkgerät einen device_tracker (zuhause/abwesend) für Anwesenheit und Automationen an. Kann bei vielen Geräten zu vielen Entitäten führen.",
-          "enable_repeaters": "Legt für jeden AVM-Repeater im Heimnetz ein eigenes Gerät mit Verbunden-Status an, bei aktivierter FRITZ!Box-Steuerung zusätzlich mit einem Neustart-Button. Erkannt werden Geräte, deren Modell „Repeater“ enthält.",
+          "enable_repeaters": "Legt für jeden AVM-Repeater im Heimnetz ein eigenes Gerät mit Verbunden-Status an, bei aktivierter FRITZ!Box-Steuerung zusätzlich mit einem Neustart-Button. Dazu gibt es einen Mesh-Sensor (FRITZ!Box + Repeater) und – mit Steuerung – den Button „Alle FRITZ!-Geräte neu starten“. Erkannt werden Geräte, deren Modell „Repeater“ enthält.",
           "enable_controls": "Legt Schalter für die WLAN-Bänder (2,4 GHz, 5 GHz, Gast) und für den WLAN-MAC-Filter an, dazu Buttons zum Neuverbinden, Neustarten und zum Starten eines Pairings (MAC-Filter zeitweise aus), bei eingeschalteten Repeater-Geräten auch je einen Neustart-Button pro Repeater. Verfügbarkeit und Zuordnung hängen vom Modell ab.",
           "pairing_minutes": "Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt, bevor er sich von selbst wieder einschaltet. Gilt für den Button „Pairing starten“ und für den Dienst ohne Zeitangabe."
         }
@@ -83,6 +83,10 @@
       },
       "upload_max": {
         "name": "Upload (Leitungsrate)"
+      },
+      "mesh": {
+        "name": "Mesh",
+        "unit_of_measurement": "Geräte"
       }
     },
     "binary_sensor": {
@@ -113,6 +117,9 @@
       },
       "pairing": {
         "name": "Pairing starten"
+      },
+      "reboot_mesh": {
+        "name": "Alle FRITZ!-Geräte neu starten"
       }
     }
   },
@@ -174,6 +181,10 @@
           "description": "Wie lange der Filter aus bleibt. Ohne Angabe gilt die Einstellung der Integration."
         }
       }
+    },
+    "reboot_mesh": {
+      "name": "Mesh neu starten",
+      "description": "Startet alle FRITZ!-Geräte neu: zuerst die Repeater, dann die FRITZ!Box. Nicht erreichbare Repeater werden übersprungen. Das Heimnetz ist danach für einige Minuten offline."
     }
   },
   "exceptions": {
@@ -206,6 +217,12 @@
     },
     "pairing_filter_off": {
       "message": "Der MAC-Filter ist ausgeschaltet. Ein Pairing ist nur bei eingeschaltetem Filter möglich, weil er danach sonst ungewollt eingeschaltet würde."
+    },
+    "mesh_reboot_box_failed": {
+      "message": "Die FRITZ!Box konnte nicht neu gestartet werden: {error} Repeater neu gestartet: {restarted}."
+    },
+    "mesh_reboot_partial": {
+      "message": "Die FRITZ!Box startet neu, aber diese Repeater ließen sich nicht neu starten: {names} ({error})"
     }
   }
 }

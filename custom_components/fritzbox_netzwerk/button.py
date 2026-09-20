@@ -2,8 +2,9 @@
 
 Erzeugt - wenn in den Optionen aktiviert - Buttons zum Neu-Verbinden der
 Internetverbindung (neue IP) und zum Neustart der FRITZ!Box, einen Button
-zum Starten des Pairings (MAC-Filter zeitweise aus) sowie je AVM-Repeater
-einen Neustart-Button (am Repeater-Geraet).
+zum Starten des Pairings (MAC-Filter zeitweise aus), je AVM-Repeater einen
+Neustart-Button (am Repeater-Geraet) sowie - sobald ein Repeater da ist - einen
+Button, der alle FRITZ!-Geraete des Mesh gemeinsam neu startet.
 """
 
 from __future__ import annotations
@@ -67,11 +68,13 @@ async def async_setup_entry(
         return
 
     known: set[str] = set()
+    mesh_button_added = False
 
     @callback
     def _add_new() -> None:
         """Ergaenzt Neustart-Buttons fuer neu aufgetauchte Repeater."""
-        new_entities: list[FritzboxNetzwerkRepeaterRebootButton] = []
+        nonlocal mesh_button_added
+        new_entities: list[ButtonEntity] = []
         for host in repeater_hosts(coordinator.data):
             key = mac_key(host["mac"])
             if key in known:
@@ -80,6 +83,11 @@ async def async_setup_entry(
             new_entities.append(
                 FritzboxNetzwerkRepeaterRebootButton(hass, coordinator, entry, host)
             )
+        # "Alle neu starten" ist erst sinnvoll, wenn es neben der Box
+        # mindestens einen Repeater gibt - und wird dann einmalig angelegt.
+        if known and not mesh_button_added:
+            mesh_button_added = True
+            new_entities.append(FritzboxNetzwerkRebootMeshButton(entry))
         if new_entities:
             async_add_entities(new_entities)
 
@@ -180,6 +188,23 @@ class FritzboxNetzwerkRebootButton(_BaseButton):
                 translation_key="reboot_failed",
                 translation_placeholders={"error": str(err)},
             ) from err
+
+
+class FritzboxNetzwerkRebootMeshButton(_BaseButton):
+    """Startet alle FRITZ!-Geraete des Mesh neu: erst die Repeater, dann die Box."""
+
+    _attr_translation_key = "reboot_mesh"
+    _attr_device_class = ButtonDeviceClass.RESTART
+    _attr_icon = "mdi:router-network"
+
+    def __init__(self, entry: FritzboxNetzwerkConfigEntry) -> None:
+        """Initialisiert den Mesh-Neustart-Button."""
+        super().__init__(entry)
+        self._attr_unique_id = f"{entry.entry_id}_reboot_mesh"
+
+    async def async_press(self) -> None:
+        """Loest den Neustart von Repeatern und FRITZ!Box aus."""
+        await self._coordinator.async_reboot_mesh()
 
 
 class FritzboxNetzwerkRepeaterRebootButton(

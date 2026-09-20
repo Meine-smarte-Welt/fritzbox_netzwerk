@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.5.2b2";
+const FBN_VERSION = "1.5.2";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -57,7 +57,7 @@ const CONFIG_DEFAULTS = {
   filter_gast: true,
   filter_gesperrt: true,
   filter_update: true,
-  // Welcher Filter beim Laden/Neuöffnen aktiv ist. Seit 1.5.2b1 standardmäßig
+  // Welcher Filter beim Laden/Neuöffnen aktiv ist. Standardmäßig
   // "aktiv" (vorher "alle"); über den Editor oder default_filter änderbar.
   default_filter: "aktiv",
   hide_inactive: false,
@@ -179,7 +179,7 @@ const I18N = {
     "tip.ls_unknown": "Seit Installation der Integration nicht als online erfasst",
     "tip.ls_last": "Zuletzt online: {ts}", "tip.sort": "Nach {label} sortieren",
     "arrow.left": "Nach links blättern", "arrow.right": "Nach rechts blättern",
-    "ctl.throughput": "Aktueller Durchsatz (Download / Upload)", "ctl.wlan_24": "WLAN 2,4 GHz", "ctl.wlan_5": "WLAN 5 GHz", "ctl.wlan_guest": "Gast-WLAN", "ctl.reconnect": "Neu verbinden", "ctl.reboot": "Neustart", "ctl.reboot_confirm": "Wirklich neu starten?", "ctl.mac_filter": "MAC-Filter", "ctl.mac_filter_tip": "WLAN-Zugang auf bekannte Geräte beschränken", "ctl.pairing": "Pairing starten", "ctl.pairing_tip": "MAC-Filter kurz ausschalten, damit sich ein neues Gerät anmelden kann", "ctl.pairing_until": "Pairing bis {time}", "ctl.pairing_end_tip": "Klicken: Filter sofort wieder einschalten",
+    "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} von {total} online", "ctl.mesh_reboot": "Alle neu starten", "ctl.mesh_reboot_confirm": "Alle wirklich neu starten?", "ctl.mesh_reboot_tip": "FRITZ!Box und alle Repeater neu starten (erst die Repeater, dann die Box)", "ctl.throughput": "Aktueller Durchsatz (Download / Upload)", "ctl.wlan_24": "WLAN 2,4 GHz", "ctl.wlan_5": "WLAN 5 GHz", "ctl.wlan_guest": "Gast-WLAN", "ctl.reconnect": "Neu verbinden", "ctl.reboot": "Neustart", "ctl.reboot_confirm": "Wirklich neu starten?", "ctl.mac_filter": "MAC-Filter", "ctl.mac_filter_tip": "WLAN-Zugang auf bekannte Geräte beschränken", "ctl.pairing": "Pairing starten", "ctl.pairing_tip": "MAC-Filter kurz ausschalten, damit sich ein neues Gerät anmelden kann", "ctl.pairing_until": "Pairing bis {time}", "ctl.pairing_end_tip": "Klicken: Filter sofort wieder einschalten",
     "field.tracker": "Anwesenheit", "tracker.home": "zuhause", "tracker.away": "abwesend", "tracker.open": "Tracker öffnen",
     "tracker.unknown": "unbekannt", "tracker.disabled": "Entität deaktiviert",
     "tracker.disabled_hint": "Die Tracker-Entität ist in Home Assistant deaktiviert – hier klicken und im Zahnrad-Dialog aktivieren.",
@@ -230,7 +230,7 @@ const I18N = {
     "tip.ls_unknown": "Not seen online since the integration was installed",
     "tip.ls_last": "Last seen: {ts}", "tip.sort": "Sort by {label}",
     "arrow.left": "Scroll left", "arrow.right": "Scroll right",
-    "ctl.throughput": "Current throughput (download / upload)", "ctl.wlan_24": "Wi-Fi 2.4 GHz", "ctl.wlan_5": "Wi-Fi 5 GHz", "ctl.wlan_guest": "Guest Wi-Fi", "ctl.reconnect": "Reconnect", "ctl.reboot": "Reboot", "ctl.reboot_confirm": "Really reboot?", "ctl.mac_filter": "MAC filter", "ctl.mac_filter_tip": "Restrict Wi-Fi access to known devices", "ctl.pairing": "Start pairing", "ctl.pairing_tip": "Turn the MAC filter off briefly so a new device can join", "ctl.pairing_until": "Pairing until {time}", "ctl.pairing_end_tip": "Click: turn the filter back on now",
+    "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} of {total} online", "ctl.mesh_reboot": "Restart all", "ctl.mesh_reboot_confirm": "Really restart all?", "ctl.mesh_reboot_tip": "Restart the FRITZ!Box and all repeaters (repeaters first, then the box)", "ctl.throughput": "Current throughput (download / upload)", "ctl.wlan_24": "Wi-Fi 2.4 GHz", "ctl.wlan_5": "Wi-Fi 5 GHz", "ctl.wlan_guest": "Guest Wi-Fi", "ctl.reconnect": "Reconnect", "ctl.reboot": "Reboot", "ctl.reboot_confirm": "Really reboot?", "ctl.mac_filter": "MAC filter", "ctl.mac_filter_tip": "Restrict Wi-Fi access to known devices", "ctl.pairing": "Start pairing", "ctl.pairing_tip": "Turn the MAC filter off briefly so a new device can join", "ctl.pairing_until": "Pairing until {time}", "ctl.pairing_end_tip": "Click: turn the filter back on now",
     "field.tracker": "Presence", "tracker.home": "home", "tracker.away": "away", "tracker.open": "Open tracker",
     "tracker.unknown": "unknown", "tracker.disabled": "entity disabled",
     "tracker.disabled_hint": "The tracker entity is disabled in Home Assistant – click here and enable it in the settings dialog.",
@@ -281,7 +281,7 @@ const I18N = {
     "tip.ls_unknown": "Sinds installatie van de integratie niet online gezien",
     "tip.ls_last": "Laatst online: {ts}", "tip.sort": "Sorteren op {label}",
     "arrow.left": "Naar links bladeren", "arrow.right": "Naar rechts bladeren",
-    "ctl.throughput": "Huidige doorvoer (download / upload)", "ctl.wlan_24": "Wifi 2,4 GHz", "ctl.wlan_5": "Wifi 5 GHz", "ctl.wlan_guest": "Gast-wifi", "ctl.reconnect": "Opnieuw verbinden", "ctl.reboot": "Herstart", "ctl.reboot_confirm": "Echt herstarten?", "ctl.mac_filter": "MAC-filter", "ctl.mac_filter_tip": "Wifi-toegang beperken tot bekende apparaten", "ctl.pairing": "Koppelen starten", "ctl.pairing_tip": "MAC-filter kort uitschakelen zodat een nieuw apparaat zich kan aanmelden", "ctl.pairing_until": "Koppelen tot {time}", "ctl.pairing_end_tip": "Klik: filter meteen weer inschakelen",
+    "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} van {total} online", "ctl.mesh_reboot": "Alles herstarten", "ctl.mesh_reboot_confirm": "Echt alles herstarten?", "ctl.mesh_reboot_tip": "FRITZ!Box en alle repeaters herstarten (eerst de repeaters, dan de box)", "ctl.throughput": "Huidige doorvoer (download / upload)", "ctl.wlan_24": "Wifi 2,4 GHz", "ctl.wlan_5": "Wifi 5 GHz", "ctl.wlan_guest": "Gast-wifi", "ctl.reconnect": "Opnieuw verbinden", "ctl.reboot": "Herstart", "ctl.reboot_confirm": "Echt herstarten?", "ctl.mac_filter": "MAC-filter", "ctl.mac_filter_tip": "Wifi-toegang beperken tot bekende apparaten", "ctl.pairing": "Koppelen starten", "ctl.pairing_tip": "MAC-filter kort uitschakelen zodat een nieuw apparaat zich kan aanmelden", "ctl.pairing_until": "Koppelen tot {time}", "ctl.pairing_end_tip": "Klik: filter meteen weer inschakelen",
     "field.tracker": "Aanwezigheid", "tracker.home": "thuis", "tracker.away": "afwezig", "tracker.open": "Tracker openen",
     "tracker.unknown": "onbekend", "tracker.disabled": "entiteit uitgeschakeld",
     "tracker.disabled_hint": "De trackerentiteit is uitgeschakeld in Home Assistant – klik hier en schakel deze in via het instellingenvenster.",
@@ -1134,9 +1134,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const attributes = (state && state.attributes) || {};
     const connection = attributes.connection || null;
     const controls = attributes.controls || null;
+    const mesh = attributes.mesh && Array.isArray(attributes.mesh.members) ? attributes.mesh : null;
 
     // Ohne Schalter (Einstellung aus) und ohne Verbindungsdaten: leeren.
-    if (!this._config.show_controls || (!connection && !controls)) {
+    if (!this._config.show_controls || (!connection && !controls && !mesh)) {
       box.innerHTML = "";
       this._hasControls = false;
       this._applyTabs();
@@ -1203,6 +1204,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
           <ha-icon icon="mdi:restart-alert"></ha-icon><span>${escapeHtml(this._t("ctl.reboot"))}</span>
         </button>`);
     }
+    if (mesh) parts.push(this._renderMesh(mesh, controls));
     box.innerHTML = parts.join("");
 
     if (!box.dataset.bound) {
@@ -1210,6 +1212,47 @@ class FritzboxNetzwerkCard extends HTMLElement {
       box.addEventListener("click", (event) => this._onControlClick(event));
     }
     this._applyTabs();
+  }
+
+  /**
+   * Mesh-Gruppe: die FRITZ!Box und ihre Repeater als eine Einheit, mit
+   * Online-Zaehler, den einzelnen Mitgliedern und - wenn die Steuerung
+   * aktiv ist - dem Button "Alle neu starten".
+   */
+  _renderMesh(mesh, controls) {
+    const members = mesh.members
+      .map((m) => {
+        const box = m.role === "box";
+        const on = m.online !== false;
+        const icon = box ? "mdi:router-wireless" : on ? "mdi:access-point-network" : "mdi:access-point-network-off";
+        const tip = [m.model, m.ip].filter(Boolean).join(" \u00b7 ");
+        return `
+          <span class="fbn-mesh-member ${on ? "fbn-mesh-on" : "fbn-mesh-off"}"
+                title="${escapeHtml(tip)}">
+            <ha-icon icon="${icon}"></ha-icon><span>${escapeHtml(m.name || "")}</span>
+          </span>`;
+      })
+      .join("");
+    const rebootAll = mesh.reboot_all || (controls && controls.reboot_mesh) || null;
+    const button = rebootAll
+      ? `<button class="fbn-ctl-btn fbn-ctl-reboot-mesh" type="button"
+                 data-entity="${escapeHtml(rebootAll)}" data-armed="0"
+                 title="${escapeHtml(this._t("ctl.mesh_reboot_tip"))}">
+           <ha-icon icon="mdi:router-network"></ha-icon><span>${escapeHtml(this._t("ctl.mesh_reboot"))}</span>
+         </button>`
+      : "";
+    const complete = mesh.online === mesh.total;
+    return `
+      <div class="fbn-mesh${complete ? "" : " fbn-mesh-incomplete"}" role="group"
+           aria-label="${escapeHtml(this._t("ctl.mesh"))}">
+        <span class="fbn-mesh-title">
+          <ha-icon icon="mdi:router-network"></ha-icon>
+          <strong>${escapeHtml(this._t("ctl.mesh"))}</strong>
+          <span>${escapeHtml(this._t("ctl.mesh_online", { online: mesh.online, total: mesh.total }))}</span>
+        </span>
+        <span class="fbn-mesh-members">${members}</span>
+        ${button}
+      </div>`;
   }
 
   /* -- Tabs (Kategorien) -------------------------------------------- */
@@ -1338,23 +1381,28 @@ class FritzboxNetzwerkCard extends HTMLElement {
       this._pressButton(reconnect);
       return;
     }
-    const reboot = event.target.closest(".fbn-ctl-reboot");
+    const reboot = event.target.closest(".fbn-ctl-reboot, .fbn-ctl-reboot-mesh");
     if (reboot) {
       // Zwei-Klick-Bestaetigung: der erste Klick "schaerft" den Button.
+      const mesh = reboot.classList.contains("fbn-ctl-reboot-mesh");
+      const label = mesh ? "ctl.mesh_reboot" : "ctl.reboot";
+      const confirm = mesh ? "ctl.mesh_reboot_confirm" : "ctl.reboot_confirm";
       if (reboot.dataset.armed !== "1") {
         reboot.dataset.armed = "1";
         reboot.classList.add("fbn-ctl-armed");
-        reboot.querySelector("span").textContent = this._t("ctl.reboot_confirm");
-        clearTimeout(this._rebootTimer);
-        this._rebootTimer = setTimeout(() => {
+        reboot.querySelector("span").textContent = this._t(confirm);
+        clearTimeout(reboot._fbnTimer);
+        reboot._fbnTimer = setTimeout(() => {
           reboot.dataset.armed = "0";
           reboot.classList.remove("fbn-ctl-armed");
           const span = reboot.querySelector("span");
-          if (span) span.textContent = this._t("ctl.reboot");
+          if (span) span.textContent = this._t(label);
         }, 4000);
         return;
       }
-      clearTimeout(this._rebootTimer);
+      clearTimeout(reboot._fbnTimer);
+      reboot.dataset.armed = "0";
+      reboot.classList.remove("fbn-ctl-armed");
       this._pressButton(reboot);
     }
   }
@@ -1876,7 +1924,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
       host.active ? this._t("state.now_online") : escapeHtml(formatLastSeen(host.last_seen, this._lang()))
     );
 
-    // Device Tracker: seit 1.5.2b0 immer als eigene Zeile - mit dem echten
+    // Device Tracker: immer als eigene Zeile - mit dem echten
     // Zustand der Tracker-Entitaet und einem Hinweis, falls es (noch) keinen
     // gibt. Vorher fehlte die Zeile kommentarlos, wenn die Entitaet nicht
     // gefunden wurde - und gefunden wurde bis 1.5.1 nie eine (siehe
@@ -2167,6 +2215,25 @@ class FritzboxNetzwerkCard extends HTMLElement {
         border-color: var(--fbn-blocked); color: var(--fbn-blocked);
         font-weight: 600;
       }
+      .fbn-mesh {
+        flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center;
+        gap: 6px 10px; border: 1px solid var(--fbn-border); border-radius: 12px;
+        padding: 6px 12px;
+      }
+      .fbn-mesh-incomplete { border-color: var(--fbn-blocked); }
+      .fbn-mesh-title {
+        display: inline-flex; align-items: center; gap: 5px; font-size: 0.85em;
+      }
+      .fbn-mesh-title ha-icon { --mdc-icon-size: 18px; width: 18px; height: 18px; }
+      .fbn-mesh-title > span { color: var(--fbn-header-text); }
+      .fbn-mesh-members { display: inline-flex; flex-wrap: wrap; gap: 4px 12px; flex: 1 1 auto; }
+      .fbn-mesh-member {
+        display: inline-flex; align-items: center; gap: 4px; font-size: 0.85em;
+      }
+      .fbn-mesh-member ha-icon { --mdc-icon-size: 16px; width: 16px; height: 16px; }
+      .fbn-mesh-on ha-icon { color: var(--fbn-active); }
+      .fbn-mesh-off { opacity: 0.6; }
+      .fbn-mesh-off ha-icon { color: var(--fbn-blocked); }
       .fbn-ctl-chip:focus-visible, .fbn-ctl-btn:focus-visible {
         outline: 2px solid var(--fbn-accent); outline-offset: 2px;
       }
@@ -2523,7 +2590,7 @@ const EDITOR_LABELS = {
 
 const EDITOR_HELPERS = {
   show_tabs: "Zeigt oben Reiter für die Kategorien Netzwerk und Steuerung. Jeder Reiter zeigt ausschließlich seine eigenen Elemente: Netzwerk die Filter, die Suche und die Geräteliste, Steuerung die Down/Up-Anzeige, die WLAN-Schalter und Neuverbinden/Neustart. Der Steuerungs-Reiter erscheint nur, wenn die Steuerungsleiste aktiviert ist. Ohne Reiter erscheinen beide Bereiche wie bisher untereinander.",
-  show_controls: "Zeigt in der Karte eine Leiste mit Live-Down/Up sowie – wenn die FRITZ!Box-Steuerung in den Integrationseinstellungen aktiviert ist – WLAN-Schaltern und den Buttons Neuverbinden/Neustart.",
+  show_controls: "Zeigt in der Karte eine Leiste mit Live-Down/Up sowie – wenn die FRITZ!Box-Steuerung in den Integrationseinstellungen aktiviert ist – WLAN-Schaltern, MAC-Filter/Pairing und den Buttons Neuverbinden/Neustart. Gibt es Repeater, erscheint zusätzlich die Mesh-Gruppe (FRITZ!Box + Repeater) mit „Alle neu starten“.",
   default_filter: "Welcher Filter aktiv ist, wenn die Karte geladen oder neu geöffnet wird (z. B. „Aktiv“). Nach einem Refresh wird nicht mehr auf „Alle“ zurückgesetzt.",
   language: "Sprache der Beschriftungen in der Karte. „Automatisch“ folgt der in Home Assistant eingestellten Sprache (Deutsch, Englisch, Niederländisch).",
   show_title: "Blendet die Kopfzeile der Karte aus, z. B. für ein Popup oder eine kompakte Ansicht.",
@@ -2563,7 +2630,7 @@ const EDITOR_TX = {
     show_controls: "Show controls bar",
     show_tabs: "Show categories as tabs",
     help_show_tabs: "Shows tabs for the Network and Controls categories at the top. Each tab shows only its own elements: Network the filters, search and device list, Controls the download/upload display, Wi-Fi switches and reconnect/reboot. The Controls tab only appears when the controls bar is enabled. Without tabs, both areas appear below each other as before.",
-    help_show_controls: "Shows a bar with live download/upload and \u2013 if FRITZ!Box controls are enabled in the integration settings \u2013 Wi-Fi switches and reconnect/reboot buttons.",
+    help_show_controls: "Shows a bar with live download/upload and \u2013 if FRITZ!Box controls are enabled in the integration settings \u2013 Wi-Fi switches, MAC filter/pairing and reconnect/reboot buttons. If there are repeaters, a mesh group (FRITZ!Box + repeaters) with \u201cRestart all\u201d is shown as well.",
     filter_alle: '"All" button', filter_aktiv: '"Active" button',
     filter_inaktiv: '"Inactive" button', filter_gast: '"Guest" button',
     filter_gesperrt: '"Blocked" button', filter_update: '"Update" button',
@@ -2620,7 +2687,7 @@ const EDITOR_TX = {
     show_controls: "Bedieningsbalk tonen",
     show_tabs: "Categorieën als tabs tonen",
     help_show_tabs: "Toont bovenaan tabs voor de categorieën Netwerk en Bediening. Elke tab toont uitsluitend de eigen elementen: Netwerk de filters, het zoekveld en de apparatenlijst, Bediening de download/upload-weergave, de wifi-schakelaars en opnieuw verbinden/herstarten. De tab Bediening verschijnt alleen als de bedieningsbalk is ingeschakeld. Zonder tabs verschijnen beide gebieden onder elkaar zoals voorheen.",
-    help_show_controls: "Toont een balk met live download/upload en \u2013 als de FRITZ!Box-bediening in de integratie-instellingen is ingeschakeld \u2013 wifi-schakelaars en knoppen voor opnieuw verbinden/herstarten.",
+    help_show_controls: "Toont een balk met live download/upload en \u2013 als de FRITZ!Box-bediening in de integratie-instellingen is ingeschakeld \u2013 wifi-schakelaars, MAC-filter/koppelen en knoppen voor opnieuw verbinden/herstarten. Als er repeaters zijn, verschijnt ook de meshgroep (FRITZ!Box + repeaters) met \u201cAlles herstarten\u201d.",
     filter_alle: 'Knop "Alle"', filter_aktiv: 'Knop "Actief"',
     filter_inaktiv: 'Knop "Inactief"', filter_gast: 'Knop "Gast"',
     filter_gesperrt: 'Knop "Geblokkeerd"', filter_update: 'Knop "Update"',

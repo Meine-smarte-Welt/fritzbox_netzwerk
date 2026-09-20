@@ -51,3 +51,5 @@ start_pairing:
           max: 120
           unit_of_measurement: min
           mode: box
+
+reboot_mesh:

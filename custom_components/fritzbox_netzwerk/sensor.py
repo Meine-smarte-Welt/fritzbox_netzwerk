@@ -10,7 +10,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.const import CONF_HOST, UnitOfDataRate
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -33,7 +33,8 @@ from .const import (
     VERSION,
 )
 from .coordinator import FritzboxNetzwerkCoordinator
-from .hosts import mac_key, normalize_mac
+from .hosts import mac_key, mesh_summary, normalize_mac
+from .repeater import repeater_hosts, repeaters_enabled
 
 if TYPE_CHECKING:
     from . import FritzboxNetzwerkConfigEntry
@@ -70,6 +71,22 @@ async def async_setup_entry(
             ),
         ]
     )
+
+    # Der Mesh-Sensor entsteht, sobald es neben der Box einen Repeater gibt.
+    if not repeaters_enabled(entry):
+        return
+    mesh_added = False
+
+    @callback
+    def _add_mesh() -> None:
+        nonlocal mesh_added
+        if mesh_added or not repeater_hosts(coordinator.data):
+            return
+        mesh_added = True
+        async_add_entities([FritzboxNetzwerkMeshSensor(coordinator, entry)])
+
+    _add_mesh()
+    entry.async_on_unload(coordinator.async_add_listener(_add_mesh))
 
 
 class FritzboxNetzwerkBase(CoordinatorEntity[FritzboxNetzwerkCoordinator], SensorEntity):
@@ -149,6 +166,8 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             # die Karte sie generisch bedienen kann. None, wenn die Steuerung
             # in den Integrationseinstellungen nicht aktiviert ist.
             "controls": self._controls_attribute(),
+            # Mesh-Gruppe (FRITZ!Box + Repeater) fuer die Karte; None ohne Repeater.
+            "mesh": self._mesh_attribute(),
             "trackers": self._trackers_attribute(),
         }
         return attributes
@@ -173,7 +192,7 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             key = mac_key(host.get("mac"))
             if not key:
                 continue
-            # WICHTIG (seit 1.5.2b0): Home Assistants ``ScannerEntity`` ueberschreibt
+            # WICHTIG: Home Assistants ``ScannerEntity`` ueberschreibt
             # die unique_id-Eigenschaft und gibt IMMER die MAC-Adresse zurueck -
             # unser ``_attr_unique_id`` im Tracker greift dort also gar nicht.
             # Die Registry kennt den Tracker deshalb unter der MAC, nicht unter
@@ -192,6 +211,23 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             if eid:
                 mapping[key] = eid
         return mapping
+
+    def _mesh_attribute(self) -> dict[str, Any] | None:
+        """Die Mesh-Gruppe fuer die Karte: Mitglieder, Zaehler, Neustart-Button."""
+        members = (self.coordinator.data or {}).get("mesh") or []
+        if len(members) < 2:
+            return None
+        registry = er.async_get(self.hass)
+        reboot_all = None
+        if self.coordinator.controls_enabled:
+            reboot_all = registry.async_get_entity_id(
+                "button", DOMAIN, f"{self._entry.entry_id}_reboot_mesh"
+            )
+        return {
+            "members": members,
+            **mesh_summary(members),
+            "reboot_all": reboot_all,
+        }
 
     def _controls_attribute(self) -> dict[str, Any] | None:
         """Loest die Steuerungs-Entitaeten ueber die Registry auf.
@@ -221,11 +257,52 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             "wlan": wlan,
             "reconnect": _eid("button", "reconnect"),
             "reboot": _eid("button", "reboot"),
+            "reboot_mesh": _eid("button", "reboot_mesh"),
             # MAC-Filter und Pairing (None, wenn die Box den Filter nicht meldet).
             "mac_filter": _eid("switch", "mac_filter"),
             "mac_filter_on": wlan_states.get("mac_filter"),
             "pairing": _eid("button", "pairing"),
             "pairing_ends": until.isoformat() if until else None,
+        }
+
+
+class FritzboxNetzwerkMeshSensor(FritzboxNetzwerkBase):
+    """Mesh-Gruppe: wie viele FRITZ!-Geraete (Box + Repeater) sind online?
+
+    Der Zustand ist die Zahl der erreichbaren Geraete; die Attribute nennen
+    Gesamtzahl, ob das Mesh vollstaendig ist, und jedes Mitglied einzeln -
+    etwa fuer eine Automation "ein Repeater ist ausgefallen".
+    """
+
+    _attr_translation_key = "mesh"
+    _attr_icon = "mdi:router-network"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _unrecorded_attributes = frozenset({"members"})
+
+    def __init__(self, coordinator, entry) -> None:
+        """Initialisiert den Mesh-Sensor."""
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_mesh"
+
+    @property
+    def _members(self) -> list[dict[str, Any]]:
+        return (self.coordinator.data or {}).get("mesh") or []
+
+    @property
+    def native_value(self) -> int | None:
+        """Anzahl erreichbarer FRITZ!-Geraete im Mesh."""
+        members = self._members
+        return mesh_summary(members)["online"] if members else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Gesamtzahl, Vollstaendigkeit und die einzelnen Mitglieder."""
+        members = self._members
+        summary = mesh_summary(members) if members else {"total": 0, "complete": False}
+        return {
+            "gesamt": summary["total"],
+            "vollstaendig": summary["complete"],
+            "members": members,
         }
 
 

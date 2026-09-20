@@ -51,7 +51,7 @@
           "track_address_source": "This value is not part of the host list and costs one extra request per device. It rarely changes, so it runs on its own slower schedule.",
           "address_source_interval": "Only applies when IP type tracking is enabled.",
           "enable_device_tracker": "Creates a device_tracker (home/away) per network device for presence and automations. May result in many entities on large networks.",
-          "enable_repeaters": "Creates a separate device with a connected status for every AVM repeater in the home network, plus a reboot button when the FRITZ!Box controls are enabled. Devices whose model contains \"Repeater\" are detected.",
+          "enable_repeaters": "Creates a separate device with a connected status for every AVM repeater in the home network, plus a reboot button when the FRITZ!Box controls are enabled. It also adds a mesh sensor (FRITZ!Box + repeaters) and, with controls, the \"Restart all FRITZ! devices\" button. Devices whose model contains \"Repeater\" are detected.",
           "enable_controls": "Creates switches for the Wi-Fi bands (2.4 GHz, 5 GHz, guest) and for the Wi-Fi MAC filter, plus buttons to reconnect, reboot and start a pairing (MAC filter temporarily off), and a reboot button per repeater when repeater devices are enabled. Availability and assignment depend on the model.",
           "pairing_minutes": "How long the MAC filter stays off during pairing before it switches itself back on. Applies to the \"Start pairing\" button and to the service when no duration is given."
         }
@@ -83,6 +83,10 @@
       },
       "upload_max": {
         "name": "Upload (line rate)"
+      },
+      "mesh": {
+        "name": "Mesh",
+        "unit_of_measurement": "devices"
       }
     },
     "binary_sensor": {
@@ -113,6 +117,9 @@
       },
       "pairing": {
         "name": "Start pairing"
+      },
+      "reboot_mesh": {
+        "name": "Restart all FRITZ! devices"
       }
     }
   },
@@ -174,6 +181,10 @@
           "description": "How long the filter stays off. If omitted, the integration setting is used."
         }
       }
+    },
+    "reboot_mesh": {
+      "name": "Restart mesh",
+      "description": "Restarts all FRITZ! devices: the repeaters first, then the FRITZ!Box. Repeaters that cannot be reached are skipped. The home network is offline for a few minutes afterwards."
     }
   },
   "exceptions": {
@@ -206,6 +217,12 @@
     },
     "pairing_filter_off": {
       "message": "The MAC filter is off. Pairing only works while the filter is on, otherwise it would be switched on unexpectedly afterwards."
+    },
+    "mesh_reboot_box_failed": {
+      "message": "The FRITZ!Box could not be restarted: {error} Repeaters restarted: {restarted}."
+    },
+    "mesh_reboot_partial": {
+      "message": "The FRITZ!Box is restarting, but these repeaters could not be restarted: {names} ({error})"
     }
   }
 }
