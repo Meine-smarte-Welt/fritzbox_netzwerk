@@ -14,9 +14,9 @@ from fritzconnection.core.exceptions import (
 )
 
 from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (

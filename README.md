@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.5.0-blue)
+![Version](https://img.shields.io/badge/Version-1.5.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -494,6 +494,20 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.5.1 – Deprecation-Warnung im Protokoll beseitigt
+
+- **Behoben: Warnung `The deprecated alias ScannerEntity was used from fritzbox_netzwerk`.**
+  Der Device Tracker importierte `ScannerEntity` aus
+  `homeassistant.components.device_tracker.config_entry`. Seit Home Assistant 2026.6 ist das
+  dort nur noch ein veralteter Alias (entfällt in HA Core 2027.6), der bei jedem Start eine
+  Warnung ins Protokoll schreibt. Der Import erfolgt jetzt direkt aus
+  `homeassistant.components.device_tracker` – diesen Pfad gibt es bereits seit Home Assistant
+  2023.1, ältere Installationen sind also nicht betroffen. Rein funktional ändert sich nichts:
+  Entitäten, entity_ids und Zustände der Tracker bleiben unverändert.
+- **Vorsorglich mit umgestellt:** `EntityCategory` wird in `button.py` und `switch.py` jetzt aus
+  `homeassistant.const` statt aus `homeassistant.helpers.entity` importiert. Das erzeugt heute
+  noch keine Warnung, ist aber derselbe Fall – ein Alias am alten Ort.
 
 ### 1.5.0 – IP-Typ ehrlicher, kompakte Darstellung, Standardfilter
 

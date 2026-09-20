@@ -12,8 +12,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from homeassistant.components.device_tracker import SourceType
-from homeassistant.components.device_tracker.config_entry import ScannerEntity
+# ScannerEntity und SourceType werden bewusst direkt aus dem Paket
+# ``homeassistant.components.device_tracker`` importiert, NICHT aus dem
+# Untermodul ``...device_tracker.config_entry``: dort sind sie seit
+# Home Assistant 2026.6 nur noch veraltete Aliase (entfallen in HA Core
+# 2027.6) und erzeugen bei jedem Start eine Deprecation-Warnung im
+# Protokoll. Der hier genutzte Pfad existiert bereits seit HA 2023.1,
+# ist also auch fuer aeltere Installationen unveraendert gueltig.
+from homeassistant.components.device_tracker import ScannerEntity, SourceType
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
