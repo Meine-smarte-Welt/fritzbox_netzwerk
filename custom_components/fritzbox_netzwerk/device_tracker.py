@@ -86,7 +86,12 @@ class FritzboxNetzwerkTracker(
         self._entry = entry
         self._mac = normalize_mac(mac)
         self._key = mac_key(mac)
-        self._attr_unique_id = f"{entry.entry_id}_track_{self._key}"
+        # Home Assistants ``ScannerEntity`` ueberschreibt die unique_id-
+        # Eigenschaft fest mit ``self.mac_address``; ein abweichendes
+        # ``_attr_unique_id`` wuerde schlicht ignoriert. Damit beide Wege
+        # denselben Wert liefern (und die Aufloesung in sensor.py eindeutig
+        # bleibt), wird hier genau die normalisierte MAC gesetzt.
+        self._attr_unique_id = self._mac
 
     def _host(self) -> dict[str, Any] | None:
         """Sucht den zugehoerigen Host in den aktuellen Coordinator-Daten."""

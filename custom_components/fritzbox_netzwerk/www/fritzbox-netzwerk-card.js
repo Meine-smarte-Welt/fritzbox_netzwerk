@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.5.0";
+const FBN_VERSION = "1.5.2b0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -179,7 +179,11 @@ const I18N = {
     "tip.ls_last": "Zuletzt online: {ts}", "tip.sort": "Nach {label} sortieren",
     "arrow.left": "Nach links blättern", "arrow.right": "Nach rechts blättern",
     "ctl.throughput": "Aktueller Durchsatz (Download / Upload)", "ctl.wlan_24": "WLAN 2,4 GHz", "ctl.wlan_5": "WLAN 5 GHz", "ctl.wlan_guest": "Gast-WLAN", "ctl.reconnect": "Neu verbinden", "ctl.reboot": "Neustart", "ctl.reboot_confirm": "Wirklich neu starten?",
-    "field.tracker": "Anwesenheit", "tracker.home": "zuhause", "tracker.away": "abwesend", "tracker.open": "Tracker öffnen", "tab.network": "Netzwerk", "tab.controls": "Steuerung",
+    "field.tracker": "Anwesenheit", "tracker.home": "zuhause", "tracker.away": "abwesend", "tracker.open": "Tracker öffnen",
+    "tracker.unknown": "unbekannt", "tracker.disabled": "Entität deaktiviert",
+    "tracker.disabled_hint": "Die Tracker-Entität ist in Home Assistant deaktiviert – hier klicken und im Zahnrad-Dialog aktivieren.",
+    "tracker.off": "nicht aktiviert",
+    "tracker.off_hint": "Device Tracker einschalten unter: Einstellungen → Geräte & Dienste → FRITZ!Box Netzwerk → Konfigurieren.", "tab.network": "Netzwerk", "tab.controls": "Steuerung",
   },
   en: {
     "col.name": "Device", "col.ip": "IP address", "col.mac": "MAC address",
@@ -226,7 +230,11 @@ const I18N = {
     "tip.ls_last": "Last seen: {ts}", "tip.sort": "Sort by {label}",
     "arrow.left": "Scroll left", "arrow.right": "Scroll right",
     "ctl.throughput": "Current throughput (download / upload)", "ctl.wlan_24": "Wi-Fi 2.4 GHz", "ctl.wlan_5": "Wi-Fi 5 GHz", "ctl.wlan_guest": "Guest Wi-Fi", "ctl.reconnect": "Reconnect", "ctl.reboot": "Reboot", "ctl.reboot_confirm": "Really reboot?",
-    "field.tracker": "Presence", "tracker.home": "home", "tracker.away": "away", "tracker.open": "Open tracker", "tab.network": "Network", "tab.controls": "Controls",
+    "field.tracker": "Presence", "tracker.home": "home", "tracker.away": "away", "tracker.open": "Open tracker",
+    "tracker.unknown": "unknown", "tracker.disabled": "entity disabled",
+    "tracker.disabled_hint": "The tracker entity is disabled in Home Assistant – click here and enable it in the settings dialog.",
+    "tracker.off": "not enabled",
+    "tracker.off_hint": "Enable the device tracker under: Settings → Devices & services → FRITZ!Box Netzwerk → Configure.", "tab.network": "Network", "tab.controls": "Controls",
   },
   nl: {
     "col.name": "Apparaat", "col.ip": "IP-adres", "col.mac": "MAC-adres",
@@ -273,7 +281,11 @@ const I18N = {
     "tip.ls_last": "Laatst online: {ts}", "tip.sort": "Sorteren op {label}",
     "arrow.left": "Naar links bladeren", "arrow.right": "Naar rechts bladeren",
     "ctl.throughput": "Huidige doorvoer (download / upload)", "ctl.wlan_24": "Wifi 2,4 GHz", "ctl.wlan_5": "Wifi 5 GHz", "ctl.wlan_guest": "Gast-wifi", "ctl.reconnect": "Opnieuw verbinden", "ctl.reboot": "Herstart", "ctl.reboot_confirm": "Echt herstarten?",
-    "field.tracker": "Aanwezigheid", "tracker.home": "thuis", "tracker.away": "afwezig", "tracker.open": "Tracker openen", "tab.network": "Netwerk", "tab.controls": "Bediening",
+    "field.tracker": "Aanwezigheid", "tracker.home": "thuis", "tracker.away": "afwezig", "tracker.open": "Tracker openen",
+    "tracker.unknown": "onbekend", "tracker.disabled": "entiteit uitgeschakeld",
+    "tracker.disabled_hint": "De trackerentiteit is uitgeschakeld in Home Assistant – klik hier en schakel deze in via het instellingenvenster.",
+    "tracker.off": "niet ingeschakeld",
+    "tracker.off_hint": "Device tracker inschakelen via: Instellingen → Apparaten & diensten → FRITZ!Box Netzwerk → Configureren.", "tab.network": "Netwerk", "tab.controls": "Bediening",
   },
 };
 
@@ -1812,32 +1824,69 @@ class FritzboxNetzwerkCard extends HTMLElement {
       host.active ? this._t("state.now_online") : escapeHtml(formatLastSeen(host.last_seen, this._lang()))
     );
 
-    // Device Tracker: verlinkt zur Anwesenheits-Entität, sofern aktiviert.
-    const tracker = this._trackerFor(host);
-    if (tracker) {
-      const stateText = host.active
-        ? this._t("tracker.home")
-        : this._t("tracker.away");
-      rows.push(`
-        <div class="fbn-drow">
-          <div class="fbn-dt">${escapeHtml(this._t("field.tracker"))}</div>
-          <div class="fbn-dd">
-            <a class="fbn-tracker-link" href="#" data-entity="${escapeHtml(tracker)}"
-               title="${escapeHtml(this._t("tracker.open"))}">${escapeHtml(stateText)}</a>
-          </div>
-        </div>`);
+    // Device Tracker: seit 1.5.2b0 immer als eigene Zeile - mit dem echten
+    // Zustand der Tracker-Entitaet und einem Hinweis, falls es (noch) keinen
+    // gibt. Vorher fehlte die Zeile kommentarlos, wenn die Entitaet nicht
+    // gefunden wurde - und gefunden wurde bis 1.5.1 nie eine (siehe
+    // sensor.py:_trackers_attribute).
+    const tracker = this._trackerInfo(host);
+    let trackerValue;
+    if (tracker.mode === "off") {
+      trackerValue = `<span class="fbn-tracker-off" title="${escapeHtml(
+        this._t("tracker.off_hint")
+      )}">${escapeHtml(this._t("tracker.off"))}</span>`;
+    } else if (tracker.mode === "none") {
+      trackerValue = "—";
+    } else {
+      const labels = {
+        home: "tracker.home",
+        away: "tracker.away",
+        disabled: "tracker.disabled",
+        unknown: "tracker.unknown",
+      };
+      const title =
+        tracker.mode === "disabled"
+          ? this._t("tracker.disabled_hint")
+          : this._t("tracker.open");
+      trackerValue = `<a class="fbn-tracker-link" href="#" data-entity="${escapeHtml(
+        tracker.entity
+      )}" title="${escapeHtml(title)}">${escapeHtml(
+        this._t(labels[tracker.mode])
+      )}</a>`;
     }
+    add(this._t("field.tracker"), trackerValue);
 
     return rows.join("");
   }
 
-  /** Ermittelt die device_tracker-Entity eines Geraets (falls vorhanden). */
-  _trackerFor(host) {
+  /**
+   * Ermittelt Entity und Zustand des Anwesenheits-Trackers eines Geraets.
+   *
+   * Rueckgabe: { mode, entity }, wobei mode einen der folgenden Faelle
+   * beschreibt:
+   *   "off"      - Device Tracker in den Integrationseinstellungen aus
+   *                (die Integration liefert dann gar keine Zuordnung),
+   *   "none"     - Tracker aktiv, aber fuer dieses Geraet keine Entity,
+   *   "disabled" - Entity vorhanden, aber ohne Zustand (in Home Assistant
+   *                deaktiviert),
+   *   "home" / "away" / "unknown" - Zustand der Entity.
+   */
+  _trackerInfo(host) {
     const state = this._stateObj();
-    const trackers = (state && state.attributes && state.attributes.trackers) || null;
-    if (!trackers) return null;
+    const trackers =
+      state && state.attributes ? state.attributes.trackers : null;
+    if (!trackers) return { mode: "off", entity: null };
     const key = String(host.mac || "").replace(/[^a-z0-9]/gi, "").toLowerCase();
-    return trackers[key] || null;
+    const entity = trackers[key] || null;
+    if (!entity) return { mode: "none", entity: null };
+    const obj =
+      this._hass && this._hass.states ? this._hass.states[entity] : null;
+    // Deaktivierte Entitaeten stehen in der Registry (und damit in der
+    // Zuordnung), haben aber kein Zustandsobjekt.
+    if (!obj) return { mode: "disabled", entity };
+    if (obj.state === "home") return { mode: "home", entity };
+    if (obj.state === "not_home") return { mode: "away", entity };
+    return { mode: "unknown", entity };
   }
 
   /** Fusszeile des Popups mit den moeglichen Aktionen. */
@@ -2008,6 +2057,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
       }
       .fbn-tab:focus-visible { outline: 2px solid var(--fbn-accent); outline-offset: 2px; }
       .fbn-tracker-link { color: var(--fbn-accent); text-decoration: none; }
+      .fbn-tracker-off { opacity: 0.7; cursor: help; }
       .fbn-tracker-link:hover { text-decoration: underline; }
       .fbn-toolbar {
         display: flex; flex-wrap: wrap; gap: 8px; align-items: center;

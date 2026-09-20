@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.5.1-blue)
+![Version](https://img.shields.io/badge/Version-1.5.2b0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -265,9 +265,12 @@ Je nach Gerät bietet das Popup zusätzlich:
   Assistant über seine MAC-Adresse bekannt ist
 - **Aufwecken (WoL)** – sendet ein Wake-on-LAN-Signal, wird nur bei nicht verbundenen
   Geräten angezeigt
-- **Anwesenheit** – ist der Device Tracker in den Integrationseinstellungen aktiviert, zeigt
-  das Popup *zuhause* bzw. *abwesend* und verlinkt direkt auf die zugehörige
-  `device_tracker`-Entität; ein Klick öffnet deren Info-Dialog
+- **Anwesenheit** – diese Zeile steht seit Version 1.5.2b0 immer im Popup und zeigt den
+  Zustand der zugehörigen `device_tracker`-Entität: *zuhause* bzw. *abwesend*, verlinkt auf
+  die Entität (ein Klick öffnet deren Info-Dialog). Gibt es keinen nutzbaren Tracker, sagt
+  die Zeile, warum: *nicht aktiviert* (Device Tracker ist in den Integrationseinstellungen
+  ausgeschaltet – der Tooltip nennt den Weg dorthin), *Entität deaktiviert* (die Entität ist
+  in Home Assistant ausgeschaltet) oder „—" (für dieses Gerät gibt es keinen Tracker)
 
 Das Popup ist der Standard. Wer stattdessen wie bisher direkt zur Home-Assistant-Geräteseite
 springen möchte, schaltet im Editor *Klick öffnet ein Detail-Popup* ab; dann greift wieder
@@ -484,6 +487,7 @@ Home-Assistant-Instanz prüfbar:
 python3 tests/test_hosts.py     # 41 Fälle
 node tests/test_card.js         # 134 Fälle, jsdom gegen die echte Kartendatei
 node tests/test_card_tabs.js    # 39 Fälle, Kategorien/Tabs und Steuerungsleiste
+node tests/test_tracker_popup.js # 23 Fälle, Anwesenheits-Zeile im Detail-Popup
 ```
 
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein echtes
@@ -494,6 +498,33 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.5.2b0 – Anwesenheit im Detail-Popup wird endlich angezeigt (Beta)
+
+**Beta-Version.** In HACS nur sichtbar, wenn für diese Integration *Beta-Versionen anzeigen*
+eingeschaltet ist. Rückmeldungen bitte als GitHub-Issue.
+
+- **Behoben: Die Zeile *Anwesenheit* fehlte im Detail-Popup immer.** Die in 1.5.0 eingeführte
+  Verlinkung zum `device_tracker` eines Geräts hat nie funktioniert: Home Assistants
+  `ScannerEntity` überschreibt die `unique_id` fest mit der MAC-Adresse, das eigene
+  `_attr_unique_id` der Integration (`<entry_id>_track_<mac>`) kam also nie in der
+  Entitätsregistrierung an. Gesucht wurde aber genau danach – die Zuordnung blieb dadurch
+  immer leer, und die Karte ließ die Zeile kommentarlos weg. Die Auflösung erfolgt jetzt über
+  die MAC-Adresse (mit dem alten Schlüssel als Rückfallweg); die `unique_id` des Trackers
+  wird zusätzlich explizit auf denselben Wert gesetzt, damit beide Wege übereinstimmen.
+  Bestehende Tracker-Entitäten bleiben unverändert erhalten – es entstehen keine Duplikate.
+- **Die Zeile *Anwesenheit* ist jetzt immer sichtbar** und sagt, was los ist, statt zu
+  verschwinden: *zuhause* / *abwesend* (verlinkt auf die Entität), *Entität deaktiviert*
+  (falls die Tracker-Entität in Home Assistant ausgeschaltet ist), *nicht aktiviert* (falls
+  der Device Tracker in den Integrationseinstellungen gar nicht eingeschaltet ist – der
+  Tooltip nennt den Weg dorthin) oder „—", wenn es für dieses Gerät keinen Tracker gibt.
+- **Der angezeigte Zustand kommt jetzt aus der Tracker-Entität selbst**, nicht mehr aus dem
+  Aktiv-Status der FRITZ!Box. Beides kann auseinanderlaufen, etwa während der Karenzzeit
+  (`consider_home`) oder wenn die Entität nicht verfügbar ist.
+- **Behoben: Die Karte meldete sich in der Browser-Konsole weiterhin als 1.5.0.** Die
+  Versionskennung in der Kartendatei war beim Release 1.5.1 nicht mitgezogen worden. Auf die
+  Cache-Invalidierung hatte das keinen Einfluss – die läuft über den Parameter `?v=` an der
+  Ressourcen-URL und war korrekt.
 
 ### 1.5.1 – Deprecation-Warnung im Protokoll beseitigt
 

@@ -33,7 +33,7 @@ from .const import (
     VERSION,
 )
 from .coordinator import FritzboxNetzwerkCoordinator
-from .hosts import mac_key
+from .hosts import mac_key, normalize_mac
 
 if TYPE_CHECKING:
     from . import FritzboxNetzwerkConfigEntry
@@ -170,9 +170,22 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             key = mac_key(host.get("mac"))
             if not key:
                 continue
+            # WICHTIG (seit 1.5.2b0): Home Assistants ``ScannerEntity`` ueberschreibt
+            # die unique_id-Eigenschaft und gibt IMMER die MAC-Adresse zurueck -
+            # unser ``_attr_unique_id`` im Tracker greift dort also gar nicht.
+            # Die Registry kennt den Tracker deshalb unter der MAC, nicht unter
+            # "<entry_id>_track_<mac>". Bis 1.5.1 wurde nur der zweite, nie
+            # vergebene Schluessel gesucht - die Zuordnung blieb dadurch immer
+            # leer und die Karte zeigte keine Anwesenheits-Zeile.
             eid = registry.async_get_entity_id(
-                "device_tracker", DOMAIN, f"{entry_id}_track_{key}"
+                "device_tracker", DOMAIN, normalize_mac(host.get("mac"))
             )
+            if not eid:
+                # Rueckfallweg, falls Home Assistant die unique_id eines Tages
+                # doch aus ``_attr_unique_id`` uebernimmt.
+                eid = registry.async_get_entity_id(
+                    "device_tracker", DOMAIN, f"{entry_id}_track_{key}"
+                )
             if eid:
                 mapping[key] = eid
         return mapping
