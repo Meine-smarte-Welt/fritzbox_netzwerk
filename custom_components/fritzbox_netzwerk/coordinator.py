@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from datetime import datetime, timedelta
 from typing import Any, Final
@@ -45,35 +46,31 @@ from .const import (
 )
 from .hosts import (
     MAC_FILTER_INFO_KEY,
+    UPNP_ALREADY_TERMINATED,
+    UPNP_DISCONNECT_IN_PROGRESS,
     as_bool,
     build_hosts,
+    dhcp_pool,
     is_mac_filter_band,
     mac_key,
     mesh_members,
     mesh_reboot_plan,
+    reconnect_plan,
     set_config_arguments,
     summarize,
     to_kbytes_per_s,
     to_mbit_per_s,
+    upnp_error_code,
+    wan_kind,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-# Aktionen, mit denen die Internetverbindung neu aufgebaut wird - in dieser
-# Reihenfolge probiert. Zuerst die TR-064-Dienste: sie laufen mit der
-# Anmeldung der Integration (derselben, die auch den Neustart erlaubt).
-# Der frueher allein genutzte UPnP-IGD-Dienst ``WANIPConn1`` (das ist
-# ``FritzConnection.reconnect()``) wird von manchen FRITZ!Boxen mit Fehler
-# 606 (nicht autorisiert) abgelehnt - obwohl das Konto voll berechtigt ist und
-# der Neustart ueber TR-064 funktioniert. Vermutlich haengt der IGD-Zugriff an
-# den UPnP-Einstellungen der Box statt an den Rechten des Kontos. IGD bleibt
-# deshalb nur als letzter Rueckfallweg.
-RECONNECT_ACTIONS: Final = (
-    ("WANIPConnection1", "ForceTermination"),
-    ("WANPPPConnection1", "ForceTermination"),
-    ("WANIPConn1", "ForceTermination"),
-    ("WANPPPConn1", "ForceTermination"),
-)
+# Nach einer ausgeloesten Neuverbindung wird ein weiterer Druck auf den
+# Button so lange ignoriert (Sekunden). Die Box braucht die Zeit fuer die
+# neue Einwahl; ein zweites ForceTermination wuerde sie nur mit Fehler 707
+# (DisconnectInProgress) oder 711 (ConnectionAlreadyTerminated) ablehnen.
+RECONNECT_COOLDOWN: Final = 30
 
 # Zeitlimit fuer die Verbindung zu einem Repeater (Sekunden).
 REPEATER_TIMEOUT: Final = 15
@@ -120,6 +117,9 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._address_sources: dict[str, dict[str, Any]] = {}
         self._address_source_scan: datetime | None = None
         self._address_source_failed = False
+        # DHCP-Bereich der Box (erste, letzte Adresse als Zahl); wird mit der
+        # IP-Typ-Abfrage aktualisiert und dient der Einordnung fest/dynamisch.
+        self._dhcp_pool: tuple[int, int] | None = None
 
         # Verbindungsdaten (Down/Up). FritzStatus teilt sich die Verbindung
         # mit FritzHosts. Fehlt der WAN-Dienst (z. B. FRITZ!Box im reinen
@@ -127,6 +127,11 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # abgefragt, um das Protokoll nicht vollzuschreiben.
         self._fritz_status: FritzStatus | None = None
         self._connection_supported = True
+
+        # Neuverbindung: nie zwei gleichzeitig, und kurz nach einer
+        # erfolgreichen keine weitere (siehe ``RECONNECT_COOLDOWN``).
+        self._reconnect_lock = threading.Lock()
+        self._last_reconnect: float | None = None
 
         # WLAN-Baender fuer die Steuerung: gemerkt wird, welche Dienste die
         # Box bereitstellt (1=2,4 GHz, 2=5 GHz, 3=Gast bei Dualband).
@@ -201,11 +206,33 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 # Grund, die gesamte Aktualisierung scheitern zu lassen.
                 _LOGGER.debug("IP-Typ fuer %s nicht abrufbar: %s", mac, err)
                 continue
+            _LOGGER.debug(
+                "IP-Typ %s: AddressSource=%s, LeaseTimeRemaining=%s",
+                mac,
+                entry.get("NewAddressSource"),
+                entry.get("NewLeaseTimeRemaining"),
+            )
             sources[mac_key(mac)] = {
                 "address_source": entry.get("NewAddressSource"),
                 "lease_time_remaining": entry.get("NewLeaseTimeRemaining"),
             }
         self._address_sources = sources
+        self._dhcp_pool = self._fetch_dhcp_pool()
+
+    def _fetch_dhcp_pool(self) -> tuple[int, int] | None:
+        """DHCP-Bereich der FRITZ!Box (None, wenn nicht ermittelbar)."""
+        try:
+            info = self.call_action("LANHostConfigManagement1", "GetInfo")
+        except (FritzConnectionException, RequestException) as err:
+            _LOGGER.debug("DHCP-Bereich nicht abrufbar: %s", err)
+            return None
+        pool = dhcp_pool(info)
+        _LOGGER.debug(
+            "DHCP-Bereich: %s - %s",
+            info.get("NewMinAddress"),
+            info.get("NewMaxAddress"),
+        )
+        return pool
 
     def _fetch(
         self,
@@ -240,15 +267,63 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def reconnect_internet(self) -> None:
         """Baut die Internetverbindung neu auf (neue oeffentliche IP).
 
-        Blockierend, im Executor nutzen. Probiert die Aktionen aus
-        ``RECONNECT_ACTIONS`` der Reihe nach. Fehlt ein Dienst auf dieser
-        FRITZ!Box, geht es mit dem naechsten weiter; lehnt die Box eine
-        Aktion ab (z. B. Fehler 606), ebenso. Erst wenn keine Aktion
-        durchgeht, wird der Fehler des ERSTEN echten Versuchs weitergereicht -
-        das ist der aussagekraeftigste.
+        Blockierend, im Executor nutzen. Laeuft bereits eine Neuverbindung
+        (zweiter Druck, Automation parallel) oder liegt die letzte weniger als
+        ``RECONNECT_COOLDOWN`` Sekunden zurueck, passiert nichts - die Box
+        waehlt sich ohnehin gerade neu ein.
+        """
+        if not self._reconnect_lock.acquire(blocking=False):
+            _LOGGER.info("Neuverbindung laeuft bereits - weiterer Aufruf ignoriert")
+            return
+        try:
+            now = time.monotonic()
+            if (
+                self._last_reconnect is not None
+                and now - self._last_reconnect < RECONNECT_COOLDOWN
+            ):
+                _LOGGER.info(
+                    "Neuverbindung vor weniger als %s s ausgeloest - "
+                    "weiterer Aufruf ignoriert",
+                    RECONNECT_COOLDOWN,
+                )
+                return
+            self._force_reconnect()
+            self._last_reconnect = time.monotonic()
+        finally:
+            self._reconnect_lock.release()
+
+    def _wan_kind(self) -> str | None:
+        """Verbindungsart, die die Box gerade nutzt (IP oder PPP), sonst None."""
+        try:
+            result = self.call_action("Layer3Forwarding1", "GetDefaultConnectionService")
+        except (FritzConnectionException, RequestException) as err:
+            _LOGGER.debug("Verbindungsart nicht ermittelbar: %s", err)
+            return None
+        kind = wan_kind(result.get("NewDefaultConnectionService"))
+        _LOGGER.debug("Aktive Verbindungsart: %s", kind or "unbekannt")
+        return kind
+
+    def _force_reconnect(self) -> None:
+        """Loest die Neuverbindung aus (siehe ``hosts.reconnect_plan``).
+
+        Zuerst wird ermittelt, ob die Box per IP oder per PPP (DSL/PPPoE)
+        online ist; deren Dienste kommen zuerst dran. So landet der Befehl
+        nicht auf einem ungenutzten Dienst.
+
+        Antworten der Box:
+        - Dienst fehlt -> naechster Dienst.
+        - 707 DisconnectInProgress: Die Trennung laeuft schon - das Ziel ist
+          erreicht. Vom aktiven Dienst: fertig. Von einem anderen: weiter
+          probieren, am Ende aber als Erfolg werten.
+        - 711 ConnectionAlreadyTerminated vom aktiven Dienst: Die Verbindung
+          ist schon getrennt - dann wird sie mit ``RequestConnection`` neu
+          aufgebaut.
+        - sonstiger Fehler -> naechster Dienst. Geht nichts durch, wird der
+          Fehler des ERSTEN echten Versuchs weitergereicht.
         """
         first_error: FritzConnectionException | None = None
-        for service, action in RECONNECT_ACTIONS:
+        in_progress = False
+        for service, action, active in reconnect_plan(self._wan_kind()):
             try:
                 self.call_action(service, action)
             except FritzServiceError:
@@ -258,17 +333,51 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 # Anmeldung an sich abgelehnt - weitere Versuche bringen nichts.
                 raise
             except FritzConnectionException as err:
+                code = upnp_error_code(err)
+                if code == UPNP_DISCONNECT_IN_PROGRESS:
+                    if active:
+                        _LOGGER.info(
+                            "Die FRITZ!Box trennt die Verbindung bereits (%s) - "
+                            "Neuverbindung laeuft",
+                            service,
+                        )
+                        return
+                    in_progress = True
+                    continue
+                if (
+                    code == UPNP_ALREADY_TERMINATED
+                    and active
+                    and self._request_connection(service)
+                ):
+                    return
                 _LOGGER.debug("%s.%s abgelehnt: %s", service, action, err)
                 if first_error is None:
                     first_error = err
                 continue
             _LOGGER.debug("Neuverbindung ueber %s.%s ausgeloest", service, action)
             return
+        if in_progress:
+            _LOGGER.info("Die FRITZ!Box trennt die Verbindung bereits - Neuverbindung laeuft")
+            return
         if first_error is not None:
             raise first_error
         raise FritzServiceError(
             "Kein WAN-Verbindungsdienst gefunden (weder TR-064 noch UPnP-IGD)"
         )
+
+    def _request_connection(self, service: str) -> bool:
+        """Baut eine bereits getrennte Verbindung neu auf; True bei Erfolg."""
+        try:
+            self.call_action(service, "RequestConnection")
+        except FritzAuthorizationError:
+            raise
+        except FritzConnectionException as err:
+            _LOGGER.debug("%s.RequestConnection abgelehnt: %s", service, err)
+            return False
+        _LOGGER.info(
+            "Verbindung war bereits getrennt - Neuaufbau ueber %s angestossen", service
+        )
+        return True
 
     def reboot_repeater(self, address: str) -> None:
         """Startet einen Repeater neu (blockierend, im Executor nutzen).
@@ -788,6 +897,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._address_sources if self.track_address_source else None,
             self._ha_device_map(),
             self._last_seen,
+            self._dhcp_pool if self.track_address_source else None,
         )
 
         return {

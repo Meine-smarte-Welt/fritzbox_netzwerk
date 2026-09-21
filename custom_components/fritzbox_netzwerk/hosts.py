@@ -21,7 +21,8 @@ ueberall ``.get()``.
 
 from __future__ import annotations
 
-from typing import Any
+import re
+from typing import Any, Final
 
 TRUE_STRINGS = {"1", "true", "yes", "on", "granted"}
 
@@ -242,29 +243,72 @@ def apply_address_sources(
     return hosts
 
 
-def classify_ip(host: dict[str, Any]) -> str | None:
+def dhcp_pool(info: dict[str, Any] | None) -> tuple[int, int] | None:
+    """DHCP-Bereich der FRITZ!Box aus ``LANHostConfigManagement1.GetInfo``.
+
+    Ergebnis ist ``(erste, letzte)`` Adresse als Zahl (siehe ``ipv4_number``)
+    oder ``None``, wenn der DHCP-Server aus ist oder die Angaben fehlen bzw.
+    unbrauchbar sind.
+    """
+    if not info:
+        return None
+    if "NewDHCPServerEnable" in info and not as_bool(info.get("NewDHCPServerEnable")):
+        return None
+    low = ipv4_number(info.get("NewMinAddress"))
+    high = ipv4_number(info.get("NewMaxAddress"))
+    if low is None or high is None or low > high:
+        return None
+    return low, high
+
+
+def ipv4_number(ip: Any) -> int | None:
+    """IPv4-Adresse als Zahl (fuer Bereichsvergleiche), sonst ``None``."""
+    key = ip_sort_key(ip)
+    if key[0] != 0:
+        return None
+    number = 0
+    for octet in key[1:]:
+        number = number * 256 + octet
+    return number
+
+
+def classify_ip(
+    host: dict[str, Any], pool: tuple[int, int] | None = None
+) -> str | None:
     """Ermittelt, wie die IP-Adresse eines Geraets vergeben ist.
 
-    Hintergrund: Die FRITZ!Box meldet auch eine dauerhaft zugewiesene
-    ("fixierte") IPv4 als AddressSource=DHCP - nur die Lease-Restzeit
-    unterscheidet wirklich. Ein Geraet aus dem DHCP-Pool hat eine
-    ablaufende Lease, eine feste/reservierte Adresse nicht. Fuer Nutzer
-    zaehlt genau diese Unterscheidung, nicht das rohe DHCP/Static der Box.
+    Grundlage ist die Angabe der FRITZ!Box (``AddressSource``):
+
+    - ``Static``: am Geraet selbst fest eingestellt -> fest.
+    - ``DHCP``: von der Box vergeben -> dynamisch. Ausnahme: Die Adresse
+      liegt AUSSERHALB des DHCP-Bereichs der Box. Das geht nur mit einer
+      Reservierung ("Diesem Netzwerkgeraet immer die gleiche IPv4-Adresse
+      zuweisen" mit einer Adresse ausserhalb des Pools) -> fest.
+
+    Die Lease-Restzeit entscheidet bewusst NICHT mehr: Viele FRITZ!OS-
+    Versionen melden fuer alle Geraete 0 - bis 1.5.2 wurde dadurch jedes
+    DHCP-Geraet als "fest" angezeigt. Eine Reservierung INNERHALB des Pools
+    ist ueber TR-064 nicht erkennbar und erscheint als dynamisch.
 
     Rueckgabe:
     - "none"   : Geraet ohne IP-Adresse (z. B. einfacher Switch, Powerline)
-    - "dynamic": aus dem DHCP-Pool zugewiesen (Lease laeuft ab)
-    - "fixed"  : fest zugewiesen bzw. reserviert
+    - "dynamic": von der Box per DHCP vergeben
+    - "fixed"  : am Geraet fest eingestellt oder ausserhalb des Pools reserviert
     - None     : noch nicht bekannt (IP-Typ-Erfassung aus oder noch nicht gelaufen)
     """
     if not host.get("ip"):
         return "none"
-    lease = host.get("lease_time_remaining")
-    if isinstance(lease, int) and lease > 0:
-        return "dynamic"
-    if host.get("address_source") or host.get("static_ip") is not None:
+    source = str(host.get("address_source") or "").strip().lower()
+    if not source:
+        lease = host.get("lease_time_remaining")
+        return "dynamic" if isinstance(lease, int) and lease > 0 else None
+    if source == ADDRESS_SOURCE_STATIC.lower():
         return "fixed"
-    return None
+    if pool is not None:
+        number = ipv4_number(host.get("ip"))
+        if number is not None and not pool[0] <= number <= pool[1]:
+            return "fixed"
+    return "dynamic"
 
 
 def apply_ha_devices(
@@ -306,8 +350,12 @@ def build_hosts(
     address_sources: dict[str, dict[str, Any]] | None = None,
     ha_devices: dict[str, dict[str, str]] | None = None,
     last_seen: dict[str, str] | None = None,
+    pool: tuple[int, int] | None = None,
 ) -> list[dict[str, Any]]:
     """Baut die vollstaendige, sortierte Hostliste fuer das Sensorattribut.
+
+    ``pool`` ist der DHCP-Bereich der Box (siehe ``dhcp_pool``) und dient der
+    Einordnung fest/dynamisch.
 
     Sortiert wird nach IP-Adresse (numerisch). Eintraege ohne MAC-Adresse
     werden verworfen - sie sind Karteileichen der FRITZ!Box und wuerden in
@@ -322,7 +370,7 @@ def build_hosts(
     apply_ha_devices(hosts, ha_devices)
     apply_last_seen(hosts, last_seen)
     for host in hosts:
-        host["ip_class"] = classify_ip(host)
+        host["ip_class"] = classify_ip(host, pool)
     hosts.sort(key=lambda host: ip_sort_key(host["ip"]))
     return hosts
 
@@ -512,3 +560,76 @@ def to_mbit_per_s(bits_per_s: Any) -> float | None:
     if value < 0:
         return None
     return round(value / 1_000_000, 1)
+
+
+# ---------------------------------------------------------------------------
+# Neuverbindung (Internet neu einwaehlen)
+# ---------------------------------------------------------------------------
+
+# Aktionen, mit denen die Internetverbindung neu aufgebaut wird. Zuerst die
+# TR-064-Dienste: sie laufen mit der Anmeldung der Integration (derselben, die
+# auch den Neustart erlaubt). Der UPnP-IGD-Dienst ``WANIPConn1`` (das ist
+# ``FritzConnection.reconnect()``) wird von manchen FRITZ!Boxen mit Fehler 606
+# (nicht autorisiert) abgelehnt, IGD bleibt deshalb nur Rueckfallweg.
+# Die tatsaechliche Reihenfolge legt ``reconnect_plan()`` fest: Die Dienste der
+# Verbindungsart, die die Box gerade nutzt (IP oder PPP), kommen nach vorn.
+RECONNECT_ACTIONS: Final = (
+    ("WANIPConnection1", "ForceTermination"),
+    ("WANPPPConnection1", "ForceTermination"),
+    ("WANIPConn1", "ForceTermination"),
+    ("WANPPPConn1", "ForceTermination"),
+)
+
+# UPnP-Fehlercodes von ForceTermination (UPnP-IGD-Spezifikation, von AVM
+# auch unter TR-064 verwendet):
+# 707 DisconnectInProgress - die Verbindung wird bereits getrennt,
+# 711 ConnectionAlreadyTerminated - die Verbindung ist schon getrennt.
+UPNP_DISCONNECT_IN_PROGRESS: Final = "707"
+UPNP_ALREADY_TERMINATED: Final = "711"
+
+# Verbindungsart -> zugehoerige Dienste (TR-064, UPnP-IGD).
+_WAN_SERVICES: Final = {
+    "WANPPPConnection": ("WANPPPConnection1", "WANPPPConn1"),
+    "WANIPConnection": ("WANIPConnection1", "WANIPConn1"),
+}
+
+_ERROR_CODE_RE: Final = re.compile(r"errorCode:\s*(\d+)")
+
+
+def wan_kind(default_connection_service: Any) -> str | None:
+    """Verbindungsart aus ``Layer3Forwarding1.GetDefaultConnectionService``.
+
+    Die FRITZ!Box meldet z. B. ``"1.WANPPPConnection.1"`` (DSL mit PPPoE)
+    oder ``"1.WANIPConnection.1"`` (Kabel, Glasfaser, IP-Anschluss).
+    Ergebnis ist ``"WANPPPConnection"``, ``"WANIPConnection"`` oder ``None``,
+    wenn die Angabe fehlt oder unbekannt ist.
+    """
+    text = str(default_connection_service or "").lower()
+    for kind in ("WANPPPConnection", "WANIPConnection"):
+        if kind.lower() in text:
+            return kind
+    return None
+
+
+def reconnect_plan(kind: str | None) -> list[tuple[str, str, bool]]:
+    """Reihenfolge der Neuverbindungs-Versuche als ``(Dienst, Aktion, aktiv)``.
+
+    ``aktiv`` heisst: Der Dienst gehoert zur Verbindungsart, die die Box
+    gerade nutzt. Diese Dienste kommen zuerst (TR-064 vor IGD), danach die
+    uebrigen in der Grundreihenfolge. Ist die Verbindungsart unbekannt,
+    bleibt die Grundreihenfolge und kein Dienst gilt als aktiv.
+    """
+    active = set(_WAN_SERVICES.get(kind or "", ()))
+    ordered = sorted(RECONNECT_ACTIONS, key=lambda item: item[0] not in active)
+    return [(service, action, service in active) for service, action in ordered]
+
+
+def upnp_error_code(error: Any) -> str | None:
+    """UPnP-Fehlercode (z. B. ``"707"``) aus einer fritzconnection-Meldung.
+
+    fritzconnection bildet die Meldung aus den XML-Feldern der Antwort, etwa
+    ``"UPnPError: errorCode: 707 errorDescription: DisconnectInProgress"``
+    (die Teile stehen je nach Version auf eigenen Zeilen). Ohne Code: ``None``.
+    """
+    match = _ERROR_CODE_RE.search(str(error or ""))
+    return match.group(1) if match else None

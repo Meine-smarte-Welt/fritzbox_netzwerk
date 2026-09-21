@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.5.2-blue)
+![Version](https://img.shields.io/badge/Version-1.5.3-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -57,7 +57,7 @@ passenden Home-Assistant-Gerätenamen.
 - **Zuletzt online** je Gerät – von der Integration mitgeschrieben, da die FRITZ!Box das
   nicht liefert
 - **Internetzugang schalten** per Dienst oder Popup-Knopf (experimentell)
-- **IP-Typ** (DHCP oder statisch) inklusive Restlaufzeit der DHCP-Zuweisung
+- **IP-Typ** (fest oder dynamisch), mit Restlaufzeit der DHCP-Zuweisung, sofern die Box sie meldet
 - **Internetzugang gesperrt** (Kindersicherung) und **Firmware-Update verfügbar** auf
   einen Blick
 - Vollständig über die Oberfläche konfigurierbar, inklusive **frei wählbarer Farben**
@@ -356,7 +356,7 @@ grafischen Editor einstellen.
 | MAC-Adresse | an | `MACAddress` |
 | Verbindung | an | `InterfaceType` + Portnummer, z. B. „LAN 2" oder „WLAN (Gast)" |
 | Home Assistant | an | Gerätename aus der Geräteregistrierung |
-| IP-Typ | an | DHCP oder statisch, mit Lease-Restzeit |
+| IP-Typ | an | fest oder dynamisch, mit Lease-Restzeit (falls gemeldet) |
 | Internet | an | Internetzugang gesperrt (Kindersicherung) |
 | Update | an | Firmware-Update für das Gerät verfügbar |
 | Tempo | an | `X_AVM-DE_Speed` in Mbit/s bzw. Gbit/s |
@@ -636,7 +636,9 @@ Bis 1.5.1 nutzte der Button den UPnP-Dienst der FRITZ!Box, den manche Boxen mit 
 („nicht autorisiert“) ablehnen – vermutlich, weil dieser Weg an den UPnP-Einstellungen der Box
 hängt und nicht an den Rechten des Kontos. Der *Neustart* ging trotzdem, weil er über TR-064
 läuft. Seit 1.5.2 wird zuerst der TR-064-Weg mit der Anmeldung
-der Integration versucht, der UPnP-Weg nur noch als Rückfall. Meldet der Button weiterhin
+der Integration versucht, der UPnP-Weg nur noch als Rückfall. Seit 1.5.3 wird zudem zuerst
+die Verbindungsart angesprochen, die die Box tatsächlich nutzt (IP oder PPP), und die Antwort
+707 („DisconnectInProgress“ – Trennung läuft bereits) gilt als Erfolg. Meldet der Button weiterhin
 einen Fehler, prüfe, ob das Konto die Berechtigung *FRITZ!Box Einstellungen* hat und ob die
 FRITZ!Box die Internetverbindung selbst aufbaut. Hängt sie hinter einem vorgeschalteten Router
 oder Modem (oder ist sie ein Kabel-Modell), gibt es dort keine Einwahl, die neu aufgebaut
@@ -678,6 +680,30 @@ lässt sich das mit *Problem beheben* bereinigen; die Werte selbst bleiben unber
 Entweder ist die IP-Typ-Erfassung in den Einstellungen der Integration ausgeschaltet, oder
 sie ist seit dem Start noch nicht gelaufen. Die Karte zeigt bewusst „—" statt „DHCP"
 anzunehmen – die Geräteliste selbst enthält diese Angabe nicht.
+
+**Die Spalte „IP-Typ" zeigt „fest", obwohl das Gerät seine Adresse per DHCP bekommt.**
+Bis 1.5.2 entschied die Lease-Restzeit: Nur mit ablaufender Lease galt ein Gerät als
+*dynamisch*. Viele FRITZ!OS-Versionen melden über TR-064 aber für alle Geräte eine Restzeit
+von 0 – dann stand überall „fest". Seit 1.5.3 gilt: meldet die Box `DHCP`, ist das Gerät
+*dynamisch*; *fest* ist es, wenn die Box `Static` meldet (Adresse am Gerät eingestellt) oder
+die Adresse außerhalb des DHCP-Bereichs der Box liegt (Reservierung außerhalb des Pools).
+Eine Reservierung *innerhalb* des DHCP-Bereichs („Diesem Netzwerkgerät immer die gleiche
+IPv4-Adresse zuweisen“) ist über TR-064 nicht von einer normalen Zuweisung zu unterscheiden und
+erscheint als *dynamisch*. Tipp: Reservierte Adressen außerhalb des DHCP-Bereichs wählen
+(Heimnetz → Netzwerk → Netzwerkeinstellungen → IPv4-Einstellungen). Die neue Einordnung
+greift mit der nächsten IP-Typ-Abfrage (Standard: alle 15 Minuten, sofort nach einem
+Neustart von Home Assistant). Die Rohwerte der Box stehen im Debug-Protokoll
+(`AddressSource`, `LeaseTimeRemaining`, DHCP-Bereich).
+
+**HACS meldet „Repository structure for 1.5.x is not compliant".**
+Steht in der Meldung `<Plugin Meine-smarte-Welt/fritzbox_netzwerk>`, wurde das Repository in
+HACS als *Dashboard* (Plugin) statt als *Integration* hinzugefügt. Als Dashboard-Plugin sucht
+HACS eine JavaScript-Datei im Hauptverzeichnis – die gibt es hier nicht, weil die Karte Teil
+der Integration ist und von ihr selbst bereitgestellt wird. Abhilfe: In HACS → ⋮ →
+*Benutzerdefinierte Repositories* den Eintrag mit Typ *Dashboard* entfernen und das Repository
+mit Typ **Integration** neu hinzufügen. Eine zusätzlich angelegte Dashboard-Ressource für die
+Karte (`/hacsfiles/fritzbox_netzwerk/…`) unter Einstellungen → Dashboards → Ressourcen
+ebenfalls löschen.
 
 **Die Spalte „Home Assistant" bleibt leer.**
 Zugeordnet wird ausschließlich über die MAC-Adresse in der Geräteregistrierung. Viele
@@ -774,6 +800,37 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.5.3 – Neu verbinden (Fehler 707) und IP-Typ „fest“ behoben
+
+**Behoben**
+
+- **Der Button *Neu verbinden* meldete `UPnPError: errorCode: 707 errorDescription:
+  DisconnectInProgress`** ([#12](https://github.com/Meine-smarte-Welt/fritzbox_netzwerk/issues/12)).
+  707 heißt: Die FRITZ!Box trennt die Verbindung bereits – das ist kein Fehlschlag, sondern
+  genau das, was der Button erreichen soll. Die Integration wertet 707 jetzt als Erfolg.
+  Außerdem fragt sie vor dem Trennen ab, ob die Box per IP oder per PPP (DSL/PPPoE) online ist
+  (`Layer3Forwarding1.GetDefaultConnectionService`), und spricht zuerst den Dienst dieser
+  Verbindungsart an. Bisher kam immer zuerst `WANIPConnection1` dran – auch an DSL-Anschlüssen,
+  bei denen die Verbindung über `WANPPPConnection1` läuft.
+- **Meldet die Box 711 („ConnectionAlreadyTerminated“)**, ist die Verbindung schon getrennt;
+  die Integration stößt dann mit `RequestConnection` den Neuaufbau an, statt einen Fehler zu zeigen.
+- **IP-Typ stand bei fast allen Geräten auf „fest“.** Die Einordnung hing an der
+  Lease-Restzeit, die viele FRITZ!OS-Versionen für alle Geräte mit 0 melden. Jetzt zählt die
+  Angabe der Box: `DHCP` = *dynamisch*, `Static` = *fest*; zusätzlich gilt eine per DHCP
+  vergebene Adresse außerhalb des DHCP-Bereichs der Box (Reservierung) als *fest*. Den Bereich
+  liest die Integration mit der IP-Typ-Abfrage aus (`LANHostConfigManagement1.GetInfo`).
+  Details unter [Fehlerbehebung](#fehlerbehebung).
+- **Doppelte Auslösung verhindert.** Ein zweiter Druck auf *Neu verbinden* (oder eine parallele
+  Automation), während die Neuverbindung läuft oder innerhalb von 30 Sekunden danach, wird
+  ignoriert und im Protokoll vermerkt, statt die Box erneut anzusprechen.
+
+**Hinweis zu HACS:** Die Meldung „Repository structure … is not compliant“ entsteht, wenn das
+Repository in HACS als *Dashboard* statt als *Integration* eingetragen wurde – siehe
+[Fehlerbehebung](#fehlerbehebung).
+
+Hinweis: Die Auswertung der Fehlercodes folgt der UPnP-/TR-064-Spezifikation und wurde mit einer
+simulierten FRITZ!Box geprüft, nicht an echter Hardware. Rückmeldungen bitte als GitHub-Issue.
 
 ### 1.5.2 – Mesh-Gruppe, MAC-Filter/Pairing, Repeater als Geräte, Reconnect-Fix
 
