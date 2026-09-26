@@ -128,7 +128,7 @@
   "services": {
     "set_device_name": {
       "name": "Rename device",
-      "description": "Changes the name of a network device on the FRITZ!Box.",
+      "description": "Changes the display name of a network device on the FRITZ!Box. Up to 64 characters, no known character restriction (spaces and special characters are fine).",
       "fields": {
         "mac": {
           "name": "MAC address",
@@ -136,7 +136,7 @@
         },
         "name": {
           "name": "New name",
-          "description": "The new device name."
+          "description": "The new display name (max. 64 characters)."
         }
       }
     },

@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.6.0";
+const FBN_VERSION = "1.6.1";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -2234,7 +2234,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
       return `
         <span class="fbn-name-edit">
           <input class="fbn-name-input" type="text"
-                 value="${escapeHtml(this._popupNameDraft)}"
+                 value="${escapeHtml(this._popupNameDraft)}" maxlength="64"
                  aria-label="${escapeHtml(this._t("field.name"))}">
           <button class="fbn-namebtn fbn-name-save" type="button"
                   title="${escapeHtml(this._t("btn.save"))}"

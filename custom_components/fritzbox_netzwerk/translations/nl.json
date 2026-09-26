@@ -128,7 +128,7 @@
   "services": {
     "set_device_name": {
       "name": "Apparaat hernoemen",
-      "description": "Wijzigt de naam van een netwerkapparaat op de FRITZ!Box.",
+      "description": "Wijzigt de weergavenaam van een netwerkapparaat op de FRITZ!Box. Tot 64 tekens, geen bekende tekenbeperking (spaties en speciale tekens zijn geen probleem).",
       "fields": {
         "mac": {
           "name": "MAC-adres",
@@ -136,7 +136,7 @@
         },
         "name": {
           "name": "Nieuwe naam",
-          "description": "De nieuwe apparaatnaam."
+          "description": "De nieuwe weergavenaam (max. 64 tekens)."
         }
       }
     },

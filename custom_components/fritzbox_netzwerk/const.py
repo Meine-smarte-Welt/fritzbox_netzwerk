@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.6.0"
+VERSION: Final = "1.6.1"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -44,6 +44,11 @@ DEFAULT_PAIRING_MINUTES: Final = 5  # Minuten
 
 MIN_PAIRING_MINUTES: Final = 1
 MAX_PAIRING_MINUTES: Final = 120
+
+# Laut AVMs TR-064-Beschreibung des Hosts-Dienstes (X_AVM-DE_GetInfo /
+# X_AVM-DE_FriendlynameMaxChars): die FRITZ!Box erlaubt fuer die
+# "Bezeichnung" (X_AVM-DE_FriendlyName) 1 bis 64 Zeichen.
+MAX_FRIENDLY_NAME_LENGTH: Final = 64
 MIN_SCAN_INTERVAL: Final = 15
 MAX_SCAN_INTERVAL: Final = 3600
 

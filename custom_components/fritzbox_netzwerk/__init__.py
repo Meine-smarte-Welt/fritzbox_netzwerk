@@ -36,6 +36,7 @@ from .const import (
     DEFAULT_USE_TLS,
     DOMAIN,
     MANUFACTURER,
+    MAX_FRIENDLY_NAME_LENGTH,
     MAX_PAIRING_MINUTES,
     MIN_PAIRING_MINUTES,
     PLATFORMS,
@@ -239,15 +240,47 @@ def _async_register_services(hass: HomeAssistant) -> None:
         return entries[0].runtime_data
 
     async def _handle_set_device_name(call: ServiceCall) -> None:
+        """Setzt die Bezeichnung (X_AVM-DE_FriendlyName) eines Geraets.
+
+        Bewusst NICHT ``X_AVM-DE_SetHostNameByMACAddress`` (das setzt den
+        technischen DNS-Hostnamen; laut AVMs TR-064-Beschreibung sind dort
+        nur ASCII-Buchstaben und -Ziffern erlaubt - kein Leerzeichen, Punkt
+        oder Sonderzeichen, sonst UPnPError 402 "Invalid Args"). Angezeigt
+        wird in der Karte und in ``name_writeable`` ohnehin die
+        ``X_AVM-DE_FriendlyName`` (siehe ``hosts.display_name()`` und
+        ``X_AVM-DE_FriendlyNameIsWriteable``); dieser Dienst schreibt jetzt
+        genau dorthin. Laut AVM 1-64 Zeichen, keine dokumentierte
+        Zeichenbeschraenkung.
+        """
         coordinator = _first_coordinator()
         mac = normalize_mac(call.data[ATTR_MAC])
         name = call.data.get(ATTR_NAME, "")
         if not name:
             raise HomeAssistantError("Es wurde kein neuer Name uebergeben")
-        try:
-            await hass.async_add_executor_job(
-                coordinator.fritz_hosts.set_host_name, mac, name
+        if len(name) > MAX_FRIENDLY_NAME_LENGTH:
+            raise HomeAssistantError(
+                f"Der Name ist zu lang ({len(name)} Zeichen) - die FRITZ!Box "
+                f"erlaubt hoechstens {MAX_FRIENDLY_NAME_LENGTH} Zeichen."
             )
+
+        def _rename() -> None:
+            coordinator.fritz_hosts.fc.call_action(
+                "Hosts1",
+                "X_AVM-DE_SetFriendlyNameByMAC",
+                arguments={
+                    "NewMACAddress": mac,
+                    "NewX_AVM-DE_FriendlyName": name,
+                },
+            )
+
+        try:
+            await hass.async_add_executor_job(_rename)
+        except FritzAuthorizationError as err:
+            raise HomeAssistantError(
+                "Umbenennen abgelehnt (fehlende Rechte). Das FRITZ!Box-Benutzerkonto "
+                "der Integration braucht dafuer das Zugriffsrecht 'App' - unter "
+                "FRITZ!Box-Oberflaeche > System > FRITZ!Box-Benutzer pruefen."
+            ) from err
         except FritzConnectionException as err:
             raise HomeAssistantError(
                 f"Umbenennen von {mac} fehlgeschlagen: {err}"

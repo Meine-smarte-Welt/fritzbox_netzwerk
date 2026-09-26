@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.6.0-blue)
+![Version](https://img.shields.io/badge/Version-1.6.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -639,11 +639,13 @@ Je nach Gerät bietet das Popup zusätzlich:
 - **Gerätename umbenennen** – neben dem Namen erscheint ein Stift-Symbol, wenn die FRITZ!Box
   den Namen dieses Geräts über TR-064 ändern lässt (`name_writeable`; bei manchen
   Geräteklassen, etwa reinen Gastgeräten, meldet die Box das nicht). Ein Klick öffnet ein
-  Eingabefeld mit dem aktuellen Namen; Haken oder Enter speichert (ruft
+  Eingabefeld mit dem aktuellen Namen (bis zu 64 Zeichen); Haken oder Enter speichert (ruft
   [`fritzbox_netzwerk.set_device_name`](#fritzbox_netzwerkset_device_name) auf), Kreuz oder
   Escape verwirft nur die Eingabe, ohne das Popup zu schließen. Eine leere oder unveränderte
   Eingabe speichert nichts. Während der Eingabe aktualisiert sich das Popup absichtlich nicht
-  im Hintergrund – sonst ginge der eingegebene Text bei jedem Datenabruf verloren.
+  im Hintergrund – sonst ginge der eingegebene Text bei jedem Datenabruf verloren. Geändert
+  wird die *Bezeichnung* der FRITZ!Box (nicht der technische DNS-Hostname) – Leerzeichen und
+  Sonderzeichen sind dort erlaubt.
 - **In Home Assistant öffnen** – springt zur Geräteseite, sofern das Gerät in Home
   Assistant über seine MAC-Adresse bekannt ist
 - **Aufwecken (WoL)** – sendet ein Wake-on-LAN-Signal, wird nur bei nicht verbundenen
@@ -736,7 +738,12 @@ color_blocked: "#db4437"
 
 ### `fritzbox_netzwerk.set_device_name`
 
-Benennt ein Netzwerkgerät in der FRITZ!Box um.
+Ändert die *Bezeichnung* (`X_AVM-DE_FriendlyName`) eines Netzwerkgeräts in der FRITZ!Box – also
+den Anzeigenamen, den auch diese Integration verwendet, nicht den technischen DNS-Hostnamen. Laut
+AVM 1–64 Zeichen, keine bekannte Zeichenbeschränkung (Leerzeichen, Punkte, Sonderzeichen sind
+erlaubt). Funktioniert nur bei Geräten, die die FRITZ!Box als umbenennbar meldet (Attribut
+`name_writeable` je Gerät in `hosts`). Auch nutzbar über das
+[Detail-Popup der Karte](#detail-popup).
 
 ```yaml
 action: fritzbox_netzwerk.set_device_name
@@ -744,6 +751,11 @@ data:
   mac: "3C:A6:F6:00:11:22"
   name: "Drucker Arbeitszimmer"
 ```
+
+**Hinweis zu Berechtigungen:** Diese Aktion verlangt laut AVM das Zugriffsrecht *App* für das
+verwendete FRITZ!Box-Benutzerkonto. Schlägt der Aufruf mit einer Berechtigungsmeldung fehl, unter
+*FRITZ!Box-Oberfläche → System → FRITZ!Box-Benutzer* beim verwendeten Konto das Häkchen bei *App*
+(auch für Smart Home genutzt) prüfen.
 
 ### `fritzbox_netzwerk.wake_on_lan`
 
@@ -858,6 +870,16 @@ einen Fehler, prüfe, ob das Konto die Berechtigung *FRITZ!Box Einstellungen* ha
 FRITZ!Box die Internetverbindung selbst aufbaut. Hängt sie hinter einem vorgeschalteten Router
 oder Modem (oder ist sie ein Kabel-Modell), gibt es dort keine Einwahl, die neu aufgebaut
 werden könnte.
+
+**Das Umbenennen eines Geräts meldet `errorCode: 402 errorDescription: Invalid Args`,
+insbesondere bei Leerzeichen, Punkten oder Sonderzeichen im Namen.**
+Bis 1.6.0 nutzte der Dienst `X_AVM-DE_SetHostNameByMACAddress` – das setzt laut AVM den
+technischen DNS-Hostnamen, für den nur `0-9A-Za-z` erlaubt sind (kein Leerzeichen, Punkt oder
+Sonderzeichen). Seit 1.6.1 nutzt der Dienst stattdessen `X_AVM-DE_SetFriendlyNameByMAC` und
+ändert damit die *Bezeichnung* – dasselbe Feld, das die Karte ohnehin als Namen anzeigt
+(`name_writeable`). Dort erlaubt AVM 1–64 Zeichen ohne bekannte Zeichenbeschränkung. Tritt der
+Fehler danach weiterhin auf, ist entweder der Name länger als 64 Zeichen, oder das Konto hat
+nicht die Berechtigung *App* (siehe [`set_device_name`](#fritzbox_netzwerkset_device_name)).
 
 **„Alle neu starten“ meldet, dass Repeater nicht neu gestartet werden konnten.**
 Die FRITZ!Box wurde trotzdem neu gestartet, die Meldung nennt die betroffenen Repeater.
@@ -1029,6 +1051,32 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.6.1 – Umbenennen: Leerzeichen und Sonderzeichen im Namen funktionieren jetzt
+
+**Behoben**
+
+- **Umbenennen eines Geräts schlug mit `errorCode: 402 Invalid Args` fehl, sobald der Name ein
+  Leerzeichen, einen Punkt oder ein Sonderzeichen (z. B. `!`) enthielt** – gemeldet über das neue
+  Umbenennen-Feld im Detail-Popup (siehe 1.6.0). Ursache: Der Dienst
+  `fritzbox_netzwerk.set_device_name` rief `X_AVM-DE_SetHostNameByMACAddress` auf. Das setzt laut
+  AVMs TR-064-Beschreibung den technischen DNS-Hostnamen, für den nur `0-9A-Za-z` erlaubt sind –
+  ein anderes Feld, als die Karte tatsächlich anzeigt und als `name_writeable` beschreibt
+  (`X_AVM-DE_FriendlyName`, die „Bezeichnung"). Der Dienst nutzt jetzt stattdessen
+  `X_AVM-DE_SetFriendlyNameByMAC` und ändert damit genau das Feld, das auch angezeigt wird; dort
+  erlaubt AVM 1–64 Zeichen ohne bekannte Zeichenbeschränkung. Neue clientseitige Prüfung auf die
+  64-Zeichen-Grenze (Eingabefeld im Popup begrenzt jetzt ebenfalls auf 64 Zeichen), und eine
+  eigene Fehlermeldung, falls dem FRITZ!Box-Konto dafür die Berechtigung *App* fehlt. Details
+  unter [Fehlerbehebung](#fehlerbehebung) und [`set_device_name`](#fritzbox_netzwerkset_device_name).
+
+Ausgelöst durch eine Nutzerrückmeldung mit dem genauen Fehlertext. Nur die Karte war vom
+eigentlichen Sonderzeichen-Fehler nicht betroffen – der Fehler kam aus der FRITZ!Box-Antwort auf
+den Dienstaufruf; die Umbenennen-UI selbst (Stift, Eingabefeld, Speichern/Abbrechen) ist
+unverändert aus 1.6.0.
+
+Hinweis: Die Zeichen- und Längenangaben stammen aus AVMs offizieller TR-064-Beschreibung des
+Hosts-Dienstes (Version 31, 2025-09-11); ein Test an einer echten FRITZ!Box mit den zuvor
+gemeldeten Zeichen steht noch aus.
 
 ### 1.6.0 – IP-Filter, Hersteller, Feste-IP-Filter, Funkband, Umbenennen im Popup, sicherere Steuerung
 
