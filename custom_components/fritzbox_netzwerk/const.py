@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.5.3"
+VERSION: Final = "1.6.0"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -27,6 +27,7 @@ DEFAULT_USE_TLS: Final = False
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_TRACK_ADDRESS_SOURCE: Final = "track_address_source"
 CONF_ADDRESS_SOURCE_INTERVAL: Final = "address_source_interval"
+CONF_TRACK_WLAN_BAND: Final = "track_wlan_band"
 CONF_ENABLE_DEVICE_TRACKER: Final = "enable_device_tracker"
 CONF_ENABLE_CONTROLS: Final = "enable_controls"
 CONF_ENABLE_REPEATERS: Final = "enable_repeaters"
@@ -35,6 +36,7 @@ CONF_PAIRING_MINUTES: Final = "pairing_minutes"
 DEFAULT_SCAN_INTERVAL: Final = 60  # Sekunden
 DEFAULT_TRACK_ADDRESS_SOURCE: Final = True
 DEFAULT_ADDRESS_SOURCE_INTERVAL: Final = 15  # Minuten
+DEFAULT_TRACK_WLAN_BAND: Final = True
 DEFAULT_ENABLE_DEVICE_TRACKER: Final = False
 DEFAULT_ENABLE_CONTROLS: Final = False
 DEFAULT_ENABLE_REPEATERS: Final = True

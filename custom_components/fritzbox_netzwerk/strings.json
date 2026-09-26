@@ -42,6 +42,7 @@
           "scan_interval": "Abfrageintervall (Sekunden)",
           "track_address_source": "IP-Typ erfassen (DHCP oder statisch)",
           "address_source_interval": "Intervall der IP-Typ-Abfrage (Minuten)",
+          "track_wlan_band": "WLAN-Band je Gerät erfassen (2,4 / 5 GHz)",
           "enable_device_tracker": "Geräte-Tracker anlegen",
           "enable_repeaters": "Repeater als eigene Geräte anlegen",
           "enable_controls": "FRITZ!Box-Steuerung (experimentell)",
@@ -50,6 +51,7 @@
         "data_description": {
           "track_address_source": "Diese Angabe steht nicht in der Geräteliste und kostet einen zusätzlichen Aufruf pro Gerät. Sie ändert sich selten, deshalb läuft sie in einem eigenen, langsameren Takt.",
           "address_source_interval": "Wirkt nur, wenn die IP-Typ-Erfassung eingeschaltet ist.",
+          "track_wlan_band": "Fragt je WLAN-Netz die Liste der verbundenen Geräte ab (ein Aufruf pro Netz und Abfrage), um in der Karte das Funkband anzuzeigen. Nur Geräte, die direkt an der FRITZ!Box hängen, bekommen eine Angabe.",
           "enable_device_tracker": "Legt pro Netzwerkgerät einen device_tracker (zuhause/abwesend) für Anwesenheit und Automationen an. Kann bei vielen Geräten zu vielen Entitäten führen.",
           "enable_repeaters": "Legt für jeden AVM-Repeater im Heimnetz ein eigenes Gerät mit Verbunden-Status an, bei aktivierter FRITZ!Box-Steuerung zusätzlich mit einem Neustart-Button. Dazu gibt es einen Mesh-Sensor (FRITZ!Box + Repeater) und – mit Steuerung – den Button „Alle FRITZ!-Geräte neu starten“. Erkannt werden Geräte, deren Modell „Repeater“ enthält.",
           "enable_controls": "Legt Schalter für die WLAN-Bänder (2,4 GHz, 5 GHz, Gast) und für den WLAN-MAC-Filter an, dazu Buttons zum Neuverbinden, Neustarten und zum Starten eines Pairings (MAC-Filter zeitweise aus), bei eingeschalteten Repeater-Geräten auch je einen Neustart-Button pro Repeater. Verfügbarkeit und Zuordnung hängen vom Modell ab.",

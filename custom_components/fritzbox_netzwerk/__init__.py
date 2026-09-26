@@ -105,6 +105,7 @@ async def async_setup_entry(
 
     coordinator = FritzboxNetzwerkCoordinator(hass, entry, fritz_hosts)
     await coordinator.async_load_last_seen()
+    await coordinator.async_load_oui()
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
 

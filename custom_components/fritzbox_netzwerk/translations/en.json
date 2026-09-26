@@ -42,6 +42,7 @@
           "scan_interval": "Update interval (seconds)",
           "track_address_source": "Track IP type (DHCP or static)",
           "address_source_interval": "IP type update interval (minutes)",
+          "track_wlan_band": "Track Wi-Fi band per device (2.4 / 5 GHz)",
           "enable_device_tracker": "Create device trackers",
           "enable_repeaters": "Create repeaters as their own devices",
           "enable_controls": "FRITZ!Box controls (experimental)",
@@ -50,6 +51,7 @@
         "data_description": {
           "track_address_source": "This value is not part of the host list and costs one extra request per device. It rarely changes, so it runs on its own slower schedule.",
           "address_source_interval": "Only applies when IP type tracking is enabled.",
+          "track_wlan_band": "Reads the list of connected devices for each Wi-Fi network (one request per network and update) so the card can show the frequency band. Only devices connected directly to the FRITZ!Box get a value.",
           "enable_device_tracker": "Creates a device_tracker (home/away) per network device for presence and automations. May result in many entities on large networks.",
           "enable_repeaters": "Creates a separate device with a connected status for every AVM repeater in the home network, plus a reboot button when the FRITZ!Box controls are enabled. It also adds a mesh sensor (FRITZ!Box + repeaters) and, with controls, the \"Restart all FRITZ! devices\" button. Devices whose model contains \"Repeater\" are detected.",
           "enable_controls": "Creates switches for the Wi-Fi bands (2.4 GHz, 5 GHz, guest) and for the Wi-Fi MAC filter, plus buttons to reconnect, reboot and start a pairing (MAC filter temporarily off), and a reboot button per repeater when repeater devices are enabled. Availability and assignment depend on the model.",

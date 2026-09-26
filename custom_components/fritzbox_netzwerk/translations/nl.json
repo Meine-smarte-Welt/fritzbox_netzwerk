@@ -42,6 +42,7 @@
           "scan_interval": "Ophaalinterval (seconden)",
           "track_address_source": "IP-type bijhouden (DHCP of statisch)",
           "address_source_interval": "Interval van de IP-type-controle (minuten)",
+          "track_wlan_band": "Wifi-band per apparaat bijhouden (2,4 / 5 GHz)",
           "enable_device_tracker": "Device-trackers aanmaken",
           "enable_repeaters": "Repeaters als eigen apparaten aanmaken",
           "enable_controls": "FRITZ!Box-bediening (experimenteel)",
@@ -50,6 +51,7 @@
         "data_description": {
           "track_address_source": "Deze waarde staat niet in de hostlijst en kost één extra verzoek per apparaat. Ze verandert zelden en loopt daarom op een eigen, langzamer schema.",
           "address_source_interval": "Werkt alleen als het bijhouden van het IP-type is ingeschakeld.",
+          "track_wlan_band": "Leest per wifi-netwerk de lijst met verbonden apparaten uit (één verzoek per netwerk en update) om de frequentieband in de kaart te tonen. Alleen apparaten die rechtstreeks op de FRITZ!Box zijn aangesloten krijgen een waarde.",
           "enable_device_tracker": "Maakt per netwerkapparaat een device_tracker (thuis/afwezig) aan voor aanwezigheid en automatiseringen. Kan bij veel apparaten tot veel entiteiten leiden.",
           "enable_repeaters": "Maakt voor elke AVM-repeater in het thuisnetwerk een eigen apparaat met verbindingsstatus aan, bij ingeschakelde FRITZ!Box-bediening ook met een herstartknop. Ook komt er een mesh-sensor (FRITZ!Box + repeaters) en, met bediening, de knop \"Alle FRITZ!-apparaten herstarten\". Herkend worden apparaten waarvan het model \"Repeater\" bevat.",
           "enable_controls": "Maakt schakelaars voor de wifi-banden (2,4 GHz, 5 GHz, gast) en voor het wifi-MAC-filter aan, plus knoppen voor opnieuw verbinden, herstarten en het starten van een koppelmoment (MAC-filter tijdelijk uit), en bij ingeschakelde repeater-apparaten een herstartknop per repeater. Beschikbaarheid en toewijzing hangen af van het model.",

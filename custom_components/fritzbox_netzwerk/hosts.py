@@ -22,7 +22,9 @@ ueberall ``.get()``.
 from __future__ import annotations
 
 import re
+import sys
 from typing import Any, Final
+from xml.etree import ElementTree
 
 TRUE_STRINGS = {"1", "true", "yes", "on", "granted"}
 
@@ -80,6 +82,91 @@ def mac_key(mac: Any) -> str:
     if not mac:
         return ""
     return "".join(ch for ch in str(mac) if ch.isalnum()).lower()
+
+
+# --- Hersteller aus der MAC-Adresse (OUI) --------------------------------
+
+# Praefixe, die das IEEE selbst als Verwalter fuehrt: Der eigentliche Inhaber
+# steht dann in den kleineren MA-M/MA-S-Registern, die hier nicht enthalten
+# sind. Ein Treffer waere keine Auskunft, deshalb gilt der Hersteller als
+# unbekannt.
+UNRESOLVED_OWNERS: Final = frozenset({"ieee registration authority"})
+
+_OUI_PREFIX = re.compile(r"[0-9A-F]{6}")
+
+
+def mac_prefix(mac: Any) -> str:
+    """Die ersten drei Byte einer MAC-Adresse (6 Hex-Zeichen, gross), sonst ``""``."""
+    prefix = mac_key(mac).upper()[:6]
+    return prefix if _OUI_PREFIX.fullmatch(prefix) else ""
+
+
+def is_random_mac(mac: Any) -> bool:
+    """Ob die MAC-Adresse "lokal verwaltet" ist (Bit 0x02 im ersten Byte).
+
+    Registrierte Hersteller-Praefixe haben dieses Bit praktisch nie gesetzt
+    (nur eine Handvoll Altlasten aus den Anfangsjahren, siehe ``apply_vendors``).
+    Gesetzt ist es bei zufaelligen Adressen ("Private WLAN-Adresse" bei iPhone
+    und Android, Windows), aber auch bei manchen virtuellen Geraeten (Docker,
+    VMs). Ein Hersteller laesst sich daraus nicht ableiten.
+    """
+    prefix = mac_prefix(mac)
+    return bool(prefix) and bool(int(prefix[:2], 16) & 0x02)
+
+
+def parse_oui(lines: Any) -> dict[str, str]:
+    """Liest Zeilen der Form ``AABBCC:Herstellername`` in ein Woerterbuch.
+
+    Leere Zeilen, Kommentare (``#``) und unbrauchbare Zeilen werden
+    uebersprungen. Bei doppelten Praefixen gilt der letzte Eintrag.
+    """
+    table: dict[str, str] = {}
+    for line in lines:
+        text = str(line).strip()
+        if not text or text.startswith("#"):
+            continue
+        prefix, sep, name = text.partition(":")
+        prefix = prefix.strip().upper()
+        name = " ".join(name.split())
+        if not sep or not name or not _OUI_PREFIX.fullmatch(prefix):
+            continue
+        if name.lower() in UNRESOLVED_OWNERS:
+            continue
+        # Viele Praefixe teilen sich einen Namen - einmal ablegen spart Speicher.
+        table[prefix] = sys.intern(name)
+    return table
+
+
+def load_oui(path: str) -> dict[str, str]:
+    """Laedt eine OUI-Datei (blockierend, im Executor aufrufen)."""
+    with open(path, encoding="utf-8", errors="replace") as handle:
+        return parse_oui(handle)
+
+
+def vendor_for(mac: Any, oui: dict[str, str] | None) -> str:
+    """Hersteller zu einer MAC-Adresse; leer, wenn unbekannt."""
+    if not oui:
+        return ""
+    return oui.get(mac_prefix(mac), "")
+
+
+def apply_vendors(
+    hosts: list[dict[str, Any]], oui: dict[str, str] | None
+) -> list[dict[str, Any]]:
+    """Ergaenzt den Hersteller anhand der MAC-Adresse.
+
+    Steht ein Praefix in der Tabelle, ist es KEINE zufaellige Adresse - auch
+    dann nicht, wenn das "lokal verwaltet"-Bit gesetzt ist: Aus der Fruehzeit
+    der Registrierung gibt es einige solcher Eintraege (etwa alte 3Com-Karten).
+    """
+    if not oui:
+        return hosts
+    for host in hosts:
+        vendor = vendor_for(host["mac"], oui)
+        host["vendor"] = vendor
+        if vendor:
+            host["mac_random"] = False
+    return hosts
 
 
 def ip_sort_key(ip: Any) -> tuple[int, ...]:
@@ -172,9 +259,17 @@ def normalize_host(raw: dict[str, Any]) -> dict[str, Any]:
         "name_writeable": as_bool(raw.get("X_AVM-DE_FriendlyNameIsWriteable")),
         "ip": str(raw.get("IPAddress") or "").strip(),
         "mac": mac,
+        # Wird in ``apply_vendors()`` ergaenzt. ``mac_random`` steht dagegen
+        # fest: zufaellige (private) Adressen haben keinen Hersteller.
+        "vendor": "",
+        "mac_random": is_random_mac(mac),
         "active": as_bool(raw.get("Active")),
         "connection": kind,
         "connection_label": connection_label(kind, port, guest),
+        # Wird in ``apply_bands()`` ergaenzt: Funkband, in dem das Geraet gerade
+        # verbunden ist ("2.4", "5" oder "6"), sonst "" (LAN, offline oder
+        # nicht ermittelbar).
+        "band": "",
         "port": port,
         "speed": as_int(raw.get("X_AVM-DE_Speed")),
         "guest": guest,
@@ -345,17 +440,134 @@ def apply_last_seen(
     return hosts
 
 
+# --- WLAN-Band je Geraet -------------------------------------------------
+
+BAND_2_4: Final = "2.4"
+BAND_5: Final = "5"
+BAND_6: Final = "6"
+
+
+def frequency_band(value: Any) -> str:
+    """Wandelt die Frequenzangabe der FRITZ!Box in ``"2.4"``, ``"5"`` oder ``"6"``.
+
+    Laut AVM-Beschreibung meldet ``NewX_AVM-DE_FrequencyBand`` 2400, 5000
+    oder 6000. Weitere Schreibweisen ("5GHz", "2,4 GHz") werden ebenfalls
+    erkannt; alles andere - auch "unknown" - ergibt ``""``.
+    """
+    if value is None or isinstance(value, bool):
+        return ""
+    text = str(value).strip().lower().replace(",", ".").replace(" ", "")
+    if text.startswith(("2.4", "24")):
+        return BAND_2_4
+    if text.startswith("5"):
+        return BAND_5
+    if text.startswith("6"):
+        return BAND_6
+    return ""
+
+
+def band_from_channel(channel: Any) -> str:
+    """Band anhand der Kanalnummer: 1-14 = 2,4 GHz, 32-177 = 5 GHz, sonst ``""``.
+
+    Bei 6 GHz ueberschneiden sich die Kanalnummern mit denen der anderen
+    Baender - dort entscheidet allein die Angabe des Dienstes.
+    """
+    number = as_int(channel, 0)
+    if 1 <= number <= 14:
+        return BAND_2_4
+    if 32 <= number <= 177:
+        return BAND_5
+    return ""
+
+
+def device_band(service_band: str, channel: Any) -> str:
+    """Band eines WLAN-Geraets aus Dienst-Band und Kanal.
+
+    Meldet der Dienst ausdruecklich 6 GHz, gilt das fuer alle seine Geraete.
+    Sonst zeigt der Kanal des Geraets das Band verlaesslich. So wird auch das
+    Gast-WLAN richtig eingeordnet, dessen Dienst kein eigenes Band melden
+    muss. Fehlt der Kanal, bleibt die Angabe des Dienstes.
+    """
+    if service_band == BAND_6:
+        return BAND_6
+    return band_from_channel(channel) or service_band
+
+
+def list_path(result: dict[str, Any] | None) -> str:
+    """Pfad aus der Antwort einer ``...GetXxxListPath``-Aktion.
+
+    Der Ausgabeparameter heisst je Dienst anders (``NewX_AVM-DE_HostListPath``,
+    ``NewX_AVM-DE_WLANDeviceListPath`` ...). Deshalb zaehlt der erste nicht leere
+    Wert, dessen Name auf ``Path`` endet. Ohne Treffer kommt ``""`` zurueck.
+    """
+    for key, value in (result or {}).items():
+        if str(key).lower().endswith("path") and str(value or "").strip():
+            return str(value).strip()
+    return ""
+
+
+def parse_wlan_device_list(text: str) -> list[dict[str, str]]:
+    """Liest die XML-Liste der WLAN-Geraete (``X_AVM-DE_GetWLANDeviceListPath``).
+
+    Ergebnis ist je ``<Item>`` ein Dictionary mit den Tagnamen als Schluessel
+    (``AssociatedDeviceMACAddress``, ``AssociatedDeviceChannel`` ...). Ungueltiges
+    XML loest ``xml.etree.ElementTree.ParseError`` aus.
+    """
+    root = ElementTree.fromstring(text)
+    items: list[dict[str, str]] = []
+    for item in root.iter("Item"):
+        entry = {child.tag: (child.text or "").strip() for child in item}
+        if entry:
+            items.append(entry)
+    return items
+
+
+def wlan_bands(devices: list[dict[str, str]], service_band: str) -> dict[str, str]:
+    """Ordnet die Geraete einer WLAN-Liste ihrem Band zu (``mac_key`` -> Band)."""
+    bands: dict[str, str] = {}
+    for entry in devices or []:
+        key = mac_key(entry.get("AssociatedDeviceMACAddress"))
+        if not key:
+            continue
+        band = device_band(service_band, entry.get("AssociatedDeviceChannel"))
+        if band:
+            bands[key] = band
+    return bands
+
+
+def apply_bands(
+    hosts: list[dict[str, Any]], bands: dict[str, str] | None
+) -> list[dict[str, Any]]:
+    """Ergaenzt das Funkband anhand des MAC-Schluessels.
+
+    Geraete, die in keiner WLAN-Liste stehen (LAN, offline, oder ein Client
+    hinter einem Repeater, den die Box nicht selbst versorgt), behalten ``""``.
+    """
+    if not bands:
+        return hosts
+    for host in hosts:
+        band = bands.get(mac_key(host["mac"]))
+        if band:
+            host["band"] = band
+    return hosts
+
+
 def build_hosts(
     raw_hosts: list[dict[str, Any]],
     address_sources: dict[str, dict[str, Any]] | None = None,
     ha_devices: dict[str, dict[str, str]] | None = None,
     last_seen: dict[str, str] | None = None,
     pool: tuple[int, int] | None = None,
+    oui: dict[str, str] | None = None,
+    bands: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """Baut die vollstaendige, sortierte Hostliste fuer das Sensorattribut.
 
     ``pool`` ist der DHCP-Bereich der Box (siehe ``dhcp_pool``) und dient der
-    Einordnung fest/dynamisch.
+    Einordnung fest/dynamisch. ``oui`` ist die Herstellertabelle (siehe
+    ``load_oui``); ohne sie bleibt ``vendor`` leer. ``bands`` ordnet MAC-
+    Schluessel dem WLAN-Band zu (siehe ``wlan_bands``); ohne sie bleibt ``band``
+    leer.
 
     Sortiert wird nach IP-Adresse (numerisch). Eintraege ohne MAC-Adresse
     werden verworfen - sie sind Karteileichen der FRITZ!Box und wuerden in
@@ -369,6 +581,8 @@ def build_hosts(
     apply_address_sources(hosts, address_sources)
     apply_ha_devices(hosts, ha_devices)
     apply_last_seen(hosts, last_seen)
+    apply_vendors(hosts, oui)
+    apply_bands(hosts, bands)
     for host in hosts:
         host["ip_class"] = classify_ip(host, pool)
     hosts.sort(key=lambda host: ip_sort_key(host["ip"]))

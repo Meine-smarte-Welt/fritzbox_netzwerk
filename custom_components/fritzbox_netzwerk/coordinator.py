@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 from datetime import datetime, timedelta
 from typing import Any, Final
+from xml.etree.ElementTree import ParseError
 
 from fritzconnection import FritzConnection
 from fritzconnection.core.exceptions import (
@@ -33,11 +35,13 @@ from .const import (
     CONF_ADDRESS_SOURCE_INTERVAL,
     CONF_SCAN_INTERVAL,
     CONF_TRACK_ADDRESS_SOURCE,
+    CONF_TRACK_WLAN_BAND,
     CONF_USE_TLS,
     DEFAULT_ADDRESS_SOURCE_INTERVAL,
     DEFAULT_PAIRING_MINUTES,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TRACK_ADDRESS_SOURCE,
+    DEFAULT_TRACK_WLAN_BAND,
     DEFAULT_USE_TLS,
     DOMAIN,
     CONF_PAIRING_MINUTES,
@@ -51,10 +55,14 @@ from .hosts import (
     as_bool,
     build_hosts,
     dhcp_pool,
+    frequency_band,
     is_mac_filter_band,
+    list_path,
+    load_oui,
     mac_key,
     mesh_members,
     mesh_reboot_plan,
+    parse_wlan_device_list,
     reconnect_plan,
     set_config_arguments,
     summarize,
@@ -62,6 +70,7 @@ from .hosts import (
     to_mbit_per_s,
     upnp_error_code,
     wan_kind,
+    wlan_bands,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -85,6 +94,15 @@ PAIRING_RETRY_SECONDS: Final = 60
 
 # Dienste, die den MAC-Filter tragen: Hauptband(er), nicht das Gast-WLAN.
 MAC_FILTER_SERVICES: Final = (1, 2)
+
+# WLAN-Band je Geraet: hoechster abgefragter WLANConfiguration-Dienst (AVM
+# beschreibt bis zu vier: drei Funkmodule plus Gast) und Zeitlimit fuer den
+# Abruf der Geraeteliste (Sekunden).
+WLAN_BAND_MAX_SERVICE: Final = 4
+WLAN_LIST_TIMEOUT: Final = 10
+
+# Herstellertabelle (OUI), die mit der Integration ausgeliefert wird.
+OUI_FILE: Final = os.path.join(os.path.dirname(__file__), "data", "oui.txt")
 
 
 class MacFilterUnsupported(FritzConnectionException):
@@ -120,6 +138,16 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # DHCP-Bereich der Box (erste, letzte Adresse als Zahl); wird mit der
         # IP-Typ-Abfrage aktualisiert und dient der Einordnung fest/dynamisch.
         self._dhcp_pool: tuple[int, int] | None = None
+
+        # WLAN-Band je Geraet: Frequenzband je WLANConfiguration-Dienst (wird
+        # einmal gelesen) und Dienste, die die Box nicht hat.
+        self._wlan_service_band: dict[int, str] = {}
+        self._wlan_service_absent: set[int] = set()
+
+        # Herstellertabelle (MAC-Praefix -> Name); wird einmal beim Start
+        # geladen, siehe ``async_load_oui``. Bleibt sie leer, fehlt nur die
+        # Herstellerangabe.
+        self._oui: dict[str, str] = {}
 
         # Verbindungsdaten (Down/Up). FritzStatus teilt sich die Verbindung
         # mit FritzHosts. Fehlt der WAN-Dienst (z. B. FRITZ!Box im reinen
@@ -172,6 +200,11 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return self.entry.options.get(
             CONF_TRACK_ADDRESS_SOURCE, DEFAULT_TRACK_ADDRESS_SOURCE
         )
+
+    @property
+    def track_wlan_band(self) -> bool:
+        """Ob das WLAN-Band je Geraet erfasst werden soll."""
+        return self.entry.options.get(CONF_TRACK_WLAN_BAND, DEFAULT_TRACK_WLAN_BAND)
 
     @property
     def address_source_interval(self) -> timedelta:
@@ -236,7 +269,9 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _fetch(
         self,
-    ) -> tuple[list[dict[str, Any]], bool, dict[str, Any] | None, dict[str, bool]]:
+    ) -> tuple[
+        list[dict[str, Any]], bool, dict[str, Any] | None, dict[str, bool], dict[str, str]
+    ]:
         """Blockierender Teil des Abrufs, laeuft im Executor."""
         raw_hosts = self.fritz_hosts.get_hosts_attributes()
         refreshed = False
@@ -246,7 +281,60 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             refreshed = True
         connection = self._fetch_connection()
         wlan = self._fetch_wlan() if self._controls_enabled else {}
-        return raw_hosts, refreshed, connection, wlan
+        bands = self._fetch_wlan_bands() if self.track_wlan_band else {}
+        return raw_hosts, refreshed, connection, wlan, bands
+
+    def _fetch_wlan_bands(self) -> dict[str, str]:
+        """Ordnet WLAN-Geraete ihrem Funkband zu (``mac_key`` -> "2.4"/"5"/"6").
+
+        Je vorhandenem WLAN-Dienst ein SOAP-Aufruf (Pfad der Geraeteliste)
+        plus ein Abruf der XML-Liste; das Frequenzband des Dienstes wird nur
+        beim ersten Mal gelesen. Jeder Fehler ist hier harmlos: es fehlt dann
+        nur die Bandangabe, die Aktualisierung der Geraeteliste laeuft weiter.
+        """
+        bands: dict[str, str] = {}
+        fc = self.fritz_hosts.fc
+        for index in range(1, WLAN_BAND_MAX_SERVICE + 1):
+            if index in self._wlan_service_absent:
+                continue
+            service = f"WLANConfiguration{index}"
+            try:
+                if index not in self._wlan_service_band:
+                    info = self.call_action(service, "GetInfo")
+                    self._wlan_service_band[index] = frequency_band(
+                        info.get("NewX_AVM-DE_FrequencyBand")
+                    )
+                path = list_path(
+                    self.call_action(service, "X_AVM-DE_GetWLANDeviceListPath")
+                )
+                if not path:
+                    continue
+                with fc.session.get(
+                    f"{fc.address}:{fc.port}{path}", timeout=WLAN_LIST_TIMEOUT
+                ) as response:
+                    if not response.ok:
+                        _LOGGER.debug(
+                            "WLAN-Geraeteliste %s: HTTP %s", index, response.status_code
+                        )
+                        continue
+                    text = response.text
+                bands.update(
+                    wlan_bands(
+                        parse_wlan_device_list(text), self._wlan_service_band[index]
+                    )
+                )
+            except FritzServiceError:
+                # Diesen WLAN-Dienst gibt es an der Box nicht.
+                self._wlan_service_absent.add(index)
+            except (
+                FritzConnectionException,
+                RequestException,
+                ParseError,
+                KeyError,
+                ValueError,
+            ) as err:
+                _LOGGER.debug("WLAN-Band (%s) nicht ermittelbar: %s", service, err)
+        return bands
 
     @property
     def _controls_enabled(self) -> bool:
@@ -871,7 +959,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Holt die Geraeteliste und reichert sie an."""
         try:
-            raw_hosts, refreshed, connection, wlan = (
+            raw_hosts, refreshed, connection, wlan, bands = (
                 await self.hass.async_add_executor_job(self._fetch)
             )
         except (FritzSecurityError, FritzAuthorizationError) as err:
@@ -898,6 +986,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._ha_device_map(),
             self._last_seen,
             self._dhcp_pool if self.track_address_source else None,
+            self._oui,
+            bands,
         )
 
         return {
@@ -914,6 +1004,22 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ),
             "track_address_source": self.track_address_source,
         }
+
+    # -- Hersteller (OUI) -------------------------------------------------
+
+    async def async_load_oui(self) -> None:
+        """Laedt die Herstellertabelle beim Start (im Executor, einmalig).
+
+        Ein Fehler beim Lesen ist kein Grund, die Integration scheitern zu
+        lassen: ohne Tabelle fehlt nur die Spalte "Hersteller".
+        """
+        try:
+            self._oui = await self.hass.async_add_executor_job(load_oui, OUI_FILE)
+        except OSError as err:
+            _LOGGER.warning("Herstellertabelle %s nicht lesbar: %s", OUI_FILE, err)
+            self._oui = {}
+            return
+        _LOGGER.debug("Herstellertabelle geladen: %s Eintraege", len(self._oui))
 
     # -- "Zuletzt gesehen" ------------------------------------------------
 

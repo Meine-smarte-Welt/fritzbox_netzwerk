@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.5.3";
+const FBN_VERSION = "1.6.0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -43,6 +43,10 @@ const CONFIG_DEFAULTS = {
   show_model: false,
   show_type: false,
   show_last_seen: false,
+  // Hersteller zur MAC-Adresse (aus der mitgelieferten OUI-Tabelle).
+  show_vendor: false,
+  // Funkband (2,4 / 5 / 6 GHz), in dem ein WLAN-Gerät gerade verbunden ist.
+  show_band: false,
 
   // Darstellung
   show_summary: true,
@@ -57,10 +61,20 @@ const CONFIG_DEFAULTS = {
   filter_gast: true,
   filter_gesperrt: true,
   filter_update: true,
+  // Nur Geräte mit fester oder reservierter IP-Adresse (aktiv und inaktiv).
+  filter_fest: true,
   // Welcher Filter beim Laden/Neuöffnen aktiv ist. Standardmäßig
   // "aktiv" (vorher "alle"); über den Editor oder default_filter änderbar.
   default_filter: "aktiv",
   hide_inactive: false,
+  // IP-Filter mit Platzhaltern: zeigt nur Geräte, deren IP-Adresse passt.
+  // Mehrere Muster mit Komma, Semikolon oder Leerzeichen trennen; "*" steht
+  // für beliebig viele, "?" für genau ein Zeichen, "!" vor einem Muster
+  // schließt Treffer aus. Leer = alle Geräte. Beispiel: "192.168.2.*".
+  ip_filter: "",
+  // Klick auf die MAC-Adresse in der Tabelle kopiert sie (statt das Popup zu
+  // öffnen). Im Popup bleibt der Kopier-Knopf in jedem Fall.
+  mac_click_copies: true,
   compact: false,
   max_rows: 0,
   // Höchstzahl gleichzeitig sichtbarer Zeilen; darüber wird der
@@ -97,6 +111,7 @@ const CONFIG_DEFAULTS = {
   color_cat_gast: "",
   color_cat_gesperrt: "",
   color_cat_update: "",
+  color_cat_fest: "",
 };
 
 /**
@@ -108,7 +123,9 @@ const COLUMNS = [
   { key: "name", cfg: "show_name", label: "Gerät", prio: 1, sortable: true },
   { key: "ip", cfg: "show_ip", label: "IP-Adresse", prio: 1, sortable: true },
   { key: "mac", cfg: "show_mac", label: "MAC-Adresse", prio: 3, sortable: true },
+  { key: "vendor", cfg: "show_vendor", label: "Hersteller", prio: 3, sortable: true },
   { key: "connection", cfg: "show_connection", label: "Verbindung", prio: 2, sortable: true },
+  { key: "band", cfg: "show_band", label: "Funkband", prio: 3, sortable: true },
   { key: "ha_name", cfg: "show_ha_name", label: "Home Assistant", prio: 2, sortable: true },
   { key: "ip_type", cfg: "show_ip_type", label: "IP-Typ", prio: 3, sortable: true },
   { key: "wan", cfg: "show_wan", label: "Internet", prio: 3, sortable: true, align: "center" },
@@ -126,6 +143,7 @@ const FILTERS = [
   { key: "gast", label: "Gast", icon: "mdi:account-question" },
   { key: "gesperrt", label: "Gesperrt", icon: "mdi:web-off" },
   { key: "update", label: "Update", icon: "mdi:package-down" },
+  { key: "fest", label: "Feste IP", icon: "mdi:ip-network-outline" },
 ];
 
 /**
@@ -140,9 +158,9 @@ const I18N = {
     "col.connection": "Verbindung", "col.ha_name": "Home Assistant",
     "col.ip_type": "IP-Typ", "col.wan": "Internet", "col.update": "Update",
     "col.speed": "Tempo", "col.model": "Modell", "col.type": "Gerätetyp",
-    "col.last_seen": "Zuletzt online", "col.status": "Status",
+    "col.last_seen": "Zuletzt online", "col.status": "Status", "col.vendor": "Hersteller", "col.band": "Funkband",
     "flt.alle": "Alle", "flt.aktiv": "Aktiv", "flt.inaktiv": "Inaktiv",
-    "flt.gast": "Gast", "flt.gesperrt": "Gesperrt", "flt.update": "Update",
+    "flt.gast": "Gast", "flt.gesperrt": "Gesperrt", "flt.update": "Update", "flt.fest": "Feste IP",
     "search.placeholder": "Name, IP oder MAC", "search.aria": "Geräte durchsuchen",
     "empty.none": "Keine Geräte gefunden.",
     "empty.sensor": "Der Sensor {entity} ist nicht verfügbar.",
@@ -167,6 +185,7 @@ const I18N = {
     "btn.web": "Weboberfläche öffnen", "btn.ha": "In Home Assistant öffnen",
     "btn.block": "Internet sperren", "btn.unblock": "Internet freigeben",
     "btn.wol": "Aufwecken (WoL)", "btn.close": "Schließen",
+    "btn.rename": "Umbenennen", "btn.save": "Speichern", "btn.cancel": "Abbrechen",
     "act.blocking": "Sperre …", "act.unblocking": "Gebe frei …",
     "act.blocked": "Gesperrt", "act.unblocked": "Freigegeben",
     "act.failed": "Fehlgeschlagen", "act.wol_sent": "Signal gesendet",
@@ -179,21 +198,26 @@ const I18N = {
     "tip.ls_unknown": "Seit Installation der Integration nicht als online erfasst",
     "tip.ls_last": "Zuletzt online: {ts}", "tip.sort": "Nach {label} sortieren",
     "arrow.left": "Nach links blättern", "arrow.right": "Nach rechts blättern",
-    "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} von {total} online", "ctl.mesh_reboot": "Alle neu starten", "ctl.mesh_reboot_confirm": "Alle wirklich neu starten?", "ctl.mesh_reboot_tip": "FRITZ!Box und alle Repeater neu starten (erst die Repeater, dann die Box)", "ctl.throughput": "Aktueller Durchsatz (Download / Upload)", "ctl.wlan_24": "WLAN 2,4 GHz", "ctl.wlan_5": "WLAN 5 GHz", "ctl.wlan_guest": "Gast-WLAN", "ctl.reconnect": "Neu verbinden", "ctl.reboot": "Neustart", "ctl.reboot_confirm": "Wirklich neu starten?", "ctl.mac_filter": "MAC-Filter", "ctl.mac_filter_tip": "WLAN-Zugang auf bekannte Geräte beschränken", "ctl.pairing": "Pairing starten", "ctl.pairing_tip": "MAC-Filter kurz ausschalten, damit sich ein neues Gerät anmelden kann", "ctl.pairing_until": "Pairing bis {time}", "ctl.pairing_end_tip": "Klicken: Filter sofort wieder einschalten",
+    "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} von {total} online", "ctl.mesh_reboot": "Alle neu starten", "ctl.mesh_reboot_confirm": "Alle wirklich neu starten?", "ctl.mesh_reboot_tip": "FRITZ!Box und alle Repeater neu starten (erst die Repeater, dann die Box)", "ctl.throughput": "Aktueller Durchsatz (Download / Upload)", "ctl.wlan_24": "WLAN 2,4 GHz", "ctl.wlan_5": "WLAN 5 GHz", "ctl.wlan_guest": "Gast-WLAN", "ctl.reconnect": "Neu verbinden", "ctl.reconnect_confirm": "Wirklich neu verbinden?", "ctl.reboot": "Neustart", "ctl.reboot_confirm": "Wirklich neu starten?", "ctl.mac_filter": "MAC-Filter", "ctl.mac_filter_tip": "WLAN-Zugang auf bekannte Geräte beschränken", "ctl.pairing": "Pairing starten", "ctl.pairing_confirm": "Wirklich starten?", "ctl.pairing_tip": "MAC-Filter kurz ausschalten, damit sich ein neues Gerät anmelden kann", "ctl.pairing_until": "Pairing bis {time}", "ctl.pairing_end_tip": "Klicken: Filter sofort wieder einschalten",
     "field.tracker": "Anwesenheit", "tracker.home": "zuhause", "tracker.away": "abwesend", "tracker.open": "Tracker öffnen",
     "tracker.unknown": "unbekannt", "tracker.disabled": "Entität deaktiviert",
     "tracker.disabled_hint": "Die Tracker-Entität ist in Home Assistant deaktiviert – hier klicken und im Zahnrad-Dialog aktivieren.",
     "tracker.off": "nicht aktiviert",
     "tracker.off_hint": "Device Tracker einschalten unter: Einstellungen → Geräte & Dienste → FRITZ!Box Netzwerk → Konfigurieren.", "tab.network": "Netzwerk", "tab.controls": "Steuerung",
+    "field.band": "Funkband", "band.24": "2,4 GHz", "band.5": "5 GHz", "band.6": "6 GHz",
+    "field.vendor": "Hersteller", "vendor.random": "Zufällige MAC",
+    "vendor.random_tip": "Zufällige (private) MAC-Adresse – meist die „Private WLAN-Adresse“ eines Smartphones oder Tablets. Einen Hersteller kann man daraus nicht ablesen.",
+    "tip.copy": "Klicken zum Kopieren", "copy.done": "{value} kopiert",
+    "copy.failed": "Kopieren nicht möglich – bitte den Wert markieren und mit Strg+C kopieren.",
   },
   en: {
     "col.name": "Device", "col.ip": "IP address", "col.mac": "MAC address",
     "col.connection": "Connection", "col.ha_name": "Home Assistant",
     "col.ip_type": "IP type", "col.wan": "Internet", "col.update": "Update",
     "col.speed": "Speed", "col.model": "Model", "col.type": "Device type",
-    "col.last_seen": "Last seen", "col.status": "Status",
+    "col.last_seen": "Last seen", "col.status": "Status", "col.vendor": "Manufacturer", "col.band": "Wi-Fi band",
     "flt.alle": "All", "flt.aktiv": "Active", "flt.inaktiv": "Inactive",
-    "flt.gast": "Guest", "flt.gesperrt": "Blocked", "flt.update": "Update",
+    "flt.gast": "Guest", "flt.gesperrt": "Blocked", "flt.update": "Update", "flt.fest": "Fixed IP",
     "search.placeholder": "Name, IP or MAC", "search.aria": "Search devices",
     "empty.none": "No devices found.",
     "empty.sensor": "The sensor {entity} is unavailable.",
@@ -218,6 +242,7 @@ const I18N = {
     "btn.web": "Open web interface", "btn.ha": "Open in Home Assistant",
     "btn.block": "Block internet", "btn.unblock": "Allow internet",
     "btn.wol": "Wake (WoL)", "btn.close": "Close",
+    "btn.rename": "Rename", "btn.save": "Save", "btn.cancel": "Cancel",
     "act.blocking": "Blocking …", "act.unblocking": "Allowing …",
     "act.blocked": "Blocked", "act.unblocked": "Allowed",
     "act.failed": "Failed", "act.wol_sent": "Signal sent",
@@ -230,21 +255,26 @@ const I18N = {
     "tip.ls_unknown": "Not seen online since the integration was installed",
     "tip.ls_last": "Last seen: {ts}", "tip.sort": "Sort by {label}",
     "arrow.left": "Scroll left", "arrow.right": "Scroll right",
-    "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} of {total} online", "ctl.mesh_reboot": "Restart all", "ctl.mesh_reboot_confirm": "Really restart all?", "ctl.mesh_reboot_tip": "Restart the FRITZ!Box and all repeaters (repeaters first, then the box)", "ctl.throughput": "Current throughput (download / upload)", "ctl.wlan_24": "Wi-Fi 2.4 GHz", "ctl.wlan_5": "Wi-Fi 5 GHz", "ctl.wlan_guest": "Guest Wi-Fi", "ctl.reconnect": "Reconnect", "ctl.reboot": "Reboot", "ctl.reboot_confirm": "Really reboot?", "ctl.mac_filter": "MAC filter", "ctl.mac_filter_tip": "Restrict Wi-Fi access to known devices", "ctl.pairing": "Start pairing", "ctl.pairing_tip": "Turn the MAC filter off briefly so a new device can join", "ctl.pairing_until": "Pairing until {time}", "ctl.pairing_end_tip": "Click: turn the filter back on now",
+    "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} of {total} online", "ctl.mesh_reboot": "Restart all", "ctl.mesh_reboot_confirm": "Really restart all?", "ctl.mesh_reboot_tip": "Restart the FRITZ!Box and all repeaters (repeaters first, then the box)", "ctl.throughput": "Current throughput (download / upload)", "ctl.wlan_24": "Wi-Fi 2.4 GHz", "ctl.wlan_5": "Wi-Fi 5 GHz", "ctl.wlan_guest": "Guest Wi-Fi", "ctl.reconnect": "Reconnect", "ctl.reconnect_confirm": "Really reconnect?", "ctl.reboot": "Reboot", "ctl.reboot_confirm": "Really reboot?", "ctl.mac_filter": "MAC filter", "ctl.mac_filter_tip": "Restrict Wi-Fi access to known devices", "ctl.pairing": "Start pairing", "ctl.pairing_confirm": "Really start?", "ctl.pairing_tip": "Turn the MAC filter off briefly so a new device can join", "ctl.pairing_until": "Pairing until {time}", "ctl.pairing_end_tip": "Click: turn the filter back on now",
     "field.tracker": "Presence", "tracker.home": "home", "tracker.away": "away", "tracker.open": "Open tracker",
     "tracker.unknown": "unknown", "tracker.disabled": "entity disabled",
     "tracker.disabled_hint": "The tracker entity is disabled in Home Assistant – click here and enable it in the settings dialog.",
     "tracker.off": "not enabled",
     "tracker.off_hint": "Enable the device tracker under: Settings → Devices & services → FRITZ!Box Netzwerk → Configure.", "tab.network": "Network", "tab.controls": "Controls",
+    "field.band": "Wi-Fi band", "band.24": "2.4 GHz", "band.5": "5 GHz", "band.6": "6 GHz",
+    "field.vendor": "Manufacturer", "vendor.random": "Random MAC",
+    "vendor.random_tip": "Random (private) MAC address \u2013 usually the \u201cPrivate Wi-Fi address\u201d of a smartphone or tablet. No manufacturer can be derived from it.",
+    "tip.copy": "Click to copy", "copy.done": "{value} copied",
+    "copy.failed": "Copying is not possible \u2013 please select the value and copy it with Ctrl+C.",
   },
   nl: {
     "col.name": "Apparaat", "col.ip": "IP-adres", "col.mac": "MAC-adres",
     "col.connection": "Verbinding", "col.ha_name": "Home Assistant",
     "col.ip_type": "IP-type", "col.wan": "Internet", "col.update": "Update",
     "col.speed": "Snelheid", "col.model": "Model", "col.type": "Apparaattype",
-    "col.last_seen": "Laatst online", "col.status": "Status",
+    "col.last_seen": "Laatst online", "col.status": "Status", "col.vendor": "Fabrikant", "col.band": "Wifi-band",
     "flt.alle": "Alle", "flt.aktiv": "Actief", "flt.inaktiv": "Inactief",
-    "flt.gast": "Gast", "flt.gesperrt": "Geblokkeerd", "flt.update": "Update",
+    "flt.gast": "Gast", "flt.gesperrt": "Geblokkeerd", "flt.update": "Update", "flt.fest": "Vast IP",
     "search.placeholder": "Naam, IP of MAC", "search.aria": "Apparaten zoeken",
     "empty.none": "Geen apparaten gevonden.",
     "empty.sensor": "De sensor {entity} is niet beschikbaar.",
@@ -269,6 +299,7 @@ const I18N = {
     "btn.web": "Webinterface openen", "btn.ha": "In Home Assistant openen",
     "btn.block": "Internet blokkeren", "btn.unblock": "Internet toestaan",
     "btn.wol": "Wekken (WoL)", "btn.close": "Sluiten",
+    "btn.rename": "Naam wijzigen", "btn.save": "Opslaan", "btn.cancel": "Annuleren",
     "act.blocking": "Blokkeren …", "act.unblocking": "Toestaan …",
     "act.blocked": "Geblokkeerd", "act.unblocked": "Toegestaan",
     "act.failed": "Mislukt", "act.wol_sent": "Signaal verzonden",
@@ -281,12 +312,17 @@ const I18N = {
     "tip.ls_unknown": "Sinds installatie van de integratie niet online gezien",
     "tip.ls_last": "Laatst online: {ts}", "tip.sort": "Sorteren op {label}",
     "arrow.left": "Naar links bladeren", "arrow.right": "Naar rechts bladeren",
-    "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} van {total} online", "ctl.mesh_reboot": "Alles herstarten", "ctl.mesh_reboot_confirm": "Echt alles herstarten?", "ctl.mesh_reboot_tip": "FRITZ!Box en alle repeaters herstarten (eerst de repeaters, dan de box)", "ctl.throughput": "Huidige doorvoer (download / upload)", "ctl.wlan_24": "Wifi 2,4 GHz", "ctl.wlan_5": "Wifi 5 GHz", "ctl.wlan_guest": "Gast-wifi", "ctl.reconnect": "Opnieuw verbinden", "ctl.reboot": "Herstart", "ctl.reboot_confirm": "Echt herstarten?", "ctl.mac_filter": "MAC-filter", "ctl.mac_filter_tip": "Wifi-toegang beperken tot bekende apparaten", "ctl.pairing": "Koppelen starten", "ctl.pairing_tip": "MAC-filter kort uitschakelen zodat een nieuw apparaat zich kan aanmelden", "ctl.pairing_until": "Koppelen tot {time}", "ctl.pairing_end_tip": "Klik: filter meteen weer inschakelen",
+    "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} van {total} online", "ctl.mesh_reboot": "Alles herstarten", "ctl.mesh_reboot_confirm": "Echt alles herstarten?", "ctl.mesh_reboot_tip": "FRITZ!Box en alle repeaters herstarten (eerst de repeaters, dan de box)", "ctl.throughput": "Huidige doorvoer (download / upload)", "ctl.wlan_24": "Wifi 2,4 GHz", "ctl.wlan_5": "Wifi 5 GHz", "ctl.wlan_guest": "Gast-wifi", "ctl.reconnect": "Opnieuw verbinden", "ctl.reconnect_confirm": "Echt opnieuw verbinden?", "ctl.reboot": "Herstart", "ctl.reboot_confirm": "Echt herstarten?", "ctl.mac_filter": "MAC-filter", "ctl.mac_filter_tip": "Wifi-toegang beperken tot bekende apparaten", "ctl.pairing": "Koppelen starten", "ctl.pairing_confirm": "Echt starten?", "ctl.pairing_tip": "MAC-filter kort uitschakelen zodat een nieuw apparaat zich kan aanmelden", "ctl.pairing_until": "Koppelen tot {time}", "ctl.pairing_end_tip": "Klik: filter meteen weer inschakelen",
     "field.tracker": "Aanwezigheid", "tracker.home": "thuis", "tracker.away": "afwezig", "tracker.open": "Tracker openen",
     "tracker.unknown": "onbekend", "tracker.disabled": "entiteit uitgeschakeld",
     "tracker.disabled_hint": "De trackerentiteit is uitgeschakeld in Home Assistant – klik hier en schakel deze in via het instellingenvenster.",
     "tracker.off": "niet ingeschakeld",
     "tracker.off_hint": "Device tracker inschakelen via: Instellingen → Apparaten & diensten → FRITZ!Box Netzwerk → Configureren.", "tab.network": "Netwerk", "tab.controls": "Bediening",
+    "field.band": "Wifi-band", "band.24": "2,4 GHz", "band.5": "5 GHz", "band.6": "6 GHz",
+    "field.vendor": "Fabrikant", "vendor.random": "Willekeurig MAC",
+    "vendor.random_tip": "Willekeurig (privé) MAC-adres \u2013 meestal het \u201cPrivé wifi-adres\u201d van een smartphone of tablet. Er is geen fabrikant uit af te leiden.",
+    "tip.copy": "Klik om te kopiëren", "copy.done": "{value} gekopieerd",
+    "copy.failed": "Kopiëren niet mogelijk \u2013 selecteer de waarde en kopieer met Ctrl+C.",
   },
 };
 
@@ -340,6 +376,7 @@ const COLOR_FALLBACKS = {
   color_cat_gast: "inherit",
   color_cat_gesperrt: "inherit",
   color_cat_update: "inherit",
+  color_cat_fest: "inherit",
 };
 
 const COLOR_EDITOR_FIELDS = [
@@ -361,6 +398,7 @@ const COLOR_EDITOR_FIELDS = [
   { key: "color_cat_gast", label: "Symbol Kategorie „Gast“" },
   { key: "color_cat_gesperrt", label: "Symbol Kategorie „Gesperrt“" },
   { key: "color_cat_update", label: "Symbol Kategorie „Update“" },
+  { key: "color_cat_fest", label: "Symbol Kategorie „Feste IP“" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -414,6 +452,112 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/**
+ * Kopiert Text in die Zwischenablage; liefert ein Promise<boolean>.
+ *
+ * Die moderne Zwischenablage-API (navigator.clipboard) gibt es nur in
+ * "sicheren Kontexten" (HTTPS oder localhost). Wer Home Assistant per
+ * http://192.168.x.x:8123 aufruft, hat sie nicht - dort schlug das Kopieren
+ * bis 1.6.0b0 stumm fehl. Deshalb der Rueckfall ueber ein verstecktes
+ * Textfeld und document.execCommand("copy"). Der Rueckfall laeuft
+ * SYNCHRON (ohne vorheriges await), weil Safari ihn nur innerhalb der
+ * Klick-Behandlung erlaubt.
+ */
+async function copyToClipboard(text, container) {
+  const value = String(text ?? "");
+  if (!value) return false;
+  const api = typeof navigator !== "undefined" ? navigator.clipboard : null;
+  if (api && typeof api.writeText === "function" && window.isSecureContext !== false) {
+    try {
+      await api.writeText(value);
+      return true;
+    } catch (err) {
+      // Berechtigung verweigert o. ä. - weiter mit dem Rueckfall.
+    }
+  }
+  return legacyCopy(value, container);
+}
+
+/** Rueckfall: Text in ein verstecktes Feld setzen, markieren, "copy". */
+function legacyCopy(value, container) {
+  const active = document.activeElement;
+  const area = document.createElement("textarea");
+  area.value = value;
+  area.setAttribute("readonly", "");
+  area.setAttribute("aria-hidden", "true");
+  area.style.cssText =
+    "position:fixed;top:0;left:0;width:1px;height:1px;padding:0;border:0;opacity:0;pointer-events:none;";
+  (container || document.body).appendChild(area);
+  let ok = false;
+  try {
+    area.focus({ preventScroll: true });
+    area.select();
+    area.setSelectionRange(0, value.length);
+    ok = typeof document.execCommand === "function" && document.execCommand("copy") === true;
+  } catch (err) {
+    ok = false;
+  }
+  area.remove();
+  try {
+    if (active && typeof active.focus === "function") active.focus({ preventScroll: true });
+  } catch (err) {
+    // Fokus konnte nicht zurueckgegeben werden - unkritisch.
+  }
+  return ok;
+}
+
+/**
+ * Wandelt ein Muster mit Platzhaltern in einen regulaeren Ausdruck um:
+ * "*" = beliebig viele Zeichen, "?" = genau ein Zeichen. Alles andere wird
+ * woertlich genommen (der Punkt einer IP-Adresse ist also KEIN Platzhalter).
+ * Mit ``anchored`` muss das Muster den ganzen Text treffen (IP-Filter),
+ * sonst genuegt ein Treffer irgendwo im Text (Suchfeld).
+ */
+function wildcardToRegExp(pattern, anchored) {
+  const body = String(pattern)
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*/g, ".*")
+    .replace(/\?/g, ".");
+  return new RegExp(anchored ? `^${body}$` : body, "i");
+}
+
+/**
+ * Zerlegt die Angabe ``ip_filter`` (Text oder Liste) in Treffer- und
+ * Ausschlussmuster. Getrennt wird an Komma, Semikolon und Leerraum; ein
+ * fuehrendes "!" macht aus einem Muster einen Ausschluss. Liefert null,
+ * wenn nichts zu filtern ist.
+ */
+function parseIpFilter(value) {
+  const text = Array.isArray(value) ? value.join(",") : String(value ?? "");
+  const include = [];
+  const exclude = [];
+  for (const token of text.split(/[\s,;]+/)) {
+    if (!token) continue;
+    if (token.startsWith("!")) {
+      const rest = token.slice(1);
+      if (rest) exclude.push(wildcardToRegExp(rest, true));
+    } else {
+      include.push(wildcardToRegExp(token, true));
+    }
+  }
+  if (include.length === 0 && exclude.length === 0) return null;
+  return { include, exclude };
+}
+
+/**
+ * Prueft eine IP-Adresse gegen einen geparsten Filter. Ohne Treffermuster
+ * (nur Ausschluesse) gilt jede Adresse als Treffer, die nicht ausgeschlossen
+ * ist. Geraete ohne IP-Adresse fallen bei jedem Treffermuster heraus.
+ */
+function ipMatchesFilter(ip, filter) {
+  if (!filter) return true;
+  const text = String(ip || "").trim();
+  if (filter.include.length > 0 && !filter.include.some((re) => re.test(text))) {
+    return false;
+  }
+  return !filter.exclude.some((re) => re.test(text));
 }
 
 /** Sortierschluessel, der IPv4-Adressen numerisch ordnet. */
@@ -530,8 +674,18 @@ function sortValue(host, key) {
       return ipSortKey(host.ip);
     case "mac":
       return String(host.mac || "");
+    case "vendor":
+      // Ohne Hersteller ans Ende; zufällige Adressen vor den ganz unbekannten.
+      return host.vendor
+        ? `0${String(host.vendor).toLowerCase()}`
+        : host.mac_random
+        ? "1"
+        : "2";
     case "connection":
       return String(host.connection_label || "").toLowerCase();
+    case "band":
+      // 2,4 vor 5 vor 6 GHz; Geräte ohne Angabe ans Ende.
+      return { "2.4": 0, "5": 1, "6": 2 }[host.band] ?? 3;
     case "ha_name":
       // Geraete ohne Home-Assistant-Zuordnung ans Ende sortieren.
       return host.ha_name ? `0${String(host.ha_name).toLowerCase()}` : "1";
@@ -573,6 +727,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._hass = null;
     this._search = "";
     this._filter = "alle";
+    this._scopeCache = null;
     this._tab = "network";
     // Ob der Leerzustands-Hinweis inhaltlich faellig waere. Getrennt vom
     // hidden-Attribut gefuehrt, damit der Tab-Wechsel ihn korrekt wieder
@@ -595,6 +750,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._popupMac = null;
     this._popupReturnFocus = null;
     this._onPopupKeydown = null;
+    // Umbenennen im Popup: waehrend der Bearbeitung wird das Popup nicht
+    // neu aufgebaut (siehe _refreshPopup()), sonst ginge die Eingabe bei
+    // jedem Hintergrund-Update (Polling) verloren.
+    this._popupEditingName = false;
+    this._popupNameDraft = "";
   }
 
   /* -- Lovelace-Schnittstelle -------------------------------------- */
@@ -696,11 +856,32 @@ class FritzboxNetzwerkCard extends HTMLElement {
     return this._hass.states[this._config.entity] || null;
   }
 
-  _hosts() {
+  /** Alle Geräte des Sensors, unabhängig vom IP-Filter dieser Karte. */
+  _allHosts() {
     const state = this._stateObj();
     if (!state || !state.attributes) return [];
     const hosts = state.attributes.hosts;
     return Array.isArray(hosts) ? hosts : [];
+  }
+
+  /**
+   * Die Geräte im Geltungsbereich dieser Karte: alle, oder - bei gesetztem
+   * ``ip_filter`` - nur die mit passender IP-Adresse. Filterleiste, Suche,
+   * Zusammenfassung und Popup arbeiten alle auf dieser Auswahl. Das Ergebnis
+   * wird je Sensorzustand und Filtertext zwischengespeichert, weil die Karte
+   * es pro Aktualisierung mehrfach abfragt.
+   */
+  _hosts() {
+    const all = this._allHosts();
+    const spec = this._config.ip_filter;
+    const key = Array.isArray(spec) ? spec.join(",") : String(spec ?? "");
+    const cache = this._scopeCache;
+    if (cache && cache.source === all && cache.key === key) return cache.hosts;
+
+    const filter = parseIpFilter(spec);
+    const hosts = filter ? all.filter((host) => ipMatchesFilter(host.ip, filter)) : all;
+    this._scopeCache = { source: all, key, hosts };
+    return hosts;
   }
 
   /** Erkennt, ob sich an den angezeigten Daten ueberhaupt etwas geaendert hat. */
@@ -710,9 +891,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
         [
           host.mac,
           host.ip,
+          host.vendor,
           host.name,
           host.active ? 1 : 0,
           host.connection_label,
+          host.band,
           host.ha_name,
           host.static_ip,
           host.blocked ? 1 : 0,
@@ -721,6 +904,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
         ].join("|")
       )
       .join("~");
+  }
+
+  /** Beschriftung des Funkbands ("2,4 GHz" ...) oder leer, wenn unbekannt. */
+  _bandLabel(host) {
+    const key = { "2.4": "band.24", "5": "band.5", "6": "band.6" }[host && host.band];
+    return key ? this._t(key) : "";
   }
 
   _visibleColumns() {
@@ -751,15 +940,24 @@ class FritzboxNetzwerkCard extends HTMLElement {
       case "update":
         hosts = hosts.filter((host) => host.update_available);
         break;
+      case "fest":
+        // Fest = am Gerät eingestellt oder von der Box reserviert (siehe
+        // ip_class in hosts.py); aktive und inaktive Geräte.
+        hosts = hosts.filter((host) => host.ip_class === "fixed");
+        break;
       default:
         break;
     }
 
     if (search) {
+      // Enthält die Eingabe "*" oder "?", gilt sie als Muster mit
+      // Platzhaltern (z. B. "192.168.2.*" oder "drucker*"); sonst wie bisher
+      // als einfacher Textausschnitt.
+      const wildcard = /[*?]/.test(search) ? wildcardToRegExp(search, false) : null;
       hosts = hosts.filter((host) =>
-        [host.name, host.ip, host.mac, host.ha_name, host.model, host.host_name]
+        [host.name, host.ip, host.mac, host.vendor, this._bandLabel(host), host.ha_name, host.model, host.host_name]
           .map((value) => String(value || "").toLowerCase())
-          .some((value) => value.includes(search))
+          .some((value) => (wildcard ? wildcard.test(value) : value.includes(search)))
       );
     }
 
@@ -1100,7 +1298,18 @@ class FritzboxNetzwerkCard extends HTMLElement {
       return;
     }
     const state = this._stateObj();
-    const attributes = (state && state.attributes) || {};
+    let attributes = (state && state.attributes) || {};
+    // Mit IP-Filter beziehen sich die Zahlen nur auf die Geräte dieser Karte,
+    // nicht auf das ganze Netz - sie werden dann aus der Auswahl gezählt.
+    if (parseIpFilter(this._config.ip_filter)) {
+      const scoped = this._hosts();
+      attributes = {
+        gesamt: scoped.length,
+        aktiv: scoped.filter((host) => host.active).length,
+        updates_verfuegbar: scoped.filter((host) => host.update_available).length,
+        gesperrt: scoped.filter((host) => host.blocked).length,
+      };
+    }
     const shown = this._filteredHosts().length;
     const parts = [
       this._t("sum.devices", { n: attributes.gesamt || 0 }),
@@ -1184,7 +1393,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // Pairing nur anbieten, solange der Filter an ist und kein Pairing laeuft.
     if (controls && controls.pairing && controls.mac_filter_on === true && !controls.pairing_ends) {
       parts.push(`
-        <button class="fbn-ctl-btn fbn-ctl-pairing" type="button"
+        <button class="fbn-ctl-btn fbn-ctl-pairing" type="button" data-armed="0"
                 data-entity="${escapeHtml(controls.pairing)}"
                 title="${escapeHtml(this._t("ctl.pairing_tip"))}">
           <ha-icon icon="mdi:shield-key"></ha-icon><span>${escapeHtml(this._t("ctl.pairing"))}</span>
@@ -1192,7 +1401,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     }
     if (controls && controls.reconnect) {
       parts.push(`
-        <button class="fbn-ctl-btn fbn-ctl-reconnect" type="button"
+        <button class="fbn-ctl-btn fbn-ctl-reconnect" type="button" data-armed="0"
                 data-entity="${escapeHtml(controls.reconnect)}">
           <ha-icon icon="mdi:restart"></ha-icon><span>${escapeHtml(this._t("ctl.reconnect"))}</span>
         </button>`);
@@ -1371,39 +1580,42 @@ class FritzboxNetzwerkCard extends HTMLElement {
       this._hass.callService("switch", "toggle", { entity_id: mac.dataset.entity });
       return;
     }
-    const pairing = event.target.closest(".fbn-ctl-pairing");
-    if (pairing) {
-      this._pressButton(pairing);
-      return;
-    }
-    const reconnect = event.target.closest(".fbn-ctl-reconnect");
-    if (reconnect) {
-      this._pressButton(reconnect);
-      return;
-    }
-    const reboot = event.target.closest(".fbn-ctl-reboot, .fbn-ctl-reboot-mesh");
-    if (reboot) {
-      // Zwei-Klick-Bestaetigung: der erste Klick "schaerft" den Button.
-      const mesh = reboot.classList.contains("fbn-ctl-reboot-mesh");
-      const label = mesh ? "ctl.mesh_reboot" : "ctl.reboot";
-      const confirm = mesh ? "ctl.mesh_reboot_confirm" : "ctl.reboot_confirm";
-      if (reboot.dataset.armed !== "1") {
-        reboot.dataset.armed = "1";
-        reboot.classList.add("fbn-ctl-armed");
-        reboot.querySelector("span").textContent = this._t(confirm);
-        clearTimeout(reboot._fbnTimer);
-        reboot._fbnTimer = setTimeout(() => {
-          reboot.dataset.armed = "0";
-          reboot.classList.remove("fbn-ctl-armed");
-          const span = reboot.querySelector("span");
+    // Pairing, Neu verbinden, Neustart (Box) und Neustart (Mesh) greifen tief in
+    // die Netzwerkverbindung ein - ein versehentlicher Klick (Finger, Katze,
+    // Touchscreen) darf sie nicht sofort auslösen. Alle vier verlangen deshalb
+    // dieselbe Zwei-Klick-Bestaetigung: der erste Klick "schaerft" den Button
+    // (Beschriftung wechselt zur Rueckfrage, 4 s Zeitfenster), erst der zweite
+    // Klick loest die Aktion aus.
+    const armable = event.target.closest(
+      ".fbn-ctl-pairing, .fbn-ctl-reconnect, .fbn-ctl-reboot, .fbn-ctl-reboot-mesh"
+    );
+    if (armable) {
+      const key = armable.classList.contains("fbn-ctl-reboot-mesh")
+        ? "mesh_reboot"
+        : armable.classList.contains("fbn-ctl-reboot")
+        ? "reboot"
+        : armable.classList.contains("fbn-ctl-reconnect")
+        ? "reconnect"
+        : "pairing";
+      const label = `ctl.${key}`;
+      const confirm = `ctl.${key}_confirm`;
+      if (armable.dataset.armed !== "1") {
+        armable.dataset.armed = "1";
+        armable.classList.add("fbn-ctl-armed");
+        armable.querySelector("span").textContent = this._t(confirm);
+        clearTimeout(armable._fbnTimer);
+        armable._fbnTimer = setTimeout(() => {
+          armable.dataset.armed = "0";
+          armable.classList.remove("fbn-ctl-armed");
+          const span = armable.querySelector("span");
           if (span) span.textContent = this._t(label);
         }, 4000);
         return;
       }
-      clearTimeout(reboot._fbnTimer);
-      reboot.dataset.armed = "0";
-      reboot.classList.remove("fbn-ctl-armed");
-      this._pressButton(reboot);
+      clearTimeout(armable._fbnTimer);
+      armable.dataset.armed = "0";
+      armable.classList.remove("fbn-ctl-armed");
+      this._pressButton(armable);
     }
   }
 
@@ -1478,6 +1690,13 @@ class FritzboxNetzwerkCard extends HTMLElement {
           this._openDevice(haLink.dataset.device);
           return;
         }
+        // Klick auf die MAC-Adresse kopiert sie, oeffnet aber kein Popup.
+        const macCell = event.target.closest(".fbn-maccopy");
+        if (macCell) {
+          event.stopPropagation();
+          this._copyFromCell(macCell);
+          return;
+        }
         // Klick auf den IP-Link oeffnet die Weboberflaeche, nicht das Popup.
         if (event.target.closest("a")) return;
         const row = event.target.closest("tr[data-mac]");
@@ -1489,6 +1708,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
         if (haLink) {
           event.preventDefault();
           this._openDevice(haLink.dataset.device);
+          return;
+        }
+        // Enter/Leertaste auf der fokussierten MAC-Adresse kopiert sie.
+        const macCell = event.target.closest(".fbn-maccopy");
+        if (macCell) {
+          event.preventDefault();
+          event.stopPropagation();
+          this._copyFromCell(macCell);
           return;
         }
         // Enter auf dem fokussierten IP-Link folgt dem Link.
@@ -1617,8 +1844,31 @@ class FritzboxNetzwerkCard extends HTMLElement {
                 >${escapeHtml(host.ip)}<ha-icon class="fbn-iplink-icon" icon="mdi:open-in-new"></ha-icon></a>`;
       }
 
-      case "mac":
-        return `<span class="fbn-mono fbn-dim">${escapeHtml(host.mac || "—")}</span>`;
+      case "mac": {
+        if (!host.mac) return '<span class="fbn-mono fbn-dim">—</span>';
+        if (!this._config.mac_click_copies) {
+          return `<span class="fbn-mono fbn-dim">${escapeHtml(host.mac)}</span>`;
+        }
+        // Klick kopiert die Adresse; der Zeilen-Handler öffnet dann NICHT
+        // zusätzlich das Popup (siehe "fbn-maccopy" in _renderBody).
+        return `<span class="fbn-mono fbn-dim fbn-maccopy" role="button" tabindex="0"
+                      data-copy="${escapeHtml(host.mac)}"
+                      title="${escapeHtml(this._t("tip.copy"))}">${escapeHtml(host.mac)}</span>`;
+      }
+
+      case "band": {
+        const label = this._bandLabel(host);
+        return label ? `<span>${escapeHtml(label)}</span>` : '<span class="fbn-dim">—</span>';
+      }
+
+      case "vendor":
+        if (host.vendor) return `<span class="fbn-vendor">${escapeHtml(host.vendor)}</span>`;
+        if (host.mac_random) {
+          return `<span class="fbn-dim" title="${escapeHtml(
+            this._t("vendor.random_tip")
+          )}">${escapeHtml(this._t("vendor.random"))}</span>`;
+        }
+        return '<span class="fbn-dim">—</span>';
 
       case "connection":
         return escapeHtml(this._connLabel(host));
@@ -1724,6 +1974,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._closePopup();
     this._popupMac = host.mac;
     this._popupReturnFocus = returnFocusEl || null;
+    this._popupEditingName = false;
+    this._popupNameDraft = "";
 
     const overlay = document.createElement("div");
     overlay.className = "fbn-overlay";
@@ -1756,6 +2008,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._onPopupKeydown = (event) => {
       if (event.key === "Escape") {
         event.stopPropagation();
+        // Waehrend der Namensbearbeitung soll Escape nur die Eingabe
+        // verwerfen (auch wenn der Fokus auf Speichern/Abbrechen steht,
+        // nicht im Eingabefeld selbst) - nicht das ganze Popup schliessen.
+        if (this._popupEditingName) {
+          const host = this._hosts().find((item) => item.mac === this._popupMac);
+          if (host) this._cancelNameEdit(host);
+          return;
+        }
         this._closePopup();
       }
     };
@@ -1789,7 +2049,17 @@ class FritzboxNetzwerkCard extends HTMLElement {
       }
       return;
     }
+    // Waehrend der Nutzer einen neuen Namen eingibt, wird das Popup NICHT
+    // neu aufgebaut - sonst ginge die Eingabe bei jedem Hintergrund-Update
+    // (Polling, i. d. R. alle paar Sekunden bis Minuten) verloren. Speichern
+    // und Abbrechen bauen danach ausdruecklich ueber _renderPopupContent()
+    // neu auf, an dieser Bremse vorbei.
+    if (this._popupEditingName) return;
+    this._renderPopupContent(host);
+  }
 
+  /** Baut Titel, Zeilen und Fusszeile des Popups fuer ein Geraet neu auf. */
+  _renderPopupContent(host) {
     const title = this._popup.querySelector(".fbn-modal-title");
     const sub = this._popup.querySelector(".fbn-modal-sub");
     title.textContent = host.name;
@@ -1848,9 +2118,140 @@ class FritzboxNetzwerkCard extends HTMLElement {
       );
     }
 
+    // Umbenennen: Stift startet die Bearbeitung, das Eingabefeld merkt sich
+    // den Entwurf laufend, Haken/Enter speichert, Kreuz/Escape verwirft.
+    const nameEditBtn = this._popup.querySelector(".fbn-name-edit-btn");
+    if (nameEditBtn) {
+      nameEditBtn.addEventListener("click", () => {
+        this._popupEditingName = true;
+        this._popupNameDraft = host.name;
+        this._renderPopupContent(host);
+        const input = this._popup.querySelector(".fbn-name-input");
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      });
+    }
+    const nameInput = this._popup.querySelector(".fbn-name-input");
+    if (nameInput) {
+      nameInput.addEventListener("input", () => {
+        this._popupNameDraft = nameInput.value;
+      });
+      nameInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          this._saveDeviceName(host);
+        } else if (event.key === "Escape") {
+          // Nicht das ganze Popup schliessen (das macht der Handler am
+          // Overlay) - nur die Bearbeitung verwerfen.
+          event.stopPropagation();
+          this._cancelNameEdit(host);
+        }
+      });
+    }
+    const nameSaveBtn = this._popup.querySelector(".fbn-name-save");
+    if (nameSaveBtn) {
+      nameSaveBtn.addEventListener("click", () => this._saveDeviceName(host));
+    }
+    const nameCancelBtn = this._popup.querySelector(".fbn-name-cancel");
+    if (nameCancelBtn) {
+      nameCancelBtn.addEventListener("click", () => this._cancelNameEdit(host));
+    }
+
     // Schliessen in der Fusszeile.
     const footClose = this._popup.querySelector(".fbn-modal-close2");
     if (footClose) footClose.addEventListener("click", () => this._closePopup());
+  }
+
+  /** Bricht die Namensbearbeitung im Popup ab, ohne zu speichern. */
+  _cancelNameEdit(host) {
+    this._popupEditingName = false;
+    this._popupNameDraft = "";
+    this._renderPopupContent(host);
+  }
+
+  /**
+   * Speichert den im Popup eingegebenen neuen Geraetenamen ueber den Dienst
+   * ``fritzbox_netzwerk.set_device_name``. Der Coordinator fragt danach
+   * selbst neu ab (siehe __init__.py); bis die Antwort da ist, zeigt das
+   * Popup den eingegebenen Namen schon an, ohne die Kartendaten selbst zu
+   * aendern - das naechste reguläre Update bringt den bestaetigten Stand.
+   */
+  _saveDeviceName(host) {
+    if (!this._hass || !host.mac) return;
+    const input = this._popup && this._popup.querySelector(".fbn-name-input");
+    const value = (input ? input.value : this._popupNameDraft || "").trim();
+    if (!value || value === host.name) {
+      // Nichts zu speichern (leer oder unveraendert) - nur die Eingabe
+      // schliessen, ohne die FRITZ!Box anzusprechen.
+      this._cancelNameEdit(host);
+      return;
+    }
+    if (input) input.disabled = true;
+    const saveBtn = this._popup.querySelector(".fbn-name-save");
+    const cancelBtn = this._popup.querySelector(".fbn-name-cancel");
+    if (saveBtn) saveBtn.disabled = true;
+    if (cancelBtn) cancelBtn.disabled = true;
+    this._hass
+      .callService("fritzbox_netzwerk", "set_device_name", {
+        mac: host.mac,
+        name: value,
+      })
+      .then(() => {
+        this._popupEditingName = false;
+        this._popupNameDraft = "";
+        const wrap = this._popup && this._popup.querySelector(".fbn-name-edit");
+        if (wrap) {
+          wrap.outerHTML = `${escapeHtml(value)}<span class="fbn-namebtn fbn-name-saved" aria-hidden="true"><ha-icon icon="mdi:check"></ha-icon></span>`;
+        }
+        const title = this._popup && this._popup.querySelector(".fbn-modal-title");
+        if (title) title.textContent = value;
+      })
+      .catch(() => {
+        if (input) input.disabled = false;
+        if (saveBtn) saveBtn.disabled = false;
+        if (cancelBtn) cancelBtn.disabled = false;
+        this.dispatchEvent(
+          new CustomEvent("hass-notification", {
+            detail: { message: this._t("act.failed") },
+            bubbles: true,
+            composed: true,
+          })
+        );
+      });
+  }
+
+  /**
+   * HTML fuer die Namenszeile im Popup: reiner Text, wenn die FRITZ!Box den
+   * Namen nicht ueber TR-064 aendern laesst (``name_writeable``); sonst Text
+   * mit Stift-Knopf, bzw. - waehrend der Bearbeitung - ein Eingabefeld mit
+   * Speichern/Abbrechen.
+   */
+  _nameFieldHtml(host) {
+    if (!host.name_writeable) return escapeHtml(host.name);
+    if (this._popupEditingName) {
+      return `
+        <span class="fbn-name-edit">
+          <input class="fbn-name-input" type="text"
+                 value="${escapeHtml(this._popupNameDraft)}"
+                 aria-label="${escapeHtml(this._t("field.name"))}">
+          <button class="fbn-namebtn fbn-name-save" type="button"
+                  title="${escapeHtml(this._t("btn.save"))}"
+                  aria-label="${escapeHtml(this._t("btn.save"))}">
+            <ha-icon icon="mdi:check"></ha-icon>
+          </button>
+          <button class="fbn-namebtn fbn-name-cancel" type="button"
+                  title="${escapeHtml(this._t("btn.cancel"))}"
+                  aria-label="${escapeHtml(this._t("btn.cancel"))}">
+            <ha-icon icon="mdi:close"></ha-icon>
+          </button>
+        </span>`;
+    }
+    return `${escapeHtml(host.name)}<button class="fbn-namebtn fbn-name-edit-btn" type="button"
+              title="${escapeHtml(this._t("btn.rename"))}"
+              aria-label="${escapeHtml(this._t("btn.rename"))}">
+              <ha-icon icon="mdi:pencil"></ha-icon></button>`;
   }
 
   /** Definitionsliste aller Felder eines Geraets. */
@@ -1873,10 +2274,21 @@ class FritzboxNetzwerkCard extends HTMLElement {
         </div>`);
     };
 
-    add(this._t("field.name"), escapeHtml(host.name));
+    add(this._t("field.name"), this._nameFieldHtml(host));
     add(this._t("col.ip"), escapeHtml(host.ip), { mono: true, copy: host.ip });
     add(this._t("col.mac"), escapeHtml(host.mac), { mono: true, copy: host.mac });
+    add(
+      this._t("field.vendor"),
+      host.vendor
+        ? escapeHtml(host.vendor)
+        : host.mac_random
+        ? `<span title="${escapeHtml(this._t("vendor.random_tip"))}">${escapeHtml(
+            this._t("vendor.random")
+          )}</span>`
+        : ""
+    );
     add(this._t("col.connection"), escapeHtml(this._connLabel(host)));
+    if (host.band) add(this._t("field.band"), escapeHtml(this._bandLabel(host)));
     add(
       this._t("field.status"),
       host.active ? this._t("state.connected") : this._t("state.disconnected")
@@ -2029,18 +2441,40 @@ class FritzboxNetzwerkCard extends HTMLElement {
     return buttons.join("");
   }
 
-  /** Kopiert einen Wert in die Zwischenablage, mit kurzer Rueckmeldung. */
-  _copy(value, button) {
-    const done = () => {
-      const icon = button.querySelector("ha-icon");
-      if (icon) icon.setAttribute("icon", "mdi:check");
-      setTimeout(() => {
-        if (icon) icon.setAttribute("icon", "mdi:content-copy");
-      }, 1200);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(value).then(done).catch(() => {});
-    }
+  /**
+   * Kopiert einen Wert in die Zwischenablage und meldet das Ergebnis mit
+   * einer Einblendung von Home Assistant ("hass-notification").
+   * Liefert ein Promise<boolean>.
+   */
+  async _copyValue(value) {
+    // Ein offenes Popup ist modal: der Hilfsknoten muss darin liegen, damit
+    // der Fokus dort bleibt.
+    const ok = await copyToClipboard(value, this._popup || document.body);
+    this.dispatchEvent(
+      new CustomEvent("hass-notification", {
+        detail: { message: ok ? this._t("copy.done", { value }) : this._t("copy.failed") },
+        bubbles: true,
+        composed: true,
+      })
+    );
+    return ok;
+  }
+
+  /** Kopier-Knopf im Popup: Symbol wechselt kurz auf Haken bzw. Kreuz. */
+  async _copy(value, button) {
+    const ok = await this._copyValue(value);
+    const icon = button.querySelector("ha-icon");
+    if (!icon) return;
+    icon.setAttribute("icon", ok ? "mdi:check" : "mdi:close");
+    setTimeout(() => icon.setAttribute("icon", "mdi:content-copy"), 1200);
+  }
+
+  /** Klick auf eine MAC-Adresse in der Tabelle: kopieren, kurz markieren. */
+  async _copyFromCell(cell) {
+    const ok = await this._copyValue(cell.dataset.copy || "");
+    const cls = ok ? "fbn-copy-ok" : "fbn-copy-fail";
+    cell.classList.add(cls);
+    setTimeout(() => cell.classList.remove(cls), 1200);
   }
 
   /** Ruft den Wake-on-LAN-Dienst der Integration auf. */
@@ -2095,6 +2529,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (this._popup.parentNode) this._popup.parentNode.removeChild(this._popup);
     this._popup = null;
     this._popupMac = null;
+    this._popupEditingName = false;
+    this._popupNameDraft = "";
     const returnTo = this._popupReturnFocus;
     this._popupReturnFocus = null;
     if (returnTo && returnTo.focus && document.contains(returnTo)) {
@@ -2296,6 +2732,13 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
         max-width: 40vw; }
       .fbn-mono { font-family: var(--code-font-family, monospace); font-size: 0.95em; }
+      .fbn-maccopy { cursor: copy; border-bottom: 1px dotted currentColor; }
+      .fbn-maccopy:hover { color: var(--fbn-accent); }
+      .fbn-maccopy:focus-visible { outline: 2px solid var(--fbn-accent); outline-offset: 1px; }
+      .fbn-maccopy.fbn-copy-ok { color: var(--fbn-active); }
+      .fbn-maccopy.fbn-copy-ok::after { content: " \\2713"; }
+      .fbn-maccopy.fbn-copy-fail { color: var(--fbn-blocked); }
+      .fbn-maccopy.fbn-copy-fail::after { content: " \\2715"; }
       .fbn-iplink {
         color: var(--fbn-accent); text-decoration: none;
         display: inline-flex; align-items: center; gap: 3px;
@@ -2398,6 +2841,30 @@ class FritzboxNetzwerkCard extends HTMLElement {
       }
       .fbn-copy:hover { color: var(--primary-color, #03a9f4); }
       .fbn-copy ha-icon { --mdc-icon-size: 16px; width: 16px; height: 16px; }
+      .fbn-namebtn {
+        border: none; background: none; cursor: pointer; padding: 2px;
+        color: var(--secondary-text-color, #727272); display: inline-flex;
+        border-radius: 4px; flex: 0 0 auto;
+      }
+      .fbn-namebtn:hover { color: var(--primary-color, #03a9f4); }
+      .fbn-namebtn ha-icon { --mdc-icon-size: 16px; width: 16px; height: 16px; }
+      .fbn-namebtn[disabled] { opacity: 0.5; cursor: default; }
+      .fbn-name-save { color: var(--success-color, #43a047); }
+      .fbn-name-save:hover { color: var(--success-color, #43a047); }
+      .fbn-name-cancel { color: var(--error-color, #db4437); }
+      .fbn-name-cancel:hover { color: var(--error-color, #db4437); }
+      .fbn-name-saved { color: var(--success-color, #43a047); cursor: default; }
+      .fbn-name-edit {
+        display: inline-flex; align-items: center; gap: 2px;
+        flex: 1 1 auto; min-width: 0; justify-content: flex-end;
+      }
+      .fbn-name-input {
+        flex: 1 1 auto; min-width: 0; max-width: 200px;
+        border: 1px solid var(--divider-color, #e0e0e0); border-radius: 6px;
+        background: var(--card-background-color, var(--ha-card-background, #fff));
+        color: inherit; font: inherit; font-size: 0.95em; padding: 3px 6px;
+      }
+      .fbn-name-input[disabled] { opacity: 0.6; }
       .fbn-modal-foot {
         display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end;
         padding: 12px 16px 16px; border-top: 1px solid var(--divider-color, #e0e0e0);
@@ -2430,6 +2897,7 @@ const EDITOR_SCHEMA = [
   { name: "entity", required: true, selector: { entity: { domain: "sensor" } } },
   { name: "title", selector: { text: {} } },
   { name: "show_title", selector: { boolean: {} } },
+  { name: "ip_filter", selector: { text: {} } },
   {
     name: "language",
     selector: {
@@ -2469,6 +2937,7 @@ const EDITOR_SCHEMA = [
       { name: "show_tabs", selector: { boolean: {} } },
       { name: "hide_inactive", selector: { boolean: {} } },
       { name: "compact", selector: { boolean: {} } },
+      { name: "mac_click_copies", selector: { boolean: {} } },
       { name: "show_details_popup", selector: { boolean: {} } },
       { name: "open_device_on_click", selector: { boolean: {} } },
       { name: "show_scroll_arrows", selector: { boolean: {} } },
@@ -2498,6 +2967,7 @@ const EDITOR_SCHEMA = [
       { name: "filter_gast", selector: { boolean: {} } },
       { name: "filter_gesperrt", selector: { boolean: {} } },
       { name: "filter_update", selector: { boolean: {} } },
+      { name: "filter_fest", selector: { boolean: {} } },
       {
         name: "default_filter",
         selector: {
@@ -2548,6 +3018,7 @@ const EDITOR_LABELS = {
   entity: "Sensor mit der Geräteliste",
   title: "Titel",
   show_title: "Titel anzeigen",
+  ip_filter: "IP-Filter (Platzhalter erlaubt)",
   language: "Sprache der Karte",
   show_status: "Status",
   show_name: "Gerät",
@@ -2562,6 +3033,9 @@ const EDITOR_LABELS = {
   show_model: "Modell",
   show_type: "Gerätetyp",
   show_last_seen: "Zuletzt online",
+  show_vendor: "Hersteller (aus der MAC-Adresse)",
+  show_band: "Funkband (2,4 / 5 GHz)",
+  mac_click_copies: "Klick auf die MAC-Adresse kopiert sie",
   show_summary: "Zusammenfassung anzeigen",
   show_search: "Suchfeld anzeigen",
   show_filter: "Filterleiste anzeigen",
@@ -2573,6 +3047,7 @@ const EDITOR_LABELS = {
   filter_gast: "Button „Gast“",
   filter_gesperrt: "Button „Gesperrt“",
   filter_update: "Button „Update“",
+  filter_fest: "Button „Feste IP“",
   hide_inactive: "Nicht verbundene Geräte ausblenden",
   compact: "Kompakte Zeilen",
   show_details_popup: "Klick öffnet ein Detail-Popup",
@@ -2594,8 +3069,13 @@ const EDITOR_HELPERS = {
   default_filter: "Welcher Filter aktiv ist, wenn die Karte geladen oder neu geöffnet wird (z. B. „Aktiv“). Nach einem Refresh wird nicht mehr auf „Alle“ zurückgesetzt.",
   language: "Sprache der Beschriftungen in der Karte. „Automatisch“ folgt der in Home Assistant eingestellten Sprache (Deutsch, Englisch, Niederländisch).",
   show_title: "Blendet die Kopfzeile der Karte aus, z. B. für ein Popup oder eine kompakte Ansicht.",
+  ip_filter: "Zeigt nur Geräte, deren IP-Adresse passt – so lässt sich das Netz auf mehrere Karten verteilen (z. B. eine Karte „192.168.2.*“ für Drucker, eine „192.168.3.*“ für Lichter). „*“ steht für beliebig viele, „?“ für genau ein Zeichen. Mehrere Muster mit Komma oder Leerzeichen trennen; ein „!“ davor schließt aus (z. B. „192.168.1.* !192.168.1.1“). Leer = alle Geräte. Geräte ohne IP-Adresse werden bei gesetztem Filter nicht angezeigt. Die Zusammenfassung zählt dann nur diese Geräte.",
   show_ip_type: "Braucht die eingeschaltete IP-Typ-Erfassung in den Einstellungen der Integration.",
   show_ha_name: "Zeigt den Gerätenamen aus Home Assistant, sofern das Gerät dort eine MAC-Adresse hinterlegt hat. Ein Klick auf den Namen führt direkt zum Gerät.",
+  show_band: "Zeigt, in welchem WLAN-Band ein Gerät gerade verbunden ist (2,4, 5 oder 6 GHz). Die Integration liest dazu die WLAN-Geräteliste der FRITZ!Box (Einstellung „WLAN-Band je Gerät erfassen“ der Integration). Geräte ohne WLAN-Verbindung zur Box – LAN, offline oder an einem Repeater, den die Box nicht selbst versorgt – zeigen „—“. Nur Anzeige: Ein Gerät einem Band zuzuweisen kann die FRITZ!Box nicht.",
+  filter_fest: "Zeigt nur Geräte mit fester IP-Adresse – am Gerät eingestellt oder von der FRITZ!Box reserviert – aktive und inaktive. Braucht die IP-Typ-Erfassung in den Einstellungen der Integration. Eine Reservierung innerhalb des DHCP-Bereichs meldet die FRITZ!Box nicht; solche Geräte gelten als „dynamisch“.",
+  show_vendor: "Zeigt den Hersteller, der zum Anfang der MAC-Adresse gehört (aus einer mitgelieferten Liste des IEEE, ohne Internetzugriff). Hilft, ein Gerät mit unklarem Namen zu erkennen. Smartphones mit „Privater WLAN-Adresse“ nutzen zufällige Adressen – dort steht „Zufällige MAC“.",
+  mac_click_copies: "Ein Klick auf die MAC-Adresse in der Tabelle kopiert sie in die Zwischenablage, statt das Detail-Popup zu öffnen. Ohne HTTPS nutzt die Karte eine Ausweichmethode; klappt auch die nicht, erscheint ein Hinweis. Im Popup bleibt der Kopier-Knopf.",
   show_last_seen: "Wann ein Gerät zuletzt online war. Die FRITZ!Box liefert das nicht – die Integration schreibt es ab Installation selbst mit und speichert es dauerhaft.",
   show_details_popup: "Zeigt beim Antippen alle Felder eines Geräts, auch die auf schmalen Karten ausgeblendeten wie die MAC-Adresse.",
   open_device_on_click: "Wirkt nur, wenn das Detail-Popup ausgeschaltet ist.",
@@ -2619,12 +3099,21 @@ const EDITOR_TX = {
   en: {
     entity: "Sensor with the device list", title: "Title", show_title: "Show title",
     language: "Card language",
+    ip_filter: "IP filter (wildcards allowed)",
+    help_ip_filter: "Shows only devices whose IP address matches, so the network can be split across several cards (e.g. one card \"192.168.2.*\" for printers, one \"192.168.3.*\" for lights). \"*\" stands for any number of characters, \"?\" for exactly one. Separate several patterns with a comma or space; a leading \"!\" excludes (e.g. \"192.168.1.* !192.168.1.1\"). Empty = all devices. With a filter set, devices without an IP address are not shown. The summary then counts only these devices.",
     show_status: "Status", show_name: "Device", show_ip: "IP address",
     show_mac: "MAC address", show_connection: "Connection",
     show_ha_name: "Home Assistant device name (linked)",
     show_ip_type: "IP type (DHCP or static)", show_wan: "Internet access",
     show_update: "Firmware update", show_speed: "Speed", show_model: "Model",
     show_type: "Device type", show_last_seen: "Last seen",
+    show_vendor: "Manufacturer (from the MAC address)",
+    show_band: "Wi-Fi band (2.4 / 5 GHz)",
+    mac_click_copies: "Clicking the MAC address copies it",
+    help_show_band: "Shows which Wi-Fi band a device is currently connected on (2.4, 5 or 6 GHz). The integration reads the FRITZ!Box Wi-Fi device list for this (integration setting \"Track Wi-Fi band per device\"). Devices without a Wi-Fi connection to the box - wired, offline, or behind a repeater the box does not serve itself - show \"\u2014\". Display only: the FRITZ!Box cannot assign a device to a band.",
+    help_filter_fest: "Shows only devices with a fixed IP address - set on the device or reserved by the FRITZ!Box - active and inactive. Needs IP type tracking in the integration settings. The FRITZ!Box does not report a reservation inside the DHCP range; such devices count as \"dynamic\".",
+    help_show_vendor: "Shows the manufacturer that belongs to the start of the MAC address (from a bundled IEEE list, no internet access needed). Helps to recognize a device with an unclear name. Smartphones with a \u201cPrivate Wi-Fi address\u201d use random addresses \u2013 those show \u201cRandom MAC\u201d.",
+    help_mac_click_copies: "A click on the MAC address in the table copies it to the clipboard instead of opening the detail popup. Without HTTPS the card uses a fallback method; if that fails too, a notice appears. The popup keeps its copy button.",
     show_summary: "Show summary", show_search: "Show search field",
     show_filter: "Show filter bar",
     show_controls: "Show controls bar",
@@ -2633,7 +3122,7 @@ const EDITOR_TX = {
     help_show_controls: "Shows a bar with live download/upload and \u2013 if FRITZ!Box controls are enabled in the integration settings \u2013 Wi-Fi switches, MAC filter/pairing and reconnect/reboot buttons. If there are repeaters, a mesh group (FRITZ!Box + repeaters) with \u201cRestart all\u201d is shown as well.",
     filter_alle: '"All" button', filter_aktiv: '"Active" button',
     filter_inaktiv: '"Inactive" button', filter_gast: '"Guest" button',
-    filter_gesperrt: '"Blocked" button', filter_update: '"Update" button',
+    filter_gesperrt: '"Blocked" button', filter_update: '"Update" button', filter_fest: '"Fixed IP" button',
     hide_inactive: "Hide disconnected devices", compact: "Compact rows",
     show_details_popup: "Click opens a detail popup",
     open_device_on_click: "Click opens the Home Assistant device",
@@ -2671,17 +3160,26 @@ const EDITOR_TX = {
     color_inactive: "Inactive", color_guest: "Guest network",
     color_blocked: "Blocked", color_update: "Update available",
     color_static: "Static IP", color_accent: "Accent (sorting, filter)",
-    color_cat_alle: "Icon category \"All\"", color_cat_aktiv: "Icon category \"Active\"", color_cat_inaktiv: "Icon category \"Inactive\"", color_cat_gast: "Icon category \"Guest\"", color_cat_gesperrt: "Icon category \"Blocked\"", color_cat_update: "Icon category \"Update\"",
+    color_cat_alle: "Icon category \"All\"", color_cat_aktiv: "Icon category \"Active\"", color_cat_inaktiv: "Icon category \"Inactive\"", color_cat_gast: "Icon category \"Guest\"", color_cat_gesperrt: "Icon category \"Blocked\"", color_cat_update: "Icon category \"Update\"", color_cat_fest: "Icon category \"Fixed IP\"",
   },
   nl: {
     entity: "Sensor met de apparaatlijst", title: "Titel", show_title: "Titel tonen",
     language: "Taal van de kaart",
+    ip_filter: "IP-filter (jokertekens toegestaan)",
+    help_ip_filter: "Toont alleen apparaten waarvan het IP-adres overeenkomt, zodat het netwerk over meerdere kaarten kan worden verdeeld (bijv. een kaart \"192.168.2.*\" voor printers, een kaart \"192.168.3.*\" voor lampen). \"*\" staat voor een willekeurig aantal tekens, \"?\" voor precies één teken. Scheid meerdere patronen met een komma of spatie; een \"!\" ervoor sluit uit (bijv. \"192.168.1.* !192.168.1.1\"). Leeg = alle apparaten. Bij een ingesteld filter worden apparaten zonder IP-adres niet getoond. De samenvatting telt dan alleen deze apparaten.",
     show_status: "Status", show_name: "Apparaat", show_ip: "IP-adres",
     show_mac: "MAC-adres", show_connection: "Verbinding",
     show_ha_name: "Home Assistant-apparaatnaam (gelinkt)",
     show_ip_type: "IP-type (DHCP of statisch)", show_wan: "Internettoegang",
     show_update: "Firmware-update", show_speed: "Snelheid", show_model: "Model",
     show_type: "Apparaattype", show_last_seen: "Laatst online",
+    show_vendor: "Fabrikant (uit het MAC-adres)",
+    show_band: "Wifi-band (2,4 / 5 GHz)",
+    mac_click_copies: "Klik op het MAC-adres kopieert het",
+    help_show_band: "Toont op welke wifi-band een apparaat nu verbonden is (2,4, 5 of 6 GHz). De integratie leest hiervoor de wifi-apparatenlijst van de FRITZ!Box (instelling \"Wifi-band per apparaat bijhouden\"). Apparaten zonder wifi-verbinding met de box - bekabeld, offline of achter een repeater die de box niet zelf bedient - tonen \"\u2014\". Alleen weergave: de FRITZ!Box kan een apparaat niet aan een band toewijzen.",
+    help_filter_fest: "Toont alleen apparaten met een vast IP-adres - op het apparaat ingesteld of door de FRITZ!Box gereserveerd - actief en inactief. Vereist het bijhouden van het IP-type in de integratie-instellingen. Een reservering binnen het DHCP-bereik meldt de FRITZ!Box niet; zulke apparaten gelden als \"dynamisch\".",
+    help_show_vendor: "Toont de fabrikant die bij het begin van het MAC-adres hoort (uit een meegeleverde IEEE-lijst, zonder internettoegang). Helpt een apparaat met een onduidelijke naam te herkennen. Smartphones met een \u201cPrivé wifi-adres\u201d gebruiken willekeurige adressen \u2013 daar staat \u201cWillekeurig MAC\u201d.",
+    help_mac_click_copies: "Een klik op het MAC-adres in de tabel kopieert het naar het klembord in plaats van het detailvenster te openen. Zonder HTTPS gebruikt de kaart een terugvalmethode; lukt die ook niet, dan verschijnt een melding. Het detailvenster houdt zijn kopieerknop.",
     show_summary: "Samenvatting tonen", show_search: "Zoekveld tonen",
     show_filter: "Filterbalk tonen",
     show_controls: "Bedieningsbalk tonen",
@@ -2690,7 +3188,7 @@ const EDITOR_TX = {
     help_show_controls: "Toont een balk met live download/upload en \u2013 als de FRITZ!Box-bediening in de integratie-instellingen is ingeschakeld \u2013 wifi-schakelaars, MAC-filter/koppelen en knoppen voor opnieuw verbinden/herstarten. Als er repeaters zijn, verschijnt ook de meshgroep (FRITZ!Box + repeaters) met \u201cAlles herstarten\u201d.",
     filter_alle: 'Knop "Alle"', filter_aktiv: 'Knop "Actief"',
     filter_inaktiv: 'Knop "Inactief"', filter_gast: 'Knop "Gast"',
-    filter_gesperrt: 'Knop "Geblokkeerd"', filter_update: 'Knop "Update"',
+    filter_gesperrt: 'Knop "Geblokkeerd"', filter_update: 'Knop "Update"', filter_fest: 'Knop "Vast IP"',
     hide_inactive: "Niet-verbonden apparaten verbergen", compact: "Compacte rijen",
     show_details_popup: "Klik opent een detailvenster",
     open_device_on_click: "Klik opent het Home Assistant-apparaat",
@@ -2728,7 +3226,7 @@ const EDITOR_TX = {
     color_inactive: "Inactief", color_guest: "Gastnetwerk",
     color_blocked: "Geblokkeerd", color_update: "Update beschikbaar",
     color_static: "Statisch IP", color_accent: "Accent (sorteren, filter)",
-    color_cat_alle: "Pictogram categorie \"Alle\"", color_cat_aktiv: "Pictogram categorie \"Actief\"", color_cat_inaktiv: "Pictogram categorie \"Inactief\"", color_cat_gast: "Pictogram categorie \"Gast\"", color_cat_gesperrt: "Pictogram categorie \"Geblokkeerd\"", color_cat_update: "Pictogram categorie \"Update\"",
+    color_cat_alle: "Pictogram categorie \"Alle\"", color_cat_aktiv: "Pictogram categorie \"Actief\"", color_cat_inaktiv: "Pictogram categorie \"Inactief\"", color_cat_gast: "Pictogram categorie \"Gast\"", color_cat_gesperrt: "Pictogram categorie \"Geblokkeerd\"", color_cat_update: "Pictogram categorie \"Update\"", color_cat_fest: "Pictogram categorie \"Vast IP\"",
   },
 };
 

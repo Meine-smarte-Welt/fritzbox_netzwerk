@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.5.3-blue)
+![Version](https://img.shields.io/badge/Version-1.6.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -23,6 +23,11 @@ passenden Home-Assistant-Gerätenamen.
 - [Dashboard-Karte](#dashboard-karte)
   - [Spalten](#spalten)
   - [Sortieren, filtern, suchen](#sortieren-filtern-suchen)
+  - [IP-Filter: das Netz auf mehrere Karten verteilen](#ip-filter-das-netz-auf-mehrere-karten-verteilen)
+  - [Feste IP: Reservierungen anzeigen](#feste-ip-reservierungen-anzeigen)
+  - [Funkband: 2,4 oder 5 GHz](#funkband-24-oder-5-ghz)
+  - [Hersteller aus der MAC-Adresse](#hersteller-aus-der-mac-adresse)
+  - [MAC-Adresse kopieren](#mac-adresse-kopieren)
   - [Steuerungsleiste und Kategorien als Tabs](#steuerungsleiste-und-kategorien-als-tabs)
   - [Wischen und Blättern auf dem Smartphone](#wischen-und-blättern-auf-dem-smartphone)
   - [IP-Adresse öffnet die Weboberfläche](#ip-adresse-öffnet-die-weboberfläche)
@@ -42,8 +47,17 @@ passenden Home-Assistant-Gerätenamen.
 - Alle bekannten Netzwerkgeräte der FRITZ!Box als **eine** Tabelle im Dashboard
 - **Sortierbar** durch Klick auf jede Spaltenüberschrift, auch per Tastatur
 - **Suchfeld** über Name, IP-Adresse, MAC-Adresse, Modell und Home-Assistant-Namen
-- **Filterleiste**: Alle, Aktiv, Inaktiv, Gast, Gesperrt, Update – jeder Button **einzeln
+- **Filterleiste**: Alle, Aktiv, Inaktiv, Gast, Gesperrt, Update, Feste IP – jeder Button **einzeln
   ausblendbar**
+- **Feste IP** als Filter: alle Geräte mit fester oder reservierter Adresse, aktive und
+  inaktive – mit den Grenzen, die die FRITZ!Box vorgibt
+- **Funkband** (2,4 / 5 GHz) je WLAN-Gerät als Spalte – nur zur Anzeige
+- **Hersteller zur MAC-Adresse** aus einer mitgelieferten Liste – ohne Internetzugriff. Hilft,
+  Geräte mit unklarem Namen zu erkennen; zufällige „Private WLAN-Adressen" werden als solche
+  gekennzeichnet
+- **MAC-Adresse per Klick kopieren**, auch wenn Home Assistant ohne HTTPS aufgerufen wird
+- **IP-Filter mit Platzhaltern** (`192.168.2.*`): je Karte nur die Geräte eines
+  Teilnetzes zeigen – so lässt sich ein großes Netz auf mehrere Karten verteilen
 - **Home-Assistant-Gerätename** je Zeile, automatisch über die MAC-Adresse zugeordnet und
   **als Link zum HA-Gerät**
 - **Detail-Popup** bei Klick auf eine Zeile: zeigt alle Felder eines Geräts – auch die
@@ -128,6 +142,7 @@ statt später still keine Daten zu liefern.
 | Abfrageintervall | 60 s | Wie oft die Geräteliste geholt wird (15–3600 s) |
 | IP-Typ erfassen | an | Ob DHCP/statisch ermittelt wird |
 | Intervall der IP-Typ-Abfrage | 15 min | Takt der IP-Typ-Erfassung |
+| WLAN-Band je Gerät erfassen | an | Liest je WLAN-Netz die Liste der verbundenen Geräte (ein Aufruf pro Netz und Abfrage), damit die Karte das Funkband zeigen kann |
 | Geräte-Tracker anlegen | aus | Ein `device_tracker` je Netzwerkgerät (zuhause/abwesend) |
 | Repeater als eigene Geräte anlegen | an | Ein Home-Assistant-Gerät je AVM-Repeater sowie Mesh-Sensor und „Alle neu starten“-Button, siehe [Mesh](#mesh-fritzbox-und-repeater-als-gruppe) und [Repeater als eigene Geräte](#repeater-als-eigene-geräte) |
 | FRITZ!Box-Steuerung (experimentell) | aus | WLAN-Schalter, MAC-Filter-Schalter, Pairing-Button, Buttons Neuverbinden und Neustart sowie „Alle FRITZ!-Geräte neu starten“ |
@@ -301,7 +316,10 @@ den du nie hattest.
 
 **Die Karte** zeigt in der Steuerungsleiste einen *MAC-Filter*-Chip (gedrückt = Filter an)
 und daneben, solange der Filter an ist, den Button *Pairing*. Läuft ein Pairing, steht im
-Chip „Pairing bis HH:MM“; ein Klick beendet es sofort.
+Chip „Pairing bis HH:MM“; ein Klick beendet es sofort. Der Button *Pairing* selbst verlangt
+zwei Klicks (siehe [Steuerungsleiste](#steuerungsleiste-und-kategorien-als-tabs)) – der
+MAC-Filter-Chip zum Beenden eines laufenden Pairings dagegen nicht, damit sich das Fenster im
+Ernstfall sofort schließen lässt.
 
 **Dienste.**
 
@@ -353,8 +371,10 @@ grafischen Editor einstellen.
 | Status | an | `Active` – farbiger Punkt |
 | Gerät | an | Name aus der FRITZ!Box, samt Abzeichen für Gast, VPN und Priorität |
 | IP-Adresse | an | `IPAddress` |
-| MAC-Adresse | an | `MACAddress` |
+| MAC-Adresse | an | `MACAddress` – ein Klick kopiert sie |
+| Hersteller | aus | Hersteller zum Anfang der MAC-Adresse, aus der mitgelieferten IEEE-Liste |
 | Verbindung | an | `InterfaceType` + Portnummer, z. B. „LAN 2" oder „WLAN (Gast)" |
+| Funkband | aus | WLAN-Band, in dem das Gerät gerade verbunden ist (2,4 / 5 / 6 GHz), aus der WLAN-Geräteliste der Box |
 | Home Assistant | an | Gerätename aus der Geräteregistrierung |
 | IP-Typ | an | fest oder dynamisch, mit Lease-Restzeit (falls gemeldet) |
 | Internet | an | Internetzugang gesperrt (Kindersicherung) |
@@ -386,6 +406,163 @@ Suchfeld und Filterleiste arbeiten zusammen: „Aktiv" plus Suchbegriff zeigt nu
 Geräte, auf die der Begriff passt. Beide Bedienelemente behalten ihren Inhalt, wenn der
 Sensor im Hintergrund neue Daten liefert.
 
+Enthält der Suchbegriff ein `*` oder `?`, gilt er als Muster mit Platzhaltern: `192.168.3.*`
+findet alle Geräte dieses Teilnetzes, `drucker*` alle Namen, in denen „drucker" vorkommt und
+danach beliebig viel folgt. Ohne Platzhalter sucht das Feld wie bisher nach einem
+Textausschnitt.
+
+### IP-Filter: das Netz auf mehrere Karten verteilen
+
+Wer sein Heimnetz in Teilnetze gegliedert hat, muss nicht alle Geräte in einer Tabelle zeigen.
+Der Karten-Editor hat dafür das Feld **IP-Filter** (YAML: `ip_filter`). Die Karte zeigt dann
+nur Geräte, deren IP-Adresse zum Muster passt. Mehrere Karten mit demselben Sensor und
+verschiedenen Filtern ergeben eine Aufteilung nach Bereichen:
+
+```yaml
+type: custom:fritzbox-netzwerk-card
+entity: sensor.fritz_box_netzwerk_gerate
+title: Netzwerk
+ip_filter: "192.168.1.*"
+---
+type: custom:fritzbox-netzwerk-card
+entity: sensor.fritz_box_netzwerk_gerate
+title: Drucker
+ip_filter: "192.168.2.*"
+---
+type: custom:fritzbox-netzwerk-card
+entity: sensor.fritz_box_netzwerk_gerate
+title: Lichter
+ip_filter: "192.168.3.*"
+```
+
+(Drei getrennte Karten – die Trennlinien `---` stehen hier nur zur Übersicht.)
+
+| Schreibweise | Bedeutung |
+| --- | --- |
+| `192.168.2.*` | alle Adressen mit diesem Anfang – `192.168.20.5` gehört **nicht** dazu, denn der Punkt nach der `2` ist Teil des Musters |
+| `192.168.1.1?` | `?` steht für genau ein Zeichen: `192.168.1.10` bis `192.168.1.19` |
+| `192.168.2.* 192.168.3.*` | mehrere Muster – getrennt durch Leerzeichen, Komma oder Semikolon; ein Gerät genügt, wenn **eines** passt |
+| `192.168.1.* !192.168.1.1` | ein `!` davor **schließt aus**: alles aus `192.168.1.*` außer der Box |
+| `!192.168.1.*` | nur Ausschlüsse: alles außer diesem Bereich |
+| *(leer)* | kein Filter, alle Geräte |
+
+Der IP-Filter bestimmt, **welche Geräte diese Karte überhaupt kennt**. Filterleiste (Aktiv,
+Inaktiv …), Suchfeld, Zusammenfassung und Detail-Popup arbeiten innerhalb dieser Auswahl; die
+Zahlen in der Zusammenfassung zählen nur die Geräte der Karte, nicht das ganze Netz. Geräte
+ohne IP-Adresse (etwa lange nicht gesehene Einträge) erscheinen bei gesetztem Treffermuster
+nicht; bei einem reinen Ausschluss-Filter bleiben sie sichtbar.
+
+Der Filter arbeitet **nur in der Karte**. Sensoren, Geräte-Tracker und Zähler der Integration
+sehen weiterhin alle Geräte.
+
+### Feste IP: Reservierungen anzeigen
+
+Die Filterleiste hat den Knopf **Feste IP**. Er zeigt alle Geräte, deren IP-Adresse fest
+vergeben ist – **aktive und inaktive**, nach IP-Adresse sortiert. Mit dem Standardfilter
+`fest` (YAML `default_filter: fest`) startet eine Karte gleich damit; ausblenden lässt sich der
+Knopf mit `filter_fest: false`. Für eine Karte, die nur die festen Adressen als Liste zeigt,
+reicht also:
+
+```yaml
+type: custom:fritzbox-netzwerk-card
+entity: sensor.fritz_box_netzwerk_gerate
+title: Feste IP-Adressen
+default_filter: fest
+show_ip_type: true
+show_last_seen: true    # bei inaktiven Geräten: wann sie zuletzt da waren
+```
+
+**Wichtige Grenze.** Die FRITZ!Box meldet über TR-064 **nicht, welche Geräte eine Reservierung
+haben** („Diesem Netzwerkgerät immer die gleiche IPv4-Adresse zuweisen"). Als *fest* erkennt die
+Integration nur
+
+- Adressen, die **am Gerät selbst** fest eingestellt sind, und
+- Reservierungen mit einer Adresse **außerhalb des DHCP-Bereichs** der Box.
+
+Eine Reservierung **innerhalb** des DHCP-Bereichs sieht die Box wie eine gewöhnliche DHCP-Adresse
+– solche Geräte erscheinen als *dynamisch* und fehlen in diesem Filter. Eine vollständige Liste
+aller Reservierungen ist deshalb mit dieser Schnittstelle nicht möglich. Der Filter braucht
+außerdem die Option *IP-Typ erfassen* der Integration (Standard an).
+
+### Funkband: 2,4 oder 5 GHz
+
+Die Spalte **Funkband** (Editor: *Spalten* → *Funkband*, YAML `show_band: true`, Standard aus)
+zeigt, in welchem WLAN-Band ein Gerät gerade verbunden ist. Im Detail-Popup steht die Zeile
+direkt unter *Verbindung*. Die Spalte ist sortierbar (2,4 vor 5 vor 6 GHz, Geräte ohne Angabe
+am Ende) und im Suchfeld auffindbar (`5 ghz`).
+
+Die Integration liest dazu je WLAN-Netz der FRITZ!Box die Liste der verbundenen Geräte
+(`X_AVM-DE_GetWLANDeviceListPath`) und ordnet sie über die MAC-Adresse zu. Das Band ergibt sich
+aus der Kanalnummer des Geräts und der Frequenzangabe des Netzes. Das kostet je vorhandenem
+WLAN-Netz einen Aufruf pro Abfrage; wer es nicht braucht, schaltet in den Einstellungen der
+Integration *WLAN-Band je Gerät erfassen* aus. Sensorattribut: Jedes Gerät in `hosts` hat das
+Feld `band` (`"2.4"`, `"5"`, `"6"` oder leer).
+
+**Nur Anzeige.** Einem Gerät ein Band **zuzuweisen** – etwa dem Fernseher nur 2,4 GHz, dem Handy
+nur 5 GHz – kann die FRITZ!Box nicht: Es gibt dafür keine TR-064-Aktion, und in den AVM- und
+Forenberichten, die ich gefunden habe, auch keine Einstellung in der Oberfläche. Üblicher Weg:
+für die beiden Bänder **getrennte WLAN-Namen** vergeben und das Gerät nur mit dem gewünschten
+Namen verbinden. Die Karte zeigt dann, ob es klappt.
+
+**Grenzen.** Ohne Angabe („—") bleiben Geräte, die nicht per WLAN an der Box hängen (LAN,
+offline) sowie – ungeprüft – Geräte, die die Box nicht selbst versorgt, etwa an einem Repeater.
+Die Funktion wurde nur mit simulierten Daten getestet, nicht an einer echten FRITZ!Box.
+
+### Hersteller aus der MAC-Adresse
+
+Die ersten drei Byte einer MAC-Adresse verraten den Hersteller der Netzwerkkarte. Die
+Integration bringt dafür eine **lokale Liste** mit (`custom_components/fritzbox_netzwerk/data/oui.txt`,
+gut 38 000 Einträge); es wird nichts aus dem Internet nachgeladen und keine MAC-Adresse
+verlässt Home Assistant. Zu sehen ist der Hersteller
+
+- in der Spalte **Hersteller** (Editor: *Spalten* → *Hersteller*, YAML `show_vendor: true`;
+  standardmäßig aus, damit bestehende Karten unverändert aussehen),
+- im **Detail-Popup** direkt unter der MAC-Adresse (immer, unabhängig von der Spalte),
+- und als Suchbegriff im Suchfeld (`raspberry`, `espressif`, `avm`).
+
+Sensorattribut: In der Liste `hosts` haben alle Geräte die Felder `vendor` (Text, leer =
+unbekannt) und `mac_random` (Wahrheitswert).
+
+**Zufällige MAC-Adressen.** Smartphones und Tablets (iOS „Private WLAN-Adresse", Android
+„Zufällige MAC", Windows „Zufällige Hardwareadressen") melden sich mit einer erfundenen Adresse
+an, oft pro WLAN eine andere. Erkennbar ist das am „lokal verwalteten" Bit der Adresse – der
+zweite Hexwert ist 2, 6, A oder E, etwa `DA:A1:19:…`. Solche Geräte zeigen **Zufällige MAC**
+statt eines Herstellers; er lässt sich aus der Adresse nicht ablesen. Tipp: In der FRITZ!Box
+den Namen vergeben oder am Gerät die private Adresse für dieses WLAN abschalten, dann bleibt
+die Adresse stabil. Dasselbe Bit tragen einige virtuelle Geräte (Docker, virtuelle Maschinen).
+
+**Grenzen.**
+
+- Die Liste enthält nur die *großen* IEEE-Blöcke (MA-L, 24 Bit). Kleinere Blöcke (MA-M, MA-S)
+  haben oft sehr kleine Hersteller; ihr Anfang steht beim IEEE unter „IEEE Registration
+  Authority", das wird als *unbekannt* behandelt (Anzeige „—").
+- Die Liste ist eine **Momentaufnahme** (Stand der Quelle: 30.11.2025). Neuere Hersteller
+  fehlen. Wer eine aktuellere Liste hat, ersetzt einfach `data/oui.txt` – eine Zeile pro
+  Eintrag, `AABBCC:Herstellername`, `#` beginnt einen Kommentar – und startet Home Assistant
+  neu. Bei einem Update über HACS wird die Datei wieder durch die mitgelieferte ersetzt.
+- Der Hersteller nennt die Firma hinter der *Netzwerkkarte*, nicht unbedingt die Marke des
+  Geräts: Viele Smart-Home-Geräte tragen `Espressif` (der Chip) statt des Markennamens.
+
+*Quelle:* Öffentliches OUI-Register der IEEE Registration Authority. Die mitgelieferte Kopie
+stammt aus dem PyPI-Paket [`mac-vendor-lookup`](https://pypi.org/project/mac-vendor-lookup/)
+0.1.15 (Apache-2.0), veröffentlicht am 30.11.2025.
+
+### MAC-Adresse kopieren
+
+Ein Klick (oder Enter/Leertaste) auf die MAC-Adresse in der Tabelle kopiert sie in die
+Zwischenablage; die Zahl blinkt kurz mit einem Haken, und Home Assistant blendet „… kopiert" ein.
+Das Detail-Popup wird dabei **nicht** geöffnet – dafür auf eine andere Stelle der Zeile klicken.
+Im Popup selbst gibt es weiter die Kopier-Knöpfe für IP- und MAC-Adresse.
+
+Wer lieber wie früher das Popup öffnen möchte, schaltet im Editor *Klick auf die MAC-Adresse
+kopiert sie* aus (YAML: `mac_click_copies: false`).
+
+**Warum das bis 1.6.0 nicht klappte:** Browser erlauben die moderne Zwischenablage-Funktion
+nur bei HTTPS oder `localhost`. Wer Home Assistant über `http://192.168.x.x:8123` öffnet, hatte
+sie nicht – der Kopier-Knopf im Popup tat dann stumm nichts, und ein Klick auf die MAC in der
+Tabelle öffnete nur das Popup. Jetzt versucht die Karte zuerst die moderne Funktion und fällt
+sonst auf die ältere Methode zurück; scheitert auch die, erscheint ein Hinweis.
+
 ### Steuerungsleiste und Kategorien als Tabs
 
 Der Editor-Schalter *Steuerungsleiste anzeigen* blendet in der Karte eine zusätzliche Leiste
@@ -394,9 +571,13 @@ Integrationseinstellungen aktiviert ist – die **Schalter für die WLAN-Bänder
 5 GHz, Gast), der **MAC-Filter** mit dem Button **Pairing** (siehe
 [MAC-Filter und Pairing](#mac-filter-und-pairing)) sowie die Buttons **Neuverbinden** (neue
 öffentliche IP) und **Neustart**. Gibt es Repeater, kommt die **Mesh-Gruppe** mit dem Button
-**Alle neu starten** hinzu (siehe [Mesh](#mesh-fritzbox-und-repeater-als-gruppe)). Der
-Neustart verlangt zwei Klicks: der erste Klick färbt den Button, erst der zweite löst
-tatsächlich aus.
+**Alle neu starten** hinzu (siehe [Mesh](#mesh-fritzbox-und-repeater-als-gruppe)). **Pairing**,
+**Neuverbinden**, **Neustart** und **Alle neu starten** verlangen alle zwei Klicks: der erste
+Klick färbt den Button und zeigt eine Rückfrage („Wirklich …?“) statt der Beschriftung, erst
+der zweite Klick innerhalb von 4 Sekunden löst die Aktion tatsächlich aus. Danach – oder ohne
+zweiten Klick – kehrt der Button zur normalen Beschriftung zurück. Das verhindert, dass ein
+versehentlicher Klick (Finger, Tier, Touchscreen) das WLAN kurz öffnet, die Internetverbindung
+trennt oder die Box/Repeater neu startet.
 
 Der Schalter *Kategorien als Tabs anzeigen* (standardmäßig aus) setzt darüber eine
 Reiterleiste im Stil von *FRITZ!Box Anrufe*:
@@ -455,6 +636,14 @@ IP- und MAC-Adresse lassen sich dort mit einem Knopf in die Zwischenablage kopie
 
 Je nach Gerät bietet das Popup zusätzlich:
 
+- **Gerätename umbenennen** – neben dem Namen erscheint ein Stift-Symbol, wenn die FRITZ!Box
+  den Namen dieses Geräts über TR-064 ändern lässt (`name_writeable`; bei manchen
+  Geräteklassen, etwa reinen Gastgeräten, meldet die Box das nicht). Ein Klick öffnet ein
+  Eingabefeld mit dem aktuellen Namen; Haken oder Enter speichert (ruft
+  [`fritzbox_netzwerk.set_device_name`](#fritzbox_netzwerkset_device_name) auf), Kreuz oder
+  Escape verwirft nur die Eingabe, ohne das Popup zu schließen. Eine leere oder unveränderte
+  Eingabe speichert nichts. Während der Eingabe aktualisiert sich das Popup absichtlich nicht
+  im Hintergrund – sonst ginge der eingegebene Text bei jedem Datenabruf verloren.
 - **In Home Assistant öffnen** – springt zur Geräteseite, sofern das Gerät in Home
   Assistant über seine MAC-Adresse bekannt ist
 - **Aufwecken (WoL)** – sendet ein Wake-on-LAN-Signal, wird nur bei nicht verbundenen
@@ -503,6 +692,8 @@ show_speed: true
 show_model: false
 show_type: false
 show_last_seen: false
+show_vendor: false      # Hersteller zur MAC-Adresse
+show_band: false        # Funkband (2,4 / 5 GHz)
 
 # Darstellung
 show_summary: true
@@ -515,8 +706,11 @@ filter_inaktiv: true
 filter_gast: true
 filter_gesperrt: true
 filter_update: true
-default_filter: aktiv   # alle | aktiv | inaktiv | gast | gesperrt | update
+filter_fest: true       # Feste IP
+default_filter: aktiv   # alle | aktiv | inaktiv | gast | gesperrt | update | fest
 hide_inactive: false
+ip_filter: ""           # z. B. "192.168.2.*"; mehrere Muster mit Komma/Leerzeichen, ! schließt aus
+mac_click_copies: true  # Klick auf die MAC-Adresse kopiert sie
 compact: false
 show_details_popup: true
 open_device_on_click: true
@@ -621,6 +815,27 @@ action: fritzbox_netzwerk.reboot_mesh
 ---
 
 ## Fehlerbehebung
+
+**Ein Klick auf die MAC-Adresse kopiert nichts.**
+Die Karte zeigt dann „Kopieren nicht möglich" und ein Kreuz statt des Haken. Das passiert, wenn
+weder die moderne Zwischenablage-Funktion (nur HTTPS/`localhost`) noch die ältere Ausweichmethode
+erlaubt ist – etwa in einigen eingebetteten Browsern. Abhilfe: Home Assistant über HTTPS oder
+`localhost` öffnen oder die Adresse im Detail-Popup markieren und mit Strg+C kopieren. Nach dem
+Update die Seite einmal hart neu laden (Strg+F5), damit der Browser die neue Karte statt der
+zwischengespeicherten lädt.
+
+**Die Spalte *Funkband* zeigt nur „—".**
+Prüfen: (1) In den Einstellungen der Integration ist *WLAN-Band je Gerät erfassen* eingeschaltet.
+(2) Das Gerät ist per WLAN direkt mit der FRITZ!Box verbunden – LAN-Geräte, Offline-Geräte und
+(ungeprüft) Geräte an einem Repeater bekommen keine Angabe. (3) Im Protokoll (Stufe *debug* für
+`custom_components.fritzbox_netzwerk`) steht bei einem Fehler eine Zeile „WLAN-Band … nicht ermittelbar".
+Die Geräteliste selbst bleibt davon unberührt.
+
+**Der Filter *Feste IP* zeigt nicht alle meine Reservierungen.**
+Reservierungen innerhalb des DHCP-Bereichs meldet die FRITZ!Box nicht – siehe
+[Feste IP](#feste-ip-reservierungen-anzeigen). Wer den DHCP-Bereich der Box ohnehin
+anpassen möchte, kann feste Adressen außerhalb davon vergeben; dann erkennt die Integration sie.
+Das ändert die Netzwerkeinstellungen der Box und sollte nur bewusst geschehen.
 
 **Die Einrichtung meldet „Das Konto hat keinen Zugriff auf die FRITZ!Box-Einstellungen".**
 In der FRITZ!Box unter System → FRITZ!Box-Benutzer beim verwendeten Konto die Berechtigung
@@ -760,14 +975,28 @@ language: nl   # "" = automatisch, sonst de | en | nl
 
 ## Bekannte Einschränkungen
 
+- **„Alle ungenutzten Verbindungen entfernen" fehlt.** Diese Funktion der FRITZ!Box-Oberfläche
+  (Heimnetz → Netzwerk) hat keine Entsprechung in TR-064: Der Hosts-Dienst von AVM kennt weder
+  eine Aktion zum Löschen eines Eintrags noch eine zum Aufräumen. Über die undokumentierte
+  Weboberfläche wäre es nur mit ungeprüften Annahmen möglich und würde bei jedem
+  FRITZ!OS-Update riskieren zu brechen. Bewusst nicht Teil dieser Version.
 - **Statische IP-Adressen lassen sich nicht ändern.** Die TR-064-Schnittstelle von AVM
   kennt dafür keine Aktion. Schreibbar sind dort nur Gerätename, Anzeigename,
   Wake-on-LAN, Echtzeitpriorität und Geräteklasse. Ein Setzen der IP-Adresse wäre nur über
   die Weboberfläche der FRITZ!Box möglich – undokumentiert und bei jedem FRITZ!OS-Update
   potenziell defekt. Das ist bewusst nicht Teil dieser Version.
-- **Mesh nur in Teilen.** FRITZ!Box und Repeater bilden eine Gruppe (siehe oben). WLAN-Band,
-  Signalstärke und der Repeater, an dem ein Gerät hängt, stehen dagegen in einer eigenen
-  Schnittstelle (`X_AVM-DE_GetMeshListPath`) und sind noch nicht ausgewertet.
+- **Mesh nur in Teilen.** FRITZ!Box und Repeater bilden eine Gruppe (siehe oben). Das Funkband
+  zeigt die Karte für Geräte an der Box selbst. Signalstärke und der Repeater, an dem ein Gerät
+  hängt, stehen dagegen in einer eigenen Schnittstelle (`X_AVM-DE_GetMeshListPath`) und sind
+  noch nicht ausgewertet.
+- **Kein Band je Gerät zuweisbar.** Dem Fernseher nur 2,4 GHz, dem Handy nur 5 GHz zu geben, kann
+  die FRITZ!Box nicht – weder in TR-064 noch (nach den gefundenen Berichten) in der Oberfläche.
+  Die Karte zeigt nur an, in welchem Band ein Gerät gerade hängt.
+- **DHCP-Reservierungen nur teilweise erkennbar.** Siehe [Feste IP](#feste-ip-reservierungen-anzeigen):
+  Die Box meldet Reservierungen innerhalb des DHCP-Bereichs nicht.
+- **DNS-Filterlisten (FRITZ!OS ab 8.40) fehlen.** In der TR-064-Beschreibung von AVM habe ich
+  keinen Dienst für den DNS-Filter gefunden, und die Box führt laut Berichten keine
+  Statistik über geblockte Anfragen. Eine Pi-hole-artige Ansicht hat dafür keine Datenbasis.
 - **MAC-Filter/Pairing ist experimentell** und nur mit laufendem Home Assistant abgesichert:
   Das automatische Wiedereinschalten übernimmt die Integration, nicht die FRITZ!Box.
 - **Repeater-Neustart und „Alle neu starten“ sind experimentell.** Sie hängen davon ab, dass
@@ -801,7 +1030,66 @@ Kartencodes im Testaufbau.
 
 ## Versionshistorie
 
-### 1.5.3 – Neu verbinden (Fehler 707) und IP-Typ „fest“ behoben
+### 1.6.0 – IP-Filter, Hersteller, Feste-IP-Filter, Funkband, Umbenennen im Popup, sicherere Steuerung
+
+**Neu**
+
+- **IP-Filter mit Platzhaltern** (`ip_filter`, Editor: *IP-Filter*): `192.168.2.*` zeigt nur
+  Geräte aus diesem Bereich, `?` steht für genau ein Zeichen, mehrere Muster werden durch
+  Komma, Semikolon oder Leerzeichen getrennt, ein vorangestelltes `!` schließt aus. Mit
+  mehreren Karten lässt sich das Netz so nach Bereichen aufteilen (Netzwerk, Drucker,
+  Lichter …). Gilt auch im Suchfeld: Enthält der Suchbegriff `*` oder `?`, wird er als Muster
+  gelesen. Details unter [IP-Filter](#ip-filter-das-netz-auf-mehrere-karten-verteilen).
+- **Hersteller zur MAC-Adresse** aus einer mitgelieferten Liste (IEEE-OUI-Register, gut 38 000
+  Einträge, kein Internetzugriff nötig). Neue Kartenspalte *Hersteller* (Standard aus), Zeile
+  im Detail-Popup, durchsuchbar; zufällige „Private WLAN-Adressen" heißen *Zufällige MAC*.
+  Details unter [Hersteller aus der MAC-Adresse](#hersteller-aus-der-mac-adresse).
+- **Klick auf die MAC-Adresse kopiert sie** (Option `mac_click_copies`, Standard an).
+- **Filterknopf „Feste IP"**: zeigt Geräte mit fester oder reservierter Adresse, aktive und
+  inaktive (Standard an; `filter_fest: false` blendet ihn aus, auch als
+  `default_filter: fest` verwendbar). Grenze: Reservierungen innerhalb des DHCP-Bereichs
+  meldet die FRITZ!Box nicht, siehe [Feste IP](#feste-ip-reservierungen-anzeigen).
+- **Funkband je WLAN-Gerät** (2,4 / 5 / 6 GHz): Kartenspalte *Funkband* (Standard aus,
+  `show_band`), Zeile im Detail-Popup, sortier- und durchsuchbar. Neue Integrationsoption
+  *WLAN-Band je Gerät erfassen* (Standard an). Nur Anzeige – ein Gerät einem Band zuzuweisen
+  kann die FRITZ!Box nicht, siehe [Funkband](#funkband-24-oder-5-ghz).
+- **Gerätenamen direkt im Detail-Popup ändern** – Stift-Symbol neben dem Namen (nur bei
+  Geräten, die die FRITZ!Box als umbenennbar meldet), Eingabefeld mit Speichern/Abbrechen.
+  Nutzt den bereits vorhandenen Dienst `fritzbox_netzwerk.set_device_name`. Details unter
+  [Detail-Popup](#detail-popup).
+
+**Behoben**
+
+- **Kopieren der MAC-Adresse funktionierte nicht.** Die Karte nutzte ausschließlich
+  `navigator.clipboard`, das Browser nur bei HTTPS oder `localhost` bereitstellen, und
+  verschluckte den Fehler. Jetzt gibt es einen Rückfall über `document.execCommand("copy")`
+  und eine sichtbare Rückmeldung (Haken bzw. Kreuz, Meldung in Home Assistant).
+- **Pairing und Neuverbinden konnten mit einem einzigen, versehentlichen Klick ausgelöst
+  werden** – anders als *Neustart* und *Alle neu starten*, die schon länger zwei Klicks
+  verlangen. Ein Fehlklick auf *Pairing* öffnete kurz das WLAN für unbekannte Geräte, ein
+  Fehlklick auf *Neuverbinden* trennte die Internetverbindung. Beide Buttons verlangen jetzt
+  ebenfalls zwei Klicks: der erste färbt den Button und zeigt eine Rückfrage statt der
+  Beschriftung, erst der zweite Klick innerhalb von 4 Sekunden löst tatsächlich aus. Damit
+  verlangen alle vier eingreifenden Buttons der Steuerungsleiste (*Pairing*, *Neuverbinden*,
+  *Neustart*, *Alle neu starten*) einheitlich zwei Klicks; der reine Ein/Aus-Chip
+  *MAC-Filter* bleibt bewusst einklickig, damit sich ein laufendes Pairing im Ernstfall sofort
+  beenden lässt. Details unter [Steuerungsleiste](#steuerungsleiste-und-kategorien-als-tabs).
+
+**Nicht umgesetzt**
+
+- *Alle ungenutzten Verbindungen entfernen*: Die FRITZ!Box bietet das nur in der
+  Weboberfläche an, nicht über TR-064 – siehe [Bekannte Einschränkungen](#bekannte-einschränkungen).
+- *DNS-Filterlisten (FRITZ!OS 8.40+) und eine Pi-hole-artige Ansicht*: Keine dokumentierte
+  Schnittstelle gefunden, keine Statistik der Box.
+- *Geräten ein WLAN-Band zuweisen* (TV nur 2,4 GHz, Handy nur 5 GHz): keine TR-064-Aktion
+  dafür, laut Forenberichten auch keine Oberflächen-Einstellung. Nur die Anzeige ist
+  umgesetzt.
+
+Hinweis: Nur mit simulierten Daten getestet (Attrappen der FRITZ!Box, simulierter Browser via
+jsdom), nicht an einer echten FRITZ!Box und nicht in einem echten Browser/Home Assistant.
+Rückmeldungen bitte als GitHub-Issue.
+
+
 
 **Behoben**
 

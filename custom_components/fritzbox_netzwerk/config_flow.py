@@ -32,6 +32,7 @@ from .const import (
     CONF_PAIRING_MINUTES,
     CONF_SCAN_INTERVAL,
     CONF_TRACK_ADDRESS_SOURCE,
+    CONF_TRACK_WLAN_BAND,
     CONF_USE_TLS,
     DEFAULT_ADDRESS_SOURCE_INTERVAL,
     DEFAULT_ENABLE_CONTROLS,
@@ -41,6 +42,7 @@ from .const import (
     DEFAULT_PAIRING_MINUTES,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TRACK_ADDRESS_SOURCE,
+    DEFAULT_TRACK_WLAN_BAND,
     DEFAULT_USE_TLS,
     DEFAULT_USERNAME,
     DOMAIN,
@@ -228,6 +230,10 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                         CONF_ADDRESS_SOURCE_INTERVAL, DEFAULT_ADDRESS_SOURCE_INTERVAL
                     ),
                 ): vol.All(vol.Coerce(int), vol.Range(min=1, max=1440)),
+                vol.Optional(
+                    CONF_TRACK_WLAN_BAND,
+                    default=options.get(CONF_TRACK_WLAN_BAND, DEFAULT_TRACK_WLAN_BAND),
+                ): bool,
                 vol.Optional(
                     CONF_ENABLE_DEVICE_TRACKER,
                     default=options.get(
