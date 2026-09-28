@@ -6,7 +6,6 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
-from fritzconnection import FritzConnection
 from fritzconnection.core.exceptions import (
     FritzAuthorizationError,
     FritzConnectionException,
@@ -24,6 +23,7 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
 
+from .connection import create_connection
 from .const import (
     CONF_ADDRESS_SOURCE_INTERVAL,
     CONF_ENABLE_CONTROLS,
@@ -58,6 +58,8 @@ DATA_SCHEMA_USER = vol.Schema(
         vol.Required(CONF_USERNAME, default=DEFAULT_USERNAME): str,
         vol.Required(CONF_PASSWORD): str,
         vol.Optional(CONF_USE_TLS, default=DEFAULT_USE_TLS): bool,
+        vol.Optional("port", default=0): vol.All(vol.Coerce(int), vol.Range(min=0, max=65535)),
+        vol.Optional("remote_access", default=False): bool,
     }
 )
 
@@ -79,18 +81,22 @@ class FritzboxNetzwerkConfigFlow(ConfigFlow, domain=DOMAIN):
         self._username: str = DEFAULT_USERNAME
         self._password: str = ""
         self._use_tls: bool = DEFAULT_USE_TLS
+        self._port: int = 0
+        self._remote_access: bool = False
         self._serial_number: str = ""
         self._model: str = "FRITZ!Box"
 
     def _try_connect(self) -> str:
         """Prueft Erreichbarkeit, Anmeldung und Rechte (blockierend)."""
         try:
-            connection = FritzConnection(
-                address=self._host,
-                user=self._username,
-                password=self._password,
-                use_tls=self._use_tls,
-            )
+            connection = create_connection({
+                CONF_HOST: self._host,
+                CONF_USERNAME: self._username,
+                CONF_PASSWORD: self._password,
+                CONF_USE_TLS: self._use_tls,
+                "port": self._port,
+                "remote_access": self._remote_access,
+            })
             # Der Hosts-Dienst ist die eigentliche Datenquelle. Wenn die
             # Rechte fehlen, faellt das genau hier auf - nicht erst
             # Stunden spaeter beim ersten Abruf.
@@ -117,10 +123,12 @@ class FritzboxNetzwerkConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is None:
             return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA_USER)
 
-        self._host = user_input[CONF_HOST]
+        self._host = user_input[CONF_HOST].strip()
+        self._port = user_input.get("port", 0)
+        self._remote_access = user_input.get("remote_access", False)
         self._username = user_input[CONF_USERNAME]
         self._password = user_input[CONF_PASSWORD]
-        self._use_tls = user_input.get(CONF_USE_TLS, DEFAULT_USE_TLS)
+        self._use_tls = self._remote_access or user_input.get(CONF_USE_TLS, DEFAULT_USE_TLS)
 
         result = await self.hass.async_add_executor_job(self._try_connect)
         if result != RESULT_SUCCESS:
@@ -140,6 +148,8 @@ class FritzboxNetzwerkConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_USERNAME: self._username,
                 CONF_PASSWORD: self._password,
                 CONF_USE_TLS: self._use_tls,
+                "port": self._port,
+                "remote_access": self._remote_access,
             },
         )
 
@@ -148,6 +158,8 @@ class FritzboxNetzwerkConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Startet die erneute Anmeldung."""
         self._host = entry_data[CONF_HOST]
+        self._port = entry_data.get("port", 0)
+        self._remote_access = entry_data.get("remote_access", False)
         self._username = entry_data[CONF_USERNAME]
         self._use_tls = entry_data.get(CONF_USE_TLS, DEFAULT_USE_TLS)
         return await self.async_step_reauth_confirm()

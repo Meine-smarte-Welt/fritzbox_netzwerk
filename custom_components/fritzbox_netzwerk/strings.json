@@ -17,11 +17,15 @@
           "host": "Adresse",
           "username": "Benutzername",
           "password": "Kennwort",
-          "use_tls": "Verschlüsselt verbinden (HTTPS)"
+          "use_tls": "Verschlüsselt verbinden (HTTPS)",
+          "port": "Port (0 = automatisch)",
+          "remote_access": "Fernzugriff über MyFRITZ!/HTTPS"
         },
         "data_description": {
           "host": "Hostname oder IP-Adresse der FRITZ!Box, üblicherweise fritz.box.",
-          "username": "Ein FRITZ!Box-Benutzer mit der Berechtigung \"FRITZ!Box Einstellungen\"."
+          "username": "Ein FRITZ!Box-Benutzer mit der Berechtigung \"FRITZ!Box Einstellungen\".",
+          "port": "Fernzugriff: HTTPS-Port der FRITZ!Box, z. B. 65443. 0 verwendet lokal 49000/49443 und remote 443.",
+          "remote_access": "Aktiviert HTTPS und den TR-064-Fernzugriff. Adresse ohne https://, Port oder Pfad eingeben. Benutzer benötigt Internetzugriff."
         }
       },
       "reauth_confirm": {

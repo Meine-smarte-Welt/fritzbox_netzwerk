@@ -17,11 +17,15 @@
           "host": "Adres",
           "username": "Gebruikersnaam",
           "password": "Wachtwoord",
-          "use_tls": "Verbinden via HTTPS"
+          "use_tls": "Verbinden via HTTPS",
+          "port": "Poort (0 = automatisch)",
+          "remote_access": "Externe toegang via MyFRITZ!/HTTPS"
         },
         "data_description": {
           "host": "Hostnaam of IP-adres van de FRITZ!Box, meestal fritz.box.",
-          "username": "Een FRITZ!Box-gebruiker met de rechten \"FRITZ!Box Instellingen\"."
+          "username": "Een FRITZ!Box-gebruiker met de rechten \"FRITZ!Box Instellingen\".",
+          "port": "Extern: HTTPS-poort van de FRITZ!Box, bijvoorbeeld 65443. 0 gebruikt lokaal 49000/49443 en extern 443.",
+          "remote_access": "Schakelt HTTPS en externe TR-064-toegang in. Voer alleen een hostnaam in, zonder protocol, poort of pad. De gebruiker moet toestemming voor internettoegang hebben."
         }
       },
       "reauth_confirm": {

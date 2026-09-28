@@ -17,11 +17,15 @@
           "host": "Address",
           "username": "Username",
           "password": "Password",
-          "use_tls": "Connect using HTTPS"
+          "use_tls": "Connect using HTTPS",
+          "port": "Port (0 = automatic)",
+          "remote_access": "Remote access via MyFRITZ!/HTTPS"
         },
         "data_description": {
           "host": "Hostname or IP address of the FRITZ!Box, usually fritz.box.",
-          "username": "A FRITZ!Box user with the \"FRITZ!Box Settings\" permission."
+          "username": "A FRITZ!Box user with the \"FRITZ!Box Settings\" permission.",
+          "port": "Remote: FRITZ!Box HTTPS port, e.g. 65443. 0 uses local 49000/49443 or remote 443.",
+          "remote_access": "Enables HTTPS and TR-064 remote access. Enter a hostname without scheme, port or path. User needs Internet access permission."
         }
       },
       "reauth_confirm": {

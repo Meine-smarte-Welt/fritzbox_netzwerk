@@ -6,7 +6,6 @@ import logging
 import os
 
 import voluptuous as vol
-from fritzconnection import FritzConnection
 from fritzconnection.core.exceptions import (
     FritzAuthorizationError,
     FritzConnectionException,
@@ -24,6 +23,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady,
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 
+from .connection import create_connection
 from .const import (
     ATTR_BLOCKED_PARAM,
     ATTR_ENABLED,
@@ -87,12 +87,7 @@ async def async_setup_entry(
     """Richtet einen Konfigurationseintrag ein."""
 
     def _connect() -> FritzHosts:
-        connection = FritzConnection(
-            address=entry.data[CONF_HOST],
-            user=entry.data[CONF_USERNAME],
-            password=entry.data[CONF_PASSWORD],
-            use_tls=entry.data.get(CONF_USE_TLS, DEFAULT_USE_TLS),
-        )
+        connection = create_connection(entry.data)
         return FritzHosts(fc=connection)
 
     try:
