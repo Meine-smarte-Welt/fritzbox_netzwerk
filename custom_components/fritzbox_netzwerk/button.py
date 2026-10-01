@@ -54,7 +54,9 @@ async def async_setup_entry(
     """Legt die Aktions-Buttons an - nur wenn die Steuerung aktiv ist."""
     # Aktualisiert nur die lokale Herstellerliste und fasst die FRITZ!Box nicht
     # an - deshalb unabhaengig von der (experimentellen) Steuerung verfuegbar.
-    async_add_entities([FritzboxNetzwerkOuiUpdateButton(entry)])
+    async_add_entities(
+        [FritzboxNetzwerkOuiUpdateButton(entry), FritzboxNetzwerkBlueprintsButton(entry)]
+    )
 
     if not entry.options.get(CONF_ENABLE_CONTROLS, DEFAULT_ENABLE_CONTROLS):
         return
@@ -130,6 +132,22 @@ class FritzboxNetzwerkOuiUpdateButton(_BaseButton):
     async def async_press(self) -> None:
         """Laedt die IEEE-Register und baut die Herstellerzuordnung neu auf."""
         await self._coordinator.async_update_oui()
+
+
+class FritzboxNetzwerkBlueprintsButton(_BaseButton):
+    """Kopiert die mitgelieferten Blueprints (Automationen, Skript) nach Home Assistant."""
+
+    _attr_translation_key = "install_blueprints"
+    _attr_icon = "mdi:file-import"
+
+    def __init__(self, entry: FritzboxNetzwerkConfigEntry) -> None:
+        """Initialisiert den Button."""
+        super().__init__(entry)
+        self._attr_unique_id = f"{entry.entry_id}_install_blueprints"
+
+    async def async_press(self) -> None:
+        """Kopiert fehlende Blueprints; vom Nutzer geaenderte Dateien bleiben unangetastet."""
+        await self._coordinator.async_install_blueprints(False)
 
 
 class FritzboxNetzwerkReconnectButton(_BaseButton):

@@ -38,7 +38,13 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_ADDRESS_SOURCE_INTERVAL,
+    BLUEPRINTS_DIRNAME,
+    CONF_CHECK_UPDATES,
     CONF_ENABLE_PARENTAL,
+    DEFAULT_CHECK_UPDATES,
+    GITHUB_LATEST_RELEASE_URL,
+    UPDATE_CHECK_HOURS,
+    VERSION,
     CONF_ENABLE_SYSTEM_STATS,
     DEFAULT_ENABLE_PARENTAL,
     PROFILE_REVERT_STORAGE_VERSION,
@@ -102,7 +108,9 @@ from .hosts import (
     wan_kind,
     wlan_bands,
 )
+from .blueprints_install import install_blueprints
 from .mesh_topology import fetch_mesh_links
+from .updates import build_version_info, parse_release
 from .webui import (
     assign_profile,
     base_url,
@@ -214,6 +222,10 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._block_store: Store[dict[str, str]] = Store(
             hass, INTERNET_BLOCK_STORAGE_VERSION, f"{DOMAIN}.internet_block.{entry.entry_id}"
         )
+
+        # Versionspruefung gegen GitHub (taeglich, abschaltbar).
+        self._latest_release: dict[str, str] | None = None
+        self._version_checked: datetime | None = None
 
         # Kindersicherung (Idee 22, experimentell): zeitlich begrenzter
         # Profilwechsel - MAC-Schluessel -> {profile: urspruengliches Profil,
@@ -1255,6 +1267,12 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Holt die Geraeteliste und reichert sie an."""
+        # Im Hintergrund, damit eine langsame Antwort von GitHub weder den Start noch
+        # die Aktualisierung der Geraeteliste aufhaelt (Ergebnis erscheint beim naechsten Zyklus).
+        if self.check_updates and self._version_due():
+            self.entry.async_create_background_task(
+                self.hass, self._async_check_version(), "fritzbox_netzwerk_version_check"
+            )
         if self._block_until:
             await self._async_release_due_blocks()
         if self._profile_revert:
@@ -1328,6 +1346,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ),
             "track_address_source": self.track_address_source,
             "system": self._system_stats,
+            "version": self.version_info,
         }
 
     # -- Hersteller (OUI) -------------------------------------------------
@@ -1580,6 +1599,72 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def blocked_until(self) -> dict[str, str]:
         """Aktive Sperren mit Frist (MAC-Schluessel -> Ende, ISO-UTC)."""
         return dict(self._block_until)
+
+    # -- Versionspruefung und Blueprints -------------------------------------
+
+    @property
+    def check_updates(self) -> bool:
+        """Ob einmal taeglich bei GitHub nach einer neuen Version gefragt wird."""
+        return bool(self.entry.options.get(CONF_CHECK_UPDATES, DEFAULT_CHECK_UPDATES))
+
+    @property
+    def version_info(self) -> dict[str, Any]:
+        """Installierte und (falls bekannt) neueste Version fuer Sensor und Karte."""
+        checked = self._version_checked.isoformat() if self._version_checked else None
+        return build_version_info(VERSION, self._latest_release, checked)
+
+    def _version_due(self) -> bool:
+        """Ob die taegliche Versionspruefung faellig ist."""
+        if self._version_checked is None:
+            return True
+        return dt_util.utcnow() - self._version_checked >= timedelta(hours=UPDATE_CHECK_HOURS)
+
+    async def _async_check_version(self) -> None:
+        """Fragt hoechstens alle ``UPDATE_CHECK_HOURS`` Stunden bei GitHub nach.
+
+        Jeder Fehler ist harmlos: es bleibt beim zuletzt bekannten Stand und
+        der naechste Versuch folgt erst nach der Wartezeit (kein Dauerbeschuss).
+        """
+        if not self.check_updates:
+            return
+        now = dt_util.utcnow()
+        if self._version_checked and now - self._version_checked < timedelta(hours=UPDATE_CHECK_HOURS):
+            return
+        self._version_checked = now
+        try:
+            session = async_get_clientsession(self.hass)
+            async with asyncio.timeout(10):
+                response = await session.get(
+                    GITHUB_LATEST_RELEASE_URL,
+                    headers={
+                        "Accept": "application/vnd.github+json",
+                        "User-Agent": f"fritzbox_netzwerk/{VERSION}",
+                    },
+                )
+                if response.status != 200:
+                    _LOGGER.debug("Versionspruefung: HTTP %s", response.status)
+                    return
+                payload = await response.json(content_type=None)
+        except (TimeoutError, OSError, ValueError) as err:
+            _LOGGER.debug("Versionspruefung nicht moeglich: %s", err)
+            return
+        except Exception as err:  # noqa: BLE001 - aiohttp-Fehler duerfen nie die Abfrage stoeren
+            _LOGGER.debug("Versionspruefung fehlgeschlagen: %s", err)
+            return
+        release = parse_release(payload)
+        if release:
+            self._latest_release = release
+
+    async def async_install_blueprints(self, overwrite: bool = False) -> dict[str, Any]:
+        """Kopiert die mitgelieferten Blueprints in ``<config>/blueprints`` (auf Anforderung)."""
+        source = os.path.join(os.path.dirname(__file__), BLUEPRINTS_DIRNAME)
+        target = self.hass.config.path(BLUEPRINTS_DIRNAME)
+        try:
+            return await self.hass.async_add_executor_job(
+                install_blueprints, source, target, overwrite
+            )
+        except OSError as err:
+            raise HomeAssistantError(f"Blueprints konnten nicht kopiert werden: {err}") from err
 
     # -- Kindersicherung: Zugangsprofile (Idee 22, experimentell) ---------
 

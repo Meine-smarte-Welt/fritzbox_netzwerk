@@ -73,7 +73,8 @@
           "enable_host_devices": "Create network devices as devices",
           "host_device_filter": "Device selection (IP pattern)",
           "enable_system_stats": "Read CPU and RAM of the box (experimental)",
-          "enable_parental_control": "Control parental-control access profiles (experimental)"
+          "enable_parental_control": "Control parental-control access profiles (experimental)",
+          "check_updates": "Check for a new version daily"
         },
         "data_description": {
           "track_address_source": "This value is not part of the host list and costs one extra request per device. It rarely changes, so it runs on its own slower schedule.",
@@ -87,7 +88,8 @@
           "enable_host_devices": "Creates a Home Assistant device for each selected network device, with the manufacturer (from the MAC address) and a connected status. Off by default – every device creates a device and an entity.",
           "host_device_filter": "Which devices get their own device: same notation as the card filter \"IP filter\" (e.g. \"192.168.2.*\", separate several patterns with commas, \"!\" excludes; \"*\" selects all). Empty = none. At most 150 devices.",
           "enable_system_stats": "Reads CPU load, RAM usage and temperature through the box web interface (not TR-064, undocumented by AVM, FRITZ!OS dependent). Off by default; if the request fails only these values are missing.",
-          "enable_parental_control": "Enables services that read access profiles and assign them to devices (e.g. \"Blocked\" for one hour). Uses the box web interface, not TR-064 – undocumented by AVM, FRITZ!OS dependent. Off by default."
+          "enable_parental_control": "Enables services that read access profiles and assign them to devices (e.g. \"Blocked\" for one hour). Uses the box web interface, not TR-064 – undocumented by AVM, FRITZ!OS dependent. Off by default.",
+          "check_updates": "Asks GitHub once a day for the latest published version and shows a notice in the card (Controls) when a newer one is available. No data about you or your box is transmitted."
         }
       }
     }
@@ -169,6 +171,9 @@
       },
       "host_online": {
         "name": "Connected"
+      },
+      "update_verfuegbar": {
+        "name": "Update available"
       }
     },
     "switch": {
@@ -200,6 +205,9 @@
       },
       "oui_update": {
         "name": "Update manufacturer list"
+      },
+      "install_blueprints": {
+        "name": "Install blueprints"
       }
     },
     "event": {
@@ -389,6 +397,20 @@
         "minutes": {
           "name": "Duration (minutes)",
           "description": "Optional: afterwards the original profile is restored (checked at the polling interval)."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "With several boxes: which box is meant."
+        }
+      }
+    },
+    "install_blueprints": {
+      "name": "Install blueprints",
+      "description": "Copies the bundled blueprints (automations and script) into the Home Assistant blueprint folder. Existing modified files are left untouched unless \"Overwrite\" is set.",
+      "fields": {
+        "overwrite": {
+          "name": "Overwrite",
+          "description": "Also replace existing blueprint files that differ from the bundled ones."
         },
         "config_entry": {
           "name": "FRITZ!Box",

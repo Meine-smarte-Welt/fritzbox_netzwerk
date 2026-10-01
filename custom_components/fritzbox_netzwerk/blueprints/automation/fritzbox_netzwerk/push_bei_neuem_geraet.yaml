@@ -1,0 +1,70 @@
+blueprint:
+  name: "FRITZ!Box Netzwerk – Push bei neuem Gerät"
+  description: >
+    Schickt eine Benachrichtigung, sobald die Event-Entität "Neues Gerät"
+    (seit Version 1.6.2) ein bisher unbekanntes Gerät im Heimnetz meldet -
+    z. B. "Push aufs Handy: Unbekanntes Gerät im WLAN (Espressif,
+    192.168.2.55)".
+
+    Direkt nach der Einrichtung bzw. nach einem Neustart von Home Assistant
+    löst die Event-Entität bewusst noch nichts aus (siehe README), diese
+    Automation bekommt davon also nichts "falsch Neues" zu sehen.
+  domain: automation
+  source_url: https://github.com/Meine-smarte-Welt/fritzbox_netzwerk/blob/main/custom_components/fritzbox_netzwerk/blueprints/automation/fritzbox_netzwerk/push_bei_neuem_geraet.yaml
+  input:
+    neues_geraet_event:
+      name: Event-Entität "Neues Gerät"
+      description: >
+        Die Event-Entität event.<name>_neues_gerat dieser Integration (eine
+        je eingerichteter FRITZ!Box).
+      selector:
+        entity:
+          domain: event
+          integration: fritzbox_netzwerk
+    benachrichtigung:
+      name: Benachrichtigungsaktion
+      description: >
+        Die Benachrichtigungsaktion, an die die Meldung gehen soll. Unter
+        Einstellungen > Geräte & Dienste > Dienste zu finden.
+      selector:
+        action:
+    titel:
+      name: Titel der Benachrichtigung
+      default: "Neues Gerät im Heimnetz"
+      selector:
+        text:
+    nachricht:
+      name: Nachrichtentext
+      description: >
+        "{{ name }}", "{{ ip }}", "{{ vendor }}" und "{{ mac }}" werden
+        automatisch durch die Angaben des neuen Geräts ersetzt (Hersteller
+        bzw. MAC-Adresse können leer sein, wenn die FRITZ!Box bzw. die
+        Herstellertabelle dazu nichts liefert).
+      default: "{{ name }} ({{ vendor }}, {{ ip }}) ist neu im Heimnetz aufgetaucht."
+      selector:
+        text:
+
+mode: queued
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input neues_geraet_event
+
+condition:
+  # Event-Entitäten ändern ihren Zustand (Zeitstempel) nur, wenn sie
+  # tatsächlich ausgelöst haben - "unknown" direkt nach einem Neustart von
+  # Home Assistant (noch kein Ereignis gesehen) soll nichts auslösen.
+  - condition: template
+    value_template: "{{ trigger.to_state.state not in ['unknown', 'unavailable'] }}"
+
+action:
+  - variables:
+      name: "{{ trigger.to_state.attributes.name | default('Unbenanntes Gerät', true) }}"
+      ip: "{{ trigger.to_state.attributes.ip | default('', true) }}"
+      vendor: "{{ trigger.to_state.attributes.vendor | default('unbekannter Hersteller', true) }}"
+      mac: "{{ trigger.to_state.attributes.mac | default('', true) }}"
+  - action: !input benachrichtigung
+    data:
+      title: !input titel
+      message: !input nachricht

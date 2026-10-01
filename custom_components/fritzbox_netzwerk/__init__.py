@@ -38,6 +38,7 @@ from .const import (
     ATTR_MINUTES,
     ATTR_NAME,
     ATTR_NOTE,
+    ATTR_OVERWRITE,
     ATTR_PROFILE,
     ATTR_RESERVED,
     CARD_FILENAME,
@@ -51,6 +52,7 @@ from .const import (
     MIN_PAIRING_MINUTES,
     PLATFORMS,
     SERVICE_GAST_WLAN_INFO,
+    SERVICE_INSTALL_BLUEPRINTS,
     SERVICE_GET_ACCESS_PROFILE,
     SERVICE_LIST_ACCESS_PROFILES,
     SERVICE_SET_ACCESS_PROFILE,
@@ -129,6 +131,10 @@ DEVICE_NOTE_SCHEMA = vol.Schema(
 )
 
 UPDATE_OUI_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY): cv.string})
+
+INSTALL_BLUEPRINTS_SCHEMA = vol.Schema(
+    {vol.Optional(ATTR_OVERWRITE, default=False): cv.boolean, vol.Optional(ATTR_CONFIG_ENTRY): cv.string}
+)
 
 LIST_PROFILES_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY): cv.string})
 
@@ -256,6 +262,7 @@ async def async_unload_entry(
             SERVICE_LIST_ACCESS_PROFILES,
             SERVICE_GET_ACCESS_PROFILE,
             SERVICE_SET_ACCESS_PROFILE,
+            SERVICE_INSTALL_BLUEPRINTS,
         ):
             hass.services.async_remove(DOMAIN, service)
     return unloaded
@@ -561,7 +568,14 @@ def _async_register_services(hass: HomeAssistant) -> None:
             call.data[ATTR_MAC], call.data[ATTR_PROFILE], call.data.get(ATTR_MINUTES)
         )
 
+    async def _handle_install_blueprints(call: ServiceCall) -> dict[str, Any]:
+        """Kopiert die mitgelieferten Blueprints in das Konfigurationsverzeichnis."""
+        return await _resolve_coordinator(call.data).async_install_blueprints(
+            bool(call.data.get(ATTR_OVERWRITE, False))
+        )
+
     for name, handler, schema, response in (
+        (SERVICE_INSTALL_BLUEPRINTS, _handle_install_blueprints, INSTALL_BLUEPRINTS_SCHEMA, SupportsResponse.OPTIONAL),
         (SERVICE_LIST_ACCESS_PROFILES, _handle_list_profiles, LIST_PROFILES_SCHEMA, SupportsResponse.ONLY),
         (SERVICE_GET_ACCESS_PROFILE, _handle_get_profile, GET_PROFILE_SCHEMA, SupportsResponse.ONLY),
         (SERVICE_SET_ACCESS_PROFILE, _handle_set_profile, SET_PROFILE_SCHEMA, SupportsResponse.OPTIONAL),

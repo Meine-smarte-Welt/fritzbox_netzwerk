@@ -1,0 +1,45 @@
+blueprint:
+  name: "FRITZ!Box Netzwerk – Zugangsprofil zeitweise wechseln (Kindersicherung)"
+  description: >
+    Weist einem Gerät für eine bestimmte Zeit ein anderes Zugangsprofil der
+    FRITZ!Box-Kindersicherung zu (z. B. "Gesperrt" für 60 Minuten) und stellt
+    danach automatisch das ursprüngliche Profil wieder her. Die Rückstellung
+    übernimmt die Integration selbst und überlebt einen Neustart von Home
+    Assistant.
+
+    Voraussetzung: In den Integrationsoptionen ist "Zugangsprofile der
+    Kindersicherung steuern (experimentell)" eingeschaltet. Das Profil
+    muss in der FRITZ!Box schon existieren (Internet > Filter >
+    Zugangsprofile). Bei mehreren FRITZ!Boxen wirkt das Skript auf die zuerst
+    geladene Box.
+  domain: script
+  source_url: https://github.com/Meine-smarte-Welt/fritzbox_netzwerk/blob/main/custom_components/fritzbox_netzwerk/blueprints/script/fritzbox_netzwerk/zugangsprofil_zeitweise.yaml
+  input:
+    mac:
+      name: MAC-Adresse des Geräts
+      description: "Zum Beispiel 3C:A6:F6:00:11:22 (steht in der Karte und im Geräte-Popup)."
+      selector:
+        text:
+    profil:
+      name: Zugangsprofil
+      description: Name oder ID (filtprof...) des Profils, das vorübergehend gelten soll.
+      default: Gesperrt
+      selector:
+        text:
+    minuten:
+      name: Dauer in Minuten
+      description: Danach gilt wieder das ursprüngliche Profil.
+      default: 60
+      selector:
+        number:
+          min: 1
+          max: 10080
+          unit_of_measurement: min
+          mode: box
+
+sequence:
+  - action: fritzbox_netzwerk.set_access_profile
+    data:
+      mac: !input mac
+      profile: !input profil
+      minutes: !input minuten

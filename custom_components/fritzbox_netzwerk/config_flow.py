@@ -31,7 +31,9 @@ from .const import (
     CONF_ENABLE_CONTROLS,
     CONF_ENABLE_DEVICE_TRACKER,
     CONF_ENABLE_HOST_DEVICES,
+    CONF_CHECK_UPDATES,
     CONF_ENABLE_PARENTAL,
+    DEFAULT_CHECK_UPDATES,
     CONF_ENABLE_SYSTEM_STATS,
     DEFAULT_ENABLE_PARENTAL,
     DEFAULT_ENABLE_SYSTEM_STATS,
@@ -405,6 +407,10 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                     default=options.get(
                         CONF_ENABLE_SYSTEM_STATS, DEFAULT_ENABLE_SYSTEM_STATS
                     ),
+                ): bool,
+                vol.Optional(
+                    CONF_CHECK_UPDATES,
+                    default=options.get(CONF_CHECK_UPDATES, DEFAULT_CHECK_UPDATES),
                 ): bool,
                 vol.Optional(
                     CONF_ENABLE_PARENTAL,

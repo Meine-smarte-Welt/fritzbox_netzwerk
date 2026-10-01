@@ -1,14 +1,24 @@
 {
   "domain": "fritzbox_netzwerk",
   "name": "FRITZ!Box Netzwerk",
-  "version": "1.7.0b2",
-  "documentation": "https://github.com/Meine-smarte-Welt/fritzbox_netzwerk",
-  "issue_tracker": "https://github.com/Meine-smarte-Welt/fritzbox_netzwerk/issues",
-  "codeowners": ["@Meine-smarte-Welt"],
+  "codeowners": [
+    "@Meine-smarte-Welt"
+  ],
   "config_flow": true,
-  "dependencies": ["http", "lovelace"],
+  "dependencies": [
+    "http",
+    "lovelace"
+  ],
+  "documentation": "https://github.com/Meine-smarte-Welt/fritzbox_netzwerk",
   "integration_type": "device",
   "iot_class": "local_polling",
-  "loggers": ["fritzconnection"],
-  "requirements": ["fritzconnection==1.15.1", "segno==1.6.6"]
+  "issue_tracker": "https://github.com/Meine-smarte-Welt/fritzbox_netzwerk/issues",
+  "loggers": [
+    "fritzconnection"
+  ],
+  "requirements": [
+    "fritzconnection==1.15.1",
+    "segno==1.6.6"
+  ],
+  "version": "1.7.0"
 }

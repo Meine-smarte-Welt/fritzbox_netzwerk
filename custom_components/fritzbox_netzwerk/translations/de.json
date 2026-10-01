@@ -73,7 +73,8 @@
           "enable_host_devices": "Netzwerkgeräte als eigene Geräte anlegen",
           "host_device_filter": "Auswahl der Geräte (IP-Muster)",
           "enable_system_stats": "CPU und RAM der Box lesen (experimentell)",
-          "enable_parental_control": "Zugangsprofile der Kindersicherung steuern (experimentell)"
+          "enable_parental_control": "Zugangsprofile der Kindersicherung steuern (experimentell)",
+          "check_updates": "Täglich auf neue Version prüfen"
         },
         "data_description": {
           "track_address_source": "Diese Angabe steht nicht in der Geräteliste und kostet einen zusätzlichen Aufruf pro Gerät. Sie ändert sich selten, deshalb läuft sie in einem eigenen, langsameren Takt.",
@@ -87,7 +88,8 @@
           "enable_host_devices": "Legt für die ausgewählten Netzwerkgeräte je ein eigenes Home-Assistant-Gerät mit Hersteller (aus der MAC-Adresse) und einem Verbunden-Status an. Standardmäßig aus – jedes Gerät erzeugt ein Gerät und eine Entität.",
           "host_device_filter": "Welche Geräte ein eigenes Gerät bekommen: dieselbe Schreibweise wie der Karten-Filter „IP-Filter“ (z. B. „192.168.2.*“, mehrere Muster mit Komma, „!“ schließt aus; „*“ wählt alle). Leer = keines. Höchstens 150 Geräte.",
           "enable_system_stats": "Liest CPU-Auslastung, RAM-Auslastung und Temperatur über die Weboberfläche der Box (nicht über TR-064, von AVM nicht dokumentiert, FRITZ!OS-abhängig). Standardmäßig aus; schlägt der Abruf fehl, fehlen nur diese Werte.",
-          "enable_parental_control": "Erlaubt Dienste, die Zugangsprofile lesen und Geräten zuweisen (z. B. „Gesperrt“ für eine Stunde). Nutzt die Weboberfläche der Box, nicht TR-064 – von AVM nicht dokumentiert, FRITZ!OS-abhängig. Standardmäßig aus."
+          "enable_parental_control": "Erlaubt Dienste, die Zugangsprofile lesen und Geräten zuweisen (z. B. „Gesperrt“ für eine Stunde). Nutzt die Weboberfläche der Box, nicht TR-064 – von AVM nicht dokumentiert, FRITZ!OS-abhängig. Standardmäßig aus.",
+          "check_updates": "Fragt einmal am Tag bei GitHub nach der neuesten veröffentlichten Version und zeigt in der Karte (Steuerung) einen Hinweis, wenn eine neuere verfügbar ist. Es werden keine Daten über dich oder deine Box übertragen."
         }
       }
     }
@@ -169,6 +171,9 @@
       },
       "host_online": {
         "name": "Verbunden"
+      },
+      "update_verfuegbar": {
+        "name": "Update verfügbar"
       }
     },
     "switch": {
@@ -200,6 +205,9 @@
       },
       "oui_update": {
         "name": "Herstellerliste aktualisieren"
+      },
+      "install_blueprints": {
+        "name": "Blueprints installieren"
       }
     },
     "event": {
@@ -389,6 +397,20 @@
         "minutes": {
           "name": "Dauer (Minuten)",
           "description": "Optional: Danach wird das ursprüngliche Profil wiederhergestellt (geprüft im Abfrageintervall)."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bei mehreren Boxen: welche Box gemeint ist."
+        }
+      }
+    },
+    "install_blueprints": {
+      "name": "Blueprints installieren",
+      "description": "Kopiert die mitgelieferten Blueprints (Automationen und Skript) in den Blueprint-Ordner von Home Assistant. Bereits vorhandene, geänderte Dateien bleiben unberührt, außer „Überschreiben“ ist gesetzt.",
+      "fields": {
+        "overwrite": {
+          "name": "Überschreiben",
+          "description": "Auch bereits vorhandene, abweichende Blueprint-Dateien durch die mitgelieferten ersetzen."
         },
         "config_entry": {
           "name": "FRITZ!Box",

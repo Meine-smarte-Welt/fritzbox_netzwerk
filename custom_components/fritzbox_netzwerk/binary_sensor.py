@@ -59,6 +59,7 @@ async def async_setup_entry(
         [
             FritzboxNetzwerkInternetSensor(coordinator, entry),
             FritzboxNetzwerkIpConflictSensor(coordinator, entry),
+            FritzboxNetzwerkUpdateSensor(coordinator, entry),
         ]
     )
 
@@ -313,3 +314,50 @@ class FritzboxNetzwerkIpConflictSensor(
     def extra_state_attributes(self) -> dict[str, Any]:
         """Die betroffenen Adressen mit den jeweils beteiligten Geraeten."""
         return {"konflikte": self._conflicts()}
+
+
+class FritzboxNetzwerkUpdateSensor(
+    CoordinatorEntity[FritzboxNetzwerkCoordinator], BinarySensorEntity
+):
+    """Meldet, wenn bei GitHub eine neuere Version der Integration verfuegbar ist.
+
+    Reine Anzeige (Diagnose-Entitaet) - installiert wird weiterhin ueber HACS
+    oder von Hand. Ohne Versionspruefung (Option aus, GitHub nicht erreichbar)
+    bleibt der Sensor aus.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "update_verfuegbar"
+    _attr_device_class = BinarySensorDeviceClass.UPDATE
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: FritzboxNetzwerkCoordinator, entry) -> None:
+        """Initialisiert den Sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_update_available"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            manufacturer=MANUFACTURER,
+            name=entry.title,
+            configuration_url=f"http://{entry.data[CONF_HOST]}",
+            sw_version=VERSION,
+        )
+
+    def _info(self) -> dict[str, Any]:
+        return (self.coordinator.data or {}).get("version") or {}
+
+    @property
+    def is_on(self) -> bool:
+        """Eine neuere Version ist verfuegbar."""
+        return bool(self._info().get("update_available"))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Installierte/neueste Version, Link zur Release-Seite, letzte Pruefung."""
+        info = self._info()
+        return {
+            "installierte_version": info.get("installed"),
+            "neueste_version": info.get("latest"),
+            "release_url": info.get("release_url"),
+            "zuletzt_geprueft": info.get("checked"),
+        }

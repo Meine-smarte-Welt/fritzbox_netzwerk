@@ -184,3 +184,16 @@ set_access_profile:
       selector:
         config_entry:
           integration: fritzbox_netzwerk
+
+install_blueprints:
+  fields:
+    overwrite:
+      required: false
+      default: false
+      selector:
+        boolean:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk

@@ -280,6 +280,10 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             # Mesh-Gruppe (FRITZ!Box + Repeater) fuer die Karte; None ohne Repeater.
             "mesh": self._mesh_attribute(),
             "trackers": self._trackers_attribute(),
+            # Versionsanzeige und Update-Hinweis der Karte (Steuerungsseite).
+            "version": data.get("version"),
+            # Ob die Zugangsprofil-Funktionen freigeschaltet sind (Popup der Karte).
+            "parental": self.coordinator.parental_enabled,
         }
         return attributes
 

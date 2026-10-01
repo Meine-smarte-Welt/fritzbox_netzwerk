@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.7.0b2"
+VERSION: Final = "1.7.0"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -46,6 +46,7 @@ CONF_IP_RANGES: Final = "ip_ranges"
 CONF_ENABLE_HOST_DEVICES: Final = "enable_host_devices"
 CONF_ENABLE_SYSTEM_STATS: Final = "enable_system_stats"
 CONF_ENABLE_PARENTAL: Final = "enable_parental_control"
+CONF_CHECK_UPDATES: Final = "check_updates"
 CONF_HOST_DEVICE_FILTER: Final = "host_device_filter"
 
 DEFAULT_SCAN_INTERVAL: Final = 60  # Sekunden
@@ -62,6 +63,14 @@ DEFAULT_ENABLE_HOST_DEVICES: Final = False
 DEFAULT_ENABLE_SYSTEM_STATS: Final = False
 # Idee 22 (experimentell): Zugangsprofile der Kindersicherung ueber die Weboberflaeche
 DEFAULT_ENABLE_PARENTAL: Final = False
+DEFAULT_CHECK_UPDATES: Final = True
+UPDATE_CHECK_HOURS: Final = 24
+GITHUB_LATEST_RELEASE_URL: Final = (
+    "https://api.github.com/repos/Meine-smarte-Welt/fritzbox_netzwerk/releases/latest"
+)
+SERVICE_INSTALL_BLUEPRINTS: Final = "install_blueprints"
+ATTR_OVERWRITE: Final = "overwrite"
+BLUEPRINTS_DIRNAME: Final = "blueprints"
 PROFILE_REVERT_STORAGE_VERSION: Final = 1
 SYSTEM_STATS_INTERVAL_MINUTES: Final = 5
 INTERNET_BLOCK_STORAGE_VERSION: Final = 1

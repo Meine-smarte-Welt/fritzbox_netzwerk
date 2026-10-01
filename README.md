@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.7.0b2-blue)
+![Version](https://img.shields.io/badge/Version-1.7.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -21,6 +21,9 @@ passenden Home-Assistant-Gerätenamen.
 - [Mesh: FRITZ!Box und Repeater als Gruppe](#mesh-fritzbox-und-repeater-als-gruppe)
 - [Repeater als eigene Geräte](#repeater-als-eigene-geräte)
 - [MAC-Filter und Pairing](#mac-filter-und-pairing)
+- [Kindersicherung: Zugangsprofile (experimentell)](#kindersicherung-zugangsprofile-experimentell)
+- [CPU und RAM der Box (experimentell)](#cpu-und-ram-der-box-experimentell)
+- [Netzwerkgeräte als eigene Home-Assistant-Geräte](#netzwerkgeräte-als-eigene-home-assistant-geräte)
 - [Dashboard-Karte](#dashboard-karte)
   - [Spalten](#spalten)
   - [Sortieren, filtern, suchen](#sortieren-filtern-suchen)
@@ -30,6 +33,9 @@ passenden Home-Assistant-Gerätenamen.
   - [Hersteller aus der MAC-Adresse](#hersteller-aus-der-mac-adresse)
   - [MAC-Adresse kopieren](#mac-adresse-kopieren)
   - [Steuerungsleiste und Kategorien als Tabs](#steuerungsleiste-und-kategorien-als-tabs)
+  - [Version und Update-Hinweis](#version-und-update-hinweis)
+  - [Etikett, Notiz und „reserviert“](#etikett-notiz-und-reserviert)
+  - [Gruppieren, CSV-Export und gemerkte Ansicht](#gruppieren-csv-export-und-gemerkte-ansicht)
   - [Gast-WLAN: QR-Code zum Verbinden](#gast-wlan-qr-code-zum-verbinden)
   - [Wischen und Blättern auf dem Smartphone](#wischen-und-blättern-auf-dem-smartphone)
   - [IP-Adresse öffnet die Weboberfläche](#ip-adresse-öffnet-die-weboberfläche)
@@ -87,6 +93,16 @@ passenden Home-Assistant-Gerätenamen.
   und in der Karte, dazu ein Button **„Alle FRITZ!-Geräte neu starten“** (Repeater zuerst, Box zuletzt)
 - **WLAN-MAC-Filter** ein-/ausschalten und **temporär freigeben („Pairing“)**: neue Geräte
   für ein paar Minuten ins WLAN lassen, danach schaltet sich der Filter selbst wieder ein
+- **Kindersicherung** (seit 1.7.0, experimentell): Zugangsprofile der FRITZ!Box im Geräte-Popup
+  der Karte oder per Dienst wechseln – auch **zeitweise** („Tablet 60 Minuten auf Gesperrt“)
+- **Version und Update-Hinweis** auf der Steuerungsseite der Karte: Eine neue Version wird
+  farblich hervorgehoben, mit Link zu den Release-Notizen
+- **Etikett, Notiz und „reserviert“-Markierung** je Gerät, **Gruppieren**, **CSV-Export** und
+  **gemerkte Ansicht** in der Karte
+- **Herstellerliste aktualisieren** und um **eigene Zuordnungen** ergänzen
+- **Netzwerkgeräte als eigene HA-Geräte** (Option), **CPU/RAM der Box** (Option, experimentell)
+- **Blueprints und Skript** lassen sich mit einem Klick in Home Assistant einrichten
+  (Button „Blueprints installieren“)
 
 Die Karte wird von der Integration mitgeliefert und automatisch als Lovelace-Ressource
 eingetragen. Es ist keine separate Installation der Karte nötig.
@@ -168,6 +184,10 @@ Nicht alle lokalen Funktionen sind dadurch aus der Ferne erreichbar: Insbesonder
 | Geräte-Tracker anlegen | aus | Ein `device_tracker` je Netzwerkgerät (zuhause/abwesend) |
 | Repeater als eigene Geräte anlegen | an | Ein Home-Assistant-Gerät je AVM-Repeater sowie Mesh-Sensor und „Alle neu starten“-Button, siehe [Mesh](#mesh-fritzbox-und-repeater-als-gruppe) und [Repeater als eigene Geräte](#repeater-als-eigene-geräte) |
 | FRITZ!Box-Steuerung (experimentell) | aus | WLAN-Schalter, MAC-Filter-Schalter, Pairing-Button, Buttons Neuverbinden und Neustart sowie „Alle FRITZ!-Geräte neu starten“ |
+| Täglich auf neue Version prüfen | an | Fragt einmal am Tag bei GitHub nach der neuesten Version und zeigt in der Karte einen Hinweis; es werden keine Daten über dich oder die Box übertragen |
+| Zugangsprofile der Kindersicherung steuern (experimentell) | aus | Schaltet die Dienste und die Profilauswahl im Popup frei, siehe [Kindersicherung](#kindersicherung-zugangsprofile-experimentell) |
+| CPU und RAM der Box lesen (experimentell) | aus | Drei Sensoren aus der Weboberfläche der Box, siehe [CPU und RAM](#cpu-und-ram-der-box-experimentell) |
+| Netzwerkgeräte als eigene Geräte anlegen | aus | Je ausgewähltem Gerät ein HA-Gerät, Auswahl per Muster, siehe [Netzwerkgeräte als HA-Geräte](#netzwerkgeräte-als-eigene-home-assistant-geräte) |
 | Pairing-Dauer | 5 min | Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt (1–120 min), siehe [MAC-Filter und Pairing](#mac-filter-und-pairing) |
 
 **Warum zwei Intervalle?** Die komplette Geräteliste kommt mit einem einzigen Aufruf von
@@ -403,6 +423,84 @@ ist der zweite WLAN-Dienst das Gastnetz und bleibt deshalb außen vor.
 
 ---
 
+## Kindersicherung: Zugangsprofile (experimentell)
+
+Die AVM-Kindersicherung arbeitet mit **Zugangsprofilen** (Internet → Filter → Zugangsprofile) mit
+Zeitplänen, Zeitkontingenten und Filterlisten, die einzelnen Geräten zugewiesen werden. Die
+Integration **wechselt zwischen vorhandenen Profilen** – anlegen und bearbeiten musst du sie
+weiterhin in der FRITZ!Box.
+
+**Einschalten:** Einstellungen → Geräte & Dienste → FRITZ!Box Netzwerk → Konfigurieren →
+„Zugangsprofile der Kindersicherung steuern (experimentell)“.
+
+**Bedienung in der Karte:** Im Detail-Popup eines Geräts erscheint die Zeile **Zugangsprofil**.
+„Anzeigen“ lädt das aktuelle Profil und die Profilliste (erst auf Klick, weil dafür eine
+Anmeldung an der Box nötig ist). Profil auswählen, optional **Minuten** eintragen, „Übernehmen“.
+Mit Minuten gilt das Profil nur so lange – danach stellt die Integration das bisherige Profil
+selbst wieder her (gespeichert, übersteht einen Neustart von Home Assistant; Genauigkeit =
+Abfrageintervall). Die Zeile lässt sich über `show_parental: false` in der Karte ausblenden.
+
+**Bedienung per Dienst** (Automationen, Skripte, Sprachassistent):
+
+```yaml
+action: fritzbox_netzwerk.list_access_profiles   # alle Profile mit ID und Name
+response_variable: profile
+---
+action: fritzbox_netzwerk.get_access_profile     # aktuelles Profil eines Geräts
+data:
+  mac: "3C:A6:F6:00:11:22"
+response_variable: aktuell
+---
+action: fritzbox_netzwerk.set_access_profile     # Tablet 60 Minuten sperren
+data:
+  mac: "3C:A6:F6:00:11:22"
+  profile: Gesperrt        # Name oder ID (filtprof…)
+  minutes: 60              # optional
+```
+
+Fertig vorbereitet ist das **Skript-Blueprint** „Zugangsprofil zeitweise wechseln“ (siehe
+[Blueprints](#blueprints)).
+
+**Wichtig – so funktioniert es und wo die Grenzen liegen**
+
+- Für Zugangsprofile gibt es **keine TR-064-Schnittstelle**. Die Integration nutzt dieselben
+  Anfragen an die Weboberfläche (`data.lua`), die seit Jahren in Community-Projekten laufen (u. a.
+  FritzBoxShell, FHEM, ioBroker). AVM dokumentiert das nicht; ein FRITZ!OS-Update kann es brechen.
+- Geschrieben wird nur, wenn Gerät und Profil eindeutig gefunden wurden und das aktuelle Profil
+  lesbar ist. **Nach dem Schreiben wird kontrolliert**, ob die Box das Profil übernommen hat –
+  sonst gibt es eine Fehlermeldung.
+- Ungeprüft: ob das Zuweisen weitere Geräteeinstellungen (z. B. feste IP-Zuweisung) unverändert
+  lässt. **Bitte zuerst an einem Testgerät ausprobieren.**
+- Benötigt einen Benutzer mit Zugriff auf die Weboberfläche. Anmeldung und Abmeldung erfolgen bei
+  jedem Aufruf; es bleibt keine Sitzung offen. Bei Fernzugriff wird die Oberfläche per HTTPS auf
+  dem konfigurierten Port angesprochen.
+- Unabhängig davon gibt es weiterhin `set_internet_access` (TR-064, gerätegenau sperren/freigeben,
+  jetzt ebenfalls mit `minutes`).
+
+---
+
+## CPU und RAM der Box (experimentell)
+
+Option „CPU und RAM der Box lesen (experimentell)“ (standardmäßig aus) legt drei Sensoren an:
+**CPU-Auslastung**, **RAM-Auslastung** und **CPU-Temperatur**. Die Werte kommen nicht über TR-064,
+sondern aus der Weboberfläche der Box (Seite `ecoStat`, wie beim Energiemonitor). Das ist von AVM
+nicht dokumentiert und kann sich mit jedem FRITZ!OS ändern; wie die Messreihen zugeordnet werden,
+beruht auf Beobachtungen aus der Community und ist an keiner Box geprüft – bitte die Werte mit
+System → Energiemonitor vergleichen. Abruf alle 5 Minuten; schlägt er fehl, fehlen nur diese Werte
+(eine Warnung im Protokoll, der Grund steht im Diagnose-Export).
+
+---
+
+## Netzwerkgeräte als eigene Home-Assistant-Geräte
+
+Option „Netzwerkgeräte als eigene Geräte anlegen“ (standardmäßig aus): Für ausgewählte Geräte
+entsteht je ein Home-Assistant-Gerät mit **Hersteller** (aus der MAC-Adresse) und einem
+**Verbunden-Status**. Die Auswahl erfolgt mit dem Platzhalter-Muster der IP-Filter
+(`192.168.2.*`, `!` schließt aus); ein leeres Muster wählt nichts aus. Höchstens 150 Geräte.
+Nicht mehr ausgewählte Geräte werden beim nächsten Start der Integration wieder entfernt.
+
+---
+
 ## Dashboard-Karte
 
 Karte hinzufügen → **FRITZ!Box Netzwerk** → Sensor auswählen. Alles Weitere lässt sich im
@@ -591,6 +689,18 @@ die Adresse stabil. Dasselbe Bit tragen einige virtuelle Geräte (Docker, virtue
 stammt aus dem PyPI-Paket [`mac-vendor-lookup`](https://pypi.org/project/mac-vendor-lookup/)
 0.1.15 (Apache-2.0), veröffentlicht am 30.11.2025.
 
+**Herstellerliste aktualisieren (seit 1.7.0):** Der Dienst `fritzbox_netzwerk.update_oui` und der
+Button „Herstellerliste aktualisieren“ laden die IEEE-Register MA-L, MA-M und MA-S und legen sie
+im Ordner `fritzbox_netzwerk` im Home-Assistant-Konfigurationsverzeichnis ab (`oui_update.txt`) –
+HACS-Updates überschreiben sie nicht. Schlägt der Abruf fehl oder ist die Liste unplausibel
+klein, bleibt die bisherige Liste. Dafür braucht die HA-Maschine Internetzugang zu
+`standards-oui.ieee.org`.
+
+**Eigene Zuordnungen:** Die Datei `oui_custom.txt` im selben Ordner (wird mit einer
+kommentierten Vorlage angelegt) nimmt Zeilen `PRÄFIX:Name` mit 6, 7 oder 9 Hex-Zeichen auf.
+Vorrang: mitgelieferte Liste < aktualisierte Liste < eigene Zuordnungen. Wirkt nach einem
+Neustart oder nach `update_oui`.
+
 ### MAC-Adresse kopieren
 
 Ein Klick (oder Enter/Leertaste) auf die MAC-Adresse in der Tabelle kopiert sie in die
@@ -667,6 +777,36 @@ QR-Code-Generator.
 Setzt – wie der Gast-WLAN-Schalter selbst – ein separates Gast-WLAN voraus (Dualband-Box mit
 WLAN-Diensten für 2,4 GHz, 5 GHz und Gast). Auf Boxen ohne eigenes Gast-WLAN erscheint der
 Button nicht.
+
+### Version und Update-Hinweis
+
+Auf der Steuerungsseite (Steuerungsleiste, bei Tabs der Tab „Steuerung“) zeigt die Karte die
+**installierte Version der Integration** (`v1.7.0`). Gibt es bei GitHub eine neuere veröffentlichte
+Version, erscheint **direkt daneben ein farbig hervorgehobener Hinweis** („Update 1.7.1“, Farbe =
+Warnfarbe des Themes) mit Link zu den Release-Notizen. Die Prüfung läuft einmal täglich und lässt
+sich in den Optionen abschalten („Täglich auf neue Version prüfen“); zusätzlich steht der Stand
+im Diagnose-Binärsensor **„Update verfügbar“** (nutzbar in Automationen). Installiert wird
+weiterhin über HACS. Weicht die Version der Karte von der der Integration ab (alter
+Browser-Cache), erscheint ein roter Hinweis – dann die Seite neu laden (Strg+F5). Ausblenden:
+`show_version: false`.
+
+### Etikett, Notiz und „reserviert“
+
+Im Detail-Popup lassen sich je Gerät ein **Etikett**, eine **Notiz** und die Markierung
+**„reserviert“** setzen (Stift-Symbol). Gespeichert wird nur in Home Assistant – die FRITZ!Box
+wird nicht verändert. Etikett und Notiz gibt es auch als Spalten (`show_label`, `show_note`,
+Standard aus) und in der Suche. „Reserviert“ lässt das Gerät als „fest“ zählen und schließt damit
+die Lücke bei Reservierungen innerhalb des DHCP-Bereichs (rein manuell). Per Dienst:
+`fritzbox_netzwerk.set_device_note`.
+
+### Gruppieren, CSV-Export und gemerkte Ansicht
+
+`group_by` gruppiert die Liste nach `state`, `connection`, `vendor`, `band`, `subnet` oder
+`label` mit einklappbaren Überschriften (Auswahlfeld in der Filterleiste: `show_group_select`).
+Der **CSV-Export** (`show_csv_export`) speichert die sichtbare Liste; geht der Download im Browser
+nicht, landet die CSV in der Zwischenablage. Zellen, die mit `=`, `+`, `-` oder `@` beginnen,
+werden entschärft, damit Tabellenprogramme sie nicht als Formel ausführen. Filter, Sortierung,
+Gruppierung und eingeklappte Gruppen merkt sich die Karte je Browser (`remember_view`).
 
 ### Wischen und Blättern auf dem Smartphone
 
@@ -946,13 +1086,13 @@ data:
   reserved: true
 ```
 
-Neu in 1.7.0b1: Das Feld `minutes` bei `set_internet_access` gibt den Zugang nach der
-angegebenen Zeit wieder frei (nur beim Sperren).
+Das Feld `minutes` bei `set_internet_access` (seit 1.7.0) gibt den Zugang nach der angegebenen
+Zeit wieder frei (nur beim Sperren; gespeichert, übersteht einen Neustart).
 
 ### `fritzbox_netzwerk.list_access_profiles`, `get_access_profile`, `set_access_profile` (experimentell)
 
-Zugangsprofile der Kindersicherung (Option nötig, siehe Versionshistorie 1.7.0b2). Alle drei
-liefern eine Antwort.
+Zugangsprofile der Kindersicherung (Option nötig, siehe
+[Kindersicherung](#kindersicherung-zugangsprofile-experimentell)). Alle drei liefern eine Antwort.
 
 ```yaml
 action: fritzbox_netzwerk.list_access_profiles
@@ -966,35 +1106,63 @@ data:
   minutes: 60
 ```
 
+### `fritzbox_netzwerk.install_blueprints`
+
+Kopiert die mitgelieferten Blueprints (Automationen und Skript) in den Blueprint-Ordner von Home
+Assistant, siehe [Blueprints](#blueprints). Mit `overwrite: true` werden auch bereits vorhandene,
+abweichende Dateien ersetzt; ohne bleiben eigene Änderungen unberührt. Antwort: Listen
+`installiert`, `aktualisiert`, `unveraendert`, `uebersprungen`.
+
 ### `fritzbox_netzwerk.update_oui`
 
-Lädt die IEEE-Herstellerregister neu (siehe Versionshistorie 1.7.0b1). Gibt die Zahl der
+Lädt die IEEE-Herstellerregister neu (siehe [Hersteller aus der MAC-Adresse](#hersteller-aus-der-mac-adresse)). Gibt die Zahl der
 Einträge je Register zurück. Eigene Zuordnungen stehen in `oui_custom.txt`.
 
 ## Blueprints
 
-Fertige Automations-Vorlagen unter `blueprints/automation/fritzbox_netzwerk/` – einfach
-importieren (Einstellungen > Automationen und Szenen > Blueprints > Blueprint importieren, den
-`source_url`-Link aus der jeweiligen Datei einfügen) oder die Datei in das eigene
-`blueprints/automation/`-Verzeichnis kopieren.
+Die Integration bringt fertige Vorlagen mit – drei für **Automationen** und eine für ein
+**Skript**. Sie liegen im Integrationsordner (`custom_components/fritzbox_netzwerk/blueprints/`).
 
-- **Push bei Gerät offline** (`push_bei_geraet_offline.yaml`): Benachrichtigung, sobald eines
-  oder mehrere ausgewählte Geräte (über ihre `device_tracker`-Entität) nicht mehr erreichbar
-  sind. Setzt voraus, dass „device_tracker-Entitäten anlegen" in den Optionen aktiviert ist.
-- **Push bei neuem Gerät** (`push_bei_neuem_geraet.yaml`): Benachrichtigung, sobald das Ereignis
-  „Neues Gerät" ein bisher unbekanntes Gerät im Heimnetz meldet. Direkt nach der Einrichtung
-  bzw. einem Neustart von Home Assistant löst das zugrunde liegende Ereignis bewusst noch nichts
-  aus (siehe [Sensoren](#sensoren)), die Automation bekommt davon also nichts „falsch Neues" zu
-  sehen.
-- **Schalter zeitgesteuert ausschalten** (`schalter_zeitgesteuert_ausschalten.yaml`): schaltet
-  einen Schalter dieser Integration – typischerweise das Gast-WLAN – nach einer wählbaren Dauer
-  automatisch wieder aus, sobald er eingeschaltet wird. Für „Gast-WLAN nur bei Besuch: 2 h
-  einschalten, Rest erledigt sich von selbst"; Einschalten bleibt manuell (Dashboard,
-  Sprachassistent, eigene Automation), nur das zuverlässige Wiederausschalten übernimmt das
-  Blueprint. Setzt die FRITZ!Box-Steuerung in den Optionen voraus.
+**Sofort in Home Assistant einrichten (empfohlen):**
 
-Alle drei Blueprints nutzen ausschließlich bereits vorhandene Entitäten dieser Integration –
-kein zusätzlicher TR-064-Aufruf, keine eigene Integrations-Logik.
+- Einstellungen → Geräte & Dienste → FRITZ!Box Netzwerk → Gerät → Button **„Blueprints
+  installieren“** drücken, oder
+- den Dienst `fritzbox_netzwerk.install_blueprints` aufrufen.
+
+Die Dateien werden nach `<config>/blueprints/automation/fritzbox_netzwerk/` und
+`<config>/blueprints/script/fritzbox_netzwerk/` kopiert. Es wird **nur auf Anforderung** etwas
+geschrieben, bereits vorhandene und von dir geänderte Dateien bleiben unberührt (außer mit
+`overwrite: true`). Nach einem Update der Integration den Button einfach erneut drücken.
+Falls die Blueprints danach nicht gleich in der Liste erscheinen: Seite neu laden bzw.
+Entwicklerwerkzeuge → YAML → Automationen/Skripte neu laden.
+
+**Alternativ einzeln importieren:** Einstellungen → Automationen & Szenen → Blueprints →
+Blueprint importieren, die `source_url` aus der jeweiligen Datei einfügen.
+
+**Skripte:** Home Assistant legt Skripte selbst an (`scripts.yaml`); eine Integration darf dort
+nichts hineinschreiben. Deshalb liefert die Integration ein **Skript-Blueprint** – daraus erzeugst
+du mit zwei Klicks ein eigenes Skript (Einstellungen → Automationen & Szenen → Skripte → Skript
+hinzufügen → aus Blueprint).
+
+Enthaltene Blueprints:
+
+- **Push bei Gerät offline** (`automation/push_bei_geraet_offline.yaml`): Benachrichtigung, sobald
+  eines oder mehrere ausgewählte Geräte (über ihre `device_tracker`-Entität) nicht mehr
+  erreichbar sind. Setzt voraus, dass „device_tracker-Entitäten anlegen“ in den Optionen aktiviert
+  ist.
+- **Push bei neuem Gerät** (`automation/push_bei_neuem_geraet.yaml`): Benachrichtigung, sobald das
+  Ereignis „Neues Gerät“ ein bisher unbekanntes Gerät im Heimnetz meldet. Direkt nach der
+  Einrichtung bzw. einem Neustart von Home Assistant löst das Ereignis bewusst noch nichts aus
+  (siehe [Sensoren](#sensoren)).
+- **Schalter zeitgesteuert ausschalten** (`automation/schalter_zeitgesteuert_ausschalten.yaml`):
+  schaltet einen Schalter dieser Integration – typischerweise das Gast-WLAN – nach einer wählbaren
+  Dauer wieder aus. Einschalten bleibt manuell. Setzt die FRITZ!Box-Steuerung in den Optionen
+  voraus.
+- **Zugangsprofil zeitweise wechseln** (`script/zugangsprofil_zeitweise.yaml`): weist einem Gerät
+  für N Minuten ein anderes Zugangsprofil zu (Standard: „Gesperrt“, 60 Minuten), danach gilt
+  wieder das bisherige. Setzt die Option für die Zugangsprofile voraus (experimentell).
+
+Alle Blueprints nutzen ausschließlich Entitäten und Dienste dieser Integration.
 
 ---
 
@@ -1230,12 +1398,12 @@ language: nl   # "" = automatisch, sonst de | en | nl
   Wake-on-LAN, Echtzeitpriorität und Geräteklasse. Ein Setzen der IP-Adresse wäre nur über
   die Weboberfläche der FRITZ!Box möglich – undokumentiert und bei jedem FRITZ!OS-Update
   potenziell defekt. Das ist bewusst nicht Teil dieser Version.
-- **Mesh nur in Teilen.** FRITZ!Box und Repeater bilden eine Gruppe (siehe oben). Das Funkband
-  zeigt die Karte für Geräte an der Box selbst. Signalstärke und der Repeater, an dem ein Gerät
-  hängt, stehen dagegen in einer eigenen Schnittstelle (`X_AVM-DE_GetMeshListPath`) und sind
-  noch nicht ausgewertet. Die Repeater-Erkennung selbst stützt sich auf den von der FRITZ!Box
-  gemeldeten Modellnamen („…Repeater…“ oder „…FRITZ!Box…“, seit 1.6.2) – ein Mesh-Mitglied mit
-  abweichender Modellbezeichnung würde dadurch weiterhin nicht erkannt.
+- **Mesh nur in Teilen.** FRITZ!Box und Repeater bilden eine Gruppe (siehe oben); seit 1.6.3
+  zeigt die Karte in „Verbunden über“, an welchem Mesh-Nachbarn ein Gerät hängt, samt
+  Verbindungsrate. **Keine Signalstärke in dBm** (liefert die Mesh-Liste nicht) und **kein
+  Funkband für Geräte hinter einem Repeater**. Die Repeater-Erkennung stützt sich auf den
+  gemeldeten Modellnamen („…Repeater…“ oder „…FRITZ!Box…“) – ein Mesh-Mitglied mit abweichender
+  Bezeichnung würde nicht erkannt. Fremdsysteme (z. B. TP-Link Deco) sieht die Box nicht.
 - **Externe IP, Online-Zeit und Verbindungsstatus (seit 1.6.2) laufen über dieselben
   WAN-Dienste wie die Down-/Upload-Raten** und fehlen deshalb unter denselben Bedingungen
   (reiner Access-Point-Betrieb). „Online seit" wird aus der gemeldeten Verbindungsdauer
@@ -1255,8 +1423,15 @@ language: nl   # "" = automatisch, sonst de | en | nl
   Das automatische Wiedereinschalten übernimmt die Integration, nicht die FRITZ!Box.
 - **Repeater-Neustart und „Alle neu starten“ sind experimentell.** Sie hängen davon ab, dass
   der Repeater die Anmeldung mit den Zugangsdaten der FRITZ!Box akzeptiert.
-- **Nur eine FRITZ!Box je Dienstaufruf.** Sind mehrere Boxen eingerichtet, wirken
-  `set_device_name` und `wake_on_lan` auf die zuerst geladene.
+- **Mehrere FRITZ!Boxen:** Alle Dienste nehmen das optionale Feld `config_entry` entgegen; ohne
+  Angabe wirkt ein Dienst auf die zuerst geladene Box.
+- **Kindersicherung nur als Profilwechsel (experimentell).** Profile anlegen oder bearbeiten
+  (Zeitpläne, Zeitkontingente, Filterlisten) geht nur in der FRITZ!Box-Oberfläche; die
+  Integration nutzt dafür undokumentierte Weboberflächen-Anfragen, siehe
+  [Kindersicherung](#kindersicherung-zugangsprofile-experimentell).
+- **CPU/RAM (experimentell)** stammen aus der Weboberfläche, nicht aus TR-064, und sind an keiner
+  Box geprüft, siehe [CPU und RAM](#cpu-und-ram-der-box-experimentell).
+- **Datenverbrauch je Gerät** liefert die Box nicht über TR-064.
 - Die Zuordnung zu Home-Assistant-Geräten erfolgt ausschließlich über die MAC-Adresse.
   Es wird bewusst nicht über Namensähnlichkeit geraten.
 
@@ -1264,96 +1439,84 @@ language: nl   # "" = automatisch, sonst de | en | nl
 
 ## Entwicklung und Tests
 
-Die eigentliche Aufbereitungslogik (`hosts.py`, `mesh_topology.py`, `connection.py`,
-`scripts/update_oui.py`) enthält weder Home-Assistant- noch fritzconnection-Importe
-mit echten Netzwerkaufrufen und ist damit ohne laufende Home-Assistant-Instanz und
-ohne echte FRITZ!Box prüfbar. Die Entity-Klassen selbst (`sensor.py`, `binary_sensor.py`,
-`switch.py`, `device_tracker.py`, …) setzen dagegen ein installiertes `homeassistant`
-voraus und werden bewusst nicht per Unittest geprüft – das würde entweder eine volle
-Home-Assistant-Testumgebung erfordern oder zu einer zweiten, von HA losgelösten
-Attrappen-Implementierung führen, die Fehler verdecken statt aufdecken kann:
+Die Aufbereitungslogik (`hosts.py`, `mesh_topology.py`, `connection.py`, `webui.py`,
+`updates.py`, `blueprints_install.py`) enthält keine Home-Assistant-Importe und ist ohne laufende
+Home-Assistant-Instanz und ohne echte FRITZ!Box prüfbar. Die Entity-Klassen (`sensor.py`,
+`binary_sensor.py`, …) setzen ein installiertes `homeassistant` voraus und werden bewusst nicht
+per Unittest geprüft:
 
 ```bash
-python3 -m unittest discover -s tests -p "test_*.py" -v  # 59 Fälle (Stand 1.7.0b1: Notizen, OUI, Host-Auswahl)
-node tests/test_card.js           # 61 Fälle (Stand 1.7.0b1: Notizen, Gruppierung, CSV, gemerkte Ansicht)
+python3 -m unittest discover -s tests -p "test_*.py" -v   # 71 Fälle
+npm ci && npm test                                         # 91 Fälle, Dashboard-Karte (jsdom)
 ```
 
-`tests/test_gast_wlan_info.py` verifiziert zusätzlich den QR-Code selbst: Er wird mit einem
-unabhängigen Dekoder (`zbarimg`, Paket `zbar-tools`) zurückgelesen und mit dem erwarteten
-`WIFI:`-Verbindungsstring verglichen – auch für Sonderzeichen in SSID/Passwort und ein offenes
-Netz ohne Passwort. Ohne installiertes `zbarimg` werden nur diese Fälle übersprungen, nicht die
-ganze Datei.
+Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein DOM
+(`jsdom`) und steuern die Karte über `setConfig()`, den `hass`-Setter und echte Klick-Ereignisse
+an – es gibt keine zweite Kopie des Kartencodes.
 
-Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein echtes
-DOM (über `jsdom`) und steuern die Karte genau so an, wie Lovelace es tut – über
-`setConfig()`, den `hass`-Setter und echte Klick- und Tastaturereignisse. Es gibt keine
-zweite Kopie des Kartencodes im Testaufbau. `npm ci && npm test` installiert `jsdom`
-reproduzierbar aus `package-lock.json` und führt alle `tests/test_card_*.js` aus.
-
-Hinweis (1.7.0b1): Das Verzeichnis `tests/` im Repository enthält derzeit nur die Tests der
-neuen Funktionen; die Tests aus der Beschreibung zu 1.6.3 und der CI-Workflow sind im
-Repository nicht (mehr) vorhanden.
+**GitHub Actions** (`.github/workflows/`): `tests.yml` führt bei jedem Push nach `main` und jeder
+Pull Request die Python-Tests, `ruff` und die Karten-Tests aus; `validate.yml` prüft mit
+**hassfest** (Home Assistant) und der **HACS-Validierung**, ob die Integration die Vorgaben
+erfüllt.
 
 ---
 
 ## Versionshistorie
 
-### 1.7.0b2 (Beta) – Kindersicherung: Zugangsprofile lesen und zuweisen (experimentell)
+### 1.7.0 – Kindersicherung, Versionsanzeige mit Update-Hinweis, Blueprints per Klick, Notizen, Herstellerliste, Gruppieren/CSV
 
-- **Zugangsprofile der AVM-Kindersicherung** (Idee 22), neue Option „Zugangsprofile der
-  Kindersicherung steuern (experimentell)", standardmäßig aus. Drei Dienste:
-  `fritzbox_netzwerk.list_access_profiles` (alle Profile mit ID und Name),
-  `fritzbox_netzwerk.get_access_profile` (aktuelles Profil eines Geräts) und
-  `fritzbox_netzwerk.set_access_profile` (Profil zuweisen, per ID `filtprof…` oder Name,
-  optional mit `minutes`: danach wird das ursprüngliche Profil wiederhergestellt – gespeichert,
-  überlebt einen Neustart, Genauigkeit = Abfrageintervall).
-- **Wichtig – experimentell:** Dafür gibt es keine TR-064-Schnittstelle. Die Integration nutzt
-  dieselben Anfragen an die Weboberfläche (`data.lua`: Seiten `kidPro`, `netDev`,
-  `edit_device`), die seit Jahren in Community-Projekten (u. a. FritzBoxShell, FHEM, ioBroker)
-  verwendet werden. AVM dokumentiert das nicht; es kann mit jedem FRITZ!OS ausfallen. Die
-  Integration schreibt nur, wenn Gerät und Profil eindeutig gefunden wurden und das aktuelle
-  Profil lesbar ist, und **prüft nach dem Schreiben**, ob die Box das Profil übernommen hat
-  (sonst Fehlermeldung). Ob die Box beim Zuweisen weitere Geräteeinstellungen (z. B. feste
-  IP-Zuweisung) unverändert lässt, ist an keiner Box geprüft – **bitte zuerst an einem
-  Testgerät ausprobieren.**
-- Profile werden **nicht** angelegt oder bearbeitet (Zeitpläne, Zeitkontingente und
-  Filterlisten legst du weiterhin in der FRITZ!Box-Oberfläche an); die Integration wechselt nur
-  zwischen vorhandenen Profilen.
-- Benötigt einen Benutzer mit Zugriff auf die Weboberfläche. Anmeldung und Abmeldung erfolgen
-  bei jedem Aufruf, es bleibt keine Sitzung offen.
+**Kindersicherung (experimentell)**
+- Zugangsprofile der AVM-Kindersicherung lesen und zuweisen: **im Geräte-Popup der Karte** und per
+  Dienst (`list_access_profiles`, `get_access_profile`, `set_access_profile`), auch **zeitweise**
+  (`minutes`, danach automatische Rückstellung, übersteht Neustarts). Option standardmäßig aus.
+  Läuft über die Weboberfläche der Box (nicht TR-064) und ist an keiner Box geprüft, siehe
+  [Kindersicherung](#kindersicherung-zugangsprofile-experimentell).
+- `set_internet_access` hat jetzt ebenfalls `minutes` (Sperre mit Frist).
+- Skript-Blueprint „Zugangsprofil zeitweise wechseln“.
 
-### 1.7.0b1 (Beta) – Notizen/Etiketten, Herstellerliste aktualisieren und ergänzen, Netzwerkgeräte als HA-Geräte, Gruppieren und CSV-Export
+**Steuerungsseite der Karte**
+- **Version der Integration** mit **farbig hervorgehobenem Update-Hinweis** daneben (tägliche
+  Prüfung bei GitHub, abschaltbar), Warnung bei abweichender Kartenversion; Diagnose-Binärsensor
+  „Update verfügbar“.
 
-Beta-Version: Alle Neuerungen sind ohne echte FRITZ!Box und ohne laufendes Home Assistant
-getestet (Attrappen, jsdom) und brauchen Rückmeldungen aus der Praxis.
+**Blueprints und Skript**
+- Button „Blueprints installieren“ und Dienst `install_blueprints` richten die mitgelieferten
+  Blueprints (3 Automationen, 1 Skript) mit einem Klick in Home Assistant ein; eigene Änderungen
+  bleiben erhalten.
 
-- **Etikett, Notiz und „reserviert"-Markierung je Gerät** (Idee 3): im Detail-Popup
-  bearbeitbar (Stift-Symbol), nur in Home Assistant gespeichert – die FRITZ!Box wird nicht
-  verändert. Neue Spalten `show_label` / `show_note` (Standard aus), Suche und Sortierung
-  berücksichtigen sie. Die Markierung „reserviert" lässt das Gerät als „fest" zählen und
-  schließt damit die bekannte Lücke bei Reservierungen innerhalb des DHCP-Bereichs
-  (rein manuell). Dienst `fritzbox_netzwerk.set_device_note` (`mac`, `label`, `note`,
-  `reserved`; nicht übergebene Felder bleiben, ein leerer Text löscht).
-- **Herstellerliste aktualisieren** (Idee 4b): Dienst `fritzbox_netzwerk.update_oui` und Button
-  „Herstellerliste aktualisieren". Lädt die IEEE-Register MA-L, MA-M und MA-S und legt sie im
-  Ordner `fritzbox_netzwerk` unter dem Home-Assistant-Konfigurationsverzeichnis ab, damit
-  HACS-Updates sie nicht überschreiben. Die bisherige Liste bleibt, wenn der Abruf
-  fehlschlägt oder unplausibel wenige Einträge liefert. Die HA-Maschine braucht dafür
-  Internetzugang zu `standards-oui.ieee.org`.
-- **Eigene Herstellerzuordnungen** (Idee 4c): Datei `oui_custom.txt` im selben Ordner
-  (wird mit einer kommentierten Vorlage angelegt), eine Zeile `PRÄFIX:Name` mit 6, 7 oder 9
-  Hex-Zeichen. Vorrang: mitgelieferte Liste < aktualisierte Liste < eigene Zuordnungen.
-  Wirkt nach einem Neustart oder nach `update_oui`.
-- **Netzwerkgeräte als eigene Home-Assistant-Geräte** (Idee 9, Option aus): je ausgewähltem
-  Gerät ein HA-Gerät mit Hersteller und einem Verbunden-Status. Die Auswahl erfolgt mit dem
-  Platzhalter-Muster der IP-Filter („Auswahlmuster"), leer = keines; höchstens 150 Geräte.
-  Nicht mehr ausgewählte Geräte werden beim Neustart der Integration wieder entfernt.
-- **Karte: Gruppieren, CSV-Export, Ansicht merken** (Idee 18): `group_by` (`state`,
-  `connection`, `vendor`, `band`, `subnet`, `label`) mit einklappbaren Überschriften,
-  Auswahlfeld in der Filterleiste (`show_group_select`), CSV-Export der sichtbaren Liste
-  (`show_csv_export`, Rückfall auf die Zwischenablage), Filter/Sortierung/Gruppierung/
-  eingeklappte Gruppen je Browser im `localStorage` (`remember_view`).
-- Weiterhin **nicht** möglich (kein TR-064-Dienst): Löschen ungenutzter Verbindungen, Datenverbrauch je Gerät (CPU/RAM und Zugangsprofile: siehe 1.7.0b1/b2, experimentell).
+**Geräte und Hersteller**
+- **Etikett, Notiz und „reserviert“-Markierung** je Gerät (Popup, Spalten, Suche, Dienst
+  `set_device_note`), nur in Home Assistant gespeichert.
+- **Herstellerliste aktualisieren** (`update_oui`, Button; IEEE MA-L, MA-M, MA-S) und **eigene
+  Zuordnungen** (`oui_custom.txt`).
+- **Netzwerkgeräte als eigene HA-Geräte** (Option) mit Hersteller und Verbunden-Status.
+
+**Karte**
+- **Gruppieren** (Status, Verbindung, Hersteller, Band, IP-Bereich, Etikett), **CSV-Export** und
+  **gemerkte Ansicht**; neue Optionen im Karten-Editor (de/en/nl).
+
+**Weiteres**
+- **CPU-Auslastung, RAM-Auslastung und CPU-Temperatur** der Box (Option, experimentell).
+- Mehrere Prüfungen auf GitHub (Tests, `ruff`, hassfest, HACS); `manifest.json` nach hassfest-Vorgabe
+  sortiert.
+- Weiterhin nicht möglich: ungenutzte Verbindungen löschen, Datenverbrauch je Gerät,
+  WLAN-Band je Gerät zuweisen, DNS-Filterlisten.
+
+### 1.6.3 – Gast-WLAN-QR-Code, Mesh-Verbindungsqualität, Auto-WoL, viele weitere Filter und Sensoren
+
+- **Gast-WLAN-QR-Code** auf der Karte (SSID, Passwort zum Kopieren, QR-Code); die Zugangsdaten
+  stehen nur in der Dienst-Antwort `gast_wlan_info`, nie in einem Sensor-Attribut.
+- **Mesh:** Spalte „Verbunden über“ mit Verbindungsrate und Sensor „Schwächstes Gerät“.
+- **Auto-WoL-Schalter** je Gerät (standardmäßig deaktiviert).
+- **Zähler für eigene IP-Bereiche**, Sensoren je WLAN-Band (2,4/5/6 GHz), **DHCP-Auslastung** und
+  **Adresskonflikt-Warnung**.
+- **Karten-Filter „Neu (7 Tage)“ und „Lange offline“** (>30 Tage, mit Kopierknopf für Name+MAC).
+- **MA-M/MA-S** der IEEE-Herstellerregister werden unterstützt.
+- **Dienste mit `config_entry`** für mehrere FRITZ!Boxen, **Reconfigure-Flow**,
+  **Diagnose-Download** und Reparaturhinweis bei Fernzugriff.
+- Drittes Blueprint „Schalter zeitgesteuert ausschalten“.
+- **Behoben:** Der Kartentitel sprang beim Löschen des letzten Buchstabens auf „Netzwerkgeräte“
+  zurück.
 
 ### 1.6.2 – Fernzugriff, Externe IP/Online-Zeit, „Neues Gerät", Mesh-Repeater-Erkennung erweitert, drei Fehlerbehebungen
 

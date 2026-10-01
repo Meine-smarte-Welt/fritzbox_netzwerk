@@ -1,0 +1,63 @@
+blueprint:
+  name: "FRITZ!Box Netzwerk – Push bei Gerät offline"
+  description: >
+    Schickt eine Benachrichtigung, sobald eines oder mehrere ausgewählte
+    Geräte aus der fritzbox_netzwerk-Integration nicht mehr erreichbar sind.
+
+    Nutzt die vorhandenen device_tracker-Entitäten dieser Integration (in
+    den Optionen unter "device_tracker-Entitäten anlegen" aktivierbar) -
+    kein zusätzlicher TR-064-Aufruf, keine eigene Integrations-Logik. Diese
+    Automation ließe sich auch von Hand mit einem einfachen
+    Zustands-Trigger bauen; dieses Blueprint erspart nur das manuelle
+    Zusammenbauen (Idee 20 aus feature-ideen.md, mehrfach als Kommentar
+    gewünscht).
+  domain: automation
+  source_url: https://github.com/Meine-smarte-Welt/fritzbox_netzwerk/blob/main/custom_components/fritzbox_netzwerk/blueprints/automation/fritzbox_netzwerk/push_bei_geraet_offline.yaml
+  input:
+    geraete:
+      name: Geräte
+      description: Ein oder mehrere device_tracker-Entitäten von fritzbox_netzwerk.
+      selector:
+        entity:
+          domain: device_tracker
+          multiple: true
+    benachrichtigung:
+      name: Benachrichtigungsaktion
+      description: >
+        Die Benachrichtigungsaktion, an die die Meldung gehen soll (z. B.
+        "Mobile App: Mein Handy benachrichtigen"). Unter Einstellungen >
+        Geräte & Dienste > Dienste zu finden.
+      selector:
+        action:
+    titel:
+      name: Titel der Benachrichtigung
+      default: "Gerät offline"
+      selector:
+        text:
+    nachricht:
+      name: Nachrichtentext
+      description: >
+        "{{ geraet }}" wird automatisch durch den Namen des betroffenen
+        Geräts ersetzt.
+      default: "{{ geraet }} ist nicht mehr im Heimnetz erreichbar."
+      selector:
+        text:
+
+mode: queued
+max_exceeded: silent
+
+trigger:
+  - platform: state
+    entity_id: !input geraete
+    from: "home"
+    to: "not_home"
+
+condition: []
+
+action:
+  - variables:
+      geraet: "{{ trigger.to_state.name }}"
+  - action: !input benachrichtigung
+    data:
+      title: !input titel
+      message: !input nachricht

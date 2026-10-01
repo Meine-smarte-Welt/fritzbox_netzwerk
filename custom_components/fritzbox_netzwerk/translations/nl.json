@@ -73,7 +73,8 @@
           "enable_host_devices": "Netwerkapparaten als eigen apparaat aanmaken",
           "host_device_filter": "Selectie van apparaten (IP-patroon)",
           "enable_system_stats": "CPU en RAM van de box uitlezen (experimenteel)",
-          "enable_parental_control": "Toegangsprofielen van de ouderlijk toezicht beheren (experimenteel)"
+          "enable_parental_control": "Toegangsprofielen van de ouderlijk toezicht beheren (experimenteel)",
+          "check_updates": "Dagelijks op nieuwe versie controleren"
         },
         "data_description": {
           "track_address_source": "Deze waarde staat niet in de hostlijst en kost één extra verzoek per apparaat. Ze verandert zelden en loopt daarom op een eigen, langzamer schema.",
@@ -87,7 +88,8 @@
           "enable_host_devices": "Maakt voor elk geselecteerd netwerkapparaat een eigen Home Assistant-apparaat aan, met fabrikant (uit het MAC-adres) en een verbindingsstatus. Standaard uit – elk apparaat levert een apparaat en een entiteit op.",
           "host_device_filter": "Welke apparaten een eigen apparaat krijgen: dezelfde notatie als het kaartfilter \"IP-filter\" (bijv. \"192.168.2.*\", meerdere patronen met komma, \"!\" sluit uit; \"*\" kiest alles). Leeg = geen. Maximaal 150 apparaten.",
           "enable_system_stats": "Leest CPU-belasting, RAM-gebruik en temperatuur via de webinterface van de box (niet via TR-064, niet gedocumenteerd door AVM, afhankelijk van FRITZ!OS). Standaard uit; mislukt het ophalen, dan ontbreken alleen deze waarden.",
-          "enable_parental_control": "Schakelt services in die toegangsprofielen lezen en aan apparaten toewijzen (bijv. \"Geblokkeerd\" voor een uur). Gebruikt de webinterface van de box, niet TR-064 – niet gedocumenteerd door AVM, afhankelijk van FRITZ!OS. Standaard uit."
+          "enable_parental_control": "Schakelt services in die toegangsprofielen lezen en aan apparaten toewijzen (bijv. \"Geblokkeerd\" voor een uur). Gebruikt de webinterface van de box, niet TR-064 – niet gedocumenteerd door AVM, afhankelijk van FRITZ!OS. Standaard uit.",
+          "check_updates": "Vraagt eenmaal per dag bij GitHub naar de nieuwste gepubliceerde versie en toont in de kaart (Bediening) een melding als er een nieuwere is. Er worden geen gegevens over jou of je box verzonden."
         }
       }
     }
@@ -169,6 +171,9 @@
       },
       "host_online": {
         "name": "Verbonden"
+      },
+      "update_verfuegbar": {
+        "name": "Update beschikbaar"
       }
     },
     "switch": {
@@ -200,6 +205,9 @@
       },
       "oui_update": {
         "name": "Fabrikantenlijst bijwerken"
+      },
+      "install_blueprints": {
+        "name": "Blueprints installeren"
       }
     },
     "event": {
@@ -389,6 +397,20 @@
         "minutes": {
           "name": "Duur (minuten)",
           "description": "Optioneel: daarna wordt het oorspronkelijke profiel hersteld (gecontroleerd per pollinginterval)."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bij meerdere boxen: welke box bedoeld wordt."
+        }
+      }
+    },
+    "install_blueprints": {
+      "name": "Blueprints installeren",
+      "description": "Kopieert de meegeleverde blueprints (automatiseringen en script) naar de blueprint-map van Home Assistant. Bestaande aangepaste bestanden blijven ongemoeid, tenzij \"Overschrijven\" is ingesteld.",
+      "fields": {
+        "overwrite": {
+          "name": "Overschrijven",
+          "description": "Vervang ook bestaande blueprintbestanden die afwijken van de meegeleverde."
         },
         "config_entry": {
           "name": "FRITZ!Box",

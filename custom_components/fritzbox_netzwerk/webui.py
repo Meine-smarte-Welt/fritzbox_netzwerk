@@ -319,8 +319,8 @@ def list_profiles(session: Any, base: str, user: str, password: str) -> list[dic
 
 def get_device_profile(
     session: Any, base: str, user: str, password: str, mac: str
-) -> dict[str, str | None]:
-    """Aktuelles Zugangsprofil eines Geräts (``profile`` ist ID, ``name`` der Anzeigename)."""
+) -> dict[str, Any]:
+    """Aktuelles Zugangsprofil eines Geräts samt Liste aller Profile (``profile_liste``)."""
     sid = login(session, base, user, password)
     try:
         device = _find_device(session, base, sid, mac)
@@ -328,7 +328,12 @@ def get_device_profile(
         names = {p["id"]: p["name"] for p in parse_profiles(data_lua(session, base, sid, "kidPro"))}
     finally:
         logout(session, base, sid)
-    return {"profile": current, "name": names.get(current or "", None), "device": device["name"]}
+    return {
+        "profile": current,
+        "name": names.get(current or "", None),
+        "device": device["name"],
+        "profile_liste": [{"id": pid, "name": name} for pid, name in names.items()],
+    }
 
 
 def assign_profile(

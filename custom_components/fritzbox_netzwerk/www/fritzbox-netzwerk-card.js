@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.7.0b2";
+const FBN_VERSION = "1.7.0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -70,6 +70,12 @@ const CONFIG_DEFAULTS = {
   show_search: true,
   show_filter: true,
   show_controls: false,
+  // Versionsanzeige samt Update-Hinweis auf der Steuerungsseite (nur sichtbar, wenn die
+  // Steuerungsleiste an ist).
+  show_version: true,
+  // Zugangsprofil (Kindersicherung) im Detail-Popup - erscheint nur, wenn die Funktion in
+  // den Integrationsoptionen eingeschaltet ist.
+  show_parental: true,
   show_tabs: false,
   // Einzelne Filter-Buttons an/aus (nur wirksam, wenn show_filter an ist).
   filter_alle: true,
@@ -267,6 +273,8 @@ const I18N = {
     "tip.ls_last": "Zuletzt online: {ts}", "tip.sort": "Nach {label} sortieren",
     "arrow.left": "Nach links blättern", "arrow.right": "Nach rechts blättern",
     "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} von {total} online", "ctl.mesh_reboot": "Alle neu starten", "ctl.mesh_reboot_confirm": "Alle wirklich neu starten?", "ctl.mesh_reboot_tip": "FRITZ!Box und alle Repeater neu starten (erst die Repeater, dann die Box)", "ctl.throughput": "Aktueller Durchsatz (Download / Upload)", "ctl.wlan_24": "WLAN 2,4 GHz", "ctl.wlan_5": "WLAN 5 GHz", "ctl.wlan_guest": "Gast-WLAN", "ctl.reconnect": "Neu verbinden", "ctl.reconnect_confirm": "Wirklich neu verbinden?", "ctl.reboot": "Neustart", "ctl.reboot_confirm": "Wirklich neu starten?", "ctl.mac_filter": "MAC-Filter", "ctl.mac_filter_tip": "WLAN-Zugang auf bekannte Geräte beschränken", "ctl.pairing": "Pairing starten", "ctl.pairing_confirm": "Wirklich starten?", "ctl.pairing_tip": "MAC-Filter kurz ausschalten, damit sich ein neues Gerät anmelden kann", "ctl.pairing_until": "Pairing bis {time}", "ctl.pairing_end_tip": "Klicken: Filter sofort wieder einschalten", "ctl.gast_wlan_qr": "QR-Code", "ctl.gast_wlan_qr_tip": "Gast-WLAN: SSID, Passwort und QR-Code zum Verbinden anzeigen", "gwlan.title": "Gast-WLAN", "gwlan.loading": "Lade Zugangsdaten …", "gwlan.ssid": "Netzwerkname (SSID)", "gwlan.password": "Passwort", "gwlan.open_network": "Offenes Netz – kein Passwort nötig", "gwlan.scan_hint": "Mit der Smartphone-Kamera scannen, um sich automatisch mit dem Gast-WLAN zu verbinden.", "gwlan.disabled_hint": "Das Gast-WLAN ist derzeit ausgeschaltet. Der QR-Code funktioniert, sobald es wieder eingeschaltet ist.", "gwlan.error": "Zugangsdaten konnten nicht geladen werden: {error}",
+    "ver.title": "Installierte Version der Integration", "ver.update": "Update {version}", "ver.update_tip": "Neue Version {version} verfügbar – klicken für die Release-Notizen", "ver.update_plain_tip": "Neue Version {version} verfügbar", "ver.card_mismatch": "Karte {card} ≠ Integration {integration} – Seite neu laden (Strg+F5)", "ver.checked": "Zuletzt geprüft: {time}",
+    "prof.title": "Zugangsprofil", "prof.load": "Anzeigen", "prof.load_tip": "Aktuelles Zugangsprofil aus der FRITZ!Box laden (Kindersicherung, experimentell)", "prof.loading": "Lade …", "prof.current": "Aktuell: {name}", "prof.apply": "Übernehmen", "prof.apply_tip": "Ausgewähltes Zugangsprofil dem Gerät zuweisen", "prof.minutes": "Minuten (optional)", "prof.minutes_hint": "Mit Minuten gilt das Profil nur so lange, danach wird das bisherige Profil wiederhergestellt.", "prof.revert": "Zurück auf {name} um {time}", "prof.error": "Zugangsprofil: {error}", "prof.saved": "Zugangsprofil geändert: {name}", "prof.warn": "Experimentell – läuft über die Weboberfläche der Box", "prof.unknown": "unbekannt", "prof.retry": "Erneut versuchen",
     "field.tracker": "Anwesenheit", "tracker.home": "zuhause", "tracker.away": "abwesend", "tracker.open": "Tracker öffnen",
     "tracker.unknown": "unbekannt", "tracker.disabled": "Entität deaktiviert",
     "tracker.disabled_hint": "Die Tracker-Entität ist in Home Assistant deaktiviert – hier klicken und im Zahnrad-Dialog aktivieren.",
@@ -355,6 +363,8 @@ const I18N = {
     "tip.ls_last": "Last seen: {ts}", "tip.sort": "Sort by {label}",
     "arrow.left": "Scroll left", "arrow.right": "Scroll right",
     "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} of {total} online", "ctl.mesh_reboot": "Restart all", "ctl.mesh_reboot_confirm": "Really restart all?", "ctl.mesh_reboot_tip": "Restart the FRITZ!Box and all repeaters (repeaters first, then the box)", "ctl.throughput": "Current throughput (download / upload)", "ctl.wlan_24": "Wi-Fi 2.4 GHz", "ctl.wlan_5": "Wi-Fi 5 GHz", "ctl.wlan_guest": "Guest Wi-Fi", "ctl.reconnect": "Reconnect", "ctl.reconnect_confirm": "Really reconnect?", "ctl.reboot": "Reboot", "ctl.reboot_confirm": "Really reboot?", "ctl.mac_filter": "MAC filter", "ctl.mac_filter_tip": "Restrict Wi-Fi access to known devices", "ctl.pairing": "Start pairing", "ctl.pairing_confirm": "Really start?", "ctl.pairing_tip": "Turn the MAC filter off briefly so a new device can join", "ctl.pairing_until": "Pairing until {time}", "ctl.pairing_end_tip": "Click: turn the filter back on now", "ctl.gast_wlan_qr": "QR code", "ctl.gast_wlan_qr_tip": "Guest Wi-Fi: show SSID, password and a QR code to connect", "gwlan.title": "Guest Wi-Fi", "gwlan.loading": "Loading credentials …", "gwlan.ssid": "Network name (SSID)", "gwlan.password": "Password", "gwlan.open_network": "Open network – no password needed", "gwlan.scan_hint": "Scan with your phone's camera to connect to the guest Wi-Fi automatically.", "gwlan.disabled_hint": "The guest Wi-Fi is currently switched off. The QR code will work again once it's switched back on.", "gwlan.error": "Could not load the guest Wi-Fi credentials: {error}",
+    "ver.title": "Installed version of the integration", "ver.update": "Update {version}", "ver.update_tip": "New version {version} available – click for the release notes", "ver.update_plain_tip": "New version {version} available", "ver.card_mismatch": "Card {card} ≠ integration {integration} – reload the page (Ctrl+F5)", "ver.checked": "Last checked: {time}",
+    "prof.title": "Access profile", "prof.load": "Show", "prof.load_tip": "Load the current access profile from the FRITZ!Box (parental control, experimental)", "prof.loading": "Loading …", "prof.current": "Current: {name}", "prof.apply": "Apply", "prof.apply_tip": "Assign the selected access profile to the device", "prof.minutes": "Minutes (optional)", "prof.minutes_hint": "With minutes the profile only applies that long, then the previous profile is restored.", "prof.revert": "Back to {name} at {time}", "prof.error": "Access profile: {error}", "prof.saved": "Access profile changed: {name}", "prof.warn": "Experimental – uses the box web interface", "prof.unknown": "unknown", "prof.retry": "Try again",
     "field.tracker": "Presence", "tracker.home": "home", "tracker.away": "away", "tracker.open": "Open tracker",
     "tracker.unknown": "unknown", "tracker.disabled": "entity disabled",
     "tracker.disabled_hint": "The tracker entity is disabled in Home Assistant – click here and enable it in the settings dialog.",
@@ -443,6 +453,8 @@ const I18N = {
     "tip.ls_last": "Laatst online: {ts}", "tip.sort": "Sorteren op {label}",
     "arrow.left": "Naar links bladeren", "arrow.right": "Naar rechts bladeren",
     "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} van {total} online", "ctl.mesh_reboot": "Alles herstarten", "ctl.mesh_reboot_confirm": "Echt alles herstarten?", "ctl.mesh_reboot_tip": "FRITZ!Box en alle repeaters herstarten (eerst de repeaters, dan de box)", "ctl.throughput": "Huidige doorvoer (download / upload)", "ctl.wlan_24": "Wifi 2,4 GHz", "ctl.wlan_5": "Wifi 5 GHz", "ctl.wlan_guest": "Gast-wifi", "ctl.reconnect": "Opnieuw verbinden", "ctl.reconnect_confirm": "Echt opnieuw verbinden?", "ctl.reboot": "Herstart", "ctl.reboot_confirm": "Echt herstarten?", "ctl.mac_filter": "MAC-filter", "ctl.mac_filter_tip": "Wifi-toegang beperken tot bekende apparaten", "ctl.pairing": "Koppelen starten", "ctl.pairing_confirm": "Echt starten?", "ctl.pairing_tip": "MAC-filter kort uitschakelen zodat een nieuw apparaat zich kan aanmelden", "ctl.pairing_until": "Koppelen tot {time}", "ctl.pairing_end_tip": "Klik: filter meteen weer inschakelen", "ctl.gast_wlan_qr": "QR-code", "ctl.gast_wlan_qr_tip": "Gast-wifi: SSID, wachtwoord en een QR-code om te verbinden tonen", "gwlan.title": "Gast-wifi", "gwlan.loading": "Gegevens laden …", "gwlan.ssid": "Netwerknaam (SSID)", "gwlan.password": "Wachtwoord", "gwlan.open_network": "Open netwerk – geen wachtwoord nodig", "gwlan.scan_hint": "Scan met de camera van je telefoon om automatisch met het gastennetwerk te verbinden.", "gwlan.disabled_hint": "Het gastennetwerk staat momenteel uit. De QR-code werkt weer zodra het is ingeschakeld.", "gwlan.error": "Gegevens konden niet worden geladen: {error}",
+    "ver.title": "Geïnstalleerde versie van de integratie", "ver.update": "Update {version}", "ver.update_tip": "Nieuwe versie {version} beschikbaar – klik voor de release-notities", "ver.update_plain_tip": "Nieuwe versie {version} beschikbaar", "ver.card_mismatch": "Kaart {card} ≠ integratie {integration} – pagina opnieuw laden (Ctrl+F5)", "ver.checked": "Laatst gecontroleerd: {time}",
+    "prof.title": "Toegangsprofiel", "prof.load": "Tonen", "prof.load_tip": "Huidig toegangsprofiel uit de FRITZ!Box laden (ouderlijk toezicht, experimenteel)", "prof.loading": "Laden …", "prof.current": "Huidig: {name}", "prof.apply": "Toepassen", "prof.apply_tip": "Geselecteerd toegangsprofiel aan het apparaat toewijzen", "prof.minutes": "Minuten (optioneel)", "prof.minutes_hint": "Met minuten geldt het profiel slechts zo lang, daarna wordt het vorige profiel hersteld.", "prof.revert": "Terug naar {name} om {time}", "prof.error": "Toegangsprofiel: {error}", "prof.saved": "Toegangsprofiel gewijzigd: {name}", "prof.warn": "Experimenteel – via de webinterface van de box", "prof.unknown": "onbekend", "prof.retry": "Opnieuw proberen",
     "field.tracker": "Aanwezigheid", "tracker.home": "thuis", "tracker.away": "afwezig", "tracker.open": "Tracker openen",
     "tracker.unknown": "onbekend", "tracker.disabled": "entiteit uitgeschakeld",
     "tracker.disabled_hint": "De trackerentiteit is uitgeschakeld in Home Assistant – klik hier en schakel deze in via het instellingenvenster.",
@@ -1866,6 +1878,43 @@ class FritzboxNetzwerkCard extends HTMLElement {
    * ueber generische Dienstaufrufe an die vom Sensor gemeldeten Entitaeten,
    * die Karte selbst bleibt also datengetrieben.
    */
+  /**
+   * Installierte Version der Integration; bei einer neueren Version bei GitHub zusätzlich
+   * ein farblich hervorgehobener Hinweis direkt daneben (Link zu den Release-Notizen). Weicht die
+   * Version der Karte von der der Integration ab (alter Browser-Cache), erscheint ein Warnhinweis.
+   */
+  _versionHtml(info) {
+    const t = (key, params) => escapeHtml(this._t(key, params));
+    const chips = [
+      `<span class="fbn-ctl-version" title="${t("ver.title")}"><ha-icon icon="mdi:tag-outline"></ha-icon>v${escapeHtml(
+        String(info.installed)
+      )}</span>`,
+    ];
+    if (info.update_available && info.latest) {
+      const params = { version: String(info.latest) };
+      const url =
+        typeof info.release_url === "string" && info.release_url.startsWith("https://github.com/")
+          ? info.release_url
+          : "";
+      const inner = `<ha-icon icon="mdi:arrow-up-bold-circle-outline"></ha-icon>${t("ver.update", params)}`;
+      chips.push(
+        url
+          ? `<a class="fbn-ctl-update" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"
+                title="${t("ver.update_tip", params)}">${inner}</a>`
+          : `<span class="fbn-ctl-update" title="${t("ver.update_plain_tip", params)}">${inner}</span>`
+      );
+    }
+    if (String(info.installed) !== FBN_VERSION) {
+      chips.push(
+        `<span class="fbn-ctl-update fbn-ctl-mismatch"><ha-icon icon="mdi:alert-outline"></ha-icon>${t("ver.card_mismatch", {
+          card: FBN_VERSION,
+          integration: String(info.installed),
+        })}</span>`
+      );
+    }
+    return `<span class="fbn-ctl-verbox">${chips.join("")}</span>`;
+  }
+
   _renderControls() {
     const box = this.querySelector(".fbn-controls");
     if (!box) return;
@@ -1874,9 +1923,13 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const connection = attributes.connection || null;
     const controls = attributes.controls || null;
     const mesh = attributes.mesh && Array.isArray(attributes.mesh.members) ? attributes.mesh : null;
+    const version =
+      this._config.show_version !== false && attributes.version && attributes.version.installed
+        ? attributes.version
+        : null;
 
     // Ohne Schalter (Einstellung aus) und ohne Verbindungsdaten: leeren.
-    if (!this._config.show_controls || (!connection && !controls && !mesh)) {
+    if (!this._config.show_controls || (!connection && !controls && !mesh && !version)) {
       box.innerHTML = "";
       this._hasControls = false;
       this._applyTabs();
@@ -1955,6 +2008,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         </button>`);
     }
     if (mesh) parts.push(this._renderMesh(mesh, controls));
+    if (version) parts.push(this._versionHtml(version));
     box.innerHTML = parts.join("");
 
     if (!box.dataset.bound) {
@@ -2585,6 +2639,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._popupNameDraft = "";
     this._popupEditingNote = false;
     this._popupNoteDraft = null;
+    this._parental = null;
 
     const overlay = document.createElement("div");
     overlay.className = "fbn-overlay";
@@ -2812,6 +2867,24 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const noteCancelBtn = this._popup.querySelector(".fbn-note-cancel");
     if (noteCancelBtn) noteCancelBtn.addEventListener("click", () => this._cancelNoteEdit(host));
 
+    // Zugangsprofil (Kindersicherung): Laden, Auswahl, Übernehmen.
+    const profLoad = this._popup.querySelector(".fbn-prof-load");
+    if (profLoad) profLoad.addEventListener("click", () => this._loadProfiles(host));
+    const profSelect = this._popup.querySelector(".fbn-prof-select");
+    if (profSelect) {
+      profSelect.addEventListener("change", () => {
+        if (this._parental) this._parental.draftProfile = profSelect.value;
+      });
+    }
+    const profMinutes = this._popup.querySelector(".fbn-prof-minutes");
+    if (profMinutes) {
+      profMinutes.addEventListener("input", () => {
+        if (this._parental) this._parental.draftMinutes = profMinutes.value;
+      });
+    }
+    const profApply = this._popup.querySelector(".fbn-prof-apply");
+    if (profApply) profApply.addEventListener("click", () => this._applyProfile(host));
+
     // Schliessen in der Fusszeile.
     const footClose = this._popup.querySelector(".fbn-modal-close2");
     if (footClose) footClose.addEventListener("click", () => this._closePopup());
@@ -2926,6 +2999,139 @@ class FritzboxNetzwerkCard extends HTMLElement {
       });
   }
 
+  /* -- Kindersicherung im Popup (Zugangsprofile) -------------------------
+   *
+   * Nutzt die Dienste fritzbox_netzwerk.get_access_profile / set_access_profile (Antwort per
+   * ``callService(..., returnResponse)``). Nichts wird automatisch geladen: jede Abfrage meldet
+   * sich an der Weboberfläche der Box an, deshalb erst auf Klick. Geschrieben wird nur über
+   * „Übernehmen"; mit Minuten stellt die Integration das bisherige Profil selbst wieder her.
+   */
+  _parentalEnabled() {
+    const state = this._stateObj();
+    const attributes = (state && state.attributes) || {};
+    return this._config.show_parental !== false && attributes.parental === true;
+  }
+
+  _profileName(profile) {
+    return (profile && (profile.name || profile.id)) || this._t("prof.unknown");
+  }
+
+  _parentalRowsHtml(host) {
+    if (!this._hass || !host.mac || !this._parentalEnabled()) return "";
+    const t = (key, params) => escapeHtml(this._t(key, params));
+    const st = this._parental && this._parental.mac === host.mac ? this._parental : null;
+    const row = (inner) =>
+      `<div class="fbn-drow fbn-prof-row"><div class="fbn-dt">${t("prof.title")}</div><div class="fbn-dd fbn-prof-box">${inner}</div></div>`;
+    const warn = `<div class="fbn-prof-hint">${t("prof.warn")}</div>`;
+    const loadBtn = (label) =>
+      `<button class="fbn-prof-btn fbn-prof-load" type="button" title="${t("prof.load_tip")}">
+         <ha-icon icon="mdi:shield-account-outline"></ha-icon>${escapeHtml(label)}</button>`;
+    if (!st || st.status === "idle") return row(`${loadBtn(this._t("prof.load"))}${warn}`);
+    if (st.status === "loading") return row(`<span>${t("prof.loading")}</span>`);
+    if (st.status === "error") {
+      return row(
+        `<span class="fbn-prof-err">${t("prof.error", { error: String(st.error || "") })}</span>${loadBtn(
+          this._t("prof.retry")
+        )}`
+      );
+    }
+    const saving = st.status === "saving";
+    const options = (st.profiles || [])
+      .map(
+        (p) =>
+          `<option value="${escapeHtml(p.id)}"${p.id === st.draftProfile ? " selected" : ""}>${escapeHtml(
+            p.name || p.id
+          )}</option>`
+      )
+      .join("");
+    const current = (st.profiles || []).find((p) => p.id === st.current);
+    const revert = st.revertTo
+      ? `<div class="fbn-prof-hint">${t("prof.revert", {
+          name: this._profileName((st.profiles || []).find((p) => p.id === st.revertTo) || { id: st.revertTo }),
+          time: this._formatTime(st.revertAt),
+        })}</div>`
+      : "";
+    return row(`
+      <span class="fbn-prof-current">${t("prof.current", { name: this._profileName(current || { name: st.currentName }) })}</span>
+      <div class="fbn-prof-line">
+        <select class="fbn-prof-select" aria-label="${t("prof.title")}"${saving ? " disabled" : ""}>${options}</select>
+        <input class="fbn-prof-minutes" type="number" min="1" max="10080" inputmode="numeric"
+               placeholder="${t("prof.minutes")}" aria-label="${t("prof.minutes")}"
+               value="${escapeHtml(st.draftMinutes || "")}"${saving ? " disabled" : ""}>
+        <button class="fbn-prof-btn fbn-prof-apply" type="button" title="${t("prof.apply_tip")}"${saving ? " disabled" : ""}>
+          <ha-icon icon="mdi:check"></ha-icon>${t("prof.apply")}</button>
+      </div>
+      <div class="fbn-prof-hint">${t("prof.minutes_hint")}</div>${revert}${warn}`);
+  }
+
+  _parentalNotify(message) {
+    this.dispatchEvent(
+      new CustomEvent("hass-notification", { detail: { message }, bubbles: true, composed: true })
+    );
+  }
+
+  /** Lädt aktuelles Profil und Profilliste des Geräts (eine Anmeldung an der Box). */
+  _loadProfiles(host) {
+    if (!this._hass || !host.mac) return;
+    const previous = this._parental && this._parental.mac === host.mac ? this._parental : {};
+    this._parental = { ...previous, mac: host.mac, status: "loading" };
+    this._renderPopupContent(host);
+    this._hass
+      .callService("fritzbox_netzwerk", "get_access_profile", { mac: host.mac }, undefined, true, true)
+      .then((result) => {
+        if (this._popupMac !== host.mac || !this._parental) return;
+        const r = (result && result.response) || {};
+        const profiles = Array.isArray(r.profile_liste) ? r.profile_liste : [];
+        this._parental = {
+          mac: host.mac,
+          status: "ready",
+          profiles,
+          current: r.profile || "",
+          currentName: r.name || "",
+          revertTo: r.zurueck_auf || "",
+          revertAt: r.zurueck_um || "",
+          draftProfile: r.profile || (profiles[0] && profiles[0].id) || "",
+          draftMinutes: "",
+        };
+        this._renderPopupContent(host);
+      })
+      .catch((err) => this._parentalFailed(host, err));
+  }
+
+  _parentalFailed(host, err) {
+    if (this._popupMac !== host.mac) return;
+    this._parental = {
+      ...(this._parental || {}),
+      mac: host.mac,
+      status: "error",
+      error: String((err && (err.message || err.error)) || err || ""),
+    };
+    this._renderPopupContent(host);
+  }
+
+  /** Weist das gewählte Profil zu (optional nur für N Minuten) und lädt den Stand neu. */
+  _applyProfile(host) {
+    const st = this._parental;
+    if (!this._hass || !st || st.mac !== host.mac || !st.draftProfile) return;
+    const data = { mac: host.mac, profile: st.draftProfile };
+    const minutes = parseInt(st.draftMinutes, 10);
+    if (Number.isFinite(minutes) && minutes > 0) data.minutes = Math.min(minutes, 10080);
+    const chosen = (st.profiles || []).find((p) => p.id === st.draftProfile);
+    this._parental = { ...st, status: "saving" };
+    this._renderPopupContent(host);
+    this._hass
+      .callService("fritzbox_netzwerk", "set_access_profile", data, undefined, true, true)
+      .then(() => {
+        this._parentalNotify(this._t("prof.saved", { name: this._profileName(chosen) }));
+        if (this._popupMac === host.mac) this._loadProfiles(host);
+      })
+      .catch((err) => {
+        if (this._popupMac !== host.mac) return;
+        this._parental = { ...st, status: "ready" };
+        this._parentalFailed(host, err);
+      });
+  }
+
   /** Etikett-, Notiz- und Reserviert-Zeilen des Popups (Idee 3). */
   _noteRowsHtml(host) {
     if (!this._hass) return "";
@@ -3033,6 +3239,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     add(this._t("field.name"), this._nameFieldHtml(host));
     const noteRows = this._noteRowsHtml(host);
     if (noteRows) rows.push(noteRows);
+    const parentalRows = this._parentalRowsHtml(host);
+    if (parentalRows) rows.push(parentalRows);
     add(this._t("col.ip"), escapeHtml(host.ip), { mono: true, copy: host.ip });
     add(this._t("col.mac"), escapeHtml(host.mac), { mono: true, copy: host.mac });
     add(
@@ -3291,6 +3499,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (this._popup.parentNode) this._popup.parentNode.removeChild(this._popup);
     this._popup = null;
     this._popupMac = null;
+    this._parental = null;
     this._popupEditingName = false;
     this._popupNameDraft = "";
     const returnTo = this._popupReturnFocus;
@@ -3587,6 +3796,22 @@ class FritzboxNetzwerkCard extends HTMLElement {
         font-size: 0.85em; color: var(--fbn-header-text);
       }
       .fbn-ctl-rate ha-icon { --mdc-icon-size: 16px; width: 16px; height: 16px; }
+      .fbn-ctl-verbox {
+        display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto;
+      }
+      .fbn-ctl-version {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 0.8em; color: var(--fbn-header-text); opacity: 0.85;
+      }
+      .fbn-ctl-version ha-icon, .fbn-ctl-update ha-icon { --mdc-icon-size: 15px; width: 15px; height: 15px; }
+      .fbn-ctl-update {
+        display: inline-flex; align-items: center; gap: 4px; text-decoration: none;
+        font-size: 0.8em; font-weight: 600; line-height: 1.4; padding: 2px 10px; border-radius: 12px;
+        background: var(--fbn-update-bg, var(--warning-color, #ff9800)); color: #fff;
+      }
+      a.fbn-ctl-update:hover { filter: brightness(1.1); }
+      a.fbn-ctl-update:focus-visible { outline: 2px solid var(--fbn-accent); outline-offset: 2px; }
+      .fbn-ctl-mismatch { background: var(--error-color, #db4437); font-weight: 500; }
       .fbn-ctl-chip, .fbn-ctl-btn {
         display: inline-flex; align-items: center; gap: 5px;
         border: 1px solid var(--fbn-border); border-radius: 16px;
@@ -3847,6 +4072,21 @@ class FritzboxNetzwerkCard extends HTMLElement {
       }
       .fbn-note-reserved { display: flex; gap: 6px; align-items: center; font-size: 0.9em; }
       .fbn-note-hint { font-size: 0.8em; opacity: 0.7; }
+      .fbn-prof-box { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+      .fbn-prof-line { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+      .fbn-prof-select, .fbn-prof-minutes {
+        font: inherit; color: inherit; background: var(--fbn-bg, transparent);
+        border: 1px solid var(--fbn-border); border-radius: 6px; padding: 4px 8px; max-width: 100%;
+      }
+      .fbn-prof-minutes { width: 9em; }
+      .fbn-prof-btn {
+        display: inline-flex; align-items: center; gap: 4px; font: inherit; font-size: 0.9em;
+        cursor: pointer; color: inherit; background: none; border: 1px solid var(--fbn-border);
+        border-radius: 14px; padding: 3px 12px;
+      }
+      .fbn-prof-btn[disabled] { opacity: 0.5; cursor: default; }
+      .fbn-prof-err { color: var(--fbn-blocked); font-size: 0.85em; }
+      .fbn-prof-hint { font-size: 0.8em; opacity: 0.7; }
       .fbn-note-actions { display: flex; gap: 4px; justify-content: flex-end; }
       .fbn-note-form input[disabled], .fbn-note-form textarea[disabled] { opacity: 0.6; }
       .fbn-modal-foot {
@@ -3918,6 +4158,8 @@ const EDITOR_SCHEMA = [
       { name: "show_search", selector: { boolean: {} } },
       { name: "show_filter", selector: { boolean: {} } },
       { name: "show_controls", selector: { boolean: {} } },
+      { name: "show_version", selector: { boolean: {} } },
+      { name: "show_parental", selector: { boolean: {} } },
       { name: "show_tabs", selector: { boolean: {} } },
       {
         name: "group_by",
@@ -4047,6 +4289,8 @@ const EDITOR_LABELS = {
   show_search: "Suchfeld anzeigen",
   show_filter: "Filterleiste anzeigen",
   show_controls: "Steuerungsleiste anzeigen",
+  show_version: "Version und Update-Hinweis anzeigen",
+  show_parental: "Zugangsprofil (Kindersicherung) im Popup anzeigen",
   show_tabs: "Kategorien als Tabs anzeigen",
   filter_alle: "Button „Alle“",
   filter_aktiv: "Button „Aktiv“",
@@ -4075,6 +4319,8 @@ const EDITOR_LABELS = {
 const EDITOR_HELPERS = {
   show_tabs: "Zeigt oben Reiter für die Kategorien Netzwerk und Steuerung. Jeder Reiter zeigt ausschließlich seine eigenen Elemente: Netzwerk die Filter, die Suche und die Geräteliste, Steuerung die Down/Up-Anzeige, die WLAN-Schalter und Neuverbinden/Neustart. Der Steuerungs-Reiter erscheint nur, wenn die Steuerungsleiste aktiviert ist. Ohne Reiter erscheinen beide Bereiche wie bisher untereinander.",
   show_controls: "Zeigt in der Karte eine Leiste mit Live-Down/Up sowie – wenn die FRITZ!Box-Steuerung in den Integrationseinstellungen aktiviert ist – WLAN-Schaltern, MAC-Filter/Pairing und den Buttons Neuverbinden/Neustart. Gibt es Repeater, erscheint zusätzlich die Mesh-Gruppe (FRITZ!Box + Repeater) mit „Alle neu starten“.",
+  show_version: "Zeigt auf der Steuerungsseite die Version der Integration. Gibt es eine neuere Version, wird sie farblich hervorgehoben.",
+  show_parental: "Zeigt im Geräte-Popup die Auswahl des Zugangsprofils (Kindersicherung). Erscheint nur, wenn die Funktion in den Integrationsoptionen eingeschaltet ist.",
   default_filter: "Welcher Filter aktiv ist, wenn die Karte geladen oder neu geöffnet wird (z. B. „Aktiv“). Nach einem Refresh wird nicht mehr auf „Alle“ zurückgesetzt.",
   language: "Sprache der Beschriftungen in der Karte. „Automatisch“ folgt der in Home Assistant eingestellten Sprache (Deutsch, Englisch, Niederländisch).",
   show_title: "Blendet die Kopfzeile der Karte aus, z. B. für ein Popup oder eine kompakte Ansicht.",
@@ -4141,9 +4387,13 @@ const EDITOR_TX = {
     show_summary: "Show summary", show_search: "Show search field",
     show_filter: "Show filter bar",
     show_controls: "Show controls bar",
+    show_version: "Show version and update notice",
+    show_parental: "Show access profile (parental control) in the popup",
     show_tabs: "Show categories as tabs",
     help_show_tabs: "Shows tabs for the Network and Controls categories at the top. Each tab shows only its own elements: Network the filters, search and device list, Controls the download/upload display, Wi-Fi switches and reconnect/reboot. The Controls tab only appears when the controls bar is enabled. Without tabs, both areas appear below each other as before.",
     help_show_controls: "Shows a bar with live download/upload and \u2013 if FRITZ!Box controls are enabled in the integration settings \u2013 Wi-Fi switches, MAC filter/pairing and reconnect/reboot buttons. If there are repeaters, a mesh group (FRITZ!Box + repeaters) with \u201cRestart all\u201d is shown as well.",
+    help_show_version: "Shows the integration version on the controls page. If a newer version exists it is highlighted in colour.",
+    help_show_parental: "Shows the access profile selection (parental control) in the device popup. Only appears if the feature is enabled in the integration options.",
     filter_alle: '"All" button', filter_aktiv: '"Active" button',
     filter_inaktiv: '"Inactive" button', filter_gast: '"Guest" button',
     filter_gesperrt: '"Blocked" button', filter_update: '"Update" button', filter_fest: '"Fixed IP" button', filter_neu: '"New (7 days)" button', filter_lange_offline: '"Long offline" button',
@@ -4217,9 +4467,13 @@ const EDITOR_TX = {
     show_summary: "Samenvatting tonen", show_search: "Zoekveld tonen",
     show_filter: "Filterbalk tonen",
     show_controls: "Bedieningsbalk tonen",
+    show_version: "Versie en updatemelding tonen",
+    show_parental: "Toegangsprofiel (ouderlijk toezicht) in de popup tonen",
     show_tabs: "Categorieën als tabs tonen",
     help_show_tabs: "Toont bovenaan tabs voor de categorieën Netwerk en Bediening. Elke tab toont uitsluitend de eigen elementen: Netwerk de filters, het zoekveld en de apparatenlijst, Bediening de download/upload-weergave, de wifi-schakelaars en opnieuw verbinden/herstarten. De tab Bediening verschijnt alleen als de bedieningsbalk is ingeschakeld. Zonder tabs verschijnen beide gebieden onder elkaar zoals voorheen.",
     help_show_controls: "Toont een balk met live download/upload en \u2013 als de FRITZ!Box-bediening in de integratie-instellingen is ingeschakeld \u2013 wifi-schakelaars, MAC-filter/koppelen en knoppen voor opnieuw verbinden/herstarten. Als er repeaters zijn, verschijnt ook de meshgroep (FRITZ!Box + repeaters) met \u201cAlles herstarten\u201d.",
+    help_show_version: "Toont op de bedieningspagina de versie van de integratie. Is er een nieuwere versie, dan wordt die gekleurd gemarkeerd.",
+    help_show_parental: "Toont in de apparaat-popup de keuze van het toegangsprofiel (ouderlijk toezicht). Verschijnt alleen als de functie in de integratie-opties is ingeschakeld.",
     filter_alle: 'Knop "Alle"', filter_aktiv: 'Knop "Actief"',
     filter_inaktiv: 'Knop "Inactief"', filter_gast: 'Knop "Gast"',
     filter_gesperrt: 'Knop "Geblokkeerd"', filter_update: 'Knop "Update"', filter_fest: 'Knop "Vast IP"', filter_neu: 'Knop "Nieuw (7 dagen)"', filter_lange_offline: 'Knop "Lang offline"',
