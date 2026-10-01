@@ -57,7 +57,7 @@
           "address_source_interval": "Wirkt nur, wenn die IP-Typ-Erfassung eingeschaltet ist.",
           "track_wlan_band": "Fragt je WLAN-Netz die Liste der verbundenen Geräte ab (ein Aufruf pro Netz und Abfrage), um in der Karte das Funkband anzuzeigen. Nur Geräte, die direkt an der FRITZ!Box hängen, bekommen eine Angabe.",
           "enable_device_tracker": "Legt pro Netzwerkgerät einen device_tracker (zuhause/abwesend) für Anwesenheit und Automationen an. Kann bei vielen Geräten zu vielen Entitäten führen.",
-          "enable_repeaters": "Legt für jeden AVM-Repeater im Heimnetz ein eigenes Gerät mit Verbunden-Status an, bei aktivierter FRITZ!Box-Steuerung zusätzlich mit einem Neustart-Button. Dazu gibt es einen Mesh-Sensor (FRITZ!Box + Repeater) und – mit Steuerung – den Button „Alle FRITZ!-Geräte neu starten“. Erkannt werden Geräte, deren Modell „Repeater“ enthält.",
+          "enable_repeaters": "Legt für jeden FRITZ!-Mesh-Repeater im Heimnetz ein eigenes Gerät mit Verbunden-Status an, bei aktivierter FRITZ!Box-Steuerung zusätzlich mit einem Neustart-Button. Dazu gibt es einen Mesh-Sensor (FRITZ!Box + Repeater) und – mit Steuerung – den Button „Alle FRITZ!-Geräte neu starten“. Erkannt werden Geräte, deren gemeldetes Modell „Repeater“ oder „FRITZ!Box“ enthält – also auch eine zweite FRITZ!Box, die im Mesh als WLAN-Repeater mitläuft.",
           "enable_controls": "Legt Schalter für die WLAN-Bänder (2,4 GHz, 5 GHz, Gast) und für den WLAN-MAC-Filter an, dazu Buttons zum Neuverbinden, Neustarten und zum Starten eines Pairings (MAC-Filter zeitweise aus), bei eingeschalteten Repeater-Geräten auch je einen Neustart-Button pro Repeater. Verfügbarkeit und Zuordnung hängen vom Modell ab.",
           "pairing_minutes": "Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt, bevor er sich von selbst wieder einschaltet. Gilt für den Button „Pairing starten“ und für den Dienst ohne Zeitangabe."
         }
@@ -93,11 +93,20 @@
       "mesh": {
         "name": "Mesh",
         "unit_of_measurement": "Geräte"
+      },
+      "externe_ip": {
+        "name": "Externe IP"
+      },
+      "online_seit": {
+        "name": "Online seit"
       }
     },
     "binary_sensor": {
       "repeater_online": {
         "name": "Verbunden"
+      },
+      "internet_verbunden": {
+        "name": "Internet verbunden"
       }
     },
     "switch": {
@@ -126,6 +135,14 @@
       },
       "reboot_mesh": {
         "name": "Alle FRITZ!-Geräte neu starten"
+      }
+    },
+    "event": {
+      "neues_geraet": {
+        "name": "Neues Gerät"
+      },
+      "externe_ip_geaendert": {
+        "name": "Externe IP geändert"
       }
     }
   },

@@ -15,11 +15,13 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
+from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .const import DOMAIN, MANUFACTURER, VERSION
 from .coordinator import FritzboxNetzwerkCoordinator
 from .hosts import mac_key
 from .repeater import (
@@ -39,11 +41,16 @@ async def async_setup_entry(
     entry: FritzboxNetzwerkConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Legt je Repeater einen Verbunden-Sensor an (wenn eingeschaltet)."""
+    """Legt den Verbindungsstatus-Sensor und (wenn eingeschaltet) je Repeater
+    einen Verbunden-Sensor an."""
+    coordinator = entry.runtime_data
+    # Seit 1.6.2: ob die FRITZ!Box aktuell eine Internetverbindung hat.
+    # Unabhaengig von der Repeater-Option, deshalb immer angelegt.
+    async_add_entities([FritzboxNetzwerkInternetSensor(coordinator, entry)])
+
     if not repeaters_enabled(entry):
         return
 
-    coordinator = entry.runtime_data
     known: set[str] = set()
 
     @callback
@@ -101,3 +108,38 @@ class FritzboxNetzwerkRepeaterOnline(
         """Verbunden, wenn die FRITZ!Box den Repeater als aktiv meldet."""
         host = self._host()
         return bool(host.get("active")) if host else None
+
+
+class FritzboxNetzwerkInternetSensor(
+    CoordinatorEntity[FritzboxNetzwerkCoordinator], BinarySensorEntity
+):
+    """Ob die FRITZ!Box aktuell eine Internetverbindung aufgebaut hat.
+
+    Standard-TR-064 (``WANIPConn``/``GetStatusInfo``), derselbe Dienst wie
+    die Down-/Upload-Raten - kein zusaetzlicher SOAP-Aufruf fuer eine Box
+    ohne WAN-Dienst. Bleibt der Zustand ``None`` ("unbekannt"), laeuft die
+    FRITZ!Box im reinen Access-Point-Betrieb oder die Abfrage ist gerade
+    nicht moeglich.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "internet_verbunden"
+    _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+
+    def __init__(self, coordinator: FritzboxNetzwerkCoordinator, entry) -> None:
+        """Initialisiert den Sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_internet_connected"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            manufacturer=MANUFACTURER,
+            name=entry.title,
+            configuration_url=f"http://{entry.data[CONF_HOST]}",
+            sw_version=VERSION,
+        )
+
+    @property
+    def is_on(self) -> bool | None:
+        """Verbindungsstatus der FRITZ!Box, oder ``None`` ohne Angabe."""
+        connection = (self.coordinator.data or {}).get("connection")
+        return (connection or {}).get("online")

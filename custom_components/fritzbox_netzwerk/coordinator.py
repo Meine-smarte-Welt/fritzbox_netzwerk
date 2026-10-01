@@ -6,6 +6,7 @@ import logging
 import os
 import threading
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any, Final
 from xml.etree.ElementTree import ParseError
@@ -155,6 +156,19 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # abgefragt, um das Protokoll nicht vollzuschreiben.
         self._fritz_status: FritzStatus | None = None
         self._connection_supported = True
+
+        # Externe IP: nur der zuletzt gesehene Wert (nicht gespeichert - nach
+        # einem Neustart von Home Assistant ist ein "Aenderung erkannt" ins
+        # Leere ohnehin falsch, deshalb wird beim ersten Abruf nie ausgeloest).
+        self._last_external_ip: str | None = None
+        self._external_ip_listeners: list[Callable[[str, str], None]] = []
+
+        # "Neues Geraet"-Ereignis: beim allerersten Abruf nach einer frischen
+        # Einrichtung (noch kein gespeichertes "zuletzt gesehen") wuerde sonst
+        # das gesamte vorhandene Heimnetz als "neu" gemeldet. Gesetzt in
+        # ``async_load_last_seen()``.
+        self._new_device_baseline_pending = True
+        self._new_device_listeners: list[Callable[[dict[str, Any]], None]] = []
 
         # Neuverbindung: nie zwei gleichzeitig, und kurz nach einer
         # erfolgreichen keine weitere (siehe ``RECONNECT_COOLDOWN``).
@@ -820,7 +834,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return state
 
     def _fetch_connection(self) -> dict[str, Any] | None:
-        """Liest die aktuellen Down-/Upload-Raten und die Leitungs-Sync-Raten.
+        """Liest die aktuellen Down-/Upload-Raten, die Leitungs-Sync-Raten
+        sowie (seit 1.6.2) externe IP, Verbindungsstatus und Online-Zeit.
 
         Aktuelle Rate: Bytes/s (WANCommonIFC/GetAddonInfos), umgerechnet in
         kByte/s. Sync-Rate: Bit/s, umgerechnet in Mbit/s. Ohne WAN-Dienst
@@ -849,7 +864,48 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "up_rate": to_kbytes_per_s(up_bytes),
             "down_max": to_mbit_per_s(down_max_bits),
             "up_max": to_mbit_per_s(up_max_bits),
+            "external_ip": self._fetch_external_ip(),
+            "online": self._fetch_is_connected(),
+            "uptime": self._fetch_connection_uptime(),
         }
+
+    def _fetch_external_ip(self) -> str | None:
+        """Aktuelle oeffentliche IPv4-Adresse, oder ``None`` bei Fehler.
+
+        Eigener, einzeln abgesicherter Aufruf: faellt er aus (z. B. DS-Lite
+        ohne eigene IPv4, oder eine Box, die das trotz WAN-Dienst nicht
+        meldet), sollen Down-/Upload-Raten davon unberuehrt bleiben.
+        """
+        try:
+            ip = str(self._fritz_status.external_ip or "").strip()
+        except (FritzConnectionException, RequestException) as err:
+            _LOGGER.debug("Externe IP momentan nicht abrufbar: %s", err)
+            return None
+        return ip or None
+
+    def _fetch_is_connected(self) -> bool | None:
+        """Ob die FRITZ!Box aktuell eine Internetverbindung aufgebaut hat."""
+        try:
+            return bool(self._fritz_status.is_connected)
+        except (FritzConnectionException, RequestException) as err:
+            _LOGGER.debug("Verbindungsstatus momentan nicht abrufbar: %s", err)
+            return None
+
+    def _fetch_connection_uptime(self) -> int | None:
+        """Dauer der aktuellen Internetverbindung in Sekunden.
+
+        Bewusst ``WANIPConn``-``GetStatusInfo`` (Verbindungs-Uptime) statt
+        ``DeviceInfo1``-``GetInfo`` (Geraete-Uptime): Letzteres lehnen manche
+        Boxen (beobachtet: FRITZ!Box 5690 Pro) mit HTTP 401 ab, siehe
+        ``config_flow.py``. Die Verbindungs-Uptime kommt ueber denselben
+        Dienst, der fuer die Down-/Upload-Raten bereits funktioniert.
+        """
+        try:
+            uptime = int(self._fritz_status.connection_uptime)
+        except (FritzConnectionException, RequestException, TypeError, ValueError) as err:
+            _LOGGER.debug("Online-Zeit momentan nicht abrufbar: %s", err)
+            return None
+        return uptime if uptime >= 0 else None
 
     def _ha_device_map(self) -> dict[str, dict[str, str]]:
         """Bildet MAC-Adressen auf Home-Assistant-Geraete ab.
@@ -978,6 +1034,11 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if refreshed:
             self._address_source_scan = dt_util.utcnow()
 
+        # Fuer "Neues Geraet" wird der Stand VOR dieser Aktualisierung
+        # gebraucht - danach steht jedes aktive Geraet bereits in
+        # ``self._last_seen`` und waere nicht mehr von "schon bekannt" zu
+        # unterscheiden.
+        known_before = set(self._last_seen.keys())
         self._update_last_seen(raw_hosts)
 
         hosts = build_hosts(
@@ -989,6 +1050,9 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._oui,
             bands,
         )
+
+        self._notify_new_devices(hosts, known_before)
+        self._notify_external_ip_change(connection)
 
         return {
             "hosts": hosts,
@@ -1030,6 +1094,11 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._last_seen = {
                 str(key): str(value) for key, value in stored.items() if value
             }
+        # Keine gespeicherten Daten: entweder eine ganz neue Einrichtung oder
+        # der erste Start nach einem Update von einer Version ohne dieses
+        # Feature. Der erste Abruf merkt sich dann nur die Ausgangslage,
+        # statt das gesamte vorhandene Heimnetz als "neues Geraet" zu melden.
+        self._new_device_baseline_pending = not self._last_seen
 
     def _update_last_seen(self, raw_hosts: list[dict[str, Any]]) -> None:
         """Schreibt fuer jedes aktuell aktive Geraet den Zeitpunkt mit.
@@ -1051,6 +1120,84 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             changed = True
         if changed:
             self._last_seen_store.async_delay_save(lambda: dict(self._last_seen), 5)
+
+    @callback
+    def async_add_new_device_listener(
+        self, listener: Callable[[dict[str, Any]], None]
+    ) -> CALLBACK_TYPE:
+        """Meldet einen Listener fuer neu auftauchende Geraete an (Event-Entitaet).
+
+        Liefert eine Funktion zum Abmelden, wie bei
+        ``DataUpdateCoordinator.async_add_listener``.
+        """
+        self._new_device_listeners.append(listener)
+
+        @callback
+        def _remove() -> None:
+            self._new_device_listeners.remove(listener)
+
+        return _remove
+
+    def _notify_new_devices(
+        self, hosts: list[dict[str, Any]], known_before: set[str]
+    ) -> None:
+        """Meldet jedes seit dem letzten Abruf neu aufgetauchte Geraet.
+
+        "Neu" heisst: aktiv UND noch nie zuvor in ``self._last_seen``
+        verzeichnet. Beim allerersten Abruf nach der Einrichtung (siehe
+        ``async_load_last_seen``) wird nichts gemeldet - sonst waere beim
+        ersten Start das komplette vorhandene Heimnetz "neu".
+        """
+        if self._new_device_baseline_pending:
+            self._new_device_baseline_pending = False
+            return
+        if not self._new_device_listeners:
+            return
+        for host in hosts:
+            if not host.get("active"):
+                continue
+            key = mac_key(host.get("mac"))
+            if not key or key in known_before:
+                continue
+            for listener in list(self._new_device_listeners):
+                try:
+                    listener(host)
+                except Exception:  # noqa: BLE001 - ein Listener darf den Abruf nie stoppen
+                    _LOGGER.exception("Fehler im 'Neues Geraet'-Listener")
+
+    @callback
+    def async_add_external_ip_listener(
+        self, listener: Callable[[str, str], None]
+    ) -> CALLBACK_TYPE:
+        """Meldet einen Listener fuer eine geaenderte externe IP an."""
+        self._external_ip_listeners.append(listener)
+
+        @callback
+        def _remove() -> None:
+            self._external_ip_listeners.remove(listener)
+
+        return _remove
+
+    def _notify_external_ip_change(self, connection: dict[str, Any] | None) -> None:
+        """Meldet eine geaenderte externe IP-Adresse (Event-Entitaet).
+
+        Der allererste Abruf (``self._last_external_ip`` noch ``None``, z. B.
+        nach jedem Neustart von Home Assistant) loest bewusst nichts aus -
+        die alte Adresse ist dann schlicht nicht bekannt, das ist keine
+        "Aenderung". Bleibt die Abfrage der externen IP in einem Zyklus
+        ohne Ergebnis, bleibt der zuletzt bekannte Wert stehen.
+        """
+        new_ip = (connection or {}).get("external_ip")
+        if not new_ip:
+            return
+        old_ip = self._last_external_ip
+        self._last_external_ip = new_ip
+        if old_ip and new_ip != old_ip:
+            for listener in list(self._external_ip_listeners):
+                try:
+                    listener(old_ip, new_ip)
+                except Exception:  # noqa: BLE001 - ein Listener darf den Abruf nie stoppen
+                    _LOGGER.exception("Fehler im 'Externe IP geaendert'-Listener")
 
     async def async_invalidate_address_sources(self) -> None:
         """Erzwingt beim naechsten Durchlauf eine neue IP-Typ-Abfrage."""

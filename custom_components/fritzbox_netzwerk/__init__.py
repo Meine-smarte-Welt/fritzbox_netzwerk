@@ -17,7 +17,7 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
+from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
@@ -32,8 +32,6 @@ from .const import (
     ATTR_NAME,
     CARD_FILENAME,
     CARD_URL,
-    CONF_USE_TLS,
-    DEFAULT_USE_TLS,
     DOMAIN,
     MANUFACTURER,
     MAX_FRIENDLY_NAME_LENGTH,

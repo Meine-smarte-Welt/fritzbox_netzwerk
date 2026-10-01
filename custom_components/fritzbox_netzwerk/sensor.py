@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import (
@@ -15,6 +16,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ATTR_ACTIVE,
@@ -69,6 +71,10 @@ async def async_setup_entry(
                 coordinator, entry, "up_max", "upload_max",
                 UnitOfDataRate.MEGABITS_PER_SECOND, "mdi:upload-network",
             ),
+            # Seit 1.6.2: externe IP und Online-Zeit der Internetverbindung
+            # (Standard-TR-064, derselbe Dienst wie die Down-/Upload-Raten).
+            FritzboxNetzwerkExternalIpSensor(coordinator, entry),
+            FritzboxNetzwerkOnlineSinceSensor(coordinator, entry),
         ]
     )
 
@@ -359,3 +365,60 @@ class FritzboxNetzwerkRateSensor(FritzboxNetzwerkBase):
         if not connection:
             return None
         return connection.get(self._key)
+
+
+class FritzboxNetzwerkExternalIpSensor(FritzboxNetzwerkBase):
+    """Aktuelle oeffentliche IPv4-Adresse der FRITZ!Box.
+
+    Standard-TR-064 (``WANIPConn``/``GetExternalIPAddress``), derselbe Dienst,
+    der schon fuer die Down-/Upload-Raten verwendet wird - kein zusaetzlicher
+    SOAP-Aufruf fuer eine Box ohne diesen Dienst. Bleibt ``None`` ohne eigene
+    oeffentliche IPv4 (z. B. DS-Lite) oder wenn die Box im reinen
+    Access-Point-Betrieb laeuft. Fuer eine Automation bei Aenderung siehe die
+    Event-Entitaet "Externe IP geaendert".
+    """
+
+    _attr_translation_key = "externe_ip"
+    _attr_icon = "mdi:ip-network-outline"
+
+    def __init__(self, coordinator, entry) -> None:
+        """Initialisiert den Sensor."""
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_external_ip"
+
+    @property
+    def native_value(self) -> str | None:
+        """Aktuelle externe IPv4-Adresse, oder ``None``."""
+        connection = (self.coordinator.data or {}).get("connection")
+        return (connection or {}).get("external_ip")
+
+
+class FritzboxNetzwerkOnlineSinceSensor(FritzboxNetzwerkBase):
+    """Zeitpunkt, seit dem die aktuelle Internetverbindung steht.
+
+    Berechnet aus der von der FRITZ!Box gemeldeten Verbindungs-Uptime
+    (``WANIPConn``/``GetStatusInfo``, Feld ``NewUptime``) relativ zu "jetzt" -
+    bewusst NICHT aus ``DeviceInfo1``/``GetInfo`` (Geraete-Uptime), das manche
+    Boxen (beobachtet: FRITZ!Box 5690 Pro) mit HTTP 401 ablehnen, siehe
+    ``config_flow.py``. Dadurch kann der angezeigte Zeitpunkt von Abfrage zu
+    Abfrage um ein paar Sekunden schwanken - das ist kosmetisch und bewusst
+    in Kauf genommen, statt eine zweite, fehleranfaellige Abfrage einzufuehren.
+    """
+
+    _attr_translation_key = "online_seit"
+    _attr_icon = "mdi:clock-start"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator, entry) -> None:
+        """Initialisiert den Sensor."""
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_online_since"
+
+    @property
+    def native_value(self):
+        """Zeitpunkt des Verbindungsaufbaus, oder ``None``."""
+        connection = (self.coordinator.data or {}).get("connection")
+        uptime = (connection or {}).get("uptime")
+        if not isinstance(uptime, int) or uptime < 0:
+            return None
+        return dt_util.utcnow() - timedelta(seconds=uptime)

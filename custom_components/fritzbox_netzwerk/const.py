@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.6.1"
+VERSION: Final = "1.6.2"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -14,14 +14,19 @@ PLATFORMS: Final = [
     Platform.DEVICE_TRACKER,
     Platform.SWITCH,
     Platform.BUTTON,
+    Platform.EVENT,
 ]
 
 # --- Konfiguration (Config Entry) ---------------------------------------
 CONF_USE_TLS: Final = "use_tls"
+CONF_PORT: Final = "port"
+CONF_REMOTE_ACCESS: Final = "remote_access"
 
 DEFAULT_HOST: Final = "fritz.box"
 DEFAULT_USERNAME: Final = "admin"
 DEFAULT_USE_TLS: Final = False
+DEFAULT_PORT: Final = 0
+DEFAULT_REMOTE_ACCESS: Final = False
 
 # --- Optionen (Options Flow) --------------------------------------------
 CONF_SCAN_INTERVAL: Final = "scan_interval"

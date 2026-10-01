@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.6.1";
+const FBN_VERSION = "1.6.2";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -3240,9 +3240,31 @@ class FritzboxNetzwerkCardEditor extends HTMLElement {
   }
 
   setConfig(config) {
-    this._config = withDefaults(config);
+    this._config = withDefaults(this._preserveClearedTitle(config));
     this._render();
     this._applyLanguage();
+  }
+
+  /**
+   * Schuetzt einen vom Nutzer bewusst geleerten Titel vor withDefaults().
+   *
+   * Home Assistant entfernt ein leeres, optionales Textfeld beim
+   * Zwischenspeichern aus der Kartenkonfiguration (um keine leeren
+   * Strings in der YAML zu hinterlassen) und ruft danach setConfig()
+   * erneut mit dieser bereinigten Konfiguration auf. Fehlt "title"
+   * dadurch komplett, wuerde withDefaults() den Standardwert
+   * "Netzwerkgeräte" wieder eintragen - im Editor sprang das Titelfeld
+   * deshalb beim Loeschen des letzten Buchstabens sofort auf das volle
+   * Wort zurueck. Nur bei einer bereits gerenderten Karte greift der
+   * Schutz, damit eine wirklich neue Karte (noch kein "title" je
+   * gesetzt) weiterhin "Netzwerkgeräte" als Startwert zeigt.
+   */
+  _preserveClearedTitle(config) {
+    const incoming = { ...(config || {}) };
+    if (this._rendered && !("title" in incoming) && this._config && this._config.title) {
+      incoming.title = "";
+    }
+    return incoming;
   }
 
   set hass(hass) {

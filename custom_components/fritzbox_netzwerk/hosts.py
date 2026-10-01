@@ -218,14 +218,24 @@ def connection_label(kind: str, port: int, guest: bool) -> str:
 
 
 def is_repeater(model: Any) -> bool:
-    """Erkennt einen AVM-Repeater anhand der gemeldeten Modellbezeichnung.
+    """Erkennt ein FRITZ!-Mesh-Geraet anhand der gemeldeten Modellbezeichnung.
 
     Die FRITZ!Box traegt bei eigenen Geraeten im Mesh das Modell ein, z. B.
-    ``FRITZ!Repeater 1200 AX`` oder ``FRITZ!Repeater 6000``. Erkannt wird
-    ausschliesslich das, was das Modell ausdruecklich als Repeater ausweist -
-    es wird nichts aus dem Hostnamen geraten.
+    ``FRITZ!Repeater 1200 AX`` oder ``FRITZ!Repeater 6000`` - das wird erkannt.
+    Im Mesh kann aber auch eine zweite FRITZ!Box als WLAN-Repeater mitlaufen
+    (z. B. zwei FRITZ!Box 7490 oder eine FRITZ!Box 7590 als Repeater an einer
+    FRITZ!Box 5690 Pro); ihr gemeldetes Modell lautet dann schlicht
+    ``FRITZ!Box 7590`` statt ``FRITZ!Repeater ...`` und wurde bis 1.6.1 nicht
+    erkannt - solche Geraete fehlten dadurch komplett in der Mesh-Gruppe und
+    im `mesh`-Attribut (zwei Nutzerrueckmeldungen, siehe release-1.6.2.md).
+    Erkannt wird deshalb zusaetzlich "fritz!box" im Modell. Die eigene Box
+    taucht nach Beobachtung nicht in ihrer eigenen Geraeteliste auf, ein
+    Duplikat ist daher nicht zu erwarten (Annahme, an echter Hardware nicht
+    nachstellbar). Es wird weiterhin nichts aus dem Hostnamen geraten -
+    nur das von der FRITZ!Box selbst gemeldete Modell entscheidet.
     """
-    return "repeater" in str(model or "").strip().lower()
+    text = str(model or "").strip().lower()
+    return "repeater" in text or "fritz!box" in text
 
 
 def display_name(raw: dict[str, Any]) -> str:

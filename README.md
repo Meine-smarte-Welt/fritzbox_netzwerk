@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.6.1-blue)
+![Version](https://img.shields.io/badge/Version-1.6.2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -15,6 +15,7 @@ passenden Home-Assistant-Gerätenamen.
 - [Voraussetzungen](#voraussetzungen)
 - [Installation](#installation)
 - [Einrichtung](#einrichtung)
+  - [Zugriff auf eine entfernte FRITZ!Box](#zugriff-auf-eine-entfernte-fritzbox)
 - [Einstellungen](#einstellungen)
 - [Sensoren](#sensoren)
 - [Mesh: FRITZ!Box und Repeater als Gruppe](#mesh-fritzbox-und-repeater-als-gruppe)
@@ -76,7 +77,10 @@ passenden Home-Assistant-Gerätenamen.
   einen Blick
 - Vollständig über die Oberfläche konfigurierbar, inklusive **frei wählbarer Farben**
 - Zwei zusätzliche Zähler-Sensoren für Automatisierungen
-- **Verbindungs-Sensoren**: aktuelle Download-/Upload-Rate und die Leitungs-Sync-Raten
+- **Verbindungs-Sensoren**: aktuelle Download-/Upload-Rate, die Leitungs-Sync-Raten sowie
+  (seit 1.6.2) externe IP, Online-Zeit und Verbindungsstatus
+- **Ereignisse** (seit 1.6.2): „Neues Gerät“ beim ersten Auftauchen im Heimnetz, „Externe IP
+  geändert“ – nutzbar in Automationen, ohne zusätzlichen TR-064-Aufruf
 - **Mesh-Gruppe**: FRITZ!Box und Repeater als eine Einheit – mit Online-Zähler in Home Assistant
   und in der Karte, dazu ein Button **„Alle FRITZ!-Geräte neu starten“** (Repeater zuerst, Box zuletzt)
 - **WLAN-MAC-Filter** ein-/ausschalten und **temporär freigeben („Pairing“)**: neue Geräte
@@ -143,7 +147,9 @@ Auf der FRITZ!Box müssen „Zugriff für Anwendungen zulassen“ und HTTPS-Fern
 
 Der Pfadpräfix wird vor dem Vorbereiten der HTTP-Anfrage ergänzt, damit die Digest-Authentifizierung den tatsächlichen Anfragepfad verwendet. Das entspricht der [FRITZ! TR-064-Fernzugriffsdokumentation](https://fritz.support/resources/TR-064_Remote_Access.pdf).
 
-Nicht alle lokalen Funktionen sind dadurch aus der Ferne erreichbar: Insbesondere direkte Zugriffe auf interne Repeater-Adressen benötigen weiterhin eine Netzverbindung, etwa ein VPN. Die Zertifikatsprüfung bleibt unverändert beim Verhalten von `fritzconnection`.
+Nicht alle lokalen Funktionen sind dadurch aus der Ferne erreichbar: Insbesondere direkte Zugriffe auf interne Repeater-Adressen benötigen weiterhin eine Netzverbindung, etwa ein VPN.
+
+**Zertifikatsprüfung:** `fritzconnection` prüft das TLS-Zertifikat der Gegenstelle grundsätzlich nicht (`verify=False`) – das gilt unverändert auch für den Fernzugriff. Bei einer lokalen Verbindung im eigenen Heimnetz ist das ein akzeptiertes, geringes Risiko. Beim Fernzugriff läuft die Verbindung dagegen über das offene Internet, wo eine fehlende Zertifikatsprüfung grundsätzlich einen Man-in-the-Middle-Angriff ermöglichen könnte (z. B. in einem fremden WLAN oder über einen manipulierten Netzknoten zwischen Home-Assistant-Server und FRITZ!Box). In der Praxis mindert MyFRITZ!/DynDNS mit Digest-Authentifizierung dieses Risiko zwar (das Kennwort wird nicht im Klartext übertragen), unterbindet es aber nicht vollständig. Wer das nicht in Kauf nehmen möchte, sollte statt des Fernzugriffsmodus ein VPN zur eigenen FRITZ!Box nutzen und die Integration weiterhin lokal verbinden lassen.
 
 ---
 
@@ -183,10 +189,15 @@ spart die Aufrufe vollständig.
 | `sensor.<name>_mesh` | Anzahl online | Erreichbare FRITZ!-Geräte (Box + Repeater), Attribute `gesamt`, `vollstaendig`, `members`; nur mit Repeatern, siehe [Mesh](#mesh-fritzbox-und-repeater-als-gruppe) |
 | `sensor.<name>_download_leitungsrate` | Mbit/s | Maximale Downstream-Rate der Leitung (Sync) |
 | `sensor.<name>_upload_leitungsrate` | Mbit/s | Maximale Upstream-Rate der Leitung (Sync) |
+| `sensor.<name>_externe_ip` | IPv4-Adresse | Aktuelle öffentliche IP der Internetverbindung |
+| `sensor.<name>_online_seit` | Zeitstempel | Seit wann die aktuelle Internetverbindung steht |
+| `binary_sensor.<name>_internet_verbunden` | Verbunden/Nicht verbunden | Hat die FRITZ!Box aktuell eine Internetverbindung aufgebaut? |
 
-Die vier Down/Up-Sensoren nutzen die WAN-Dienste der FRITZ!Box (TR-064). Fehlt der
-WAN-Dienst – etwa wenn die FRITZ!Box als reiner Access Point läuft –, bleiben diese Sensoren
-„unbekannt", ohne die Geräteliste zu beeinträchtigen.
+Die vier Down/Up-Sensoren sowie *Externe IP*, *Online seit* und *Internet verbunden* nutzen
+dieselben WAN-Dienste der FRITZ!Box (TR-064). Fehlt der WAN-Dienst – etwa wenn die FRITZ!Box
+als reiner Access Point läuft –, bleiben diese Sensoren „unbekannt", ohne die Geräteliste zu
+beeinträchtigen. *Online seit* kann von Abfrage zu Abfrage um ein paar Sekunden schwanken
+(kosmetisch, siehe [Fehlerbehebung](#fehlerbehebung)).
 
 Die Einheit der drei Zähler-Sensoren (*Geräte* / *devices* / *apparaten*) folgt der in Home
 Assistant eingestellten Sprache.
@@ -197,6 +208,20 @@ bei 60 Geräten rund 15–20 kB pro Eintrag.
 
 Weitere Attribute am Hauptsensor: `gesamt`, `aktiv`, `inaktiv`, `gastnetz`, `gesperrt`,
 `updates_verfuegbar`, `statische_ip`, `letzte_abfrage`, `letzte_ip_typ_abfrage`.
+
+### Ereignisse (seit 1.6.2)
+
+| Entität | Löst aus | Attribute |
+| --- | --- | --- |
+| `event.<name>_neues_gerat` | Ein Gerät taucht erstmals im Heimnetz auf | `mac`, `name`, `ip`, `vendor`, `mac_random`, `connection` |
+| `event.<name>_externe_ip_geandert` | Die öffentliche IP der Internetverbindung ändert sich | `old_ip`, `new_ip` |
+
+Beide nutzen vorhandene Daten (den „zuletzt gesehen"-Speicher bzw. die ohnehin abgefragte
+externe IP) – kein zusätzlicher TR-064-Aufruf. Beim ersten Abruf nach der Einrichtung bzw.
+nach jedem Neustart von Home Assistant löst keines der beiden Ereignisse aus, weil der
+jeweilige Vorzustand dann noch nicht bekannt ist (siehe [Fehlerbehebung](#fehlerbehebung)) –
+sonst würde beim ersten Start das komplette vorhandene Heimnetz als „neu" gemeldet. Nutzbar
+in Automationen über den Ereignis-Trigger auf die jeweilige Entität.
 
 ---
 
@@ -249,8 +274,10 @@ erscheint der Rahmen nicht.
 
 - Der Sammel-Neustart setzt voraus, dass die Repeater die Anmeldung mit den Zugangsdaten der
   FRITZ!Box akzeptieren – dieselbe Bedingung wie beim Neustart eines einzelnen Repeaters.
-- Erkannt werden Repeater am Modell („…Repeater…“); andere Mesh-Geräte, etwa Powerline-Adapter
-  mit Mesh-Funktion, gehören derzeit nicht zur Gruppe.
+- Erkannt werden Repeater am Modell: sowohl native FRITZ!Repeater („…Repeater…“) als auch eine
+  weitere FRITZ!Box, die im Mesh als WLAN-Repeater mitläuft („…FRITZ!Box…“, seit 1.6.2 – siehe
+  [Fehlerbehebung](#fehlerbehebung)). Andere Mesh-Geräte, etwa Powerline-Adapter mit
+  Mesh-Funktion, gehören derzeit nicht zur Gruppe.
 - Die Funktion ist neu und konnte ohne Repeater-Hardware nicht getestet werden –
   Rückmeldungen als GitHub-Issue willkommen.
 
@@ -262,7 +289,8 @@ AVM-Repeater im Mesh erscheinen in der Geräteliste der FRITZ!Box wie jedes ande
 Netzwerkgerät. Die Integration legt für jeden von ihnen zusätzlich ein
 **eigenes Home-Assistant-Gerät** an, das an der FRITZ!Box hängt. Erkannt wird ein Repeater
 daran, dass sein von der FRITZ!Box gemeldetes Modell „Repeater“ enthält (etwa
-*FRITZ!Repeater 1200 AX*) – der Name wird nicht geraten.
+*FRITZ!Repeater 1200 AX*) oder – seit 1.6.2 – „FRITZ!Box“ (etwa eine zweite *FRITZ!Box 7590*,
+die im Mesh als WLAN-Repeater mitläuft) – der Name wird nicht geraten.
 
 | Entität | Wann | Zweck |
 | --- | --- | --- |
@@ -850,6 +878,16 @@ erlaubt ist – etwa in einigen eingebetteten Browsern. Abhilfe: Home Assistant 
 Update die Seite einmal hart neu laden (Strg+F5), damit der Browser die neue Karte statt der
 zwischengespeicherten lädt.
 
+**Im Karten-Editor springt der Titel beim Löschen des letzten Buchstabens zurück auf
+„Netzwerkgeräte".**
+Home Assistant entfernt ein leeres, optionales Textfeld beim Zwischenspeichern aus der
+Kartenkonfiguration (um keine leeren Strings in der YAML zu hinterlassen) und ruft danach den
+Editor erneut mit dieser bereinigten Konfiguration auf. Bis 1.6.1 trug der Editor dann wieder
+den Standardwert „Netzwerkgeräte" ein, sobald der Titel dadurch komplett fehlte – das Feld
+sprang sichtbar zurück, sobald der letzte Buchstabe gelöscht wurde. Seit 1.6.2 erkennt der
+Editor diesen Fall und lässt das Feld leer, statt den Standardtitel wieder einzutragen. Eine
+komplett neu hinzugefügte Karte zeigt „Netzwerkgeräte" weiterhin als Startwert.
+
 **Die Spalte *Funkband* zeigt nur „—".**
 Prüfen: (1) In den Einstellungen der Integration ist *WLAN-Band je Gerät erfassen* eingeschaltet.
 (2) Das Gerät ist per WLAN direkt mit der FRITZ!Box verbunden – LAN-Geräte, Offline-Geräte und
@@ -871,6 +909,16 @@ Geräteliste nicht abrufen.
 **Die Einrichtung meldet, der Dienst „Hosts" fehle.**
 Unter Heimnetz → Netzwerk → Netzwerkeinstellungen die Option *Zugriff für Anwendungen
 zulassen* aktivieren. Ohne sie ist die TR-064-Schnittstelle komplett abgeschaltet.
+
+**Die Einrichtung meldet „Unknown error", obwohl Benutzername, Kennwort und Berechtigung
+stimmen.**
+Bis 1.6.1 fragte die Einrichtung nach dem erfolgreichen Geräteliste-Test zusätzlich die
+Seriennummer ab (`DeviceInfo1`/`GetInfo`) – nur als interne Kennung, nicht für den Betrieb
+nötig. Manche Modelle (beobachtet: FRITZ!Box 5690 Pro) lehnen genau diese eine Abfrage trotz
+korrekter Zugangsdaten mit HTTP 401 ab; die Integration fing das nicht ab, wodurch die
+Einrichtung nur „Unknown error" zeigte. Seit 1.6.2 wird dieser Fehler abgefangen – schlägt die
+Abfrage fehl, verwendet die Integration stattdessen die Adresse als Kennung und richtet sich
+normal ein.
 
 **Der Button *Neu verbinden* meldet einen Fehler (z. B. `errorCode: 606`).**
 Bis 1.5.1 nutzte der Button den UPnP-Dienst der FRITZ!Box, den manche Boxen mit Fehler 606
@@ -903,8 +951,39 @@ Meist lehnt der Repeater die Anmeldung ab: Am Repeater muss der Zugriff für Anw
 
 **Der Mesh-Sensor und der Button „Alle neu starten“ fehlen.**
 Beide entstehen erst, sobald die FRITZ!Box mindestens einen Repeater in der Geräteliste führt
-(Modell enthält „Repeater“), und nur bei eingeschalteter Option *Repeater als eigene Geräte
-anlegen*. Der Button braucht außerdem die *FRITZ!Box-Steuerung*.
+(Modell enthält „Repeater“ oder – seit 1.6.2 – „FRITZ!Box“), und nur bei eingeschalteter
+Option *Repeater als eigene Geräte anlegen*. Der Button braucht außerdem die
+*FRITZ!Box-Steuerung*.
+
+**Ein zweiter FRITZ!-Router im Mesh (z. B. eine FRITZ!Box 7590 oder 7490 als WLAN-Repeater)
+erscheint nicht als Repeater; der Mesh-Sensor fehlt oder `mesh` bleibt `null`.**
+Bis 1.6.1 erkannte die Integration nur Geräte, deren gemeldetes Modell „Repeater“ enthält –
+eine FRITZ!Box, die im Mesh als WLAN-Repeater mitläuft, meldet aber schlicht ihren eigenen
+Modellnamen (z. B. „FRITZ!Box 7590“), nicht „FRITZ!Repeater …“. Seit 1.6.2 wird zusätzlich
+„FRITZ!Box“ im Modell erkannt. Tritt der Fehler danach weiterhin auf: In den
+Integrationseinstellungen muss *Repeater als eigene Geräte anlegen* eingeschaltet sein, und
+das Gerät muss tatsächlich als Mesh-Mitglied bei der Haupt-FRITZ!Box eingebunden sein (nicht
+nur über einen separaten, ungemeshten Zugangspunkt).
+
+**Die externe IP, „Online seit“ oder „Internet verbunden“ bleiben „unbekannt“.**
+Diese drei nutzen denselben WAN-Dienst wie die Down-/Upload-Raten (siehe oben) – läuft die
+FRITZ!Box im reinen Access-Point-Betrieb oder meldet sie diesen Dienst nicht, bleiben alle
+betroffenen Sensoren „unbekannt“.
+
+**„Online seit“ ändert sich bei jeder Abfrage um ein paar Sekunden, obwohl die
+Internetverbindung durchgehend steht.**
+Der Zeitpunkt wird aus der von der FRITZ!Box gemeldeten Verbindungsdauer (Sekunden)
+zurückgerechnet, nicht fest gespeichert – kleine Schwankungen durch Lauf- und Abfragezeit sind
+normal und rein kosmetisch.
+
+**Das Ereignis „Neues Gerät“ oder „Externe IP geändert“ löst nicht aus, obwohl sich etwas
+geändert hat.**
+Direkt nach der Einrichtung bzw. nach jedem Neustart von Home Assistant ist der jeweilige
+Vorzustand (bisher bekannte Geräte bzw. vorherige externe IP) noch nicht bekannt – der erste
+Abruf merkt sich die Ausgangslage, ohne auszulösen. Das ist Absicht: Sonst würde direkt nach
+der Einrichtung das komplette vorhandene Heimnetz als „neues Gerät“ gemeldet. Ein Gerät, das
+genau in diesem einen ersten Abfrage-Fenster neu hinzukommt, wird dadurch einmalig nicht
+gemeldet.
 
 **Der MAC-Filter-Schalter und der Pairing-Button fehlen.**
 Beide gibt es nur mit aktivierter *FRITZ!Box-Steuerung* und nur, wenn die Box den Filter
@@ -1024,7 +1103,16 @@ language: nl   # "" = automatisch, sonst de | en | nl
 - **Mesh nur in Teilen.** FRITZ!Box und Repeater bilden eine Gruppe (siehe oben). Das Funkband
   zeigt die Karte für Geräte an der Box selbst. Signalstärke und der Repeater, an dem ein Gerät
   hängt, stehen dagegen in einer eigenen Schnittstelle (`X_AVM-DE_GetMeshListPath`) und sind
-  noch nicht ausgewertet.
+  noch nicht ausgewertet. Die Repeater-Erkennung selbst stützt sich auf den von der FRITZ!Box
+  gemeldeten Modellnamen („…Repeater…“ oder „…FRITZ!Box…“, seit 1.6.2) – ein Mesh-Mitglied mit
+  abweichender Modellbezeichnung würde dadurch weiterhin nicht erkannt.
+- **Externe IP, Online-Zeit und Verbindungsstatus (seit 1.6.2) laufen über dieselben
+  WAN-Dienste wie die Down-/Upload-Raten** und fehlen deshalb unter denselben Bedingungen
+  (reiner Access-Point-Betrieb). „Online seit" wird aus der gemeldeten Verbindungsdauer
+  zurückgerechnet und kann minimal schwanken.
+- **„Neues Gerät" und „Externe IP geändert" (seit 1.6.2) lösen direkt nach der Einrichtung
+  bzw. nach jedem Neustart von Home Assistant einmalig nicht aus** – der jeweilige
+  Vorzustand ist dann noch nicht bekannt (siehe [Fehlerbehebung](#fehlerbehebung)).
 - **Kein Band je Gerät zuweisbar.** Dem Fernseher nur 2,4 GHz, dem Handy nur 5 GHz zu geben, kann
   die FRITZ!Box nicht – weder in TR-064 noch (nach den gefundenen Berichten) in der Oberfläche.
   Die Karte zeigt nur an, in welchem Band ein Gerät gerade hängt.
@@ -1065,6 +1153,74 @@ Kartencodes im Testaufbau.
 ---
 
 ## Versionshistorie
+
+### 1.6.2 – Fernzugriff, Externe IP/Online-Zeit, „Neues Gerät", Mesh-Repeater-Erkennung erweitert, drei Fehlerbehebungen
+
+**Neu**
+
+- **Zugriff auf eine entfernte FRITZ!Box** über MyFRITZ!/DynDNS (Pull Request von einem
+  Mitwirkenden): Im Einrichtungsdialog lässt sich zusätzlich zur Adresse ein eigener
+  HTTPS-Fernzugriffsport angeben und ein Fernzugriffsmodus aktivieren. Dieser erzwingt HTTPS
+  und ergänzt automatisch den von AVM für den TR-064-Fernzugriff verlangten Pfadpräfix
+  `/tr064` – auch vor SOAP-Aufrufen, damit die HTTP-Digest-Authentifizierung den
+  tatsächlichen Anfragepfad signiert. Bestehende lokale Einrichtungen sind nicht betroffen
+  und benötigen keine Migration. Details unter
+  [Zugriff auf eine entfernte FRITZ!Box](#zugriff-auf-eine-entfernte-fritzbox) – dort auch
+  ein wichtiger Hinweis zur Zertifikatsprüfung.
+- **Externe IP, Online-Zeit und Verbindungsstatus** (`sensor.<name>_externe_ip`,
+  `sensor.<name>_online_seit`, `binary_sensor.<name>_internet_verbunden`): Standard-TR-064,
+  derselbe WAN-Dienst, der schon die Down-/Upload-Raten liefert – kein zusätzlicher
+  SOAP-Aufruf für Boxen ohne diesen Dienst. Details unter [Sensoren](#sensoren).
+- **Ereignis „Neues Gerät"** (`event.<name>_neues_gerat`): löst aus, sobald ein Gerät
+  erstmals im Heimnetz auftaucht – Grundlage ist der ohnehin geführte „zuletzt gesehen"-
+  Speicher, kein zusätzlicher Abruf. Beim ersten Start nach der Einrichtung wird bewusst
+  nichts gemeldet, sonst wäre das komplette vorhandene Heimnetz „neu". Details unter
+  [Ereignisse](#sensoren).
+- **Ereignis „Externe IP geändert"** (`event.<name>_externe_ip_geandert`): löst mit alter
+  und neuer Adresse aus, nicht beim ersten Abruf nach einem Neustart von Home Assistant
+  (die vorherige Adresse ist dann nicht bekannt).
+
+**Behoben**
+
+- **Die Einrichtung zeigte „Unknown error", obwohl Benutzername, Kennwort und Berechtigung
+  stimmten** – gemeldet für eine FRITZ!Box 5690 Pro. Ursache: Nach dem erfolgreichen Test der
+  Geräteliste fragte die Einrichtung zusätzlich die Seriennummer ab
+  (`DeviceInfo1`/`GetInfo`), nur als interne Kennung. Dieses Modell lehnt genau diese Abfrage
+  mit HTTP 401 ab, was die Integration nicht abfing. Die Abfrage ist jetzt abgesichert;
+  schlägt sie fehl, verwendet die Einrichtung stattdessen die Adresse als Kennung. Die
+  Geräteliste selbst war nie betroffen, da deren eigener Test (`Hosts1`) schon vorher
+  erfolgreich lief. Details unter [Fehlerbehebung](#fehlerbehebung).
+- **Im Karten-Editor sprang der Titel beim Löschen des letzten Buchstabens zurück auf
+  „Netzwerkgeräte"** – über die Facebook-Kommentare gemeldet. Ursache: Home Assistant
+  entfernt ein leeres, optionales Textfeld beim Zwischenspeichern aus der Konfiguration; der
+  Editor trug beim nächsten Aufruf dadurch wieder den Standardwert ein. Der Editor erkennt
+  das jetzt und lässt das Feld leer. Details unter [Fehlerbehebung](#fehlerbehebung).
+- **Eine zweite FRITZ!Box im Mesh (als WLAN-Repeater) wurde nicht als Repeater erkannt** –
+  der Mesh-Sensor fehlte oder `mesh` blieb `null`, gemeldet für zwei unabhängige Setups
+  (FRITZ!Box 7590 an einer 5690 Pro; zwei FRITZ!Box 7490 an einer 7490), beide per WLAN
+  angebunden. Ursache: Die Erkennung prüfte nur, ob das von der Box gemeldete Modell
+  „Repeater" enthält – eine FRITZ!Box, die selbst als Mesh-Repeater mitläuft, meldet aber
+  ihren eigenen Modellnamen (z. B. „FRITZ!Box 7590"). Erkannt wird jetzt zusätzlich „FRITZ!Box"
+  im Modell. Details unter [Fehlerbehebung](#fehlerbehebung) und
+  [Bekannte Einschränkungen](#bekannte-einschränkungen).
+
+Zur ebenfalls gemeldeten Beobachtung, dass der IP-Typ bei einigen Geräten (hauptsächlich
+Shellys) als „dynamisch" statt „fest" angezeigt wird, obwohl sowohl in der FRITZ!Box als auch
+am Gerät selbst eine feste IP eingetragen ist: Das ist keine Regression, sondern die bereits
+seit 1.5.3 dokumentierte Grenze von TR-064 – eine Reservierung **innerhalb** des DHCP-Bereichs
+meldet die FRITZ!Box nicht anders als eine normale DHCP-Zuweisung, siehe
+[Fehlerbehebung](#fehlerbehebung). Kein Codefehler, der sich beheben ließe.
+
+Ausgelöst durch mehrere Nutzerrückmeldungen aus den Facebook-Kommentaren und der Community
+(401-Fehler mit genauer Protokollzeile, Karten-Editor, zwei unabhängige Mesh-Setups, IP-Typ
+bei Shellys) sowie einen eingereichten Pull Request für den Fernzugriff. Die beiden neuen
+Mesh-Fälle und der 401-Fehler konnten anhand der konkret mitgeteilten Modelle/
+Protokollzeilen im Quelltext nachvollzogen werden; ein Test an einer echten FRITZ!Box 5690
+Pro bzw. an den genannten Mesh-Aufbauten steht noch aus. Der Fernzugriffs-Pull-Request wurde
+geprüft (Code-Review, enthaltene Regressionstests gegen die eingesetzte
+`fritzconnection`-Version ausgeführt, `py_compile`/`pyflakes` sauber); ein eigener
+Praxistest gegen eine entfernte FRITZ!Box über das offene Internet wurde hier nicht
+durchgeführt – dieser stammt laut Einreichung vom Autor der Änderung.
 
 ### 1.6.1 – Umbenennen: Leerzeichen und Sonderzeichen im Namen funktionieren jetzt
 

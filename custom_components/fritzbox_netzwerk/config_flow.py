@@ -13,6 +13,7 @@ from fritzconnection.core.exceptions import (
     FritzServiceError,
 )
 from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import RequestException
 
 from homeassistant.config_entries import (
     ConfigEntry,
@@ -30,6 +31,8 @@ from .const import (
     CONF_ENABLE_DEVICE_TRACKER,
     CONF_ENABLE_REPEATERS,
     CONF_PAIRING_MINUTES,
+    CONF_PORT,
+    CONF_REMOTE_ACCESS,
     CONF_SCAN_INTERVAL,
     CONF_TRACK_ADDRESS_SOURCE,
     CONF_TRACK_WLAN_BAND,
@@ -40,6 +43,8 @@ from .const import (
     DEFAULT_ENABLE_REPEATERS,
     DEFAULT_HOST,
     DEFAULT_PAIRING_MINUTES,
+    DEFAULT_PORT,
+    DEFAULT_REMOTE_ACCESS,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TRACK_ADDRESS_SOURCE,
     DEFAULT_TRACK_WLAN_BAND,
@@ -58,8 +63,10 @@ DATA_SCHEMA_USER = vol.Schema(
         vol.Required(CONF_USERNAME, default=DEFAULT_USERNAME): str,
         vol.Required(CONF_PASSWORD): str,
         vol.Optional(CONF_USE_TLS, default=DEFAULT_USE_TLS): bool,
-        vol.Optional("port", default=0): vol.All(vol.Coerce(int), vol.Range(min=0, max=65535)),
-        vol.Optional("remote_access", default=False): bool,
+        vol.Optional(CONF_PORT, default=DEFAULT_PORT): vol.All(
+            vol.Coerce(int), vol.Range(min=0, max=65535)
+        ),
+        vol.Optional(CONF_REMOTE_ACCESS, default=DEFAULT_REMOTE_ACCESS): bool,
     }
 )
 
@@ -94,8 +101,8 @@ class FritzboxNetzwerkConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_USERNAME: self._username,
                 CONF_PASSWORD: self._password,
                 CONF_USE_TLS: self._use_tls,
-                "port": self._port,
-                "remote_access": self._remote_access,
+                CONF_PORT: self._port,
+                CONF_REMOTE_ACCESS: self._remote_access,
             })
             # Der Hosts-Dienst ist die eigentliche Datenquelle. Wenn die
             # Rechte fehlen, faellt das genau hier auf - nicht erst
@@ -110,9 +117,25 @@ class FritzboxNetzwerkConfigFlow(ConfigFlow, domain=DOMAIN):
         except FritzConnectionException:
             return RESULT_INSUFFICIENT_PERMISSIONS
 
-        self._serial_number = str(
-            connection.call_action("DeviceInfo1", "GetInfo").get("NewSerialNumber", "")
-        )
+        # Die Seriennummer dient nur als interne Kennung (unique_id) und ist
+        # fuer den Betrieb der Integration nicht erforderlich - die
+        # eigentlichen Daten liefert der Hosts-Dienst, dessen Abfrage oben
+        # schon erfolgreich war. Manche Modelle (beobachtet: FRITZ!Box 5690
+        # Pro) lehnen DeviceInfo1/GetInfo trotz passender Zugangsdaten mit
+        # HTTP 401 ab. Ohne dieses Abfangen fuehrte das zu einer
+        # unbehandelten Ausnahme und der Einrichtungsdialog zeigte nur
+        # "Unknown error" - obwohl Benutzername, Kennwort und Rechte in
+        # Ordnung waren. Schlaegt die Abfrage fehl, wird stattdessen die
+        # Host-Adresse als Kennung verwendet; die Einrichtung laeuft normal
+        # weiter.
+        try:
+            self._serial_number = str(
+                connection.call_action("DeviceInfo1", "GetInfo").get(
+                    "NewSerialNumber", ""
+                )
+            )
+        except (FritzConnectionException, RequestException):
+            self._serial_number = ""
         self._model = connection.modelname or "FRITZ!Box"
         return RESULT_SUCCESS
 
@@ -124,8 +147,8 @@ class FritzboxNetzwerkConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_show_form(step_id="user", data_schema=DATA_SCHEMA_USER)
 
         self._host = user_input[CONF_HOST].strip()
-        self._port = user_input.get("port", 0)
-        self._remote_access = user_input.get("remote_access", False)
+        self._port = user_input.get(CONF_PORT, DEFAULT_PORT)
+        self._remote_access = user_input.get(CONF_REMOTE_ACCESS, DEFAULT_REMOTE_ACCESS)
         self._username = user_input[CONF_USERNAME]
         self._password = user_input[CONF_PASSWORD]
         self._use_tls = self._remote_access or user_input.get(CONF_USE_TLS, DEFAULT_USE_TLS)
@@ -148,8 +171,8 @@ class FritzboxNetzwerkConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_USERNAME: self._username,
                 CONF_PASSWORD: self._password,
                 CONF_USE_TLS: self._use_tls,
-                "port": self._port,
-                "remote_access": self._remote_access,
+                CONF_PORT: self._port,
+                CONF_REMOTE_ACCESS: self._remote_access,
             },
         )
 
@@ -158,8 +181,8 @@ class FritzboxNetzwerkConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Startet die erneute Anmeldung."""
         self._host = entry_data[CONF_HOST]
-        self._port = entry_data.get("port", 0)
-        self._remote_access = entry_data.get("remote_access", False)
+        self._port = entry_data.get(CONF_PORT, DEFAULT_PORT)
+        self._remote_access = entry_data.get(CONF_REMOTE_ACCESS, DEFAULT_REMOTE_ACCESS)
         self._username = entry_data[CONF_USERNAME]
         self._use_tls = entry_data.get(CONF_USE_TLS, DEFAULT_USE_TLS)
         return await self.async_step_reauth_confirm()
