@@ -17,11 +17,15 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 
 from .const import (
+    CONF_ENABLE_HOST_DEVICES,
     CONF_ENABLE_REPEATERS,
+    CONF_HOST_DEVICE_FILTER,
+    DEFAULT_ENABLE_HOST_DEVICES,
     DEFAULT_ENABLE_REPEATERS,
+    DEFAULT_HOST_DEVICE_FILTER,
     DOMAIN,
 )
-from .hosts import mac_key
+from .hosts import host_device_selection, mac_key
 
 if TYPE_CHECKING:
     from . import FritzboxNetzwerkConfigEntry
@@ -97,6 +101,63 @@ def repeater_device_info(
         name=host.get("name") or host["mac"],
     )
     if url:
+        info["configuration_url"] = url
+    info.update(_via_device(hass, entry))  # type: ignore[typeddict-item]
+    return info
+
+
+# ---------------------------------------------------------------------------
+# Netzwerkgeraete als Home-Assistant-Geraete (Idee 9 aus feature-ideen.md)
+# ---------------------------------------------------------------------------
+
+# Obergrenze: jedes Geraet bekommt ein HA-Geraet und eine Entitaet. Bei einem
+# zu weit gefassten Muster ("*" in einem grossen Netz) soll das Entitaets-
+# register nicht unbemerkt mit Hunderten Eintraegen volllaufen.
+MAX_HOST_DEVICES = 150
+
+
+def host_devices_enabled(entry: FritzboxNetzwerkConfigEntry) -> bool:
+    """Ob Netzwerkgeraete als eigene Geraete angelegt werden sollen."""
+    return bool(entry.options.get(CONF_ENABLE_HOST_DEVICES, DEFAULT_ENABLE_HOST_DEVICES))
+
+
+def selected_host_devices(
+    entry: FritzboxNetzwerkConfigEntry, data: dict[str, Any] | None
+) -> list[dict[str, Any]]:
+    """Die Geraete, die laut Auswahlmuster ein eigenes HA-Geraet bekommen."""
+    if not host_devices_enabled(entry):
+        return []
+    pattern = entry.options.get(CONF_HOST_DEVICE_FILTER, DEFAULT_HOST_DEVICE_FILTER)
+    return host_device_selection((data or {}).get("hosts", []), pattern)
+
+
+def host_identifier(entry: FritzboxNetzwerkConfigEntry, key: str) -> str:
+    """Stabile Kennung des Geraets (haengt an der MAC-Adresse)."""
+    return f"{entry.entry_id}_host_{key}"
+
+
+def host_device_info(
+    hass: HomeAssistant,
+    entry: FritzboxNetzwerkConfigEntry,
+    host: dict[str, Any],
+) -> DeviceInfo:
+    """Beschreibt ein Netzwerkgeraet als HA-Geraet, angehaengt an die FRITZ!Box.
+
+    Als Hersteller dient der Name aus der OUI-Liste (leer bei zufaelliger oder
+    unbekannter MAC). Die Weboberflaeche wird nur verlinkt, wenn die Box eine
+    eigene Adresse dafuer meldet - eine geratene ``http://<IP>`` waere bei
+    vielen Smart-Home-Geraeten falsch.
+    """
+    key = mac_key(host["mac"])
+    info = DeviceInfo(
+        identifiers={(DOMAIN, host_identifier(entry, key))},
+        connections={(dr.CONNECTION_NETWORK_MAC, host["mac"])},
+        manufacturer=host.get("vendor") or None,
+        model=host.get("model") or None,
+        name=host.get("name") or host["mac"],
+    )
+    url = str(host.get("url") or "").strip()
+    if url.lower().startswith(("http://", "https://")):
         info["configuration_url"] = url
     info.update(_via_device(hass, entry))  # type: ignore[typeddict-item]
     return info

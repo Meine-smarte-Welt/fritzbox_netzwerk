@@ -21,6 +21,8 @@ ueberall ``.get()``.
 
 from __future__ import annotations
 
+import csv
+import io
 import re
 import sys
 from typing import Any, Final
@@ -351,6 +353,13 @@ def normalize_host(raw: dict[str, Any]) -> dict[str, Any]:
         # dortigen Hinweis.
         "connected_via": "",
         "link_mbit": None,
+        # Wird in ``apply_notes()`` ergaenzt (Idee 3 aus feature-ideen.md):
+        # eigenes Etikett, freie Notiz und die manuelle Markierung
+        # "reserviert" - alles nur in Home Assistant gespeichert, die
+        # FRITZ!Box wird dafuer nicht veraendert.
+        "label": "",
+        "note": "",
+        "reserved": False,
     }
 
 
@@ -446,6 +455,23 @@ def classify_ip(
         if number is not None and not pool[0] <= number <= pool[1]:
             return "fixed"
     return "dynamic"
+
+
+def classify_ip_with_reserved(
+    host: dict[str, Any], pool: tuple[int, int] | None = None
+) -> str | None:
+    """Wie ``classify_ip``, beruecksichtigt aber die manuelle Markierung "reserviert".
+
+    Die Box meldet Reservierungen INNERHALB des DHCP-Bereichs ueber TR-064
+    nicht (siehe ``classify_ip``). Der Nutzer kann sie selbst kennzeichnen
+    (Idee 3 aus feature-ideen.md, nur in Home Assistant gespeichert); ein so
+    markiertes Geraet mit Adresse zaehlt dann als "fest". Ein Geraet ohne IP
+    bleibt "none".
+    """
+    result = classify_ip(host, pool)
+    if host.get("reserved") and result in ("dynamic", None):
+        return "fixed"
+    return result
 
 
 def apply_ha_devices(
@@ -628,6 +654,7 @@ def build_hosts(
     bands: dict[str, str] | None = None,
     first_seen: dict[str, str] | None = None,
     mesh_links: dict[str, dict[str, Any]] | None = None,
+    notes: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Baut die vollstaendige, sortierte Hostliste fuer das Sensorattribut.
 
@@ -653,8 +680,9 @@ def build_hosts(
     apply_vendors(hosts, oui)
     apply_bands(hosts, bands)
     apply_mesh_links(hosts, mesh_links)
+    apply_notes(hosts, notes)
     for host in hosts:
-        host["ip_class"] = classify_ip(host, pool)
+        host["ip_class"] = classify_ip_with_reserved(host, pool)
     hosts.sort(key=lambda host: ip_sort_key(host["ip"]))
     return hosts
 
@@ -1148,3 +1176,180 @@ def upnp_error_code(error: Any) -> str | None:
     """
     match = _ERROR_CODE_RE.search(str(error or ""))
     return match.group(1) if match else None
+
+
+# ---------------------------------------------------------------------------
+# Eigene Notizen, Etiketten und "reserviert"-Markierung (Idee 3 aus
+# feature-ideen.md) - nur in Home Assistant gespeichert
+# ---------------------------------------------------------------------------
+
+MAX_LABEL_LENGTH: Final = 40
+MAX_NOTE_LENGTH: Final = 500
+
+
+def clean_text(value: Any, limit: int) -> str:
+    """Bereinigt eine Nutzereingabe: Steuerzeichen raus, Leerraum glatt, gekuerzt."""
+    text = "".join(ch if ch.isprintable() or ch in "\n" else " " for ch in str(value or ""))
+    lines = [" ".join(line.split()) for line in text.split("\n")]
+    return "\n".join(lines).strip()[:limit]
+
+
+def make_note_entry(
+    label: Any = None, note: Any = None, reserved: Any = None
+) -> dict[str, Any] | None:
+    """Baut einen Speichereintrag; ``None``, wenn nichts (mehr) zu merken ist.
+
+    Das Etikett ist einzeilig (Zeilenumbrueche werden zu Leerzeichen).
+    """
+    clean_label = clean_text(str(label or "").replace("\n", " "), MAX_LABEL_LENGTH)
+    clean_note = clean_text(note, MAX_NOTE_LENGTH)
+    flag = as_bool(reserved)
+    if not clean_label and not clean_note and not flag:
+        return None
+    return {"label": clean_label, "note": clean_note, "reserved": flag}
+
+
+def apply_notes(
+    hosts: list[dict[str, Any]], notes: dict[str, dict[str, Any]] | None
+) -> list[dict[str, Any]]:
+    """Ergaenzt Etikett, Notiz und "reserviert" anhand des MAC-Schluessels."""
+    if not notes:
+        return hosts
+    for host in hosts:
+        entry = notes.get(mac_key(host["mac"]))
+        if not entry:
+            continue
+        host["label"] = str(entry.get("label") or "")
+        host["note"] = str(entry.get("note") or "")
+        host["reserved"] = bool(entry.get("reserved"))
+    return hosts
+
+
+def load_notes(stored: Any) -> dict[str, dict[str, Any]]:
+    """Liest den gespeicherten Bestand tolerant (Fremdformate werden verworfen)."""
+    notes: dict[str, dict[str, Any]] = {}
+    if not isinstance(stored, dict):
+        return notes
+    for key, value in stored.items():
+        normalized = mac_key(key)
+        if not isinstance(value, dict) or not re.fullmatch(r"[0-9a-f]{12}", normalized):
+            continue
+        entry = make_note_entry(
+            value.get("label"), value.get("note"), value.get("reserved")
+        )
+        if entry:
+            notes[normalized] = entry
+    return notes
+
+
+# ---------------------------------------------------------------------------
+# Hersteller: eigene Zuordnungen und Aktualisierung aus den IEEE-Registern
+# (Idee 4b + 4c aus feature-ideen.md)
+# ---------------------------------------------------------------------------
+
+# Download-Adressen der drei IEEE-Register (CSV). Die Adressen stammen aus der
+# oeffentlichen IEEE-Dokumentation; sie wurden in der Entwicklungsumgebung
+# NICHT abgerufen (kein Zugriff) - siehe release-Notiz "Nicht verifiziert".
+IEEE_REGISTER_URLS: Final = (
+    ("MA-L", "https://standards-oui.ieee.org/oui/oui.csv", 6),
+    ("MA-M", "https://standards-oui.ieee.org/oui28/mam.csv", 7),
+    ("MA-S", "https://standards-oui.ieee.org/oui36/oui36.csv", 9),
+)
+
+# Plausibilitaetsgrenze: ein MA-L-Register mit weniger Eintraegen ist keine
+# gueltige Antwort (Fehlerseite, abgeschnittener Download) und wird NICHT
+# uebernommen - sonst wuerde ein kaputter Download die gute Liste ersetzen.
+MIN_MA_L_ENTRIES: Final = 20000
+
+_IEEE_SKIP_NAMES: Final = frozenset({"private", "ieee registration authority"})
+
+
+def parse_ieee_csv(text: str, length: int) -> dict[str, str]:
+    """Liest ein IEEE-Register (CSV mit ``Assignment`` und ``Organization Name``).
+
+    ``length`` ist die erwartete Praefixlaenge (6/7/9 Hex-Zeichen); andere
+    Zeilen werden uebersprungen. Eintraege mit dem Namen "Private" sind keine
+    Auskunft und fehlen deshalb.
+    """
+    table: dict[str, str] = {}
+    reader = csv.reader(io.StringIO(text))
+    header = next(reader, None)
+    if not header:
+        return table
+    names = [column.strip().lower() for column in header]
+    try:
+        i_prefix = names.index("assignment")
+        i_name = names.index("organization name")
+    except ValueError:
+        return table
+    for row in reader:
+        if len(row) <= max(i_prefix, i_name):
+            continue
+        prefix = row[i_prefix].strip().upper()
+        name = " ".join(row[i_name].split())
+        if len(prefix) != length or not re.fullmatch(r"[0-9A-F]+", prefix):
+            continue
+        if not name or name.lower() in _IEEE_SKIP_NAMES:
+            continue
+        table[prefix] = sys.intern(name)
+    return table
+
+
+def serialize_oui(table: dict[str, str], header: str = "") -> str:
+    """Schreibt eine Tabelle im Dateiformat ``PRAEFIX:Name`` (sortiert)."""
+    lines = [f"# {line}" for line in header.splitlines() if line.strip()]
+    lines.extend(f"{prefix}:{name}" for prefix, name in sorted(table.items()))
+    return "\n".join(lines) + "\n"
+
+
+def merge_oui(*tables: dict[str, str] | None) -> dict[str, str]:
+    """Fuehrt Tabellen zusammen; spaetere gewinnen (Reihenfolge: Basis < Update < eigene)."""
+    merged: dict[str, str] = {}
+    for table in tables:
+        if table:
+            merged.update(table)
+    return merged
+
+
+def validate_custom_oui_lines(lines: Any) -> list[int]:
+    """Nummern (ab 1) der Zeilen, die weder Kommentar noch gueltiger Eintrag sind.
+
+    Dient dem Hinweis im Protokoll bei Tippfehlern in der eigenen Datei.
+    """
+    bad: list[int] = []
+    for number, line in enumerate(lines, start=1):
+        text = str(line).strip()
+        if not text or text.startswith("#"):
+            continue
+        prefix, sep, name = text.partition(":")
+        if not sep or not name.strip() or not _OUI_PREFIX.fullmatch(prefix.strip().upper()):
+            bad.append(number)
+    return bad
+
+
+# ---------------------------------------------------------------------------
+# Netzwerkgeraete als eigene Home-Assistant-Geraete (Idee 9)
+# ---------------------------------------------------------------------------
+
+
+def host_device_selection(
+    hosts: list[dict[str, Any]], pattern: Any
+) -> list[dict[str, Any]]:
+    """Welche Geraete bekommen ein eigenes HA-Geraet?
+
+    ``pattern`` ist dieselbe Platzhalter-Syntax wie der Kartenfilter
+    ``ip_filter`` (siehe ``parse_wildcard_filter``). Ein leeres Muster waehlt
+    NICHTS aus - bewusst: alle Geraete eines Heimnetzes anzulegen soll eine
+    ausdrueckliche Entscheidung sein (``*`` waehlt alle). Repeater haben ihr
+    eigenes Geraet und werden hier ausgelassen.
+    """
+    filt = parse_wildcard_filter(pattern)
+    if not filt:
+        return []
+    return [
+        host
+        for host in hosts
+        if mac_key(host.get("mac"))
+        and not host.get("repeater")
+        and ip_matches_filter(host.get("ip"), filt)
+    ]

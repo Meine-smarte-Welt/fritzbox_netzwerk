@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.6.3"
+VERSION: Final = "1.7.0b2"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -40,6 +40,13 @@ CONF_PAIRING_MINUTES: Final = "pairing_minutes"
 # Benannte IP-Bereiche fuer Zaehler-Sensoren (Idee 7 aus feature-ideen.md),
 # z. B. "Drucker=192.168.2.*" - eine Zeile je Bereich, siehe hosts.parse_ip_ranges.
 CONF_IP_RANGES: Final = "ip_ranges"
+# Netzwerkgeraete als eigene HA-Geraete (Idee 9): Schalter + Auswahlmuster
+# (gleiche Platzhalter-Syntax wie der Kartenfilter ip_filter). Standardmaessig
+# aus und ohne Muster wird nichts angelegt.
+CONF_ENABLE_HOST_DEVICES: Final = "enable_host_devices"
+CONF_ENABLE_SYSTEM_STATS: Final = "enable_system_stats"
+CONF_ENABLE_PARENTAL: Final = "enable_parental_control"
+CONF_HOST_DEVICE_FILTER: Final = "host_device_filter"
 
 DEFAULT_SCAN_INTERVAL: Final = 60  # Sekunden
 DEFAULT_TRACK_ADDRESS_SOURCE: Final = True
@@ -50,6 +57,15 @@ DEFAULT_ENABLE_CONTROLS: Final = False
 DEFAULT_ENABLE_REPEATERS: Final = True
 DEFAULT_PAIRING_MINUTES: Final = 5  # Minuten
 DEFAULT_IP_RANGES: Final = ""
+DEFAULT_ENABLE_HOST_DEVICES: Final = False
+# Idee 21 (experimentell, inoffizielle Weboberflaeche - siehe webui.py)
+DEFAULT_ENABLE_SYSTEM_STATS: Final = False
+# Idee 22 (experimentell): Zugangsprofile der Kindersicherung ueber die Weboberflaeche
+DEFAULT_ENABLE_PARENTAL: Final = False
+PROFILE_REVERT_STORAGE_VERSION: Final = 1
+SYSTEM_STATS_INTERVAL_MINUTES: Final = 5
+INTERNET_BLOCK_STORAGE_VERSION: Final = 1
+DEFAULT_HOST_DEVICE_FILTER: Final = ""
 
 MIN_PAIRING_MINUTES: Final = 1
 MAX_PAIRING_MINUTES: Final = 120
@@ -78,10 +94,15 @@ ATTR_ADDRESS_SOURCE_STATE: Final = "ip_typ_erfassung"
 SERVICE_SET_DEVICE_NAME: Final = "set_device_name"
 SERVICE_WAKE_ON_LAN: Final = "wake_on_lan"
 SERVICE_SET_INTERNET_ACCESS: Final = "set_internet_access"
+SERVICE_LIST_ACCESS_PROFILES: Final = "list_access_profiles"
+SERVICE_GET_ACCESS_PROFILE: Final = "get_access_profile"
+SERVICE_SET_ACCESS_PROFILE: Final = "set_access_profile"
 SERVICE_SET_MAC_FILTER: Final = "set_mac_filter"
 SERVICE_START_PAIRING: Final = "start_pairing"
 SERVICE_REBOOT_MESH: Final = "reboot_mesh"
 SERVICE_GAST_WLAN_INFO: Final = "gast_wlan_info"
+SERVICE_SET_DEVICE_NOTE: Final = "set_device_note"
+SERVICE_UPDATE_OUI: Final = "update_oui"
 
 # WLANConfiguration-Dienstindex des Gast-WLANs - dieselbe Annahme (Dualband-
 # Box: 1 = 2,4 GHz, 2 = 5 GHz, 3 = Gast), die switch.py (WLAN_BANDS) und
@@ -96,8 +117,12 @@ GAST_WLAN_SERVICE_INDEX: Final = 3
 ATTR_MAC: Final = "mac"
 ATTR_NAME: Final = "name"
 ATTR_BLOCKED_PARAM: Final = "blocked"
+ATTR_PROFILE: Final = "profile"
 ATTR_ENABLED: Final = "enabled"
 ATTR_MINUTES: Final = "minutes"
+ATTR_LABEL: Final = "label"
+ATTR_NOTE: Final = "note"
+ATTR_RESERVED: Final = "reserved"
 # Optionales Feld in allen Diensten (Idee 14 aus feature-ideen.md): ohne
 # Angabe wirkt ein Dienst weiterhin auf die zuerst geladene Box (bisheriges
 # Verhalten, siehe README "Bekannte Einschränkungen").
@@ -107,6 +132,14 @@ ATTR_CONFIG_ENTRY: Final = "config_entry"
 LAST_SEEN_STORAGE_VERSION: Final = 1
 FIRST_SEEN_STORAGE_VERSION: Final = 1
 PAIRING_STORAGE_VERSION: Final = 1
+NOTES_STORAGE_VERSION: Final = 1
+
+# Ordner im Home-Assistant-Konfigurationsverzeichnis fuer Dateien, die ein
+# HACS-Update NICHT ueberschreibt: heruntergeladene Herstellerliste und die
+# eigenen Zuordnungen (Idee 4b/4c aus feature-ideen.md).
+USER_DATA_DIRNAME: Final = "fritzbox_netzwerk"
+OUI_UPDATE_FILENAME: Final = "oui_update.txt"
+OUI_CUSTOM_FILENAME: Final = "oui_custom.txt"
 
 # Filter "Neu (letzte N Tage)" in der Karte (Idee 2 aus feature-ideen.md).
 NEW_DEVICE_FILTER_DAYS: Final = 7

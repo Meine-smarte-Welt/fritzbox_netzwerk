@@ -69,7 +69,11 @@
           "enable_repeaters": "Repeater als eigene Geräte anlegen",
           "enable_controls": "FRITZ!Box-Steuerung (experimentell)",
           "pairing_minutes": "Pairing-Dauer (Minuten)",
-          "ip_ranges": "IP-Bereiche (Name=Muster, eine Zeile je Bereich)"
+          "ip_ranges": "IP-Bereiche (Name=Muster, eine Zeile je Bereich)",
+          "enable_host_devices": "Netzwerkgeräte als eigene Geräte anlegen",
+          "host_device_filter": "Auswahl der Geräte (IP-Muster)",
+          "enable_system_stats": "CPU und RAM der Box lesen (experimentell)",
+          "enable_parental_control": "Zugangsprofile der Kindersicherung steuern (experimentell)"
         },
         "data_description": {
           "track_address_source": "Diese Angabe steht nicht in der Geräteliste und kostet einen zusätzlichen Aufruf pro Gerät. Sie ändert sich selten, deshalb läuft sie in einem eigenen, langsameren Takt.",
@@ -79,7 +83,11 @@
           "enable_repeaters": "Legt für jeden FRITZ!-Mesh-Repeater im Heimnetz ein eigenes Gerät mit Verbunden-Status an, bei aktivierter FRITZ!Box-Steuerung zusätzlich mit einem Neustart-Button. Dazu gibt es einen Mesh-Sensor (FRITZ!Box + Repeater) und – mit Steuerung – den Button „Alle FRITZ!-Geräte neu starten“. Erkannt werden Geräte, deren gemeldetes Modell „Repeater“ oder „FRITZ!Box“ enthält – also auch eine zweite FRITZ!Box, die im Mesh als WLAN-Repeater mitläuft.",
           "enable_controls": "Legt Schalter für die WLAN-Bänder (2,4 GHz, 5 GHz, Gast) und für den WLAN-MAC-Filter an, dazu Buttons zum Neuverbinden, Neustarten und zum Starten eines Pairings (MAC-Filter zeitweise aus), bei eingeschalteten Repeater-Geräten auch je einen Neustart-Button pro Repeater. Verfügbarkeit und Zuordnung hängen vom Modell ab.",
           "pairing_minutes": "Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt, bevor er sich von selbst wieder einschaltet. Gilt für den Button „Pairing starten“ und für den Dienst ohne Zeitangabe.",
-          "ip_ranges": "Legt je Zeile einen Zähler-Sensor an, z. B. \"Drucker=192.168.2.*\" für \"Drucker online: 2 von 3\". Das Muster folgt derselben Schreibweise wie das Kartenfeld \"IP-Filter\" (\"*\"/\"?\" als Platzhalter, mehrere Muster mit Komma getrennt, \"!\" schließt aus). Leer = keine Bereichs-Sensoren."
+          "ip_ranges": "Legt je Zeile einen Zähler-Sensor an, z. B. \"Drucker=192.168.2.*\" für \"Drucker online: 2 von 3\". Das Muster folgt derselben Schreibweise wie das Kartenfeld \"IP-Filter\" (\"*\"/\"?\" als Platzhalter, mehrere Muster mit Komma getrennt, \"!\" schließt aus). Leer = keine Bereichs-Sensoren.",
+          "enable_host_devices": "Legt für die ausgewählten Netzwerkgeräte je ein eigenes Home-Assistant-Gerät mit Hersteller (aus der MAC-Adresse) und einem Verbunden-Status an. Standardmäßig aus – jedes Gerät erzeugt ein Gerät und eine Entität.",
+          "host_device_filter": "Welche Geräte ein eigenes Gerät bekommen: dieselbe Schreibweise wie der Karten-Filter „IP-Filter“ (z. B. „192.168.2.*“, mehrere Muster mit Komma, „!“ schließt aus; „*“ wählt alle). Leer = keines. Höchstens 150 Geräte.",
+          "enable_system_stats": "Liest CPU-Auslastung, RAM-Auslastung und Temperatur über die Weboberfläche der Box (nicht über TR-064, von AVM nicht dokumentiert, FRITZ!OS-abhängig). Standardmäßig aus; schlägt der Abruf fehl, fehlen nur diese Werte.",
+          "enable_parental_control": "Erlaubt Dienste, die Zugangsprofile lesen und Geräten zuweisen (z. B. „Gesperrt“ für eine Stunde). Nutzt die Weboberfläche der Box, nicht TR-064 – von AVM nicht dokumentiert, FRITZ!OS-abhängig. Standardmäßig aus."
         }
       }
     }
@@ -138,6 +146,15 @@
       },
       "schwaechstes_geraet": {
         "name": "Schwächstes Gerät"
+      },
+      "cpu_auslastung": {
+        "name": "CPU-Auslastung"
+      },
+      "ram_auslastung": {
+        "name": "RAM-Auslastung"
+      },
+      "cpu_temperatur": {
+        "name": "CPU-Temperatur"
       }
     },
     "binary_sensor": {
@@ -149,6 +166,9 @@
       },
       "ip_konflikt": {
         "name": "IP-Adresskonflikt"
+      },
+      "host_online": {
+        "name": "Verbunden"
       }
     },
     "event": {
@@ -185,6 +205,9 @@
       },
       "reboot_mesh": {
         "name": "Alle FRITZ!-Geräte neu starten"
+      },
+      "oui_update": {
+        "name": "Herstellerliste aktualisieren"
       }
     }
   },
@@ -236,6 +259,10 @@
         "config_entry": {
           "name": "FRITZ!Box (Config Entry)",
           "description": "Nur nötig, wenn mehrere FRITZ!Boxen eingerichtet sind: legt fest, auf welche sich dieser Dienst bezieht. Ohne Angabe wirkt der Dienst auf die zuerst geladene Box."
+        },
+        "minutes": {
+          "name": "Sperrdauer (Minuten)",
+          "description": "Optional: Nach dieser Zeit wird der Zugang automatisch wieder freigegeben (nur beim Sperren; geprüft im Abfrageintervall)."
         }
       }
     },
@@ -284,6 +311,88 @@
         "config_entry": {
           "name": "FRITZ!Box (Config Entry)",
           "description": "Nur nötig, wenn mehrere FRITZ!Boxen eingerichtet sind: legt fest, auf welche sich dieser Dienst bezieht. Ohne Angabe wirkt der Dienst auf die zuerst geladene Box."
+        }
+      }
+    },
+    "set_device_note": {
+      "name": "Notiz zu einem Gerät speichern",
+      "description": "Speichert Etikett, Notiz und die Markierung „reserviert“ zu einem Netzwerkgerät – nur in Home Assistant, die FRITZ!Box wird nicht verändert. Nicht angegebene Felder bleiben unverändert; ein leerer Text löscht das Feld.",
+      "fields": {
+        "mac": {
+          "name": "MAC-Adresse",
+          "description": "MAC-Adresse des Geräts."
+        },
+        "label": {
+          "name": "Etikett",
+          "description": "Kurzes Etikett (bis 40 Zeichen), z. B. „Kinderzimmer“."
+        },
+        "note": {
+          "name": "Notiz",
+          "description": "Freie Notiz (bis 500 Zeichen)."
+        },
+        "reserved": {
+          "name": "Reserviert",
+          "description": "Markiert die Adresse als in der FRITZ!Box reserviert. Die Box meldet Reservierungen innerhalb des DHCP-Bereichs nicht – das Gerät zählt dann als „fest“."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (Config Entry)",
+          "description": "Nur nötig, wenn mehrere FRITZ!Boxen eingerichtet sind: legt fest, auf welche sich dieser Dienst bezieht. Ohne Angabe wirkt der Dienst auf die zuerst geladene Box."
+        }
+      }
+    },
+    "update_oui": {
+      "name": "Herstellerliste aktualisieren",
+      "description": "Lädt die IEEE-Register (MA-L, MA-M, MA-S) und legt sie im Ordner „fritzbox_netzwerk“ der Home-Assistant-Konfiguration ab. Eigene Zuordnungen aus „oui_custom.txt“ behalten Vorrang. Die bisherige Liste bleibt, wenn der Abruf fehlschlägt.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box (Config Entry)",
+          "description": "Nur nötig, wenn mehrere FRITZ!Boxen eingerichtet sind: legt fest, auf welche sich dieser Dienst bezieht. Ohne Angabe wirkt der Dienst auf die zuerst geladene Box."
+        }
+      }
+    },
+    "list_access_profiles": {
+      "name": "Zugangsprofile auflisten",
+      "description": "Listet die Zugangsprofile der Kindersicherung (ID und Name). Experimentell, Option nötig.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bei mehreren Boxen: welche Box gemeint ist."
+        }
+      }
+    },
+    "get_access_profile": {
+      "name": "Zugangsprofil lesen",
+      "description": "Liefert das aktuelle Zugangsprofil eines Geräts. Experimentell, Option nötig.",
+      "fields": {
+        "mac": {
+          "name": "MAC-Adresse",
+          "description": "MAC-Adresse des Geräts."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bei mehreren Boxen: welche Box gemeint ist."
+        }
+      }
+    },
+    "set_access_profile": {
+      "name": "Zugangsprofil setzen",
+      "description": "Weist einem Gerät ein Zugangsprofil zu, optional nur für eine bestimmte Zeit. Experimentell, Option nötig.",
+      "fields": {
+        "mac": {
+          "name": "MAC-Adresse",
+          "description": "MAC-Adresse des Geräts."
+        },
+        "profile": {
+          "name": "Profil",
+          "description": "ID (filtprof…) oder Name des Zugangsprofils."
+        },
+        "minutes": {
+          "name": "Dauer (Minuten)",
+          "description": "Optional: Danach wird das ursprüngliche Profil wiederhergestellt (geprüft im Abfrageintervall)."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bei mehreren Boxen: welche Box gemeint ist."
         }
       }
     }

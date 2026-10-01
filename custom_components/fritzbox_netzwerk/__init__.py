@@ -33,9 +33,13 @@ from .const import (
     ATTR_BLOCKED_PARAM,
     ATTR_CONFIG_ENTRY,
     ATTR_ENABLED,
+    ATTR_LABEL,
     ATTR_MAC,
     ATTR_MINUTES,
     ATTR_NAME,
+    ATTR_NOTE,
+    ATTR_PROFILE,
+    ATTR_RESERVED,
     CARD_FILENAME,
     CARD_URL,
     CONF_REMOTE_ACCESS,
@@ -47,17 +51,22 @@ from .const import (
     MIN_PAIRING_MINUTES,
     PLATFORMS,
     SERVICE_GAST_WLAN_INFO,
+    SERVICE_GET_ACCESS_PROFILE,
+    SERVICE_LIST_ACCESS_PROFILES,
+    SERVICE_SET_ACCESS_PROFILE,
     SERVICE_REBOOT_MESH,
     SERVICE_SET_DEVICE_NAME,
+    SERVICE_SET_DEVICE_NOTE,
     SERVICE_SET_INTERNET_ACCESS,
     SERVICE_SET_MAC_FILTER,
     SERVICE_START_PAIRING,
+    SERVICE_UPDATE_OUI,
     SERVICE_WAKE_ON_LAN,
     URL_BASE,
     VERSION,
 )
 from .coordinator import FritzboxNetzwerkCoordinator
-from .hosts import mac_key, normalize_mac
+from .hosts import normalize_mac
 
 # Beacontype -> "offenes Netz, kein Passwort noetig". Gespiegelt aus
 # fritzconnection.lib.fritzwlan._BEACONTYPE_TO_QR_SECURITY (Version 1.15.1,
@@ -83,6 +92,7 @@ INTERNET_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_MAC): cv.string,
         vol.Required(ATTR_BLOCKED_PARAM): cv.boolean,
+        vol.Optional(ATTR_MINUTES): vol.All(vol.Coerce(int), vol.Range(min=1, max=10080)),
         vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
     }
 )
@@ -107,6 +117,34 @@ REBOOT_MESH_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY): cv.string})
 
 GAST_WLAN_INFO_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY): cv.string})
 
+# Nicht uebergebene Felder bleiben unveraendert; ein leerer Text loescht das Feld.
+DEVICE_NOTE_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_MAC): cv.string,
+        vol.Optional(ATTR_LABEL): cv.string,
+        vol.Optional(ATTR_NOTE): cv.string,
+        vol.Optional(ATTR_RESERVED): cv.boolean,
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+    }
+)
+
+UPDATE_OUI_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY): cv.string})
+
+LIST_PROFILES_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY): cv.string})
+
+GET_PROFILE_SCHEMA = vol.Schema(
+    {vol.Required(ATTR_MAC): cv.string, vol.Optional(ATTR_CONFIG_ENTRY): cv.string}
+)
+
+SET_PROFILE_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_MAC): cv.string,
+        vol.Required(ATTR_PROFILE): cv.string,
+        vol.Optional(ATTR_MINUTES): vol.All(vol.Coerce(int), vol.Range(min=1, max=10080)),
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+    }
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: FritzboxNetzwerkConfigEntry
@@ -129,6 +167,9 @@ async def async_setup_entry(
     coordinator = FritzboxNetzwerkCoordinator(hass, entry, fritz_hosts)
     await coordinator.async_load_last_seen()
     await coordinator.async_load_first_seen()
+    await coordinator.async_load_notes()
+    await coordinator.async_load_blocks()
+    await coordinator.async_load_profile_reverts()
     await coordinator.async_load_oui()
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
@@ -210,6 +251,11 @@ async def async_unload_entry(
             SERVICE_START_PAIRING,
             SERVICE_REBOOT_MESH,
             SERVICE_GAST_WLAN_INFO,
+            SERVICE_SET_DEVICE_NOTE,
+            SERVICE_UPDATE_OUI,
+            SERVICE_LIST_ACCESS_PROFILES,
+            SERVICE_GET_ACCESS_PROFILE,
+            SERVICE_SET_ACCESS_PROFILE,
         ):
             hass.services.async_remove(DOMAIN, service)
     return unloaded
@@ -386,48 +432,12 @@ def _async_register_services(hass: HomeAssistant) -> None:
             ) from err
 
     async def _handle_set_internet_access(call: ServiceCall) -> None:
-        """Sperrt oder erlaubt den Internetzugang eines Geraets.
-
-        Die FRITZ!Box-Aktion arbeitet mit der IPv4-Adresse. Diese kann sich
-        per DHCP aendern, deshalb wird der stabilere MAC-Schluessel
-        uebergeben und hier aus der aktuellen Hostliste aufgeloest.
-        """
-        coordinator = _resolve_coordinator(call.data)
-        mac = normalize_mac(call.data[ATTR_MAC])
-        blocked = bool(call.data[ATTR_BLOCKED_PARAM])
-        key = mac_key(mac)
-
-        ip = ""
-        for host in (coordinator.data or {}).get("hosts", []):
-            if mac_key(host.get("mac")) == key:
-                ip = str(host.get("ip") or "")
-                break
-        if not ip:
-            raise HomeAssistantError(
-                f"Zu {mac} ist derzeit keine IP-Adresse bekannt - ist das Geraet "
-                "der FRITZ!Box bekannt und hat es eine IPv4-Adresse?"
-            )
-
-        def _set() -> None:
-            coordinator.fritz_hosts.fc.call_action(
-                "X_AVM-DE_HostFilter1",
-                "DisallowWANAccessByIP",
-                NewIPv4Address=ip,
-                NewDisallow=blocked,
-            )
-
-        try:
-            await hass.async_add_executor_job(_set)
-        except FritzServiceError as err:
-            raise HomeAssistantError(
-                "Diese FRITZ!Box stellt das Sperren des Internetzugangs ueber "
-                "TR-064 nicht bereit (Dienst X_AVM-DE_HostFilter fehlt)."
-            ) from err
-        except FritzConnectionException as err:
-            raise HomeAssistantError(
-                f"Internetzugang fuer {mac} ({ip}) konnte nicht geaendert werden: {err}"
-            ) from err
-        await coordinator.async_request_refresh()
+        """Sperrt oder erlaubt den Internetzugang eines Geraets (optional mit Frist)."""
+        await _resolve_coordinator(call.data).async_set_internet_access(
+            call.data[ATTR_MAC],
+            bool(call.data[ATTR_BLOCKED_PARAM]),
+            call.data.get(ATTR_MINUTES),
+        )
 
     async def _handle_set_mac_filter(call: ServiceCall) -> None:
         """Schaltet den WLAN-MAC-Filter dauerhaft an oder aus."""
@@ -516,6 +526,51 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 f"Gast-WLAN-Zugangsdaten konnten nicht gelesen werden: {err}"
             ) from err
 
+    async def _handle_set_device_note(call: ServiceCall) -> None:
+        """Setzt Etikett, Notiz und "reserviert"-Markierung eines Geraets (Idee 3).
+
+        Nur in Home Assistant gespeichert - die FRITZ!Box wird nicht
+        angesprochen. Nicht uebergebene Felder bleiben unveraendert; ein
+        leerer Text loescht das jeweilige Feld.
+        """
+        coordinator = _resolve_coordinator(call.data)
+        await coordinator.async_set_note(
+            call.data[ATTR_MAC],
+            label=call.data.get(ATTR_LABEL),
+            note=call.data.get(ATTR_NOTE),
+            reserved=call.data.get(ATTR_RESERVED),
+        )
+
+    async def _handle_update_oui(call: ServiceCall) -> dict[str, Any]:
+        """Aktualisiert die Herstellerliste aus den IEEE-Registern (Idee 4b)."""
+        counts = await _resolve_coordinator(call.data).async_update_oui()
+        return {"eintraege": counts, "gesamt": sum(counts.values())}
+
+    async def _handle_list_profiles(call: ServiceCall) -> dict[str, Any]:
+        """Listet die Zugangsprofile der Kindersicherung (experimentell)."""
+        profiles = await _resolve_coordinator(call.data).async_list_access_profiles()
+        return {"profile": profiles}
+
+    async def _handle_get_profile(call: ServiceCall) -> dict[str, Any]:
+        """Liefert das aktuelle Zugangsprofil eines Geraets (experimentell)."""
+        return await _resolve_coordinator(call.data).async_get_access_profile(call.data[ATTR_MAC])
+
+    async def _handle_set_profile(call: ServiceCall) -> dict[str, Any]:
+        """Weist einem Geraet ein Zugangsprofil zu, optional mit Frist (experimentell)."""
+        return await _resolve_coordinator(call.data).async_set_access_profile(
+            call.data[ATTR_MAC], call.data[ATTR_PROFILE], call.data.get(ATTR_MINUTES)
+        )
+
+    for name, handler, schema, response in (
+        (SERVICE_LIST_ACCESS_PROFILES, _handle_list_profiles, LIST_PROFILES_SCHEMA, SupportsResponse.ONLY),
+        (SERVICE_GET_ACCESS_PROFILE, _handle_get_profile, GET_PROFILE_SCHEMA, SupportsResponse.ONLY),
+        (SERVICE_SET_ACCESS_PROFILE, _handle_set_profile, SET_PROFILE_SCHEMA, SupportsResponse.OPTIONAL),
+    ):
+        if not hass.services.has_service(DOMAIN, name):
+            hass.services.async_register(
+                DOMAIN, name, handler, schema=schema, supports_response=response
+            )
+
     if not hass.services.has_service(DOMAIN, SERVICE_SET_DEVICE_NAME):
         hass.services.async_register(
             DOMAIN, SERVICE_SET_DEVICE_NAME, _handle_set_device_name, schema=MAC_SCHEMA
@@ -556,4 +611,19 @@ def _async_register_services(hass: HomeAssistant) -> None:
             _handle_gast_wlan_info,
             schema=GAST_WLAN_INFO_SCHEMA,
             supports_response=SupportsResponse.ONLY,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_SET_DEVICE_NOTE):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_SET_DEVICE_NOTE,
+            _handle_set_device_note,
+            schema=DEVICE_NOTE_SCHEMA,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_UPDATE_OUI):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_UPDATE_OUI,
+            _handle_update_oui,
+            schema=UPDATE_OUI_SCHEMA,
+            supports_response=SupportsResponse.OPTIONAL,
         )

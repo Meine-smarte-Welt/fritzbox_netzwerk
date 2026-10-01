@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.6.3-blue)
+![Version](https://img.shields.io/badge/Version-1.7.0b2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -931,6 +931,46 @@ Gast-WLAN-Schalter); ohne das meldet der Dienst einen Fehler.
 
 ---
 
+### `fritzbox_netzwerk.set_device_note`
+
+Setzt Etikett, Notiz und „reserviert"-Markierung eines Geräts – nur in Home Assistant
+gespeichert, ohne die FRITZ!Box anzufassen. Nicht übergebene Felder bleiben unverändert, ein
+leerer Text löscht das Feld.
+
+```yaml
+action: fritzbox_netzwerk.set_device_note
+data:
+  mac: "3C:A6:F6:00:11:22"
+  label: Kinderzimmer
+  note: Gehört Anna
+  reserved: true
+```
+
+Neu in 1.7.0b1: Das Feld `minutes` bei `set_internet_access` gibt den Zugang nach der
+angegebenen Zeit wieder frei (nur beim Sperren).
+
+### `fritzbox_netzwerk.list_access_profiles`, `get_access_profile`, `set_access_profile` (experimentell)
+
+Zugangsprofile der Kindersicherung (Option nötig, siehe Versionshistorie 1.7.0b2). Alle drei
+liefern eine Antwort.
+
+```yaml
+action: fritzbox_netzwerk.list_access_profiles
+response_variable: profile    # [{id: filtprof1, name: Standard}, ...]
+---
+# Tablet eine Stunde sperren, danach automatisch zurück auf das bisherige Profil
+action: fritzbox_netzwerk.set_access_profile
+data:
+  mac: "3C:A6:F6:00:11:22"
+  profile: Gesperrt
+  minutes: 60
+```
+
+### `fritzbox_netzwerk.update_oui`
+
+Lädt die IEEE-Herstellerregister neu (siehe Versionshistorie 1.7.0b1). Gibt die Zahl der
+Einträge je Register zurück. Eigene Zuordnungen stehen in `oui_custom.txt`.
+
 ## Blueprints
 
 Fertige Automations-Vorlagen unter `blueprints/automation/fritzbox_netzwerk/` – einfach
@@ -1234,11 +1274,8 @@ Home-Assistant-Testumgebung erfordern oder zu einer zweiten, von HA losgelösten
 Attrappen-Implementierung führen, die Fehler verdecken statt aufdecken kann:
 
 ```bash
-python3 -m unittest discover -s tests -p "test_*.py" -v  # 76 Fälle (Stand 1.6.3)
-node tests/test_card_editor.js    # 27 Fälle, Karten-Editor (Felder, Titel-Regression)
-node tests/test_card_filters.js   # 15 Fälle, Karten-Filter (inkl. „Lange offline")
-node tests/test_card_mesh.js      #  6 Fälle, Spalte „Verbunden über" (Mesh-Topologie)
-node tests/test_card_gast_wlan.js # 13 Fälle, Gast-WLAN-QR-Knopf und -Popup
+python3 -m unittest discover -s tests -p "test_*.py" -v  # 59 Fälle (Stand 1.7.0b1: Notizen, OUI, Host-Auswahl)
+node tests/test_card.js           # 61 Fälle (Stand 1.7.0b1: Notizen, Gruppierung, CSV, gemerkte Ansicht)
 ```
 
 `tests/test_gast_wlan_info.py` verifiziert zusätzlich den QR-Code selbst: Er wird mit einem
@@ -1253,13 +1290,70 @@ DOM (über `jsdom`) und steuern die Karte genau so an, wie Lovelace es tut – �
 zweite Kopie des Kartencodes im Testaufbau. `npm ci && npm test` installiert `jsdom`
 reproduzierbar aus `package-lock.json` und führt alle `tests/test_card_*.js` aus.
 
-**GitHub Actions** (`.github/workflows/tests.yml`) führt bei jedem Push nach `main` und
-jeder Pull Request automatisch die Python-Tests, die Karten-Tests und
-[ruff](https://docs.astral.sh/ruff/) (Linter für den Python-Code) aus.
+Hinweis (1.7.0b1): Das Verzeichnis `tests/` im Repository enthält derzeit nur die Tests der
+neuen Funktionen; die Tests aus der Beschreibung zu 1.6.3 und der CI-Workflow sind im
+Repository nicht (mehr) vorhanden.
 
 ---
 
 ## Versionshistorie
+
+### 1.7.0b2 (Beta) – Kindersicherung: Zugangsprofile lesen und zuweisen (experimentell)
+
+- **Zugangsprofile der AVM-Kindersicherung** (Idee 22), neue Option „Zugangsprofile der
+  Kindersicherung steuern (experimentell)", standardmäßig aus. Drei Dienste:
+  `fritzbox_netzwerk.list_access_profiles` (alle Profile mit ID und Name),
+  `fritzbox_netzwerk.get_access_profile` (aktuelles Profil eines Geräts) und
+  `fritzbox_netzwerk.set_access_profile` (Profil zuweisen, per ID `filtprof…` oder Name,
+  optional mit `minutes`: danach wird das ursprüngliche Profil wiederhergestellt – gespeichert,
+  überlebt einen Neustart, Genauigkeit = Abfrageintervall).
+- **Wichtig – experimentell:** Dafür gibt es keine TR-064-Schnittstelle. Die Integration nutzt
+  dieselben Anfragen an die Weboberfläche (`data.lua`: Seiten `kidPro`, `netDev`,
+  `edit_device`), die seit Jahren in Community-Projekten (u. a. FritzBoxShell, FHEM, ioBroker)
+  verwendet werden. AVM dokumentiert das nicht; es kann mit jedem FRITZ!OS ausfallen. Die
+  Integration schreibt nur, wenn Gerät und Profil eindeutig gefunden wurden und das aktuelle
+  Profil lesbar ist, und **prüft nach dem Schreiben**, ob die Box das Profil übernommen hat
+  (sonst Fehlermeldung). Ob die Box beim Zuweisen weitere Geräteeinstellungen (z. B. feste
+  IP-Zuweisung) unverändert lässt, ist an keiner Box geprüft – **bitte zuerst an einem
+  Testgerät ausprobieren.**
+- Profile werden **nicht** angelegt oder bearbeitet (Zeitpläne, Zeitkontingente und
+  Filterlisten legst du weiterhin in der FRITZ!Box-Oberfläche an); die Integration wechselt nur
+  zwischen vorhandenen Profilen.
+- Benötigt einen Benutzer mit Zugriff auf die Weboberfläche. Anmeldung und Abmeldung erfolgen
+  bei jedem Aufruf, es bleibt keine Sitzung offen.
+
+### 1.7.0b1 (Beta) – Notizen/Etiketten, Herstellerliste aktualisieren und ergänzen, Netzwerkgeräte als HA-Geräte, Gruppieren und CSV-Export
+
+Beta-Version: Alle Neuerungen sind ohne echte FRITZ!Box und ohne laufendes Home Assistant
+getestet (Attrappen, jsdom) und brauchen Rückmeldungen aus der Praxis.
+
+- **Etikett, Notiz und „reserviert"-Markierung je Gerät** (Idee 3): im Detail-Popup
+  bearbeitbar (Stift-Symbol), nur in Home Assistant gespeichert – die FRITZ!Box wird nicht
+  verändert. Neue Spalten `show_label` / `show_note` (Standard aus), Suche und Sortierung
+  berücksichtigen sie. Die Markierung „reserviert" lässt das Gerät als „fest" zählen und
+  schließt damit die bekannte Lücke bei Reservierungen innerhalb des DHCP-Bereichs
+  (rein manuell). Dienst `fritzbox_netzwerk.set_device_note` (`mac`, `label`, `note`,
+  `reserved`; nicht übergebene Felder bleiben, ein leerer Text löscht).
+- **Herstellerliste aktualisieren** (Idee 4b): Dienst `fritzbox_netzwerk.update_oui` und Button
+  „Herstellerliste aktualisieren". Lädt die IEEE-Register MA-L, MA-M und MA-S und legt sie im
+  Ordner `fritzbox_netzwerk` unter dem Home-Assistant-Konfigurationsverzeichnis ab, damit
+  HACS-Updates sie nicht überschreiben. Die bisherige Liste bleibt, wenn der Abruf
+  fehlschlägt oder unplausibel wenige Einträge liefert. Die HA-Maschine braucht dafür
+  Internetzugang zu `standards-oui.ieee.org`.
+- **Eigene Herstellerzuordnungen** (Idee 4c): Datei `oui_custom.txt` im selben Ordner
+  (wird mit einer kommentierten Vorlage angelegt), eine Zeile `PRÄFIX:Name` mit 6, 7 oder 9
+  Hex-Zeichen. Vorrang: mitgelieferte Liste < aktualisierte Liste < eigene Zuordnungen.
+  Wirkt nach einem Neustart oder nach `update_oui`.
+- **Netzwerkgeräte als eigene Home-Assistant-Geräte** (Idee 9, Option aus): je ausgewähltem
+  Gerät ein HA-Gerät mit Hersteller und einem Verbunden-Status. Die Auswahl erfolgt mit dem
+  Platzhalter-Muster der IP-Filter („Auswahlmuster"), leer = keines; höchstens 150 Geräte.
+  Nicht mehr ausgewählte Geräte werden beim Neustart der Integration wieder entfernt.
+- **Karte: Gruppieren, CSV-Export, Ansicht merken** (Idee 18): `group_by` (`state`,
+  `connection`, `vendor`, `band`, `subnet`, `label`) mit einklappbaren Überschriften,
+  Auswahlfeld in der Filterleiste (`show_group_select`), CSV-Export der sichtbaren Liste
+  (`show_csv_export`, Rückfall auf die Zwischenablage), Filter/Sortierung/Gruppierung/
+  eingeklappte Gruppen je Browser im `localStorage` (`remember_view`).
+- Weiterhin **nicht** möglich (kein TR-064-Dienst): Löschen ungenutzter Verbindungen, Datenverbrauch je Gerät (CPU/RAM und Zugangsprofile: siehe 1.7.0b1/b2, experimentell).
 
 ### 1.6.2 – Fernzugriff, Externe IP/Online-Zeit, „Neues Gerät", Mesh-Repeater-Erkennung erweitert, drei Fehlerbehebungen
 

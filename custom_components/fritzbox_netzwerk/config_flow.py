@@ -30,7 +30,13 @@ from .const import (
     CONF_ADDRESS_SOURCE_INTERVAL,
     CONF_ENABLE_CONTROLS,
     CONF_ENABLE_DEVICE_TRACKER,
+    CONF_ENABLE_HOST_DEVICES,
+    CONF_ENABLE_PARENTAL,
+    CONF_ENABLE_SYSTEM_STATS,
+    DEFAULT_ENABLE_PARENTAL,
+    DEFAULT_ENABLE_SYSTEM_STATS,
     CONF_ENABLE_REPEATERS,
+    CONF_HOST_DEVICE_FILTER,
     CONF_IP_RANGES,
     CONF_PAIRING_MINUTES,
     CONF_PORT,
@@ -42,8 +48,10 @@ from .const import (
     DEFAULT_ADDRESS_SOURCE_INTERVAL,
     DEFAULT_ENABLE_CONTROLS,
     DEFAULT_ENABLE_DEVICE_TRACKER,
+    DEFAULT_ENABLE_HOST_DEVICES,
     DEFAULT_ENABLE_REPEATERS,
     DEFAULT_HOST,
+    DEFAULT_HOST_DEVICE_FILTER,
     DEFAULT_IP_RANGES,
     DEFAULT_PAIRING_MINUTES,
     DEFAULT_PORT,
@@ -383,6 +391,31 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                 ): selector.TextSelector(
                     selector.TextSelectorConfig(multiline=True)
                 ),
+                # Idee 9 aus feature-ideen.md: Netzwerkgeraete als eigene
+                # Home-Assistant-Geraete (mit Hersteller aus der OUI-Liste und
+                # einem Verbunden-Status), nur fuer die ausgewaehlten Bereiche.
+                vol.Optional(
+                    CONF_ENABLE_HOST_DEVICES,
+                    default=options.get(
+                        CONF_ENABLE_HOST_DEVICES, DEFAULT_ENABLE_HOST_DEVICES
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_ENABLE_SYSTEM_STATS,
+                    default=options.get(
+                        CONF_ENABLE_SYSTEM_STATS, DEFAULT_ENABLE_SYSTEM_STATS
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_ENABLE_PARENTAL,
+                    default=options.get(CONF_ENABLE_PARENTAL, DEFAULT_ENABLE_PARENTAL),
+                ): bool,
+                vol.Optional(
+                    CONF_HOST_DEVICE_FILTER,
+                    default=options.get(
+                        CONF_HOST_DEVICE_FILTER, DEFAULT_HOST_DEVICE_FILTER
+                    ),
+                ): selector.TextSelector(),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

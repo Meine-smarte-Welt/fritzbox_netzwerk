@@ -17,7 +17,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.6.3";
+const FBN_VERSION = "1.7.0b2";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -51,6 +51,19 @@ const CONFIG_DEFAULTS = {
   // verbunden ist (Idee 5 aus feature-ideen.md). Nur bei mindestens einem
   // Repeater im Heimnetz überhaupt gefüllt.
   show_connected_via: false,
+  // Eigenes Etikett und eigene Notiz je Gerät (Idee 3) - nur in Home
+  // Assistant gespeichert, bearbeitbar im Detail-Popup.
+  show_label: false,
+  show_note: false,
+  // Gruppierung der Liste (Idee 18): "", "state", "connection", "vendor",
+  // "band", "subnet" oder "label".
+  group_by: "",
+  show_group_select: true,
+  // CSV-Export der sichtbaren Liste (Idee 18).
+  show_csv_export: true,
+  // Filter, Sortierung, Gruppierung und eingeklappte Gruppen pro Browser
+  // merken (localStorage; Idee 18).
+  remember_view: true,
 
   // Darstellung
   show_summary: true,
@@ -141,6 +154,8 @@ const COLUMNS = [
   { key: "band", cfg: "show_band", label: "Funkband", prio: 3, sortable: true },
   { key: "connected_via", cfg: "show_connected_via", label: "Verbunden über", prio: 3, sortable: true },
   { key: "ha_name", cfg: "show_ha_name", label: "Home Assistant", prio: 2, sortable: true },
+  { key: "label", cfg: "show_label", label: "Etikett", prio: 2, sortable: true },
+  { key: "note", cfg: "show_note", label: "Notiz", prio: 3, sortable: true },
   { key: "ip_type", cfg: "show_ip_type", label: "IP-Typ", prio: 3, sortable: true },
   { key: "wan", cfg: "show_wan", label: "Internet", prio: 3, sortable: true, align: "center" },
   { key: "update", cfg: "show_update", label: "Update", prio: 3, sortable: true, align: "center" },
@@ -183,6 +198,34 @@ const I18N = {
     "col.speed": "Tempo", "col.model": "Modell", "col.type": "Gerätetyp",
     "col.last_seen": "Zuletzt online", "col.status": "Status", "col.vendor": "Hersteller", "col.band": "Funkband",
     "col.connected_via": "Verbunden über",
+    "col.label": "Etikett",
+    "col.note": "Notiz",
+    "field.label": "Etikett",
+    "field.note": "Notiz",
+    "field.reserved": "Reserviert",
+    "note.label_placeholder": "Etikett (z. B. Kinderzimmer)",
+    "note.text_placeholder": "Notiz (nur in Home Assistant gespeichert)",
+    "note.reserved": "In der FRITZ!Box reserviert",
+    "note.reserved_yes": "ja (manuell markiert)",
+    "note.reserved_hint": "Die FRITZ!Box meldet Reservierungen innerhalb des DHCP-Bereichs nicht. Mit dieser Markierung zählt das Gerät als „fest“.",
+    "btn.edit_note": "Etikett und Notiz bearbeiten",
+    "btn.csv": "CSV",
+    "btn.csv_tip": "Sichtbare Liste als CSV-Datei speichern",
+    "csv.copied": "Download nicht möglich – CSV in die Zwischenablage kopiert",
+    "csv.failed": "CSV konnte nicht erstellt werden",
+    "group.none": "Nicht gruppieren",
+    "group.aria": "Gruppieren nach",
+    "group.state": "Gruppieren: Status",
+    "group.connection": "Gruppieren: Verbindung",
+    "group.vendor": "Gruppieren: Hersteller",
+    "group.band": "Gruppieren: Funkband",
+    "group.subnet": "Gruppieren: IP-Bereich",
+    "group.label": "Gruppieren: Etikett",
+    "group.empty.connection": "Ohne Angabe",
+    "group.empty.band": "Ohne Funkband",
+    "group.empty.vendor": "Hersteller unbekannt",
+    "group.empty.subnet": "Ohne IP-Adresse",
+    "group.empty.label": "Ohne Etikett",
     "flt.alle": "Alle", "flt.aktiv": "Aktiv", "flt.inaktiv": "Inaktiv",
     "flt.gast": "Gast", "flt.gesperrt": "Gesperrt", "flt.update": "Update", "flt.fest": "Feste IP", "flt.neu": "Neu (7 Tage)", "flt.lange_offline": "Lange offline",
     "search.placeholder": "Name, IP oder MAC", "search.aria": "Geräte durchsuchen",
@@ -243,6 +286,34 @@ const I18N = {
     "col.speed": "Speed", "col.model": "Model", "col.type": "Device type",
     "col.last_seen": "Last seen", "col.status": "Status", "col.vendor": "Manufacturer", "col.band": "Wi-Fi band",
     "col.connected_via": "Connected via",
+    "col.label": "Label",
+    "col.note": "Note",
+    "field.label": "Label",
+    "field.note": "Note",
+    "field.reserved": "Reserved",
+    "note.label_placeholder": "Label (e.g. Kids room)",
+    "note.text_placeholder": "Note (stored in Home Assistant only)",
+    "note.reserved": "Reserved in the FRITZ!Box",
+    "note.reserved_yes": "yes (marked manually)",
+    "note.reserved_hint": "The FRITZ!Box does not report reservations inside the DHCP range. With this mark the device counts as \"fixed\".",
+    "btn.edit_note": "Edit label and note",
+    "btn.csv": "CSV",
+    "btn.csv_tip": "Save the visible list as a CSV file",
+    "csv.copied": "Download not possible – CSV copied to the clipboard",
+    "csv.failed": "Could not create the CSV",
+    "group.none": "No grouping",
+    "group.aria": "Group by",
+    "group.state": "Group: status",
+    "group.connection": "Group: connection",
+    "group.vendor": "Group: manufacturer",
+    "group.band": "Group: Wi-Fi band",
+    "group.subnet": "Group: IP range",
+    "group.label": "Group: label",
+    "group.empty.connection": "Not specified",
+    "group.empty.band": "No Wi-Fi band",
+    "group.empty.vendor": "Manufacturer unknown",
+    "group.empty.subnet": "No IP address",
+    "group.empty.label": "No label",
     "flt.alle": "All", "flt.aktiv": "Active", "flt.inaktiv": "Inactive",
     "flt.gast": "Guest", "flt.gesperrt": "Blocked", "flt.update": "Update", "flt.fest": "Fixed IP", "flt.neu": "New (7 days)", "flt.lange_offline": "Long offline",
     "search.placeholder": "Name, IP or MAC", "search.aria": "Search devices",
@@ -303,6 +374,34 @@ const I18N = {
     "col.speed": "Snelheid", "col.model": "Model", "col.type": "Apparaattype",
     "col.last_seen": "Laatst online", "col.status": "Status", "col.vendor": "Fabrikant", "col.band": "Wifi-band",
     "col.connected_via": "Verbonden via",
+    "col.label": "Label",
+    "col.note": "Notitie",
+    "field.label": "Label",
+    "field.note": "Notitie",
+    "field.reserved": "Gereserveerd",
+    "note.label_placeholder": "Label (bijv. Kinderkamer)",
+    "note.text_placeholder": "Notitie (alleen in Home Assistant opgeslagen)",
+    "note.reserved": "Gereserveerd in de FRITZ!Box",
+    "note.reserved_yes": "ja (handmatig gemarkeerd)",
+    "note.reserved_hint": "De FRITZ!Box meldt geen reserveringen binnen het DHCP-bereik. Met deze markering telt het apparaat als \"vast\".",
+    "btn.edit_note": "Label en notitie bewerken",
+    "btn.csv": "CSV",
+    "btn.csv_tip": "Zichtbare lijst als CSV-bestand opslaan",
+    "csv.copied": "Downloaden niet mogelijk – CSV naar het klembord gekopieerd",
+    "csv.failed": "CSV kon niet worden gemaakt",
+    "group.none": "Niet groeperen",
+    "group.aria": "Groeperen op",
+    "group.state": "Groeperen: status",
+    "group.connection": "Groeperen: verbinding",
+    "group.vendor": "Groeperen: fabrikant",
+    "group.band": "Groeperen: wifi-band",
+    "group.subnet": "Groeperen: IP-bereik",
+    "group.label": "Groeperen: label",
+    "group.empty.connection": "Niet opgegeven",
+    "group.empty.band": "Geen wifi-band",
+    "group.empty.vendor": "Fabrikant onbekend",
+    "group.empty.subnet": "Geen IP-adres",
+    "group.empty.label": "Geen label",
     "flt.alle": "Alle", "flt.aktiv": "Actief", "flt.inaktiv": "Inactief",
     "flt.gast": "Gast", "flt.gesperrt": "Geblokkeerd", "flt.update": "Update", "flt.fest": "Vast IP", "flt.neu": "Nieuw (7 dagen)", "flt.lange_offline": "Lang offline",
     "search.placeholder": "Naam, IP of MAC", "search.aria": "Apparaten zoeken",
@@ -725,6 +824,12 @@ function sortValue(host, key) {
     case "connected_via":
       // Ohne Mesh-Angabe ans Ende sortieren (wie bei "ha_name").
       return host.connected_via ? `0${String(host.connected_via).toLowerCase()}` : "1";
+    case "label":
+    case "note": {
+      // Ohne Eintrag ans Ende (wie bei "ha_name").
+      const text = String(host[key] || "").toLowerCase();
+      return text ? `0${text}` : "1";
+    }
     case "ha_name":
       // Geraete ohne Home-Assistant-Zuordnung ans Ende sortieren.
       return host.ha_name ? `0${String(host.ha_name).toLowerCase()}` : "1";
@@ -753,6 +858,71 @@ function sortValue(host, key) {
     default:
       return "";
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Gruppierung, CSV (Idee 18)                                          */
+/* ------------------------------------------------------------------ */
+
+const GROUP_MODES = ["state", "connection", "vendor", "band", "subnet", "label"];
+
+/** Dritter-Oktett-Bereich einer IPv4-Adresse ("192.168.2.x") oder "". */
+function subnetOf(ip) {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.\d{1,3}$/.exec(String(ip || "").trim());
+  return m ? `${m[1]}.${m[2]}.${m[3]}.x` : "";
+}
+
+/**
+ * Gruppenschlüssel eines Geräts. Rückgabe: { key, empty } - "empty" markiert
+ * die Sammelgruppe "ohne Angabe", die ans Ende sortiert wird.
+ */
+function groupKeyOf(host, mode) {
+  switch (mode) {
+    case "state":
+      return { key: host.active ? "1" : "0", empty: false };
+    case "connection": {
+      const kind = ["lan", "wlan", "powerline"].includes(host.connection) ? host.connection : "";
+      return { key: kind, empty: !kind };
+    }
+    case "vendor": {
+      const v = String(host.vendor || "").trim();
+      return { key: v, empty: !v };
+    }
+    case "band": {
+      const b = ["2.4", "5", "6"].includes(host.band) ? host.band : "";
+      return { key: b, empty: !b };
+    }
+    case "subnet": {
+      const n = subnetOf(host.ip);
+      return { key: n, empty: !n };
+    }
+    case "label": {
+      const l = String(host.label || "").trim();
+      return { key: l, empty: !l };
+    }
+    default:
+      return { key: "", empty: true };
+  }
+}
+
+/**
+ * Schützt einen CSV-Wert vor Formel-Einschleusung in Tabellenkalkulationen
+ * (Werte, die mit = + - @ oder Tab/CR beginnen, bekommen ein ' vorangestellt)
+ * und setzt ihn bei Bedarf in Anführungszeichen.
+ */
+function csvCell(value, delimiter) {
+  let text = value === null || value === undefined ? "" : String(value);
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  if (text.includes(delimiter) || /["\n\r]/.test(text)) {
+    text = `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+/** Baut eine CSV-Datei (mit BOM für Excel) aus Kopfzeile und Datenzeilen. */
+function buildCsv(header, rows, delimiter) {
+  const lines = [header, ...rows].map((row) => row.map((cell) => csvCell(cell, delimiter)).join(delimiter));
+  return `\ufeff${lines.join("\r\n")}\r\n`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -794,6 +964,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // jedem Hintergrund-Update (Polling) verloren.
     this._popupEditingName = false;
     this._popupNameDraft = "";
+    // Bearbeiten von Etikett/Notiz im Popup (Idee 3), gleiches Prinzip.
+    this._popupEditingNote = false;
+    this._popupNoteDraft = null;
+    // Gruppierung (Idee 18): aktueller Modus und eingeklappte Gruppen.
+    this._groupBy = "";
+    this._collapsed = new Set();
   }
 
   /* -- Lovelace-Schnittstelle -------------------------------------- */
@@ -808,6 +984,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // Beim Laden/Neuöffnen mit dem konfigurierten Standardfilter starten.
     const wanted = this._config.default_filter;
     this._filter = FILTERS.some((f) => f.key === wanted) ? wanted : "alle";
+    this._groupBy = GROUP_MODES.includes(this._config.group_by) ? this._config.group_by : "";
+    this._collapsed = new Set();
+    this._loadView();
     this._built = false;
     this._signature = "";
     this._renderedOnce = false;
@@ -892,6 +1071,65 @@ class FritzboxNetzwerkCard extends HTMLElement {
 
   /* -- Daten -------------------------------------------------------- */
 
+  /* -- Gemerkte Ansicht (Idee 18) ---------------------------------- */
+
+  /** Schlüssel im localStorage: je Sensor und IP-Filter eine eigene Ansicht. */
+  _viewKey() {
+    const spec = this._config.ip_filter;
+    const filter = Array.isArray(spec) ? spec.join(",") : String(spec ?? "");
+    return `fbn-view:${this._config.entity}:${filter}`;
+  }
+
+  /** Die Konfigurationswerte, aus denen die Startansicht entsteht. */
+  _viewSignature() {
+    const c = this._config;
+    return [c.default_filter, c.sort_by, c.sort_dir, c.group_by].join("|");
+  }
+
+  /**
+   * Übernimmt die gemerkte Ansicht - aber nur, solange sich die
+   * Startwerte der Konfiguration seitdem nicht geändert haben; sonst würde
+   * eine im Editor geänderte Vorgabe dauerhaft von einem alten Browserstand
+   * überdeckt. Jeder Wert wird geprüft; localStorage kann fehlen oder
+   * gesperrt sein.
+   */
+  _loadView() {
+    if (!this._config.remember_view) return;
+    let saved = null;
+    try {
+      saved = JSON.parse(window.localStorage.getItem(this._viewKey()) || "null");
+    } catch (err) {
+      saved = null;
+    }
+    if (!saved || typeof saved !== "object" || saved.sig !== this._viewSignature()) return;
+    if (FILTERS.some((f) => f.key === saved.filter)) this._filter = saved.filter;
+    if (COLUMNS.some((c) => c.key === saved.sortBy)) this._sortBy = saved.sortBy;
+    if (saved.sortDir === "asc" || saved.sortDir === "desc") this._sortDir = saved.sortDir;
+    if (saved.groupBy === "" || GROUP_MODES.includes(saved.groupBy)) this._groupBy = saved.groupBy;
+    if (Array.isArray(saved.collapsed)) {
+      this._collapsed = new Set(saved.collapsed.filter((k) => typeof k === "string").slice(0, 200));
+    }
+  }
+
+  _saveView() {
+    if (!this._config.remember_view) return;
+    try {
+      window.localStorage.setItem(
+        this._viewKey(),
+        JSON.stringify({
+          sig: this._viewSignature(),
+          filter: this._filter,
+          sortBy: this._sortBy,
+          sortDir: this._sortDir,
+          groupBy: this._groupBy,
+          collapsed: Array.from(this._collapsed),
+        })
+      );
+    } catch (err) {
+      /* localStorage nicht verfügbar - die Ansicht wird dann nur nicht gemerkt */
+    }
+  }
+
   _stateObj() {
     if (!this._hass || !this._config.entity) return null;
     return this._hass.states[this._config.entity] || null;
@@ -944,6 +1182,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
           host.blocked ? 1 : 0,
           host.update_available ? 1 : 0,
           host.speed,
+          host.label,
+          host.note,
+          host.reserved ? 1 : 0,
+          host.ip_class,
         ].join("|")
       )
       .join("~");
@@ -959,7 +1201,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     return COLUMNS.filter((column) => this._config[column.cfg]);
   }
 
-  _filteredHosts() {
+  _filteredHosts(options) {
     const search = this._search.trim().toLowerCase();
     let hosts = this._hosts();
 
@@ -1024,7 +1266,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
       // als einfacher Textausschnitt.
       const wildcard = /[*?]/.test(search) ? wildcardToRegExp(search, false) : null;
       hosts = hosts.filter((host) =>
-        [host.name, host.ip, host.mac, host.vendor, this._bandLabel(host), host.ha_name, host.model, host.host_name]
+        [host.name, host.ip, host.mac, host.vendor, this._bandLabel(host), host.ha_name, host.model, host.host_name, host.label, host.note]
           .map((value) => String(value || "").toLowerCase())
           .some((value) => (wildcard ? wildcard.test(value) : value.includes(search)))
       );
@@ -1041,6 +1283,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     });
 
     const limit = Number(this._config.max_rows) || 0;
+    if (options && options.ignoreLimit) return sorted;
     return limit > 0 ? sorted.slice(0, limit) : sorted;
   }
 
@@ -1112,6 +1355,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
           <div class="fbn-filters"></div>
           <div class="fbn-searchwrap"></div>
           <div class="fbn-copywrap"></div>
+          <div class="fbn-tools"></div>
         </div>
         <div class="fbn-summary" data-tab="network"></div>
         <div class="fbn-controls" data-tab="controls" hidden></div>
@@ -1142,6 +1386,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._buildFilters();
     this._buildSearch();
     this._buildCopyButton();
+    this._buildTools();
     this._buildHead();
     this._renderHead();
     this._renderControls();
@@ -1264,6 +1509,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._buildCopyButton();
     this._renderSummary();
     this._renderBody();
+    this._saveView();
   }
 
   /**
@@ -1293,6 +1539,188 @@ class FritzboxNetzwerkCard extends HTMLElement {
       button.classList.add(ok ? "fbn-copy-ok" : "fbn-copy-fail");
       setTimeout(() => button.classList.remove("fbn-copy-ok", "fbn-copy-fail"), 2000);
     });
+  }
+
+  /** Gruppierungs-Auswahl und CSV-Knopf in der Werkzeugleiste (Idee 18). */
+  _buildTools() {
+    const container = this.querySelector(".fbn-tools");
+    if (!container) return;
+    const showGroup = this._config.show_group_select !== false;
+    const showCsv = this._config.show_csv_export !== false;
+    if (!showGroup && !showCsv) {
+      container.hidden = true;
+      return;
+    }
+    container.hidden = false;
+    const options = ["", ...GROUP_MODES]
+      .map(
+        (mode) =>
+          `<option value="${mode}"${mode === this._groupBy ? " selected" : ""}>${escapeHtml(
+            this._t(mode ? `group.${mode}` : "group.none")
+          )}</option>`
+      )
+      .join("");
+    container.innerHTML = `
+      ${
+        showGroup
+          ? `<label class="fbn-group-select">
+               <ha-icon icon="mdi:format-list-group"></ha-icon>
+               <select aria-label="${escapeHtml(this._t("group.aria"))}">${options}</select>
+             </label>`
+          : ""
+      }
+      ${
+        showCsv
+          ? `<button class="fbn-copy-list fbn-csv" type="button" title="${escapeHtml(this._t("btn.csv_tip"))}">
+               <ha-icon icon="mdi:file-delimited-outline"></ha-icon>
+               <span>${escapeHtml(this._t("btn.csv"))}</span>
+             </button>`
+          : ""
+      }`;
+    const select = container.querySelector("select");
+    if (select) {
+      select.addEventListener("change", () => this._setGroup(select.value));
+    }
+    const csv = container.querySelector(".fbn-csv");
+    if (csv) csv.addEventListener("click", () => this._exportCsv(csv));
+  }
+
+  _setGroup(mode) {
+    const next = GROUP_MODES.includes(mode) ? mode : "";
+    if (next === this._groupBy) return;
+    this._groupBy = next;
+    this._renderBody();
+    this._saveView();
+  }
+
+  /** Beschriftung einer Gruppe; leere Sammelgruppe = "ohne Angabe". */
+  _groupLabel(mode, group) {
+    switch (mode) {
+      case "state":
+        return this._t(group.key === "1" ? "flt.aktiv" : "flt.inaktiv");
+      case "connection":
+        return group.empty
+          ? this._t("group.empty.connection")
+          : { lan: "LAN", wlan: "WLAN", powerline: "Powerline" }[group.key];
+      case "band":
+        return group.empty
+          ? this._t("group.empty.band")
+          : this._t({ "2.4": "band.24", "5": "band.5", "6": "band.6" }[group.key]);
+      case "vendor":
+        return group.empty ? this._t("group.empty.vendor") : group.key;
+      case "subnet":
+        return group.empty ? this._t("group.empty.subnet") : group.key;
+      case "label":
+        return group.empty ? this._t("group.empty.label") : group.key;
+      default:
+        return group.key;
+    }
+  }
+
+  /** Teilt die (bereits sortierten) Geräte in Gruppen; Reihenfolge innerhalb bleibt. */
+  _groupHosts(hosts) {
+    const mode = this._groupBy;
+    const groups = new Map();
+    hosts.forEach((host) => {
+      const info = groupKeyOf(host, mode);
+      const id = `${mode}:${info.key}`;
+      if (!groups.has(id)) groups.set(id, { id, key: info.key, empty: info.empty, hosts: [] });
+      groups.get(id).hosts.push(host);
+    });
+    const list = Array.from(groups.values());
+    list.sort((a, b) => {
+      if (a.empty !== b.empty) return a.empty ? 1 : -1;
+      if (mode === "state") return a.key < b.key ? 1 : -1; // aktiv zuerst
+      if (mode === "subnet") return ipSortKey(a.key.replace(/x$/, "0")) - ipSortKey(b.key.replace(/x$/, "0"));
+      if (mode === "band") return ({ "2.4": 0, "5": 1, "6": 2 }[a.key] ?? 3) - ({ "2.4": 0, "5": 1, "6": 2 }[b.key] ?? 3);
+      return String(this._groupLabel(mode, a)).localeCompare(String(this._groupLabel(mode, b)), this._lang());
+    });
+    return list;
+  }
+
+  /* -- CSV-Export (Idee 18) ------------------------------------------ */
+
+  /** Ein Zellwert für die CSV-Datei (Klartext, ohne HTML). */
+  _csvValue(host, key) {
+    switch (key) {
+      case "status":
+        return this._t(host.active ? "state.connected" : "state.disconnected");
+      case "connection":
+        return this._connLabel(host);
+      case "band":
+        return this._bandLabel(host);
+      case "connected_via":
+        return host.connected_via || "";
+      case "ip_type":
+        return host.ip_class === "fixed"
+          ? this._t("iptype.fixed")
+          : host.ip_class === "dynamic"
+          ? this._t("iptype.dynamic")
+          : host.ip_class === "none"
+          ? this._t("iptype.noip")
+          : "";
+      case "wan":
+        return this._t(host.blocked ? "wan.blocked" : "wan.allowed");
+      case "update":
+        return this._t(host.update_available ? "upd.available" : "upd.none");
+      case "speed":
+        return host.active && host.speed ? host.speed : "";
+      case "type":
+        return host.device_class_user || host.device_class || "";
+      case "vendor":
+        return host.vendor || (host.mac_random ? this._t("vendor.random") : "");
+      default:
+        return host[key] === undefined || host[key] === null ? "" : host[key];
+    }
+  }
+
+  /** Baut den CSV-Text der aktuell gefilterten Liste (alle Treffer, ohne Zeilenlimit). */
+  _buildCsvText() {
+    const columns = this._visibleColumns();
+    const header = columns.map((column) => this._t(`col.${column.key}`));
+    const rows = this._filteredHosts({ ignoreLimit: true }).map((host) =>
+      columns.map((column) => this._csvValue(host, column.key))
+    );
+    // In Deutschland/den Niederlanden erwartet Excel ";" als Trenner.
+    const delimiter = ["de", "nl"].includes(this._lang()) ? ";" : ",";
+    return buildCsv(header, rows, delimiter);
+  }
+
+  async _exportCsv(button) {
+    const text = this._buildCsvText();
+    let ok = false;
+    try {
+      const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `netzwerkgeraete-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.style.display = "none";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      ok = true;
+    } catch (err) {
+      ok = false;
+    }
+    if (!ok) {
+      // Manche Umgebungen (z. B. eingebettete Ansichten) blockieren Downloads:
+      // dann landet der Text wenigstens in der Zwischenablage.
+      ok = await copyToClipboard(text, this);
+      this.dispatchEvent(
+        new CustomEvent("hass-notification", {
+          detail: { message: this._t(ok ? "csv.copied" : "csv.failed") },
+          bubbles: true,
+          composed: true,
+        })
+      );
+    }
+    if (button) {
+      button.classList.remove("fbn-copy-ok", "fbn-copy-fail");
+      button.classList.add(ok ? "fbn-copy-ok" : "fbn-copy-fail");
+      setTimeout(() => button.classList.remove("fbn-copy-ok", "fbn-copy-fail"), 2000);
+    }
   }
 
   _buildSearch() {
@@ -1351,6 +1779,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
       }
       this._renderHead();
       this._renderBody();
+      this._saveView();
     };
 
     row.addEventListener("click", (event) => {
@@ -1792,9 +2221,26 @@ class FritzboxNetzwerkCard extends HTMLElement {
     }
 
     const columns = this._visibleColumns();
-    body.innerHTML = hosts
-      .map((host) => this._renderRow(host, columns))
-      .join("");
+    if (this._groupBy && hosts.length) {
+      body.innerHTML = this._groupHosts(hosts)
+        .map((group) => {
+          const collapsed = this._collapsed.has(group.id);
+          const label = String(this._groupLabel(this._groupBy, group) ?? "");
+          const header = `<tr class="fbn-group-row" data-group="${escapeHtml(group.id)}"
+              tabindex="0" role="button" aria-expanded="${collapsed ? "false" : "true"}">
+              <td class="fbn-group-cell" colspan="${Math.max(columns.length, 1)}">
+                <ha-icon icon="${collapsed ? "mdi:chevron-right" : "mdi:chevron-down"}"></ha-icon>
+                <span class="fbn-group-name">${escapeHtml(label)}</span>
+                <span class="fbn-group-count">${group.hosts.length}</span>
+              </td></tr>`;
+          return collapsed
+            ? header
+            : header + group.hosts.map((host) => this._renderRow(host, columns)).join("");
+        })
+        .join("");
+    } else {
+      body.innerHTML = hosts.map((host) => this._renderRow(host, columns)).join("");
+    }
 
     if (!body.dataset.bound) {
       body.dataset.bound = "1";
@@ -1812,6 +2258,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
         if (macCell) {
           event.stopPropagation();
           this._copyFromCell(macCell);
+          return;
+        }
+        // Klick auf eine Gruppenüberschrift klappt die Gruppe auf/zu.
+        const groupRow = event.target.closest("tr.fbn-group-row");
+        if (groupRow) {
+          this._toggleGroup(groupRow.dataset.group);
           return;
         }
         // Klick auf den IP-Link oeffnet die Weboberflaeche, nicht das Popup.
@@ -1835,6 +2287,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
           this._copyFromCell(macCell);
           return;
         }
+        const groupRow = event.target.closest("tr.fbn-group-row");
+        if (groupRow) {
+          event.preventDefault();
+          this._toggleGroup(groupRow.dataset.group);
+          return;
+        }
         // Enter auf dem fokussierten IP-Link folgt dem Link.
         if (event.target.closest("a")) return;
         const row = event.target.closest("tr[data-mac]");
@@ -1847,6 +2305,17 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // Nach jedem Neuaufbau kann sich die Gesamtbreite geaendert haben.
     this._updateArrows();
     this._applyMaxRows();
+  }
+
+  _toggleGroup(id) {
+    if (!id) return;
+    if (this._collapsed.has(id)) this._collapsed.delete(id);
+    else this._collapsed.add(id);
+    this._renderBody();
+    this._saveView();
+    // Fokus bleibt auf der Überschrift, damit die Tastatur weiter funktioniert.
+    const again = Array.from(this.querySelectorAll("tr.fbn-group-row")).find((r) => r.dataset.group === id);
+    if (again && again.focus) again.focus();
   }
 
   /**
@@ -1995,6 +2464,19 @@ class FritzboxNetzwerkCard extends HTMLElement {
         }
         return '<span class="fbn-dim">—</span>';
 
+      case "label":
+        return host.label
+          ? `<span class="fbn-label-chip">${escapeHtml(host.label)}</span>`
+          : '<span class="fbn-dim">—</span>';
+
+      case "note": {
+        if (!host.note) return '<span class="fbn-dim">—</span>';
+        const short = host.note.length > 60 ? `${host.note.slice(0, 57)}…` : host.note;
+        return `<span class="fbn-note-text" title="${escapeHtml(host.note)}">${escapeHtml(
+          short.replace(/\s*\n\s*/g, " ")
+        )}</span>`;
+      }
+
       case "connection":
         return escapeHtml(this._connLabel(host));
 
@@ -2101,6 +2583,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._popupReturnFocus = returnFocusEl || null;
     this._popupEditingName = false;
     this._popupNameDraft = "";
+    this._popupEditingNote = false;
+    this._popupNoteDraft = null;
 
     const overlay = document.createElement("div");
     overlay.className = "fbn-overlay";
@@ -2141,6 +2625,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
           if (host) this._cancelNameEdit(host);
           return;
         }
+        if (this._popupEditingNote) {
+          const host = this._hosts().find((item) => item.mac === this._popupMac);
+          if (host) this._cancelNoteEdit(host);
+          return;
+        }
         this._closePopup();
       }
     };
@@ -2179,7 +2668,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // (Polling, i. d. R. alle paar Sekunden bis Minuten) verloren. Speichern
     // und Abbrechen bauen danach ausdruecklich ueber _renderPopupContent()
     // neu auf, an dieser Bremse vorbei.
-    if (this._popupEditingName) return;
+    if (this._popupEditingName || this._popupEditingNote) return;
     this._renderPopupContent(host);
   }
 
@@ -2284,6 +2773,45 @@ class FritzboxNetzwerkCard extends HTMLElement {
       nameCancelBtn.addEventListener("click", () => this._cancelNameEdit(host));
     }
 
+    // Etikett/Notiz bearbeiten (Idee 3): Stift startet, Haken speichert,
+    // Kreuz/Escape verwirft; der Entwurf bleibt bei Hintergrund-Updates erhalten.
+    const noteEditBtn = this._popup.querySelector(".fbn-note-edit-btn");
+    if (noteEditBtn) {
+      noteEditBtn.addEventListener("click", () => {
+        this._popupEditingNote = true;
+        this._popupNoteDraft = {
+          label: host.label || "",
+          note: host.note || "",
+          reserved: !!host.reserved,
+        };
+        this._renderPopupContent(host);
+        const input = this._popup.querySelector(".fbn-note-label-input");
+        if (input) input.focus();
+      });
+    }
+    const noteLabelInput = this._popup.querySelector(".fbn-note-label-input");
+    const noteTextInput = this._popup.querySelector(".fbn-note-text-input");
+    const noteReservedInput = this._popup.querySelector(".fbn-note-reserved-input");
+    if (noteLabelInput) {
+      noteLabelInput.addEventListener("input", () => {
+        this._popupNoteDraft.label = noteLabelInput.value;
+      });
+    }
+    if (noteTextInput) {
+      noteTextInput.addEventListener("input", () => {
+        this._popupNoteDraft.note = noteTextInput.value;
+      });
+    }
+    if (noteReservedInput) {
+      noteReservedInput.addEventListener("change", () => {
+        this._popupNoteDraft.reserved = noteReservedInput.checked;
+      });
+    }
+    const noteSaveBtn = this._popup.querySelector(".fbn-note-save");
+    if (noteSaveBtn) noteSaveBtn.addEventListener("click", () => this._saveNote(host));
+    const noteCancelBtn = this._popup.querySelector(".fbn-note-cancel");
+    if (noteCancelBtn) noteCancelBtn.addEventListener("click", () => this._cancelNoteEdit(host));
+
     // Schliessen in der Fusszeile.
     const footClose = this._popup.querySelector(".fbn-modal-close2");
     if (footClose) footClose.addEventListener("click", () => this._closePopup());
@@ -2347,6 +2875,109 @@ class FritzboxNetzwerkCard extends HTMLElement {
       });
   }
 
+  _cancelNoteEdit(host) {
+    this._popupEditingNote = false;
+    this._popupNoteDraft = null;
+    this._renderPopupContent(host);
+  }
+
+  /**
+   * Speichert Etikett, Notiz und "reserviert" über den Dienst
+   * ``fritzbox_netzwerk.set_device_note``. Gespeichert wird nur in Home
+   * Assistant, die FRITZ!Box wird nicht angesprochen. Der Coordinator
+   * aktualisiert die Hostliste sofort; bis dahin zeigt das Popup den Entwurf.
+   */
+  _saveNote(host) {
+    if (!this._hass || !host.mac || !this._popupNoteDraft) return;
+    const draft = this._popupNoteDraft;
+    const buttons = this._popup.querySelectorAll(
+      ".fbn-note-save, .fbn-note-cancel, .fbn-note-form input, .fbn-note-form textarea"
+    );
+    buttons.forEach((el) => {
+      el.disabled = true;
+    });
+    this._hass
+      .callService("fritzbox_netzwerk", "set_device_note", {
+        mac: host.mac,
+        label: draft.label,
+        note: draft.note,
+        reserved: !!draft.reserved,
+      })
+      .then(() => {
+        this._popupEditingNote = false;
+        this._popupNoteDraft = null;
+        // Lokal sofort übernehmen; das nächste Sensor-Update bestätigt es.
+        host.label = String(draft.label || "").trim();
+        host.note = String(draft.note || "").trim();
+        host.reserved = !!draft.reserved;
+        this._renderPopupContent(host);
+      })
+      .catch(() => {
+        buttons.forEach((el) => {
+          el.disabled = false;
+        });
+        this.dispatchEvent(
+          new CustomEvent("hass-notification", {
+            detail: { message: this._t("act.failed") },
+            bubbles: true,
+            composed: true,
+          })
+        );
+      });
+  }
+
+  /** Etikett-, Notiz- und Reserviert-Zeilen des Popups (Idee 3). */
+  _noteRowsHtml(host) {
+    if (!this._hass) return "";
+    const t = (key) => escapeHtml(this._t(key));
+    if (this._popupEditingNote && this._popupNoteDraft) {
+      const d = this._popupNoteDraft;
+      return `
+        <div class="fbn-drow fbn-note-form">
+          <div class="fbn-dt">${t("field.label")} / ${t("field.note")}</div>
+          <div class="fbn-dd fbn-note-fields">
+            <input class="fbn-note-label-input" type="text" maxlength="40"
+                   value="${escapeHtml(d.label)}" placeholder="${t("note.label_placeholder")}"
+                   aria-label="${t("field.label")}">
+            <textarea class="fbn-note-text-input" rows="3" maxlength="500"
+                      placeholder="${t("note.text_placeholder")}"
+                      aria-label="${t("field.note")}">${escapeHtml(d.note)}</textarea>
+            <label class="fbn-note-reserved">
+              <input class="fbn-note-reserved-input" type="checkbox"${d.reserved ? " checked" : ""}>
+              <span>${t("note.reserved")}</span>
+            </label>
+            <div class="fbn-note-hint">${t("note.reserved_hint")}</div>
+            <div class="fbn-note-actions">
+              <button class="fbn-namebtn fbn-note-save" type="button"
+                      title="${t("btn.save")}" aria-label="${t("btn.save")}">
+                <ha-icon icon="mdi:check"></ha-icon></button>
+              <button class="fbn-namebtn fbn-note-cancel" type="button"
+                      title="${t("btn.cancel")}" aria-label="${t("btn.cancel")}">
+                <ha-icon icon="mdi:close"></ha-icon></button>
+            </div>
+          </div>
+        </div>`;
+    }
+    const edit = `<button class="fbn-namebtn fbn-note-edit-btn" type="button"
+        title="${t("btn.edit_note")}" aria-label="${t("btn.edit_note")}">
+        <ha-icon icon="mdi:pencil"></ha-icon></button>`;
+    const label = host.label
+      ? `<span class="fbn-label-chip">${escapeHtml(host.label)}</span>`
+      : "—";
+    const note = host.note
+      ? `<span class="fbn-note-full">${escapeHtml(host.note)}</span>`
+      : "—";
+    const reserved = host.reserved
+      ? `<div class="fbn-drow"><div class="fbn-dt">${t("field.reserved")}</div><div class="fbn-dd">${t(
+          "note.reserved_yes"
+        )}</div></div>`
+      : "";
+    return `
+      <div class="fbn-drow"><div class="fbn-dt">${t("field.label")}</div><div class="fbn-dd">${label}${edit}</div></div>
+      <div class="fbn-drow"><div class="fbn-dt">${t("field.note")}</div><div class="fbn-dd">${note}</div></div>
+      ${reserved}`;
+  }
+
   /**
    * HTML fuer die Namenszeile im Popup: reiner Text, wenn die FRITZ!Box den
    * Namen nicht ueber TR-064 aendern laesst (``name_writeable``); sonst Text
@@ -2400,6 +3031,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     };
 
     add(this._t("field.name"), this._nameFieldHtml(host));
+    const noteRows = this._noteRowsHtml(host);
+    if (noteRows) rows.push(noteRows);
     add(this._t("col.ip"), escapeHtml(host.ip), { mono: true, copy: host.ip });
     add(this._t("col.mac"), escapeHtml(host.mac), { mono: true, copy: host.mac });
     add(
@@ -2900,6 +3533,36 @@ class FritzboxNetzwerkCard extends HTMLElement {
         border: none; background: none; color: inherit; font: inherit;
         font-size: 0.9em; min-width: 120px; padding: 2px 0; outline: none;
       }
+      .fbn-tools { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .fbn-tools[hidden] { display: none; }
+      .fbn-group-select {
+        display: inline-flex; align-items: center; gap: 5px;
+        border: 1px solid var(--fbn-border); border-radius: 16px; padding: 2px 8px;
+        font-size: 0.85em;
+      }
+      .fbn-group-select ha-icon { --mdc-icon-size: 16px; width: 16px; height: 16px; opacity: 0.7; }
+      .fbn-group-select select {
+        border: none; background: none; color: inherit; font: inherit; outline: none;
+        cursor: pointer; max-width: 160px;
+      }
+      .fbn-group-select select option { color: initial; }
+      .fbn-group-row { cursor: pointer; }
+      .fbn-group-cell {
+        padding: 6px 10px; font-weight: 600; font-size: 0.9em;
+        background: var(--fbn-row-alt, rgba(127,127,127,0.12));
+        border-bottom: 1px solid var(--fbn-border);
+      }
+      .fbn-group-cell ha-icon { --mdc-icon-size: 18px; width: 18px; height: 18px; vertical-align: middle; }
+      .fbn-group-count {
+        margin-left: 6px; font-weight: 400; opacity: 0.7;
+        border: 1px solid var(--fbn-border); border-radius: 10px; padding: 0 7px; font-size: 0.85em;
+      }
+      .fbn-group-row:focus-visible { outline: 2px solid var(--fbn-accent); outline-offset: -2px; }
+      .fbn-label-chip {
+        display: inline-block; border: 1px solid var(--fbn-border); border-radius: 10px;
+        padding: 0 8px; font-size: 0.85em; background: var(--fbn-row-alt, rgba(127,127,127,0.1));
+      }
+      .fbn-note-text { opacity: 0.85; }
       .fbn-copywrap[hidden] { display: none; }
       .fbn-copy-list {
         display: inline-flex; align-items: center; gap: 5px;
@@ -3170,6 +3833,22 @@ class FritzboxNetzwerkCard extends HTMLElement {
         color: inherit; font: inherit; font-size: 0.95em; padding: 3px 6px;
       }
       .fbn-name-input[disabled] { opacity: 0.6; }
+      .fbn-note-full { white-space: pre-wrap; word-break: break-word; }
+      .fbn-label-chip {
+        display: inline-block; border: 1px solid var(--divider-color, #e0e0e0); border-radius: 10px;
+        padding: 0 8px; font-size: 0.9em;
+      }
+      .fbn-note-fields { display: flex; flex-direction: column; gap: 6px; align-items: stretch; flex: 1 1 auto; min-width: 0; }
+      .fbn-note-fields input[type="text"], .fbn-note-fields textarea {
+        border: 1px solid var(--divider-color, #e0e0e0); border-radius: 6px;
+        background: var(--card-background-color, var(--ha-card-background, #fff));
+        color: inherit; font: inherit; font-size: 0.95em; padding: 4px 6px;
+        width: 100%; box-sizing: border-box; resize: vertical;
+      }
+      .fbn-note-reserved { display: flex; gap: 6px; align-items: center; font-size: 0.9em; }
+      .fbn-note-hint { font-size: 0.8em; opacity: 0.7; }
+      .fbn-note-actions { display: flex; gap: 4px; justify-content: flex-end; }
+      .fbn-note-form input[disabled], .fbn-note-form textarea[disabled] { opacity: 0.6; }
       .fbn-modal-foot {
         display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end;
         padding: 12px 16px 16px; border-top: 1px solid var(--divider-color, #e0e0e0);
@@ -3240,6 +3919,20 @@ const EDITOR_SCHEMA = [
       { name: "show_filter", selector: { boolean: {} } },
       { name: "show_controls", selector: { boolean: {} } },
       { name: "show_tabs", selector: { boolean: {} } },
+      {
+        name: "group_by",
+        selector: {
+          select: {
+            mode: "dropdown",
+            options: [{ value: "", label: "Nicht gruppieren" }].concat(
+              GROUP_MODES.map((mode) => ({ value: mode, label: mode }))
+            ),
+          },
+        },
+      },
+      { name: "show_group_select", selector: { boolean: {} } },
+      { name: "show_csv_export", selector: { boolean: {} } },
+      { name: "remember_view", selector: { boolean: {} } },
       { name: "hide_inactive", selector: { boolean: {} } },
       { name: "compact", selector: { boolean: {} } },
       { name: "mac_click_copies", selector: { boolean: {} } },
@@ -3343,6 +4036,12 @@ const EDITOR_LABELS = {
   show_vendor: "Hersteller (aus der MAC-Adresse)",
   show_band: "Funkband (2,4 / 5 GHz)",
   show_connected_via: "Verbunden über (Mesh)",
+  show_label: "Etikett",
+  show_note: "Notiz",
+  group_by: "Gruppierung",
+  show_group_select: "Gruppierungs-Auswahl anzeigen",
+  show_csv_export: "CSV-Export-Knopf anzeigen",
+  remember_view: "Filter, Sortierung und Gruppierung merken",
   mac_click_copies: "Klick auf die MAC-Adresse kopiert sie",
   show_summary: "Zusammenfassung anzeigen",
   show_search: "Suchfeld anzeigen",
@@ -3383,6 +4082,8 @@ const EDITOR_HELPERS = {
   show_ip_type: "Braucht die eingeschaltete IP-Typ-Erfassung in den Einstellungen der Integration.",
   show_ha_name: "Zeigt den Gerätenamen aus Home Assistant, sofern das Gerät dort eine MAC-Adresse hinterlegt hat. Ein Klick auf den Namen führt direkt zum Gerät.",
   show_band: "Zeigt, in welchem WLAN-Band ein Gerät gerade verbunden ist (2,4, 5 oder 6 GHz). Die Integration liest dazu die WLAN-Geräteliste der FRITZ!Box (Einstellung „WLAN-Band je Gerät erfassen“ der Integration). Geräte ohne WLAN-Verbindung zur Box – LAN, offline oder an einem Repeater, den die Box nicht selbst versorgt – zeigen „—“. Nur Anzeige: Ein Gerät einem Band zuzuweisen kann die FRITZ!Box nicht.",
+  show_label: "Zeigt das eigene Etikett (z. B. „Kinderzimmer“). Etiketten und Notizen werden im Detail-Popup über den Stift bearbeitet und nur in Home Assistant gespeichert – die FRITZ!Box wird nicht verändert.",
+  remember_view: "Merkt Filter, Sortierung, Gruppierung und eingeklappte Gruppen pro Browser (localStorage). Ändert man die Startwerte in dieser Konfiguration, gilt wieder die neue Vorgabe.",
   show_connected_via: "Zeigt den Mesh-Nachbarn (FRITZ!Box oder Repeater), über den ein Gerät gerade verbunden ist, mit der aktuellen Verbindungsrate als Tooltip. Braucht mindestens einen FRITZ!-Mesh-Repeater im Heimnetz; bei nur einer FRITZ!Box bleibt die Spalte leer. Die genaue Mesh-Datenstruktur der FRITZ!Box ist nicht an jeder Hardware/FRITZ!OS-Version geprüft – fehlt die Angabe bei einem Gerät, zeigt die Box dafür vermutlich keine eindeutige Verbindung.",
   filter_fest: "Zeigt nur Geräte mit fester IP-Adresse – am Gerät eingestellt oder von der FRITZ!Box reserviert – aktive und inaktive. Braucht die IP-Typ-Erfassung in den Einstellungen der Integration. Eine Reservierung innerhalb des DHCP-Bereichs meldet die FRITZ!Box nicht; solche Geräte gelten als „dynamisch“.",
   filter_neu: "Zeigt nur Geräte, die in den letzten 7 Tagen zum ersten Mal im Heimnetz aufgetaucht sind. Bereits vor der Installation dieser Funktion bekannte Geräte gelten nicht als „neu“.",
@@ -3423,6 +4124,12 @@ const EDITOR_TX = {
     show_vendor: "Manufacturer (from the MAC address)",
     show_band: "Wi-Fi band (2.4 / 5 GHz)",
     show_connected_via: "Connected via (mesh)",
+    show_label: "Label",
+    show_note: "Note",
+    group_by: "Grouping",
+    show_group_select: "Show grouping selector",
+    show_csv_export: "Show CSV export button",
+    remember_view: "Remember filter, sorting and grouping",
     mac_click_copies: "Clicking the MAC address copies it",
     help_show_band: "Shows which Wi-Fi band a device is currently connected on (2.4, 5 or 6 GHz). The integration reads the FRITZ!Box Wi-Fi device list for this (integration setting \"Track Wi-Fi band per device\"). Devices without a Wi-Fi connection to the box - wired, offline, or behind a repeater the box does not serve itself - show \"\u2014\". Display only: the FRITZ!Box cannot assign a device to a band.",
     help_show_connected_via: "Shows the mesh neighbor (FRITZ!Box or repeater) a device is currently connected through, with the current link rate as a tooltip. Needs at least one FRITZ! mesh repeater on the network; with a single FRITZ!Box the column stays empty. The FRITZ!Box's exact mesh data structure has not been verified on every hardware/FRITZ!OS version \u2013 if a device is missing this value, the box likely does not report one clear connection for it.",
@@ -3493,6 +4200,12 @@ const EDITOR_TX = {
     show_vendor: "Fabrikant (uit het MAC-adres)",
     show_band: "Wifi-band (2,4 / 5 GHz)",
     show_connected_via: "Verbonden via (mesh)",
+    show_label: "Label",
+    show_note: "Notitie",
+    group_by: "Groepering",
+    show_group_select: "Groeperingskeuze tonen",
+    show_csv_export: "CSV-exportknop tonen",
+    remember_view: "Filter, sortering en groepering onthouden",
     mac_click_copies: "Klik op het MAC-adres kopieert het",
     help_show_band: "Toont op welke wifi-band een apparaat nu verbonden is (2,4, 5 of 6 GHz). De integratie leest hiervoor de wifi-apparatenlijst van de FRITZ!Box (instelling \"Wifi-band per apparaat bijhouden\"). Apparaten zonder wifi-verbinding met de box - bekabeld, offline of achter een repeater die de box niet zelf bedient - tonen \"\u2014\". Alleen weergave: de FRITZ!Box kan een apparaat niet aan een band toewijzen.",
     help_show_connected_via: "Toont de meshbuur (FRITZ!Box of repeater) waarmee een apparaat nu verbonden is, met de huidige verbindingssnelheid als tooltip. Vereist minstens \u00e9\u00e9n FRITZ!-meshrepeater in het netwerk; met slechts \u00e9\u00e9n FRITZ!Box blijft de kolom leeg. De exacte meshgegevensstructuur van de FRITZ!Box is niet op elke hardware/FRITZ!OS-versie getest \u2013 ontbreekt deze waarde bij een apparaat, dan meldt de box daarvoor waarschijnlijk geen eenduidige verbinding.",
@@ -3705,6 +4418,19 @@ class FritzboxNetzwerkCardEditor extends HTMLElement {
                 value: filter.key,
                 label: translate(lang, `flt.${filter.key}`),
               })),
+            },
+          },
+        };
+      }
+      if (field.name === "group_by") {
+        return {
+          ...field,
+          selector: {
+            select: {
+              mode: "dropdown",
+              options: [{ value: "", label: translate(lang, "group.none") }].concat(
+                GROUP_MODES.map((mode) => ({ value: mode, label: translate(lang, `group.${mode}`) }))
+              ),
             },
           },
         };

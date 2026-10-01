@@ -41,6 +41,14 @@ set_internet_access:
       example: true
       selector:
         boolean:
+    minutes:
+      required: false
+      example: 60
+      selector:
+        number:
+          min: 1
+          max: 10080
+          unit_of_measurement: min
     config_entry:
       required: false
       selector:
@@ -87,6 +95,90 @@ reboot_mesh:
 
 gast_wlan_info:
   fields:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+set_device_note:
+  fields:
+    mac:
+      required: true
+      example: "3C:A6:F6:00:11:22"
+      selector:
+        text:
+    label:
+      required: false
+      example: "Kinderzimmer"
+      selector:
+        text:
+    note:
+      required: false
+      example: "Gehört Anna, hängt hinter dem Schrank"
+      selector:
+        text:
+          multiline: true
+    reserved:
+      required: false
+      example: true
+      selector:
+        boolean:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+update_oui:
+  fields:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+list_access_profiles:
+  fields:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+get_access_profile:
+  fields:
+    mac:
+      required: true
+      example: "3C:A6:F6:00:11:22"
+      selector:
+        text:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+set_access_profile:
+  fields:
+    mac:
+      required: true
+      example: "3C:A6:F6:00:11:22"
+      selector:
+        text:
+    profile:
+      required: true
+      example: "Gesperrt"
+      selector:
+        text:
+    minutes:
+      required: false
+      example: 60
+      selector:
+        number:
+          min: 1
+          max: 10080
+          unit_of_measurement: min
     config_entry:
       required: false
       selector:

@@ -69,7 +69,11 @@
           "enable_repeaters": "Repeaters als eigen apparaten aanmaken",
           "enable_controls": "FRITZ!Box-bediening (experimenteel)",
           "pairing_minutes": "Duur van het koppelen (minuten)",
-          "ip_ranges": "IP-bereiken (Naam=Patroon, één regel per bereik)"
+          "ip_ranges": "IP-bereiken (Naam=Patroon, één regel per bereik)",
+          "enable_host_devices": "Netwerkapparaten als eigen apparaat aanmaken",
+          "host_device_filter": "Selectie van apparaten (IP-patroon)",
+          "enable_system_stats": "CPU en RAM van de box uitlezen (experimenteel)",
+          "enable_parental_control": "Toegangsprofielen van de ouderlijk toezicht beheren (experimenteel)"
         },
         "data_description": {
           "track_address_source": "Deze waarde staat niet in de hostlijst en kost één extra verzoek per apparaat. Ze verandert zelden en loopt daarom op een eigen, langzamer schema.",
@@ -79,7 +83,11 @@
           "enable_repeaters": "Maakt voor elke FRITZ!-mesh-repeater in het thuisnetwerk een eigen apparaat met verbindingsstatus aan, bij ingeschakelde FRITZ!Box-bediening ook met een herstartknop. Ook komt er een mesh-sensor (FRITZ!Box + repeaters) en, met bediening, de knop \"Alle FRITZ!-apparaten herstarten\". Herkend worden apparaten waarvan het gemelde model \"Repeater\" of \"FRITZ!Box\" bevat - ook een tweede FRITZ!Box die in het mesh als wifi-repeater meedraait.",
           "enable_controls": "Maakt schakelaars voor de wifi-banden (2,4 GHz, 5 GHz, gast) en voor het wifi-MAC-filter aan, plus knoppen voor opnieuw verbinden, herstarten en het starten van een koppelmoment (MAC-filter tijdelijk uit), en bij ingeschakelde repeater-apparaten een herstartknop per repeater. Beschikbaarheid en toewijzing hangen af van het model.",
           "pairing_minutes": "Hoe lang het MAC-filter tijdens het koppelen uitgeschakeld blijft voordat het zichzelf weer inschakelt. Geldt voor de knop \"Koppelen starten\" en voor de service zonder tijdsduur.",
-          "ip_ranges": "Maakt per regel een tellersensor aan, bijv. \"Printers=192.168.2.*\" voor \"Printers online: 2 van 3\". Het patroon volgt dezelfde schrijfwijze als het kaartveld \"IP-filter\" (\"*\"/\"?\" als jokertekens, meerdere patronen gescheiden door een komma, \"!\" sluit uit). Leeg = geen bereikssensoren."
+          "ip_ranges": "Maakt per regel een tellersensor aan, bijv. \"Printers=192.168.2.*\" voor \"Printers online: 2 van 3\". Het patroon volgt dezelfde schrijfwijze als het kaartveld \"IP-filter\" (\"*\"/\"?\" als jokertekens, meerdere patronen gescheiden door een komma, \"!\" sluit uit). Leeg = geen bereikssensoren.",
+          "enable_host_devices": "Maakt voor elk geselecteerd netwerkapparaat een eigen Home Assistant-apparaat aan, met fabrikant (uit het MAC-adres) en een verbindingsstatus. Standaard uit – elk apparaat levert een apparaat en een entiteit op.",
+          "host_device_filter": "Welke apparaten een eigen apparaat krijgen: dezelfde notatie als het kaartfilter \"IP-filter\" (bijv. \"192.168.2.*\", meerdere patronen met komma, \"!\" sluit uit; \"*\" kiest alles). Leeg = geen. Maximaal 150 apparaten.",
+          "enable_system_stats": "Leest CPU-belasting, RAM-gebruik en temperatuur via de webinterface van de box (niet via TR-064, niet gedocumenteerd door AVM, afhankelijk van FRITZ!OS). Standaard uit; mislukt het ophalen, dan ontbreken alleen deze waarden.",
+          "enable_parental_control": "Schakelt services in die toegangsprofielen lezen en aan apparaten toewijzen (bijv. \"Geblokkeerd\" voor een uur). Gebruikt de webinterface van de box, niet TR-064 – niet gedocumenteerd door AVM, afhankelijk van FRITZ!OS. Standaard uit."
         }
       }
     }
@@ -138,6 +146,15 @@
       },
       "schwaechstes_geraet": {
         "name": "Zwakste apparaat"
+      },
+      "cpu_auslastung": {
+        "name": "CPU-belasting"
+      },
+      "ram_auslastung": {
+        "name": "RAM-gebruik"
+      },
+      "cpu_temperatur": {
+        "name": "CPU-temperatuur"
       }
     },
     "binary_sensor": {
@@ -149,6 +166,9 @@
       },
       "ip_konflikt": {
         "name": "IP-adresconflict"
+      },
+      "host_online": {
+        "name": "Verbonden"
       }
     },
     "switch": {
@@ -177,6 +197,9 @@
       },
       "reboot_mesh": {
         "name": "Alle FRITZ!-apparaten herstarten"
+      },
+      "oui_update": {
+        "name": "Fabrikantenlijst bijwerken"
       }
     },
     "event": {
@@ -236,6 +259,10 @@
         "config_entry": {
           "name": "FRITZ!Box (config entry)",
           "description": "Alleen nodig bij meerdere ingerichte FRITZ!Boxen: bepaalt op welke deze dienst van toepassing is. Zonder opgave werkt de dienst op de eerst geladen box."
+        },
+        "minutes": {
+          "name": "Blokkeerduur (minuten)",
+          "description": "Optioneel: na deze tijd wordt de toegang automatisch weer vrijgegeven (alleen bij blokkeren; gecontroleerd per pollinginterval)."
         }
       }
     },
@@ -284,6 +311,88 @@
         "config_entry": {
           "name": "FRITZ!Box (config entry)",
           "description": "Alleen nodig bij meerdere ingerichte FRITZ!Boxen: bepaalt op welke deze dienst van toepassing is. Zonder opgave geldt de dienst voor de eerst geladen box."
+        }
+      }
+    },
+    "set_device_note": {
+      "name": "Notitie bij een apparaat opslaan",
+      "description": "Slaat label, notitie en de markering \"gereserveerd\" voor een netwerkapparaat op – alleen in Home Assistant, de FRITZ!Box wordt niet gewijzigd. Niet opgegeven velden blijven ongewijzigd; een lege tekst wist het veld.",
+      "fields": {
+        "mac": {
+          "name": "MAC-adres",
+          "description": "MAC-adres van het apparaat."
+        },
+        "label": {
+          "name": "Label",
+          "description": "Kort label (maximaal 40 tekens), bijv. \"Kinderkamer\"."
+        },
+        "note": {
+          "name": "Notitie",
+          "description": "Vrije notitie (maximaal 500 tekens)."
+        },
+        "reserved": {
+          "name": "Gereserveerd",
+          "description": "Markeert het adres als gereserveerd in de FRITZ!Box. De box meldt reserveringen binnen het DHCP-bereik niet – het apparaat telt dan als \"vast\"."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Alleen nodig als meerdere FRITZ!Boxen zijn ingesteld: bepaalt op welke deze service van toepassing is. Zonder opgave werkt de service op de eerst geladen box."
+        }
+      }
+    },
+    "update_oui": {
+      "name": "Fabrikantenlijst bijwerken",
+      "description": "Downloadt de IEEE-registers (MA-L, MA-M, MA-S) en slaat ze op in de map \"fritzbox_netzwerk\" van de Home Assistant-configuratie. Eigen toewijzingen uit \"oui_custom.txt\" hebben voorrang. De bestaande lijst blijft staan als het downloaden mislukt.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Alleen nodig als meerdere FRITZ!Boxen zijn ingesteld: bepaalt op welke deze service van toepassing is. Zonder opgave werkt de service op de eerst geladen box."
+        }
+      }
+    },
+    "list_access_profiles": {
+      "name": "Toegangsprofielen weergeven",
+      "description": "Toont de toegangsprofielen (ID en naam). Experimenteel, optie vereist.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bij meerdere boxen: welke box bedoeld wordt."
+        }
+      }
+    },
+    "get_access_profile": {
+      "name": "Toegangsprofiel lezen",
+      "description": "Geeft het huidige toegangsprofiel van een apparaat. Experimenteel, optie vereist.",
+      "fields": {
+        "mac": {
+          "name": "MAC-adres",
+          "description": "MAC-adres van het apparaat."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bij meerdere boxen: welke box bedoeld wordt."
+        }
+      }
+    },
+    "set_access_profile": {
+      "name": "Toegangsprofiel instellen",
+      "description": "Wijst een toegangsprofiel toe aan een apparaat, eventueel slechts voor een bepaalde tijd. Experimenteel, optie vereist.",
+      "fields": {
+        "mac": {
+          "name": "MAC-adres",
+          "description": "MAC-adres van het apparaat."
+        },
+        "profile": {
+          "name": "Profiel",
+          "description": "ID (filtprof…) of naam van het toegangsprofiel."
+        },
+        "minutes": {
+          "name": "Duur (minuten)",
+          "description": "Optioneel: daarna wordt het oorspronkelijke profiel hersteld (gecontroleerd per pollinginterval)."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bij meerdere boxen: welke box bedoeld wordt."
         }
       }
     }

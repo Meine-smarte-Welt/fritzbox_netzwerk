@@ -98,6 +98,17 @@ async def async_get_config_entry_diagnostics(
                     for host in hosts
                 ],
                 "host_count": len(hosts),
+                # Nur Zaehler - Etiketten und Notizen selbst gehoeren nicht in
+                # einen Export (sie koennen Namen und Orte enthalten).
+                "notes_count": sum(
+                    1 for host in hosts if host.get("label") or host.get("note") or host.get("reserved")
+                ),
+                "oui_entries": getattr(coordinator, "oui_stats", {}),
+                "system_stats_enabled": getattr(coordinator, "system_stats_enabled", False),
+                "system_stats_error": getattr(coordinator, "system_stats_error", None),
+                "parental_enabled": getattr(coordinator, "parental_enabled", False),
+                "profile_reverts_active": len(getattr(coordinator, "profile_reverts", {})),
+                "internet_blocks_active": len(getattr(coordinator, "blocked_until", {})),
             },
         },
         TO_REDACT,

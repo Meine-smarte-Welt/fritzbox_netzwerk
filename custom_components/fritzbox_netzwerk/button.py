@@ -52,6 +52,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Legt die Aktions-Buttons an - nur wenn die Steuerung aktiv ist."""
+    # Aktualisiert nur die lokale Herstellerliste und fasst die FRITZ!Box nicht
+    # an - deshalb unabhaengig von der (experimentellen) Steuerung verfuegbar.
+    async_add_entities([FritzboxNetzwerkOuiUpdateButton(entry)])
+
     if not entry.options.get(CONF_ENABLE_CONTROLS, DEFAULT_ENABLE_CONTROLS):
         return
     coordinator = entry.runtime_data
@@ -110,6 +114,22 @@ class _BaseButton(ButtonEntity):
             "manufacturer": MANUFACTURER,
             "name": entry.title,
         }
+
+
+class FritzboxNetzwerkOuiUpdateButton(_BaseButton):
+    """Aktualisiert die Herstellerliste aus den IEEE-Registern (Idee 4b)."""
+
+    _attr_translation_key = "oui_update"
+    _attr_icon = "mdi:factory"
+
+    def __init__(self, entry: FritzboxNetzwerkConfigEntry) -> None:
+        """Initialisiert den Button."""
+        super().__init__(entry)
+        self._attr_unique_id = f"{entry.entry_id}_oui_update"
+
+    async def async_press(self) -> None:
+        """Laedt die IEEE-Register und baut die Herstellerzuordnung neu auf."""
+        await self._coordinator.async_update_oui()
 
 
 class FritzboxNetzwerkReconnectButton(_BaseButton):

@@ -69,7 +69,11 @@
           "enable_repeaters": "Create repeaters as their own devices",
           "enable_controls": "FRITZ!Box controls (experimental)",
           "pairing_minutes": "Pairing duration (minutes)",
-          "ip_ranges": "IP ranges (Name=Pattern, one line per range)"
+          "ip_ranges": "IP ranges (Name=Pattern, one line per range)",
+          "enable_host_devices": "Create network devices as devices",
+          "host_device_filter": "Device selection (IP pattern)",
+          "enable_system_stats": "Read CPU and RAM of the box (experimental)",
+          "enable_parental_control": "Control parental-control access profiles (experimental)"
         },
         "data_description": {
           "track_address_source": "This value is not part of the host list and costs one extra request per device. It rarely changes, so it runs on its own slower schedule.",
@@ -79,7 +83,11 @@
           "enable_repeaters": "Creates a separate device with a connected status for every FRITZ! mesh repeater in the home network, plus a reboot button when the FRITZ!Box controls are enabled. It also adds a mesh sensor (FRITZ!Box + repeaters) and, with controls, the \"Restart all FRITZ! devices\" button. Devices whose reported model contains \"Repeater\" or \"FRITZ!Box\" are detected - including a second FRITZ!Box running as a Wi-Fi mesh repeater.",
           "enable_controls": "Creates switches for the Wi-Fi bands (2.4 GHz, 5 GHz, guest) and for the Wi-Fi MAC filter, plus buttons to reconnect, reboot and start a pairing (MAC filter temporarily off), and a reboot button per repeater when repeater devices are enabled. Availability and assignment depend on the model.",
           "pairing_minutes": "How long the MAC filter stays off during pairing before it switches itself back on. Applies to the \"Start pairing\" button and to the service when no duration is given.",
-          "ip_ranges": "Creates a counter sensor per line, e.g. \"Printers=192.168.2.*\" for \"Printers online: 2 of 3\". The pattern uses the same syntax as the card field \"IP filter\" (\"*\"/\"?\" as wildcards, several patterns separated by a comma, \"!\" excludes). Empty = no range sensors."
+          "ip_ranges": "Creates a counter sensor per line, e.g. \"Printers=192.168.2.*\" for \"Printers online: 2 of 3\". The pattern uses the same syntax as the card field \"IP filter\" (\"*\"/\"?\" as wildcards, several patterns separated by a comma, \"!\" excludes). Empty = no range sensors.",
+          "enable_host_devices": "Creates a Home Assistant device for each selected network device, with the manufacturer (from the MAC address) and a connected status. Off by default – every device creates a device and an entity.",
+          "host_device_filter": "Which devices get their own device: same notation as the card filter \"IP filter\" (e.g. \"192.168.2.*\", separate several patterns with commas, \"!\" excludes; \"*\" selects all). Empty = none. At most 150 devices.",
+          "enable_system_stats": "Reads CPU load, RAM usage and temperature through the box web interface (not TR-064, undocumented by AVM, FRITZ!OS dependent). Off by default; if the request fails only these values are missing.",
+          "enable_parental_control": "Enables services that read access profiles and assign them to devices (e.g. \"Blocked\" for one hour). Uses the box web interface, not TR-064 – undocumented by AVM, FRITZ!OS dependent. Off by default."
         }
       }
     }
@@ -138,6 +146,15 @@
       },
       "schwaechstes_geraet": {
         "name": "Weakest device"
+      },
+      "cpu_auslastung": {
+        "name": "CPU load"
+      },
+      "ram_auslastung": {
+        "name": "RAM usage"
+      },
+      "cpu_temperatur": {
+        "name": "CPU temperature"
       }
     },
     "binary_sensor": {
@@ -149,6 +166,9 @@
       },
       "ip_konflikt": {
         "name": "IP address conflict"
+      },
+      "host_online": {
+        "name": "Connected"
       }
     },
     "switch": {
@@ -177,6 +197,9 @@
       },
       "reboot_mesh": {
         "name": "Restart all FRITZ! devices"
+      },
+      "oui_update": {
+        "name": "Update manufacturer list"
       }
     },
     "event": {
@@ -236,6 +259,10 @@
         "config_entry": {
           "name": "FRITZ!Box (config entry)",
           "description": "Only needed with more than one FRITZ!Box set up: selects which one this service applies to. Without it, the service affects the first loaded box."
+        },
+        "minutes": {
+          "name": "Block duration (minutes)",
+          "description": "Optional: after this time access is released automatically (only when blocking; checked at the polling interval)."
         }
       }
     },
@@ -284,6 +311,88 @@
         "config_entry": {
           "name": "FRITZ!Box (config entry)",
           "description": "Only needed with more than one FRITZ!Box set up: selects which one this service applies to. Without it, the service affects the first loaded box."
+        }
+      }
+    },
+    "set_device_note": {
+      "name": "Save a note for a device",
+      "description": "Saves a label, a note and the \"reserved\" mark for a network device – stored in Home Assistant only, the FRITZ!Box is not changed. Omitted fields stay unchanged; an empty text clears the field.",
+      "fields": {
+        "mac": {
+          "name": "MAC address",
+          "description": "MAC address of the device."
+        },
+        "label": {
+          "name": "Label",
+          "description": "Short label (up to 40 characters), e.g. \"Kids room\"."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Free note (up to 500 characters)."
+        },
+        "reserved": {
+          "name": "Reserved",
+          "description": "Marks the address as reserved in the FRITZ!Box. The box does not report reservations inside the DHCP range – the device then counts as \"fixed\"."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Only needed if several FRITZ!Boxes are set up: selects which one this service applies to. Without it, the service acts on the first loaded box."
+        }
+      }
+    },
+    "update_oui": {
+      "name": "Update manufacturer list",
+      "description": "Downloads the IEEE registers (MA-L, MA-M, MA-S) and stores them in the \"fritzbox_netzwerk\" folder of the Home Assistant configuration. Your own entries from \"oui_custom.txt\" take precedence. The previous list stays if the download fails.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Only needed if several FRITZ!Boxes are set up: selects which one this service applies to. Without it, the service acts on the first loaded box."
+        }
+      }
+    },
+    "list_access_profiles": {
+      "name": "List access profiles",
+      "description": "Lists the parental-control access profiles (ID and name). Experimental, option required.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "With several boxes: which box is meant."
+        }
+      }
+    },
+    "get_access_profile": {
+      "name": "Get access profile",
+      "description": "Returns the current access profile of a device. Experimental, option required.",
+      "fields": {
+        "mac": {
+          "name": "MAC address",
+          "description": "MAC address of the device."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "With several boxes: which box is meant."
+        }
+      }
+    },
+    "set_access_profile": {
+      "name": "Set access profile",
+      "description": "Assigns an access profile to a device, optionally only for a set time. Experimental, option required.",
+      "fields": {
+        "mac": {
+          "name": "MAC address",
+          "description": "MAC address of the device."
+        },
+        "profile": {
+          "name": "Profile",
+          "description": "ID (filtprof…) or name of the access profile."
+        },
+        "minutes": {
+          "name": "Duration (minutes)",
+          "description": "Optional: afterwards the original profile is restored (checked at the polling interval)."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "With several boxes: which box is meant."
         }
       }
     }

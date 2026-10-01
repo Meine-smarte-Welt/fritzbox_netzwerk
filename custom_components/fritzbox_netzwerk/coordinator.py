@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
+import tempfile
 import threading
 import time
 from collections.abc import Callable
@@ -20,6 +22,7 @@ from fritzconnection.core.exceptions import (
 )
 from fritzconnection.lib.fritzhosts import FritzHosts
 from fritzconnection.lib.fritzstatus import FritzStatus
+import requests
 from requests.exceptions import RequestException
 
 from homeassistant.config_entries import ConfigEntry
@@ -27,6 +30,7 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later, async_track_point_in_utc_time
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -34,6 +38,14 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_ADDRESS_SOURCE_INTERVAL,
+    CONF_ENABLE_PARENTAL,
+    CONF_ENABLE_SYSTEM_STATS,
+    DEFAULT_ENABLE_PARENTAL,
+    PROFILE_REVERT_STORAGE_VERSION,
+    CONF_REMOTE_ACCESS,
+    DEFAULT_ENABLE_SYSTEM_STATS,
+    INTERNET_BLOCK_STORAGE_VERSION,
+    SYSTEM_STATS_INTERVAL_MINUTES,
     CONF_SCAN_INTERVAL,
     CONF_TRACK_ADDRESS_SOURCE,
     CONF_TRACK_WLAN_BAND,
@@ -49,34 +61,55 @@ from .const import (
     CONF_PAIRING_MINUTES,
     FIRST_SEEN_STORAGE_VERSION,
     LAST_SEEN_STORAGE_VERSION,
+    NOTES_STORAGE_VERSION,
+    OUI_CUSTOM_FILENAME,
+    OUI_UPDATE_FILENAME,
     PAIRING_STORAGE_VERSION,
+    USER_DATA_DIRNAME,
 )
 from .hosts import (
+    IEEE_REGISTER_URLS,
     MAC_FILTER_INFO_KEY,
+    MIN_MA_L_ENTRIES,
     UPNP_ALREADY_TERMINATED,
     UPNP_DISCONNECT_IN_PROGRESS,
     as_bool,
     build_hosts,
+    classify_ip_with_reserved,
     dhcp_pool,
     frequency_band,
     is_mac_filter_band,
     is_repeater,
     list_path,
+    load_notes,
     load_oui,
     mac_key,
+    make_note_entry,
+    merge_oui,
     mesh_members,
     mesh_reboot_plan,
+    parse_ieee_csv,
+    parse_oui,
     parse_wlan_device_list,
     reconnect_plan,
     set_config_arguments,
     summarize,
+    serialize_oui,
     to_kbytes_per_s,
     to_mbit_per_s,
     upnp_error_code,
+    validate_custom_oui_lines,
     wan_kind,
     wlan_bands,
 )
 from .mesh_topology import fetch_mesh_links
+from .webui import (
+    assign_profile,
+    base_url,
+    fetch_system_stats,
+    get_device_profile,
+    list_profiles,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -165,6 +198,38 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # geladen, siehe ``async_load_oui``. Bleibt sie leer, fehlt nur die
         # Herstellerangabe.
         self._oui: dict[str, str] = {}
+        # Herkunft der Tabelle fuer Diagnose/Antworten: Eintraege je Schicht.
+        self.oui_stats: dict[str, int] = {}
+        self._oui_update_lock = asyncio.Lock()
+
+        # Idee 21 (experimentell): CPU/RAM aus der Weboberflaeche, eigener
+        # langsamer Takt, Fehler fuehren nur zu fehlenden Werten.
+        self._system_stats: dict[str, float | None] | None = None
+        self._system_stats_scan: datetime | None = None
+        self._system_stats_error: str | None = None
+
+        # Internetsperre mit Frist (Idee 22): MAC-Schluessel -> Ende (ISO-UTC),
+        # dauerhaft gespeichert, damit ein Neustart die Sperre nicht "vergisst".
+        self._block_until: dict[str, str] = {}
+        self._block_store: Store[dict[str, str]] = Store(
+            hass, INTERNET_BLOCK_STORAGE_VERSION, f"{DOMAIN}.internet_block.{entry.entry_id}"
+        )
+
+        # Kindersicherung (Idee 22, experimentell): zeitlich begrenzter
+        # Profilwechsel - MAC-Schluessel -> {profile: urspruengliches Profil,
+        # until: Ende}. Dauerhaft gespeichert (ueberlebt einen Neustart).
+        self._profile_revert: dict[str, dict[str, str]] = {}
+        self._profile_store: Store[dict[str, dict[str, str]]] = Store(
+            hass, PROFILE_REVERT_STORAGE_VERSION, f"{DOMAIN}.profile_revert.{entry.entry_id}"
+        )
+
+        # Eigene Notizen/Etiketten/"reserviert"-Markierungen je Geraet
+        # (Idee 3): nur hier in Home Assistant gespeichert, die FRITZ!Box wird
+        # nicht veraendert. Schluessel ist der MAC-Schluessel.
+        self._notes: dict[str, dict[str, Any]] = {}
+        self._notes_store: Store[dict[str, Any]] = Store(
+            hass, NOTES_STORAGE_VERSION, f"{DOMAIN}.notes.{entry.entry_id}"
+        )
 
         # Verbindungsdaten (Down/Up). FritzStatus teilt sich die Verbindung
         # mit FritzHosts. Fehlt der WAN-Dienst (z. B. FRITZ!Box im reinen
@@ -354,7 +419,71 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         wlan = self._fetch_wlan() if self._controls_enabled else {}
         bands = self._fetch_wlan_bands() if self.track_wlan_band else {}
         mesh_links = self._fetch_mesh_topology() if self._repeater_seen else {}
+        if self.system_stats_enabled and self._system_stats_due():
+            self._system_stats = self._fetch_system_stats()
+            self._system_stats_scan = dt_util.utcnow()
         return raw_hosts, refreshed, connection, wlan, bands, mesh_links
+
+    @property
+    def system_stats_enabled(self) -> bool:
+        """Ob CPU/RAM aus der Weboberflaeche gelesen werden sollen (experimentell)."""
+        return bool(
+            self.entry.options.get(CONF_ENABLE_SYSTEM_STATS, DEFAULT_ENABLE_SYSTEM_STATS)
+        )
+
+    @property
+    def system_stats(self) -> dict[str, float | None] | None:
+        """Letzte gelesene Werte (``cpu``, ``ram``, ``temperature``) oder ``None``."""
+        return self._system_stats
+
+    @property
+    def system_stats_error(self) -> str | None:
+        """Grund des letzten Fehlschlags (fuer Diagnose), sonst ``None``."""
+        return self._system_stats_error
+
+    def _run_web(self, func: Callable[..., Any], *args: Any) -> Any:
+        """Fuehrt eine Weboberflaechen-Funktion aus ``webui`` aus (blockierend).
+
+        Gleiche Zugangsdaten wie TR-064. Lokal ist die Oberflaeche unter dem
+        Standardport erreichbar, bei Fernzugriff per HTTPS auf dem
+        konfigurierten Port.
+        """
+        fc = self.fritz_hosts.fc
+        remote = bool(self.entry.data.get(CONF_REMOTE_ACCESS, False))
+        base = base_url(str(fc.address), getattr(fc, "port", None), remote)
+        with requests.Session() as session:
+            # Wie fritzconnection: Boxen nutzen meist ein selbstsigniertes Zertifikat.
+            session.verify = False
+            return func(
+                session,
+                base,
+                str(self.entry.data.get(CONF_USERNAME) or ""),
+                str(self.entry.data.get(CONF_PASSWORD) or ""),
+                *args,
+            )
+
+    def _system_stats_due(self) -> bool:
+        if self._system_stats_scan is None:
+            return True
+        return dt_util.utcnow() - self._system_stats_scan >= timedelta(
+            minutes=SYSTEM_STATS_INTERVAL_MINUTES
+        )
+
+    def _fetch_system_stats(self) -> dict[str, float | None] | None:
+        """Liest CPU/RAM ueber die Weboberflaeche (blockierend, im Executor).
+
+        Jeder Fehler ist harmlos: die Werte fehlen dann (bzw. bleiben die
+        letzten stehen), die Geraeteliste laeuft unberuehrt weiter.
+        """
+        try:
+            stats = self._run_web(fetch_system_stats)
+        except (ValueError, RequestException) as err:
+            if self._system_stats_error != str(err):
+                _LOGGER.warning("CPU/RAM der Box nicht lesbar (experimentell): %s", err)
+            self._system_stats_error = str(err)
+            return self._system_stats
+        self._system_stats_error = None
+        return stats
 
     def _fetch_wlan_bands(self) -> dict[str, str]:
         """Ordnet WLAN-Geraete ihrem Funkband zu (``mac_key`` -> "2.4"/"5"/"6").
@@ -1070,7 +1199,23 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 return entry_id == own_entry_id
             return own_entry_id in device.config_entries
 
-        devices = sorted(self._iter_devices(registry), key=_is_own)
+        def _is_own_host_device(device: dr.DeviceEntry) -> bool:
+            # Die von dieser Integration selbst angelegten Netzwerkgeraete
+            # (Option "Netzwerkgeraete als Geraete", Idee 9) tragen dieselbe MAC
+            # wie der Host - sie als "Home-Assistant-Geraet" zu melden waere
+            # ein Selbstverweis und wuerde die Spalte "Home Assistant" fuellen,
+            # ohne dass ein anderes Geraet dahintersteht.
+            prefix = f"{own_entry_id}_host_"
+            return any(
+                isinstance(item, str) and item.startswith(prefix)
+                for identifier in device.identifiers
+                for item in _string_parts(identifier)
+            )
+
+        devices = sorted(
+            (d for d in self._iter_devices(registry) if not _is_own_host_device(d)),
+            key=_is_own,
+        )
         for device in devices:
             # 1) Verbindungen vom Typ "mac" haben Vorrang. Nur bei einem
             #    sauberen 2-Tupel wird der Typ geprueft.
@@ -1110,6 +1255,10 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Holt die Geraeteliste und reichert sie an."""
+        if self._block_until:
+            await self._async_release_due_blocks()
+        if self._profile_revert:
+            await self._async_release_due_profiles()
         try:
             raw_hosts, refreshed, connection, wlan, bands, mesh_links = (
                 await self.hass.async_add_executor_job(self._fetch)
@@ -1153,6 +1302,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             bands,
             self._first_seen,
             mesh_links,
+            self._notes,
         )
         # Fuer den NAECHSTEN Zyklus: ob sich eine Mesh-Topologie-Abfrage
         # ueberhaupt lohnt (siehe ``_fetch``/``_fetch_mesh_topology``).
@@ -1177,23 +1327,405 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 else None
             ),
             "track_address_source": self.track_address_source,
+            "system": self._system_stats,
         }
 
     # -- Hersteller (OUI) -------------------------------------------------
 
+    @property
+    def user_data_dir(self) -> str:
+        """Ordner fuer Dateien, die ein HACS-Update nicht ueberschreibt."""
+        return self.hass.config.path(USER_DATA_DIRNAME)
+
+    def _read_oui_layers(self) -> tuple[dict[str, str], dict[str, int]]:
+        """Liest Basisliste, heruntergeladene Aktualisierung und eigene Zuordnungen.
+
+        Reihenfolge der Vorrangs: mitgelieferte Liste < heruntergeladene
+        Aktualisierung < eigene Zuordnungen. Nur die Basisliste ist
+        Pflicht; fehlen die anderen oder sind sie kaputt, bleibt die
+        Integration unberuehrt (blockierend, im Executor aufrufen).
+        """
+        stats: dict[str, int] = {}
+        base = load_oui(OUI_FILE)
+        stats["basis"] = len(base)
+
+        update: dict[str, str] = {}
+        update_path = os.path.join(self.user_data_dir, OUI_UPDATE_FILENAME)
+        if os.path.isfile(update_path):
+            try:
+                update = load_oui(update_path)
+            except OSError as err:
+                _LOGGER.warning("Aktualisierte Herstellerliste %s nicht lesbar: %s", update_path, err)
+        stats["aktualisierung"] = len(update)
+
+        custom: dict[str, str] = {}
+        custom_path = os.path.join(self.user_data_dir, OUI_CUSTOM_FILENAME)
+        if os.path.isfile(custom_path):
+            try:
+                with open(custom_path, encoding="utf-8", errors="replace") as handle:
+                    lines = handle.read().splitlines()
+                custom = parse_oui(lines)
+                bad = validate_custom_oui_lines(lines)
+                if bad:
+                    _LOGGER.warning(
+                        "%s: Zeile(n) %s ignoriert - erwartet wird PRAEFIX:Name "
+                        "(6, 7 oder 9 Hex-Zeichen)",
+                        custom_path,
+                        ", ".join(str(n) for n in bad[:10]),
+                    )
+            except OSError as err:
+                _LOGGER.warning("Eigene Herstellerzuordnung %s nicht lesbar: %s", custom_path, err)
+        stats["eigene"] = len(custom)
+        return merge_oui(base, update, custom), stats
+
+    def _ensure_custom_oui_template(self) -> None:
+        """Legt eine kommentierte, leere Datei fuer eigene Zuordnungen an (einmalig)."""
+        path = os.path.join(self.user_data_dir, OUI_CUSTOM_FILENAME)
+        if os.path.exists(path):
+            return
+        try:
+            os.makedirs(self.user_data_dir, exist_ok=True)
+            with open(path, "x", encoding="utf-8") as handle:
+                handle.write(
+                    "# Eigene Herstellerzuordnungen fuer fritzbox_netzwerk.\n"
+                    "# Eine Zeile je Eintrag: PRAEFIX:Name, z. B.\n"
+                    "#   A1B2C3:Mein Bastelgeraet\n"
+                    "#   A1B2C3D:Prototyp (7 Zeichen = MA-M)\n"
+                    "#   A1B2C3D4E:Prototyp (9 Zeichen = MA-S)\n"
+                    "# Diese Datei hat Vorrang vor der mitgelieferten und der aktualisierten\n"
+                    "# Liste und wird von Updates NICHT ueberschrieben. Aenderungen gelten\n"
+                    "# nach einem Neustart oder nach dem Dienst fritzbox_netzwerk.update_oui.\n"
+                )
+        except FileExistsError:
+            return
+        except OSError as err:
+            _LOGGER.debug("Vorlage %s nicht angelegt: %s", path, err)
+
     async def async_load_oui(self) -> None:
-        """Laedt die Herstellertabelle beim Start (im Executor, einmalig).
+        """Laedt die Herstellertabelle (im Executor, einmalig beim Start).
 
         Ein Fehler beim Lesen ist kein Grund, die Integration scheitern zu
         lassen: ohne Tabelle fehlt nur die Spalte "Hersteller".
         """
         try:
-            self._oui = await self.hass.async_add_executor_job(load_oui, OUI_FILE)
+            await self.hass.async_add_executor_job(self._ensure_custom_oui_template)
+            self._oui, self.oui_stats = await self.hass.async_add_executor_job(
+                self._read_oui_layers
+            )
         except OSError as err:
             _LOGGER.warning("Herstellertabelle %s nicht lesbar: %s", OUI_FILE, err)
             self._oui = {}
+            self.oui_stats = {}
             return
-        _LOGGER.debug("Herstellertabelle geladen: %s Eintraege", len(self._oui))
+        _LOGGER.debug("Herstellertabelle geladen: %s Eintraege (%s)", len(self._oui), self.oui_stats)
+
+    def _write_oui_update(self, table: dict[str, str]) -> None:
+        """Schreibt die heruntergeladene Liste atomar (erst temporaer, dann ersetzen)."""
+        os.makedirs(self.user_data_dir, exist_ok=True)
+        target = os.path.join(self.user_data_dir, OUI_UPDATE_FILENAME)
+        header = (
+            "fritzbox_netzwerk - Herstellerliste (IEEE MA-L, MA-M, MA-S)\n"
+            f"Abgerufen: {dt_util.utcnow().isoformat()}\n"
+            "Wird vom Dienst fritzbox_netzwerk.update_oui erzeugt - nicht von Hand aendern,\n"
+            "eigene Zuordnungen gehoeren in oui_custom.txt."
+        )
+        fd, tmp = tempfile.mkstemp(dir=self.user_data_dir, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(serialize_oui(table, header))
+            os.replace(tmp, target)
+        except BaseException:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
+
+    async def async_update_oui(self) -> dict[str, Any]:
+        """Holt die IEEE-Register, speichert sie und laedt die Tabelle neu.
+
+        Die bisherige Liste bleibt unangetastet, solange nicht alle drei
+        Register vollstaendig und plausibel heruntergeladen wurden (siehe
+        ``MIN_MA_L_ENTRIES``). Gilt fuer ALLE eingerichteten FRITZ!Boxen, da
+        die Datei gemeinsam genutzt wird.
+        """
+        if self._oui_update_lock.locked():
+            raise HomeAssistantError("Die Herstellerliste wird gerade schon aktualisiert.")
+        async with self._oui_update_lock:
+            session = async_get_clientsession(self.hass)
+            tables: dict[str, dict[str, str]] = {}
+            for name, url, length in IEEE_REGISTER_URLS:
+                try:
+                    async with asyncio.timeout(90):
+                        response = await session.get(url)
+                        if response.status != 200:
+                            raise HomeAssistantError(
+                                f"IEEE-Register {name} nicht abrufbar (HTTP {response.status})."
+                            )
+                        text = await response.text(errors="replace")
+                except HomeAssistantError:
+                    raise
+                except (TimeoutError, OSError, asyncio.CancelledError) as err:
+                    if isinstance(err, asyncio.CancelledError):
+                        raise
+                    raise HomeAssistantError(
+                        f"IEEE-Register {name} nicht abrufbar: {err or 'Zeitueberschreitung'}"
+                    ) from err
+                except Exception as err:  # noqa: BLE001 - aiohttp-Fehler gesammelt melden
+                    raise HomeAssistantError(f"IEEE-Register {name} nicht abrufbar: {err}") from err
+                tables[name] = await self.hass.async_add_executor_job(parse_ieee_csv, text, length)
+
+            if len(tables["MA-L"]) < MIN_MA_L_ENTRIES:
+                raise HomeAssistantError(
+                    f"Das heruntergeladene MA-L-Register enthaelt nur {len(tables['MA-L'])} "
+                    f"Eintraege (erwartet mindestens {MIN_MA_L_ENTRIES}) - die bisherige "
+                    "Liste bleibt unveraendert."
+                )
+            merged = merge_oui(tables["MA-L"], tables["MA-M"], tables["MA-S"])
+            await self.hass.async_add_executor_job(self._write_oui_update, merged)
+
+        result = {name: len(table) for name, table in tables.items()}
+        for entry in self.hass.config_entries.async_loaded_entries(DOMAIN):
+            other = entry.runtime_data
+            await other.async_load_oui()
+            await other.async_request_refresh()
+        return result
+
+    # -- Internetzugang sperren (optional mit Frist, Idee 22) ---------------
+
+    def _host_ip(self, key: str) -> str:
+        for host in (self.data or {}).get("hosts", []):
+            if mac_key(host.get("mac")) == key:
+                return str(host.get("ip") or "")
+        return ""
+
+    async def async_set_internet_access(
+        self, mac: str, blocked: bool, minutes: int | None = None
+    ) -> None:
+        """Sperrt oder erlaubt den Internetzugang eines Geraets.
+
+        Die FRITZ!Box-Aktion arbeitet mit der IPv4-Adresse, die sich per DHCP
+        aendern kann - deshalb wird sie hier aus der aktuellen Hostliste ueber
+        den stabilen MAC-Schluessel aufgeloest. Mit ``minutes`` wird die Sperre
+        nach der Frist automatisch wieder aufgehoben (gespeichert, ueberlebt
+        einen Neustart; geprueft wird im Abfrageintervall, die Genauigkeit
+        entspricht also diesem Intervall).
+        """
+        key = mac_key(mac)
+        if len(key) != 12:
+            raise HomeAssistantError(f"Ungueltige MAC-Adresse: {mac}")
+        ip = self._host_ip(key)
+        if not ip:
+            raise HomeAssistantError(
+                f"Zu {mac} ist derzeit keine IP-Adresse bekannt - ist das Geraet "
+                "der FRITZ!Box bekannt und hat es eine IPv4-Adresse?"
+            )
+
+        def _set() -> None:
+            self.fritz_hosts.fc.call_action(
+                "X_AVM-DE_HostFilter1",
+                "DisallowWANAccessByIP",
+                NewIPv4Address=ip,
+                NewDisallow=blocked,
+            )
+
+        try:
+            await self.hass.async_add_executor_job(_set)
+        except FritzServiceError as err:
+            raise HomeAssistantError(
+                "Diese FRITZ!Box stellt das Sperren des Internetzugangs ueber "
+                "TR-064 nicht bereit (Dienst X_AVM-DE_HostFilter fehlt)."
+            ) from err
+        except FritzConnectionException as err:
+            raise HomeAssistantError(
+                f"Internetzugang fuer {mac} ({ip}) konnte nicht geaendert werden: {err}"
+            ) from err
+
+        if blocked and minutes:
+            until = dt_util.utcnow() + timedelta(minutes=int(minutes))
+            self._block_until[key] = until.isoformat()
+        else:
+            self._block_until.pop(key, None)
+        self._block_store.async_delay_save(lambda: dict(self._block_until), 1)
+        await self.async_request_refresh()
+
+    async def async_load_blocks(self) -> None:
+        """Laedt gespeicherte Sperren mit Frist beim Start (kaputte Eintraege entfallen)."""
+        stored = await self._block_store.async_load()
+        self._block_until = {}
+        if isinstance(stored, dict):
+            for key, raw in stored.items():
+                try:
+                    parsed = dt_util.parse_datetime(str(raw))
+                except ValueError:
+                    parsed = None
+                if parsed is not None and len(str(key)) == 12:
+                    self._block_until[str(key)] = dt_util.as_utc(parsed).isoformat()
+
+    async def _async_release_due_blocks(self) -> None:
+        """Hebt Sperren auf, deren Frist abgelaufen ist (best effort)."""
+        now = dt_util.utcnow()
+        for key, raw in list(self._block_until.items()):
+            until = dt_util.parse_datetime(raw)
+            if until is None or dt_util.as_utc(until) > now:
+                continue
+            try:
+                await self.async_set_internet_access(key, False)
+                _LOGGER.info("Internetsperre fuer %s abgelaufen - Zugang freigegeben", key)
+            except HomeAssistantError as err:
+                # Beim naechsten Zyklus erneut versuchen (z. B. Geraet kurz ohne IP).
+                _LOGGER.warning("Sperre fuer %s konnte nicht aufgehoben werden: %s", key, err)
+
+    @property
+    def blocked_until(self) -> dict[str, str]:
+        """Aktive Sperren mit Frist (MAC-Schluessel -> Ende, ISO-UTC)."""
+        return dict(self._block_until)
+
+    # -- Kindersicherung: Zugangsprofile (Idee 22, experimentell) ---------
+
+    @property
+    def parental_enabled(self) -> bool:
+        """Ob die Zugangsprofil-Funktionen (Weboberflaeche) freigeschaltet sind."""
+        return bool(self.entry.options.get(CONF_ENABLE_PARENTAL, DEFAULT_ENABLE_PARENTAL))
+
+    @property
+    def profile_reverts(self) -> dict[str, dict[str, str]]:
+        """Laufende zeitlich begrenzte Profilwechsel (Diagnose)."""
+        return {key: dict(value) for key, value in self._profile_revert.items()}
+
+    async def _async_web(self, func: Callable[..., Any], *args: Any) -> Any:
+        """Wie ``_run_web`` im Executor; Fehler werden zu ``HomeAssistantError``."""
+        if not self.parental_enabled:
+            raise HomeAssistantError(
+                "Die Zugangsprofil-Funktionen sind aus - in den Optionen "
+                "'Zugangsprofile der Kindersicherung steuern (experimentell)' einschalten."
+            )
+        try:
+            return await self.hass.async_add_executor_job(self._run_web, func, *args)
+        except (ValueError, RequestException) as err:
+            raise HomeAssistantError(f"Zugangsprofile: {err}") from err
+
+    async def async_list_access_profiles(self) -> list[dict[str, str]]:
+        """Alle Zugangsprofile der Box (``id``, ``name``)."""
+        return await self._async_web(list_profiles)
+
+    async def async_get_access_profile(self, mac: str) -> dict[str, Any]:
+        """Aktuelles Zugangsprofil eines Geraets."""
+        result = await self._async_web(get_device_profile, mac)
+        pending = self._profile_revert.get(mac_key(mac))
+        return {**result, "zurueck_auf": pending.get("profile") if pending else None,
+                "zurueck_um": pending.get("until") if pending else None}
+
+    async def async_set_access_profile(
+        self, mac: str, profile: str, minutes: int | None = None
+    ) -> dict[str, Any]:
+        """Weist einem Geraet ein Zugangsprofil zu, optional nur fuer ``minutes``.
+
+        Mit Frist wird nach Ablauf das urspruengliche Profil wiederhergestellt
+        (gespeichert, ueberlebt einen Neustart; geprueft im Abfrageintervall).
+        Ein zweiter zeitlich begrenzter Wechsel merkt sich weiterhin das
+        ERSTE Profil, nicht das gerade gesetzte voruebergehende.
+        """
+        key = mac_key(mac)
+        if len(key) != 12:
+            raise HomeAssistantError(f"Ungueltige MAC-Adresse: {mac}")
+        result = await self._async_web(assign_profile, mac, profile)
+        if minutes:
+            pending = self._profile_revert.get(key)
+            original = pending["profile"] if pending else result["previous"]
+            if original and original != result["profile"]:
+                until = dt_util.utcnow() + timedelta(minutes=int(minutes))
+                self._profile_revert[key] = {"profile": original, "until": until.isoformat()}
+            else:
+                self._profile_revert.pop(key, None)
+        else:
+            self._profile_revert.pop(key, None)
+        self._profile_store.async_delay_save(lambda: dict(self._profile_revert), 1)
+        return result
+
+    async def async_load_profile_reverts(self) -> None:
+        """Laedt gespeicherte Profil-Fristen beim Start (kaputte Eintraege entfallen)."""
+        stored = await self._profile_store.async_load()
+        self._profile_revert = {}
+        if isinstance(stored, dict):
+            for key, value in stored.items():
+                if not isinstance(value, dict) or len(str(key)) != 12:
+                    continue
+                profile = str(value.get("profile") or "")
+                try:
+                    until = dt_util.parse_datetime(str(value.get("until") or ""))
+                except ValueError:
+                    until = None
+                if profile.startswith("filtprof") and until is not None:
+                    self._profile_revert[str(key)] = {
+                        "profile": profile,
+                        "until": dt_util.as_utc(until).isoformat(),
+                    }
+
+    async def _async_release_due_profiles(self) -> None:
+        """Stellt Profile wieder her, deren Frist abgelaufen ist (best effort)."""
+        now = dt_util.utcnow()
+        for key, value in list(self._profile_revert.items()):
+            until = dt_util.parse_datetime(value.get("until", ""))
+            if until is None or dt_util.as_utc(until) > now:
+                continue
+            try:
+                await self._async_web(assign_profile, key, value["profile"])
+            except HomeAssistantError as err:
+                # Beim naechsten Zyklus erneut versuchen.
+                _LOGGER.warning("Zugangsprofil fuer %s nicht zurueckgesetzt: %s", key, err)
+                continue
+            _LOGGER.info("Zugangsprofil fuer %s nach Ablauf wiederhergestellt", key)
+            self._profile_revert.pop(key, None)
+            self._profile_store.async_delay_save(lambda: dict(self._profile_revert), 1)
+
+    # -- Notizen und Etiketten --------------------------------------------
+
+    async def async_load_notes(self) -> None:
+        """Laedt die gespeicherten Notizen/Etiketten beim Start."""
+        self._notes = load_notes(await self._notes_store.async_load())
+
+    async def async_set_note(
+        self,
+        mac: str,
+        label: Any = None,
+        note: Any = None,
+        reserved: Any = None,
+    ) -> dict[str, Any] | None:
+        """Setzt Etikett, Notiz und "reserviert" eines Geraets (alles leer = loeschen).
+
+        Nicht uebergebene Felder (``None``) bleiben unveraendert. Die
+        Hostliste wird sofort angepasst (ohne neue Abfrage an der Box).
+        """
+        key = mac_key(mac)
+        if len(key) != 12:
+            raise HomeAssistantError(f"Ungueltige MAC-Adresse: {mac}")
+        current = self._notes.get(key, {})
+        entry = make_note_entry(
+            current.get("label") if label is None else label,
+            current.get("note") if note is None else note,
+            current.get("reserved") if reserved is None else reserved,
+        )
+        if entry:
+            self._notes[key] = entry
+        else:
+            self._notes.pop(key, None)
+        self._notes_store.async_delay_save(lambda: dict(self._notes), 1)
+
+        if self.data:
+            pool = self._dhcp_pool if self.track_address_source else None
+            hosts = self.data.get("hosts", [])
+            for host in hosts:
+                if mac_key(host.get("mac")) != key:
+                    continue
+                host["label"] = (entry or {}).get("label", "")
+                host["note"] = (entry or {}).get("note", "")
+                host["reserved"] = bool((entry or {}).get("reserved"))
+                host["ip_class"] = classify_ip_with_reserved(host, pool)
+            self.async_set_updated_data(
+                {**self.data, "hosts": hosts, "summary": summarize(hosts)}
+            )
+        return entry
 
     # -- "Zuletzt gesehen" ------------------------------------------------
 

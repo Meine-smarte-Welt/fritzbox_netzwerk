@@ -10,7 +10,7 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import CONF_HOST, UnitOfDataRate
+from homeassistant.const import PERCENTAGE, CONF_HOST, UnitOfDataRate, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers import entity_registry as er
@@ -101,6 +101,19 @@ async def async_setup_entry(
             )
         ]
     )
+
+    # Idee 21 (experimentell): CPU/RAM/Temperatur aus der Weboberflaeche - nur
+    # auf ausdruecklichen Wunsch (Option), siehe webui.py.
+    if coordinator.system_stats_enabled:
+        async_add_entities(
+            [
+                FritzboxNetzwerkSystemSensor(coordinator, entry, "cpu", "cpu_auslastung", "mdi:cpu-64-bit", PERCENTAGE),
+                FritzboxNetzwerkSystemSensor(coordinator, entry, "ram", "ram_auslastung", "mdi:memory", PERCENTAGE),
+                FritzboxNetzwerkSystemSensor(
+                    coordinator, entry, "temperature", "cpu_temperatur", "mdi:thermometer", UnitOfTemperature.CELSIUS
+                ),
+            ]
+        )
 
     # Idee 7 aus feature-ideen.md: Zaehler "WLAN 2,4 GHz" / "WLAN 5 GHz" - nur
     # sinnvoll, wenn das Funkband ueberhaupt erfasst wird (siehe
@@ -457,6 +470,33 @@ class FritzboxNetzwerkRateSensor(FritzboxNetzwerkBase):
         if not connection:
             return None
         return connection.get(self._key)
+
+
+class FritzboxNetzwerkSystemSensor(FritzboxNetzwerkBase):
+    """CPU-Auslastung, RAM-Auslastung oder Temperatur der Box (EXPERIMENTELL).
+
+    Die Werte kommen NICHT aus TR-064, sondern aus der Weboberflaeche der Box
+    (``data.lua``, Seite ``ecoStat``) - siehe ``webui.py``. Es sind Momentwerte
+    aus einem Verlauf, die Zuordnung ist an keiner echten Box geprueft.
+    """
+
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_registry_enabled_default = True
+
+    def __init__(self, coordinator, entry, key, translation_key, icon, unit) -> None:
+        """Initialisiert den Sensor."""
+        super().__init__(coordinator, entry)
+        self._key = key
+        self._attr_translation_key = translation_key
+        self._attr_icon = icon
+        self._attr_native_unit_of_measurement = unit
+        self._attr_unique_id = f"{entry.entry_id}_system_{key}"
+
+    @property
+    def native_value(self) -> float | None:
+        """Letzter gelesener Wert oder ``None``."""
+        system = (self.coordinator.data or {}).get("system")
+        return (system or {}).get(self._key)
 
 
 class FritzboxNetzwerkExternalIpSensor(FritzboxNetzwerkBase):
