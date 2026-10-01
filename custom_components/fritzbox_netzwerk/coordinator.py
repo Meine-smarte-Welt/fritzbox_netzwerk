@@ -44,8 +44,10 @@ from .const import (
     DEFAULT_TRACK_ADDRESS_SOURCE,
     DEFAULT_TRACK_WLAN_BAND,
     DEFAULT_USE_TLS,
+    DHCP_POOL_INTERVAL_MINUTES,
     DOMAIN,
     CONF_PAIRING_MINUTES,
+    FIRST_SEEN_STORAGE_VERSION,
     LAST_SEEN_STORAGE_VERSION,
     PAIRING_STORAGE_VERSION,
 )
@@ -58,6 +60,7 @@ from .hosts import (
     dhcp_pool,
     frequency_band,
     is_mac_filter_band,
+    is_repeater,
     list_path,
     load_oui,
     mac_key,
@@ -73,6 +76,7 @@ from .hosts import (
     wan_kind,
     wlan_bands,
 )
+from .mesh_topology import fetch_mesh_links
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -136,14 +140,26 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._address_sources: dict[str, dict[str, Any]] = {}
         self._address_source_scan: datetime | None = None
         self._address_source_failed = False
-        # DHCP-Bereich der Box (erste, letzte Adresse als Zahl); wird mit der
-        # IP-Typ-Abfrage aktualisiert und dient der Einordnung fest/dynamisch.
+        # DHCP-Bereich der Box (erste, letzte Adresse als Zahl): dient der
+        # Einordnung fest/dynamisch (siehe hosts.classify_ip) und - seit 1.6.3 -
+        # dem Sensor "Belegte Adressen im Pool" (Idee 8 aus feature-ideen.md).
+        # Laeuft in einem eigenen, sehr langsamen Takt (siehe
+        # ``_dhcp_pool_due``), unabhaengig von der IP-Typ-Erfassung, damit der
+        # Sensor auch ohne diese Option entsteht.
         self._dhcp_pool: tuple[int, int] | None = None
+        self._dhcp_pool_scan: datetime | None = None
 
         # WLAN-Band je Geraet: Frequenzband je WLANConfiguration-Dienst (wird
         # einmal gelesen) und Dienste, die die Box nicht hat.
         self._wlan_service_band: dict[int, str] = {}
         self._wlan_service_absent: set[int] = set()
+
+        # Mesh-Topologie (Idee 5 aus feature-ideen.md): wird nur abgefragt,
+        # wenn im VORIGEN Zyklus ein Repeater in der Hostliste stand - ein
+        # zusaetzlicher HTTP-Abruf pro Aktualisierung lohnt sich nicht fuer
+        # die meisten Installationen (eine einzelne FRITZ!Box ohne Mesh).
+        self._repeater_seen = False
+        self._mesh_topology_supported = True
 
         # Herstellertabelle (MAC-Praefix -> Name); wird einmal beim Start
         # geladen, siehe ``async_load_oui``. Bleibt sie leer, fehlt nur die
@@ -187,6 +203,16 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass, LAST_SEEN_STORAGE_VERSION, f"{DOMAIN}.last_seen.{entry.entry_id}"
         )
 
+        # "Zum ersten Mal gesehen" (seit 1.6.3, fuer den Karten-Filter
+        # "Neu (letzte 7 Tage)"): wird NUR geschrieben, wenn ein Geraet
+        # ueber ``_process_new_devices`` als neu erkannt wird - siehe dort
+        # und ``hosts.apply_first_seen`` fuer die Begruendung, warum bereits
+        # laenger bekannte Geraete hier bewusst keinen Wert bekommen.
+        self._first_seen: dict[str, str] = {}
+        self._first_seen_store: Store[dict[str, str]] = Store(
+            hass, FIRST_SEEN_STORAGE_VERSION, f"{DOMAIN}.first_seen.{entry.entry_id}"
+        )
+
         # Pairing (MAC-Filter zeitweise aus): Der Zeitpunkt, zu dem der Filter
         # wieder eingeschaltet wird, wird dauerhaft gespeichert. Startet Home
         # Assistant waehrenddessen neu, holt ``async_restore_pairing`` das nach -
@@ -219,6 +245,16 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def track_wlan_band(self) -> bool:
         """Ob das WLAN-Band je Geraet erfasst werden soll."""
         return self.entry.options.get(CONF_TRACK_WLAN_BAND, DEFAULT_TRACK_WLAN_BAND)
+
+    @property
+    def dhcp_pool(self) -> tuple[int, int] | None:
+        """DHCP-Bereich der Box (erste, letzte Adresse als Zahl), siehe hosts.dhcp_pool.
+
+        ``None``, wenn der DHCP-Server aus ist oder der Bereich (noch) nicht
+        ermittelbar war - der Sensor "Belegte Adressen im Pool" (Idee 8)
+        entsteht dann (noch) nicht.
+        """
+        return self._dhcp_pool
 
     @property
     def address_source_interval(self) -> timedelta:
@@ -264,7 +300,20 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "lease_time_remaining": entry.get("NewLeaseTimeRemaining"),
             }
         self._address_sources = sources
-        self._dhcp_pool = self._fetch_dhcp_pool()
+
+    def _dhcp_pool_due(self) -> bool:
+        """Ob der DHCP-Bereich neu abgefragt werden soll.
+
+        Eigener, fester Takt (``DHCP_POOL_INTERVAL_MINUTES``) statt eines
+        Mitlaufens mit ``_address_sources_due()``: der Bereich wird auch
+        gebraucht, wenn die IP-Typ-Erfassung ausgeschaltet ist (Sensor
+        "Belegte Adressen im Pool", Idee 8 aus feature-ideen.md).
+        """
+        if self._dhcp_pool_scan is None:
+            return True
+        return dt_util.utcnow() - self._dhcp_pool_scan >= timedelta(
+            minutes=DHCP_POOL_INTERVAL_MINUTES
+        )
 
     def _fetch_dhcp_pool(self) -> tuple[int, int] | None:
         """DHCP-Bereich der FRITZ!Box (None, wenn nicht ermittelbar)."""
@@ -284,7 +333,12 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _fetch(
         self,
     ) -> tuple[
-        list[dict[str, Any]], bool, dict[str, Any] | None, dict[str, bool], dict[str, str]
+        list[dict[str, Any]],
+        bool,
+        dict[str, Any] | None,
+        dict[str, bool],
+        dict[str, str],
+        dict[str, dict[str, Any]],
     ]:
         """Blockierender Teil des Abrufs, laeuft im Executor."""
         raw_hosts = self.fritz_hosts.get_hosts_attributes()
@@ -293,10 +347,14 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             macs = [str(host.get("MACAddress") or "") for host in raw_hosts]
             self._fetch_address_sources(macs)
             refreshed = True
+        if self._dhcp_pool_due():
+            self._dhcp_pool = self._fetch_dhcp_pool()
+            self._dhcp_pool_scan = dt_util.utcnow()
         connection = self._fetch_connection()
         wlan = self._fetch_wlan() if self._controls_enabled else {}
         bands = self._fetch_wlan_bands() if self.track_wlan_band else {}
-        return raw_hosts, refreshed, connection, wlan, bands
+        mesh_links = self._fetch_mesh_topology() if self._repeater_seen else {}
+        return raw_hosts, refreshed, connection, wlan, bands, mesh_links
 
     def _fetch_wlan_bands(self) -> dict[str, str]:
         """Ordnet WLAN-Geraete ihrem Funkband zu (``mac_key`` -> "2.4"/"5"/"6").
@@ -349,6 +407,44 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ) as err:
                 _LOGGER.debug("WLAN-Band (%s) nicht ermittelbar: %s", service, err)
         return bands
+
+    def _fetch_mesh_topology(self) -> dict[str, dict[str, Any]]:
+        """"Verbunden ueber" und Verbindungsrate je Geraet (Idee 5 aus feature-ideen.md).
+
+        Die eigentliche Auswertung steckt in ``mesh_topology.py`` (von Home
+        Assistant unabhaengig, siehe dort und ``tests/test_mesh_topology.py``);
+        hier nur die Fehlerbehandlung drumherum. Nutzt
+        ``fritzconnection.lib.fritztopology`` (Teil der mit diesem Projekt
+        ausgelieferten, gepinnten Bibliotheksversion 1.15.1) ueber
+        ``X_AVM-DE_GetMeshListPath`` - belegtes AVM-Schema
+        (https://avm.de/service/schnittstellen/, "Mesh-Topologie").
+
+        ANNAHME: das genaue JSON-Format (z. B. ob jede FRITZ!OS-Version
+        wirklich fuer jedes Geraet genau eine aktive Verbindung meldet) ist
+        nur gegen den tatsaechlichen Bibliotheks-Quelltext und eine von Hand
+        nachgebaute Beispiel-Topologie geprueft, NICHT an einer echten
+        FRITZ!Box - siehe Hinweis in ``mesh_topology.links_from_topology``.
+
+        Jeder Fehler (z. B. eine Box, die den Dienst ablehnt, oder eine
+        unerwartete Antwort) ist hier harmlos: es fehlt dann nur "verbunden
+        ueber"/die Verbindungsrate, die Aktualisierung der Geraeteliste
+        laeuft weiter. Nach einem Verbindungsfehlschlag wird der Abruf nicht
+        mehr wiederholt, um das Protokoll nicht mit wiederkehrenden Fehlern
+        vollzuschreiben (wie beim WAN-Dienst, siehe ``_fetch_connection``).
+        """
+        if not self._mesh_topology_supported:
+            return {}
+        try:
+            return fetch_mesh_links(self.fritz_hosts.fc)
+        except (FritzConnectionException, RequestException) as err:
+            _LOGGER.debug("Mesh-Topologie nicht abrufbar: %s", err)
+            self._mesh_topology_supported = False
+            return {}
+        except (KeyError, ValueError, TypeError, AttributeError) as err:
+            # Unerwartete/unvollstaendige Antwort (z. B. ein Schema-Unterschied
+            # zwischen FRITZ!OS-Versionen) - siehe Annahme-Hinweis oben.
+            _LOGGER.debug("Mesh-Topologie: unerwartetes Format: %s", err)
+            return {}
 
     @property
     def _controls_enabled(self) -> bool:
@@ -1015,7 +1111,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Holt die Geraeteliste und reichert sie an."""
         try:
-            raw_hosts, refreshed, connection, wlan, bands = (
+            raw_hosts, refreshed, connection, wlan, bands, mesh_links = (
                 await self.hass.async_add_executor_job(self._fetch)
             )
         except (FritzSecurityError, FritzAuthorizationError) as err:
@@ -1034,12 +1130,18 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if refreshed:
             self._address_source_scan = dt_util.utcnow()
 
-        # Fuer "Neues Geraet" wird der Stand VOR dieser Aktualisierung
-        # gebraucht - danach steht jedes aktive Geraet bereits in
-        # ``self._last_seen`` und waere nicht mehr von "schon bekannt" zu
-        # unterscheiden.
+        # Fuer "Neues Geraet"/"zum ersten Mal gesehen" wird der Stand VOR
+        # dieser Aktualisierung gebraucht - danach steht jedes aktive Geraet
+        # bereits in ``self._last_seen`` und waere nicht mehr von "schon
+        # bekannt" zu unterscheiden. Beim allerersten Abruf nach der
+        # Einrichtung (Baseline) wird beides uebersprungen, sonst waere das
+        # komplette vorhandene Heimnetz "neu".
         known_before = set(self._last_seen.keys())
         self._update_last_seen(raw_hosts)
+        is_baseline_cycle = self._new_device_baseline_pending
+        self._new_device_baseline_pending = False
+        if not is_baseline_cycle:
+            self._update_first_seen(raw_hosts, known_before)
 
         hosts = build_hosts(
             raw_hosts,
@@ -1049,9 +1151,17 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._dhcp_pool if self.track_address_source else None,
             self._oui,
             bands,
+            self._first_seen,
+            mesh_links,
+        )
+        # Fuer den NAECHSTEN Zyklus: ob sich eine Mesh-Topologie-Abfrage
+        # ueberhaupt lohnt (siehe ``_fetch``/``_fetch_mesh_topology``).
+        self._repeater_seen = any(
+            is_repeater(str(raw.get("X_AVM-DE_Model") or "")) for raw in raw_hosts
         )
 
-        self._notify_new_devices(hosts, known_before)
+        if not is_baseline_cycle:
+            self._notify_new_devices(hosts, known_before)
         self._notify_external_ip_change(connection)
 
         return {
@@ -1100,6 +1210,14 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # statt das gesamte vorhandene Heimnetz als "neues Geraet" zu melden.
         self._new_device_baseline_pending = not self._last_seen
 
+    async def async_load_first_seen(self) -> None:
+        """Laedt die gespeicherten 'zum ersten Mal gesehen'-Zeitstempel beim Start."""
+        stored = await self._first_seen_store.async_load()
+        if isinstance(stored, dict):
+            self._first_seen = {
+                str(key): str(value) for key, value in stored.items() if value
+            }
+
     def _update_last_seen(self, raw_hosts: list[dict[str, Any]]) -> None:
         """Schreibt fuer jedes aktuell aktive Geraet den Zeitpunkt mit.
 
@@ -1138,19 +1256,43 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         return _remove
 
+    def _update_first_seen(
+        self, raw_hosts: list[dict[str, Any]], known_before: set[str]
+    ) -> None:
+        """Schreibt fuer neu auftauchende Geraete den 'zum ersten Mal gesehen'-Zeitstempel.
+
+        Laeuft - wie ``_update_last_seen`` - direkt auf den rohen TR-064-
+        Datensaetzen und VOR ``build_hosts()``, damit der Zeitstempel schon
+        im selben Zyklus in der Hostliste/im Karten-Filter "Neu (letzte 7
+        Tage)" ankommt, statt erst einen Abrufzyklus spaeter. Nur fuer
+        Geraete, die hier echt neu sind (siehe ``hosts.apply_first_seen``
+        fuer die Begruendung); Aufruf wird vom Aufrufer uebersprungen, wenn
+        gerade die Baseline nach der Einrichtung gilt.
+        """
+        now = dt_util.utcnow().isoformat()
+        changed = False
+        for raw in raw_hosts or []:
+            if not raw.get("Active"):
+                continue
+            key = mac_key(raw.get("MACAddress"))
+            if not key or key in known_before or key in self._first_seen:
+                continue
+            self._first_seen[key] = now
+            changed = True
+        if changed:
+            self._first_seen_store.async_delay_save(lambda: dict(self._first_seen), 5)
+
     def _notify_new_devices(
         self, hosts: list[dict[str, Any]], known_before: set[str]
     ) -> None:
         """Meldet jedes seit dem letzten Abruf neu aufgetauchte Geraet.
 
         "Neu" heisst: aktiv UND noch nie zuvor in ``self._last_seen``
-        verzeichnet. Beim allerersten Abruf nach der Einrichtung (siehe
-        ``async_load_last_seen``) wird nichts gemeldet - sonst waere beim
-        ersten Start das komplette vorhandene Heimnetz "neu".
+        verzeichnet. Wird vom Aufrufer uebersprungen, wenn gerade die
+        Baseline nach der Einrichtung gilt (siehe ``async_load_last_seen``) -
+        sonst waere beim ersten Start das komplette vorhandene Heimnetz
+        "neu".
         """
-        if self._new_device_baseline_pending:
-            self._new_device_baseline_pending = False
-            return
         if not self._new_device_listeners:
             return
         for host in hosts:

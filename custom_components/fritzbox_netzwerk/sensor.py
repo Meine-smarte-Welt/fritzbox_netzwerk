@@ -17,6 +17,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
+from homeassistant.util import slugify
 
 from .const import (
     ATTR_ACTIVE,
@@ -30,12 +31,26 @@ from .const import (
     ATTR_STATIC,
     ATTR_TOTAL,
     ATTR_UPDATES,
+    CONF_IP_RANGES,
+    DEFAULT_IP_RANGES,
     DOMAIN,
     MANUFACTURER,
     VERSION,
 )
 from .coordinator import FritzboxNetzwerkCoordinator
-from .hosts import mac_key, mesh_summary, normalize_mac
+from .hosts import (
+    BAND_2_4,
+    BAND_5,
+    BAND_6,
+    count_band,
+    count_ip_range,
+    dhcp_pool_usage,
+    mac_key,
+    mesh_summary,
+    normalize_mac,
+    parse_ip_ranges,
+    slowest_mesh_link,
+)
 from .repeater import repeater_hosts, repeaters_enabled
 
 if TYPE_CHECKING:
@@ -76,7 +91,84 @@ async def async_setup_entry(
             FritzboxNetzwerkExternalIpSensor(coordinator, entry),
             FritzboxNetzwerkOnlineSinceSensor(coordinator, entry),
         ]
+        # Idee 7 aus feature-ideen.md: ein Zaehler je benanntem IP-Bereich aus
+        # den Integrationsoptionen, z. B. "Drucker online: 2 von 3". Ohne
+        # konfigurierte Bereiche entsteht kein einziger dieser Sensoren.
+        + [
+            FritzboxNetzwerkIpRangeSensor(coordinator, entry, ip_range)
+            for ip_range in parse_ip_ranges(
+                entry.options.get(CONF_IP_RANGES, DEFAULT_IP_RANGES)
+            )
+        ]
     )
+
+    # Idee 7 aus feature-ideen.md: Zaehler "WLAN 2,4 GHz" / "WLAN 5 GHz" - nur
+    # sinnvoll, wenn das Funkband ueberhaupt erfasst wird (siehe
+    # coordinator.track_wlan_band), sonst waere jeder Zaehler immer 0.
+    if coordinator.track_wlan_band:
+        async_add_entities(
+            [
+                FritzboxNetzwerkBandSensor(coordinator, entry, BAND_2_4),
+                FritzboxNetzwerkBandSensor(coordinator, entry, BAND_5),
+            ]
+        )
+        # 6-GHz-WLAN ist (Stand 2026) noch selten; der Sensor entsteht erst,
+        # sobald tatsaechlich ein Geraet in diesem Band auftaucht - wie beim
+        # Mesh-Sensor unten, damit nicht jede Installation einen dauerhaft
+        # leeren 6-GHz-Zaehler bekommt.
+        band6_added = False
+
+        @callback
+        def _add_band6() -> None:
+            nonlocal band6_added
+            if band6_added:
+                return
+            hosts = (coordinator.data or {}).get("hosts", [])
+            if not any(host.get("band") == BAND_6 for host in hosts):
+                return
+            band6_added = True
+            async_add_entities([FritzboxNetzwerkBandSensor(coordinator, entry, BAND_6)])
+
+        _add_band6()
+        entry.async_on_unload(coordinator.async_add_listener(_add_band6))
+
+    # Idee 8 aus feature-ideen.md: Belegung des DHCP-Bereichs. Der Bereich
+    # steht erst nach dem ersten erfolgreichen ``LANHostConfigManagement1``-
+    # Abruf fest (siehe coordinator._dhcp_pool_due) - deshalb wie beim
+    # Mesh-Sensor erst dynamisch ergaenzen, statt mit einem dauerhaft
+    # "nicht verfuegbaren" Sensor zu starten.
+    pool_added = False
+
+    @callback
+    def _add_dhcp_pool() -> None:
+        nonlocal pool_added
+        if pool_added or coordinator.dhcp_pool is None:
+            return
+        pool_added = True
+        async_add_entities([FritzboxNetzwerkDhcpPoolSensor(coordinator, entry)])
+
+    _add_dhcp_pool()
+    entry.async_on_unload(coordinator.async_add_listener(_add_dhcp_pool))
+
+    # Idee 5 aus feature-ideen.md: "Schwaechstes Geraet" - entsteht erst,
+    # sobald ueberhaupt ein Geraet eine bekannte Mesh-Verbindungsrate hat
+    # (setzt also mindestens einen Repeater UND eine erfolgreich abgerufene
+    # Mesh-Topologie voraus, siehe coordinator._fetch_mesh_topology).
+    weakest_added = False
+
+    @callback
+    def _add_weakest() -> None:
+        nonlocal weakest_added
+        if weakest_added:
+            return
+        hosts = (coordinator.data or {}).get("hosts", [])
+        if slowest_mesh_link(hosts) is None:
+            return
+        weakest_added = True
+        async_add_entities([FritzboxNetzwerkWeakestLinkSensor(coordinator, entry)])
+
+    _add_weakest()
+    entry.async_on_unload(coordinator.async_add_listener(_add_weakest))
 
     # Der Mesh-Sensor entsteht, sobald es neben der Box einen Repeater gibt.
     if not repeaters_enabled(entry):
@@ -422,3 +514,177 @@ class FritzboxNetzwerkOnlineSinceSensor(FritzboxNetzwerkBase):
         if not isinstance(uptime, int) or uptime < 0:
             return None
         return dt_util.utcnow() - timedelta(seconds=uptime)
+
+
+class FritzboxNetzwerkIpRangeSensor(FritzboxNetzwerkBase):
+    """Zaehler-Sensor fuer einen benannten IP-Bereich aus den Optionen.
+
+    Idee 7 aus feature-ideen.md: Passend zum Kartenfeld ``ip_filter`` lassen
+    sich in den Integrationseinstellungen benannte Bereiche anlegen (z. B.
+    "Drucker=192.168.2.*"), aus denen je ein Sensor "<Name> online: 2 von 3"
+    fuer Automationen entsteht. Der Zustand ist die Zahl AKTIVER Geraete im
+    Bereich; die Gesamtzahl (unabhaengig vom Online-Status) steht als
+    Attribut daneben.
+
+    Der Name kommt direkt vom Nutzer (kein ``translation_key``) - ebenso wie
+    bei einem per Hand benannten Geraet in Home Assistant ueblich.
+    """
+
+    _attr_icon = "mdi:lan-check"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "Geräte"
+
+    def __init__(self, coordinator, entry, ip_range: dict[str, Any]) -> None:
+        """Initialisiert den Bereichs-Sensor."""
+        super().__init__(coordinator, entry)
+        self._ip_range = ip_range
+        self._attr_name = ip_range["name"]
+        self._attr_unique_id = f"{entry.entry_id}_bereich_{slugify(ip_range['name'])}"
+
+    @property
+    def native_value(self) -> int:
+        """Anzahl der aktuell aktiven Geraete in diesem Bereich."""
+        hosts = (self.coordinator.data or {}).get("hosts", [])
+        return count_ip_range(hosts, self._ip_range)["active"]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Gesamtzahl der Geraete im Bereich (aktiv und inaktiv) sowie das Muster."""
+        hosts = (self.coordinator.data or {}).get("hosts", [])
+        counts = count_ip_range(hosts, self._ip_range)
+        return {"gesamt": counts["total"], "muster": self._ip_range["pattern"]}
+
+
+class FritzboxNetzwerkBandSensor(FritzboxNetzwerkBase):
+    """Zaehler-Sensor fuer ein WLAN-Funkband (Idee 7 aus feature-ideen.md).
+
+    Zustand ist die Zahl der aktuell aktiven Geraete in diesem Band; die
+    Gesamtzahl (auch inaktive, zuletzt dort verbundene Geraete) steht als
+    Attribut daneben. Setzt voraus, dass "WLAN-Band je Gerät erfassen"
+    eingeschaltet ist (siehe ``async_setup_entry``) - sonst bliebe ``band``
+    bei jedem Geraet leer und der Sensor zeigte dauerhaft 0.
+    """
+
+    # Die Einheit kommt - wie bei "geraete"/"updates"/"gesperrt"/"mesh" - aus
+    # den Uebersetzungen (``unit_of_measurement`` in strings.json): zusaetzlich
+    # ``_attr_native_unit_of_measurement`` zu setzen, bricht bei einem Sensor
+    # mit ``translation_key`` mit einem Fehler ab.
+    _attr_icon = "mdi:wifi"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    _TRANSLATION_KEYS = {BAND_2_4: "band_24", BAND_5: "band_5", BAND_6: "band_6"}
+
+    def __init__(self, coordinator, entry, band: str) -> None:
+        """Initialisiert den Band-Sensor."""
+        super().__init__(coordinator, entry)
+        self._band = band
+        self._attr_translation_key = self._TRANSLATION_KEYS[band]
+        self._attr_unique_id = f"{entry.entry_id}_{self._attr_translation_key}"
+
+    @property
+    def native_value(self) -> int:
+        """Anzahl der aktuell aktiven Geraete in diesem Band."""
+        hosts = (self.coordinator.data or {}).get("hosts", [])
+        return count_band(hosts, self._band)["active"]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Gesamtzahl der Geraete in diesem Band (aktiv und inaktiv)."""
+        hosts = (self.coordinator.data or {}).get("hosts", [])
+        return {"gesamt": count_band(hosts, self._band)["total"]}
+
+
+class FritzboxNetzwerkDhcpPoolSensor(FritzboxNetzwerkBase):
+    """Belegung des DHCP-Bereichs der FRITZ!Box (Idee 8 aus feature-ideen.md).
+
+    Zustand ist die Zahl aktuell aktiver Geraete mit einer Adresse im
+    DHCP-Bereich (siehe ``hosts.dhcp_pool_usage`` fuer die Annahme dahinter -
+    TR-064 liefert keine echte Lease-Tabelle); die Attribute nennen
+    Gesamtgroesse, freie Adressen und den Prozentsatz. Entsteht erst, sobald
+    der Bereich einmal erfolgreich ermittelt wurde (siehe ``async_setup_entry``).
+    """
+
+    # Einheit kommt aus den Uebersetzungen, siehe Hinweis bei FritzboxNetzwerkBandSensor.
+    _attr_translation_key = "dhcp_pool"
+    _attr_icon = "mdi:ip-network"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator, entry) -> None:
+        """Initialisiert den DHCP-Auslastungssensor."""
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_dhcp_pool"
+
+    def _usage(self) -> dict[str, int] | None:
+        hosts = (self.coordinator.data or {}).get("hosts", [])
+        return dhcp_pool_usage(hosts, self.coordinator.dhcp_pool)
+
+    @property
+    def available(self) -> bool:
+        """Nicht verfuegbar, wenn der DHCP-Bereich (nicht mehr) bekannt ist."""
+        return super().available and self._usage() is not None
+
+    @property
+    def native_value(self) -> int | None:
+        """Zahl der aktuell belegten Adressen im Pool."""
+        usage = self._usage()
+        return usage["used"] if usage else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Gesamtgroesse, freie Adressen und Auslastung in Prozent."""
+        usage = self._usage()
+        if not usage:
+            return {}
+        total = usage["total"]
+        percent = round(usage["used"] * 100 / total, 1) if total else 0
+        return {
+            "gesamt": total,
+            "frei": usage["free"],
+            "auslastung_prozent": percent,
+        }
+
+
+class FritzboxNetzwerkWeakestLinkSensor(FritzboxNetzwerkBase):
+    """Das Geraet mit der aktuell langsamsten Mesh-Verbindung (Idee 5).
+
+    Zustand ist der Geraetename, die Rate (Mbit/s) und die MAC-Adresse
+    stehen als Attribut daneben. Bewusst ueber die Verbindungsrate statt
+    einer Signalstaerke in dBm - siehe Begruendung in
+    ``hosts.slowest_mesh_link``, dort auch der Hinweis, dass die genaue
+    Mesh-JSON-Struktur nicht an echter Hardware verifiziert ist.
+    """
+
+    _attr_translation_key = "schwaechstes_geraet"
+    _attr_icon = "mdi:wifi-strength-1"
+
+    def __init__(self, coordinator, entry) -> None:
+        """Initialisiert den Sensor."""
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_weakest_link"
+
+    def _weakest(self) -> dict[str, Any] | None:
+        hosts = (self.coordinator.data or {}).get("hosts", [])
+        return slowest_mesh_link(hosts)
+
+    @property
+    def available(self) -> bool:
+        """Nicht verfuegbar, solange keine Mesh-Verbindungsraten bekannt sind."""
+        return super().available and self._weakest() is not None
+
+    @property
+    def native_value(self) -> str | None:
+        """Name des Geraets mit der langsamsten aktuellen Verbindung."""
+        weakest = self._weakest()
+        return weakest["name"] if weakest else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """MAC-Adresse, Verbindungsrate und Mesh-Nachbar des Geraets."""
+        weakest = self._weakest()
+        if not weakest:
+            return {}
+        return {
+            "mac": weakest.get("mac"),
+            "verbindungsrate_mbit": weakest.get("link_mbit"),
+            "verbunden_ueber": weakest.get("connected_via"),
+        }

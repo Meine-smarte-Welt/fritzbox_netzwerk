@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.6.2-blue)
+![Version](https://img.shields.io/badge/Version-1.6.3-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -30,12 +30,14 @@ passenden Home-Assistant-Gerätenamen.
   - [Hersteller aus der MAC-Adresse](#hersteller-aus-der-mac-adresse)
   - [MAC-Adresse kopieren](#mac-adresse-kopieren)
   - [Steuerungsleiste und Kategorien als Tabs](#steuerungsleiste-und-kategorien-als-tabs)
+  - [Gast-WLAN: QR-Code zum Verbinden](#gast-wlan-qr-code-zum-verbinden)
   - [Wischen und Blättern auf dem Smartphone](#wischen-und-blättern-auf-dem-smartphone)
   - [IP-Adresse öffnet die Weboberfläche](#ip-adresse-öffnet-die-weboberfläche)
   - [Detail-Popup](#detail-popup)
   - [Farben](#farben)
   - [Beispiel-YAML](#beispiel-yaml)
 - [Dienste](#dienste)
+- [Blueprints](#blueprints)
 - [Fehlerbehebung](#fehlerbehebung)
 - [Bekannte Einschränkungen](#bekannte-einschränkungen)
 - [Entwicklung und Tests](#entwicklung-und-tests)
@@ -610,7 +612,9 @@ sonst auf die ältere Methode zurück; scheitert auch die, erscheint ein Hinweis
 Der Editor-Schalter *Steuerungsleiste anzeigen* blendet in der Karte eine zusätzliche Leiste
 ein: die **Live-Werte für Download und Upload** und – sofern die FRITZ!Box-Steuerung in den
 Integrationseinstellungen aktiviert ist – die **Schalter für die WLAN-Bänder** (2,4 GHz,
-5 GHz, Gast), der **MAC-Filter** mit dem Button **Pairing** (siehe
+5 GHz, Gast) mit dem Button **QR-Code** beim Gast-WLAN (siehe
+[Gast-WLAN: QR-Code zum Verbinden](#gast-wlan-qr-code-zum-verbinden)), der **MAC-Filter** mit
+dem Button **Pairing** (siehe
 [MAC-Filter und Pairing](#mac-filter-und-pairing)) sowie die Buttons **Neuverbinden** (neue
 öffentliche IP) und **Neustart**. Gibt es Repeater, kommt die **Mesh-Gruppe** mit dem Button
 **Alle neu starten** hinzu (siehe [Mesh](#mesh-fritzbox-und-repeater-als-gruppe)). **Pairing**,
@@ -641,6 +645,28 @@ zeigen.
 Sind die Tabs ausgeschaltet (Standard), verhält sich die Karte wie bisher: Filter, Suche,
 Liste und – falls aktiviert – die Steuerungsleiste erscheinen gemeinsam untereinander in
 einer einzigen Ansicht.
+
+### Gast-WLAN: QR-Code zum Verbinden
+
+Gibt es einen Gast-WLAN-Schalter (siehe oben), erscheint in der Steuerungsleiste zusätzlich der
+Button **QR-Code**. Er öffnet ein eigenes Fenster mit Netzwerkname (SSID), Passwort (zum
+Abtippen, mit Kopierknopf) und einem QR-Code, den Besuch direkt mit der Smartphone-Kamera
+scannen kann, um sich automatisch zu verbinden – ohne das Passwort vorlesen oder abtippen zu
+müssen. Ist das Gast-WLAN gerade ausgeschaltet, erscheinen die Daten trotzdem (sie funktionieren,
+sobald es wieder eingeschaltet ist), mit einem entsprechenden Hinweis; zum Einschalten dient der
+bereits vorhandene Gast-WLAN-Schalter daneben. Bei einem offenen Gastnetz ohne Passwort wird das
+auch so angezeigt, statt ein Passwort zu behaupten.
+
+**Zum Datenschutz:** Die Zugangsdaten werden ausschließlich bei Klick auf den Button abgerufen
+(Dienst [`fritzbox_netzwerk.gast_wlan_info`](#fritzbox_netzwerkgast_wlan_info)) und erscheinen
+nirgends als Sensor-Attribut – sie landen also nie im Verlauf oder in der Historie von Home
+Assistant. Der QR-Code wird mit der im Paket `fritzconnection` eingebauten Funktion erzeugt
+(nutzt intern `segno`, siehe [Dienste](#dienste)); diese Integration enthält keinen eigenen
+QR-Code-Generator.
+
+Setzt – wie der Gast-WLAN-Schalter selbst – ein separates Gast-WLAN voraus (Dualband-Box mit
+WLAN-Diensten für 2,4 GHz, 5 GHz und Gast). Auf Boxen ohne eigenes Gast-WLAN erscheint der
+Button nicht.
 
 ### Wischen und Blättern auf dem Smartphone
 
@@ -778,6 +804,18 @@ color_blocked: "#db4437"
 
 ## Dienste
 
+Sind mehrere FRITZ!Boxen eingerichtet, nehmen alle Dienste dieser Integration zusätzlich ein
+optionales Feld `config_entry` entgegen (im UI als Feld „FRITZ!Box“ mit Auswahlliste, Idee 14
+aus `feature-ideen.md`): legt fest, auf welche Box sich der Aufruf bezieht. Ohne Angabe wirkt ein
+Dienst wie bisher auf die zuerst geladene Box – bestehende Automationen und Skripte aus
+Installationen mit nur einer Box sind davon nicht betroffen.
+
+```yaml
+action: fritzbox_netzwerk.reboot_mesh
+data:
+  config_entry: 01JA2B3C4D5E6F7G8H9J0K1L2M
+```
+
 ### `fritzbox_netzwerk.set_device_name`
 
 Ändert die *Bezeichnung* (`X_AVM-DE_FriendlyName`) eines Netzwerkgeräts in der FRITZ!Box – also
@@ -865,6 +903,58 @@ Box neu gestartet. Das Heimnetz ist danach einige Minuten offline. Details unter
 ```yaml
 action: fritzbox_netzwerk.reboot_mesh
 ```
+
+### `fritzbox_netzwerk.gast_wlan_info`
+
+Liefert SSID, Ein/Aus-Status und einen QR-Code zum Verbinden mit dem Gast-WLAN – als
+Rückgabewert des Diensts (`response_variable` bzw. in Skripten/der Entwicklerwerkzeuge-Ansicht
+„Antwort“), nicht als Sensor. Genau deshalb landet das Passwort dadurch nie in einem
+Entitäts-Attribut oder im Verlauf. Die Karte bietet dafür in der
+[Steuerungsleiste](#steuerungsleiste-und-kategorien-als-tabs) einen eigenen Knopf (nur sichtbar,
+wenn es einen Gast-WLAN-Schalter gibt); der Dienst lässt sich aber genauso in eigenen Skripten
+oder über *Entwicklerwerkzeuge → Aktionen* nutzen, zum Beispiel um den QR-Code in eine
+Benachrichtigung einzubetten.
+
+```yaml
+action: fritzbox_netzwerk.gast_wlan_info
+response_variable: gast_wlan
+```
+
+Antwortfelder: `ssid`, `eingeschaltet` (bool), `offen` (bool – `true` bei einem Netz ohne
+Passwort), `passwort` (`null` bei einem offenen Netz) und `qr_code_svg_base64` (ein fertiger
+WLAN-Verbindungs-QR-Code als Base64-kodiertes SVG, direkt als `data:image/svg+xml;base64,…`
+nutzbar). Der QR-Code wird mit der in `fritzconnection` eingebauten Funktion
+(`FritzWLAN.get_wifi_qr_code`, nutzt intern das Paket `segno`) erzeugt – beide Pakete installiert
+die Integration automatisch, es ist keine zusätzliche Einrichtung nötig. Setzt ein separates
+Gast-WLAN voraus (`WLANConfiguration3`, dieselbe Annahme wie beim bereits vorhandenen
+Gast-WLAN-Schalter); ohne das meldet der Dienst einen Fehler.
+
+---
+
+## Blueprints
+
+Fertige Automations-Vorlagen unter `blueprints/automation/fritzbox_netzwerk/` – einfach
+importieren (Einstellungen > Automationen und Szenen > Blueprints > Blueprint importieren, den
+`source_url`-Link aus der jeweiligen Datei einfügen) oder die Datei in das eigene
+`blueprints/automation/`-Verzeichnis kopieren.
+
+- **Push bei Gerät offline** (`push_bei_geraet_offline.yaml`): Benachrichtigung, sobald eines
+  oder mehrere ausgewählte Geräte (über ihre `device_tracker`-Entität) nicht mehr erreichbar
+  sind. Setzt voraus, dass „device_tracker-Entitäten anlegen" in den Optionen aktiviert ist.
+- **Push bei neuem Gerät** (`push_bei_neuem_geraet.yaml`): Benachrichtigung, sobald das Ereignis
+  „Neues Gerät" ein bisher unbekanntes Gerät im Heimnetz meldet. Direkt nach der Einrichtung
+  bzw. einem Neustart von Home Assistant löst das zugrunde liegende Ereignis bewusst noch nichts
+  aus (siehe [Sensoren](#sensoren)), die Automation bekommt davon also nichts „falsch Neues" zu
+  sehen.
+- **Schalter zeitgesteuert ausschalten** (`schalter_zeitgesteuert_ausschalten.yaml`): schaltet
+  einen Schalter dieser Integration – typischerweise das Gast-WLAN – nach einer wählbaren Dauer
+  automatisch wieder aus, sobald er eingeschaltet wird. Für „Gast-WLAN nur bei Besuch: 2 h
+  einschalten, Rest erledigt sich von selbst"; Einschalten bleibt manuell (Dashboard,
+  Sprachassistent, eigene Automation), nur das zuverlässige Wiederausschalten übernimmt das
+  Blueprint. Setzt die FRITZ!Box-Steuerung in den Optionen voraus.
+
+Alle drei Blueprints nutzen ausschließlich bereits vorhandene Entitäten dieser Integration –
+kein zusätzlicher TR-064-Aufruf, keine eigene Integrations-Logik.
 
 ---
 
@@ -1134,21 +1224,38 @@ language: nl   # "" = automatisch, sonst de | en | nl
 
 ## Entwicklung und Tests
 
-Die eigentliche Aufbereitungslogik liegt in `hosts.py` und enthält weder
-Home-Assistant- noch fritzconnection-Importe. Sie ist damit ohne laufende
-Home-Assistant-Instanz prüfbar:
+Die eigentliche Aufbereitungslogik (`hosts.py`, `mesh_topology.py`, `connection.py`,
+`scripts/update_oui.py`) enthält weder Home-Assistant- noch fritzconnection-Importe
+mit echten Netzwerkaufrufen und ist damit ohne laufende Home-Assistant-Instanz und
+ohne echte FRITZ!Box prüfbar. Die Entity-Klassen selbst (`sensor.py`, `binary_sensor.py`,
+`switch.py`, `device_tracker.py`, …) setzen dagegen ein installiertes `homeassistant`
+voraus und werden bewusst nicht per Unittest geprüft – das würde entweder eine volle
+Home-Assistant-Testumgebung erfordern oder zu einer zweiten, von HA losgelösten
+Attrappen-Implementierung führen, die Fehler verdecken statt aufdecken kann:
 
 ```bash
-python3 tests/test_hosts.py     # 41 Fälle
-node tests/test_card.js         # 134 Fälle, jsdom gegen die echte Kartendatei
-node tests/test_card_tabs.js    # 39 Fälle, Kategorien/Tabs und Steuerungsleiste
-node tests/test_tracker_popup.js # 23 Fälle, Anwesenheits-Zeile im Detail-Popup
+python3 -m unittest discover -s tests -p "test_*.py" -v  # 76 Fälle (Stand 1.6.3)
+node tests/test_card_editor.js    # 27 Fälle, Karten-Editor (Felder, Titel-Regression)
+node tests/test_card_filters.js   # 15 Fälle, Karten-Filter (inkl. „Lange offline")
+node tests/test_card_mesh.js      #  6 Fälle, Spalte „Verbunden über" (Mesh-Topologie)
+node tests/test_card_gast_wlan.js # 13 Fälle, Gast-WLAN-QR-Knopf und -Popup
 ```
 
+`tests/test_gast_wlan_info.py` verifiziert zusätzlich den QR-Code selbst: Er wird mit einem
+unabhängigen Dekoder (`zbarimg`, Paket `zbar-tools`) zurückgelesen und mit dem erwarteten
+`WIFI:`-Verbindungsstring verglichen – auch für Sonderzeichen in SSID/Passwort und ein offenes
+Netz ohne Passwort. Ohne installiertes `zbarimg` werden nur diese Fälle übersprungen, nicht die
+ganze Datei.
+
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein echtes
-DOM und steuern die Karte genau so an, wie Lovelace es tut – über `setConfig()`, den
-`hass`-Setter und echte Klick- und Tastaturereignisse. Es gibt keine zweite Kopie des
-Kartencodes im Testaufbau.
+DOM (über `jsdom`) und steuern die Karte genau so an, wie Lovelace es tut – über
+`setConfig()`, den `hass`-Setter und echte Klick- und Tastaturereignisse. Es gibt keine
+zweite Kopie des Kartencodes im Testaufbau. `npm ci && npm test` installiert `jsdom`
+reproduzierbar aus `package-lock.json` und führt alle `tests/test_card_*.js` aus.
+
+**GitHub Actions** (`.github/workflows/tests.yml`) führt bei jedem Push nach `main` und
+jeder Pull Request automatisch die Python-Tests, die Karten-Tests und
+[ruff](https://docs.astral.sh/ruff/) (Linter für den Python-Code) aus.
 
 ---
 

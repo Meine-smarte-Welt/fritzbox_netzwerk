@@ -23,6 +23,7 @@ from homeassistant.config_entries import (
 )
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
+from homeassistant.helpers import selector
 
 from .connection import create_connection
 from .const import (
@@ -30,6 +31,7 @@ from .const import (
     CONF_ENABLE_CONTROLS,
     CONF_ENABLE_DEVICE_TRACKER,
     CONF_ENABLE_REPEATERS,
+    CONF_IP_RANGES,
     CONF_PAIRING_MINUTES,
     CONF_PORT,
     CONF_REMOTE_ACCESS,
@@ -42,6 +44,7 @@ from .const import (
     DEFAULT_ENABLE_DEVICE_TRACKER,
     DEFAULT_ENABLE_REPEATERS,
     DEFAULT_HOST,
+    DEFAULT_IP_RANGES,
     DEFAULT_PAIRING_MINUTES,
     DEFAULT_PORT,
     DEFAULT_REMOTE_ACCESS,
@@ -224,6 +227,80 @@ class FritzboxNetzwerkConfigFlow(ConfigFlow, domain=DOMAIN):
             },
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Aendert Adresse/Zugangsdaten/Fernzugriff, ohne die Integration neu anzulegen.
+
+        Idee 16 aus feature-ideen.md: seit 1.6.3 gibt es mit Port und
+        Fernzugriffsschalter (PR #19, 1.6.2) mehr Einstellungen, die Nutzer
+        aendern moechten, ohne die Integration zu loeschen und neu
+        einzurichten (und dabei z. B. den Reconfigure-Flow-Dialog ihrer
+        Automationen/Dashboards neu verknuepfen zu muessen).
+
+        Das Kennwort wird - wie beim bestehenden Reauth-Flow - immer neu
+        abgefragt statt mit dem alten Wert vorausgefuellt, damit es nicht
+        im Klartext in einem sichtbaren Formularfeld landet.
+        """
+        entry = self._get_reconfigure_entry()
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_HOST, default=entry.data[CONF_HOST]): str,
+                vol.Required(CONF_USERNAME, default=entry.data[CONF_USERNAME]): str,
+                vol.Required(CONF_PASSWORD): str,
+                vol.Optional(
+                    CONF_USE_TLS, default=entry.data.get(CONF_USE_TLS, DEFAULT_USE_TLS)
+                ): bool,
+                vol.Optional(
+                    CONF_PORT, default=entry.data.get(CONF_PORT, DEFAULT_PORT)
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=65535)),
+                vol.Optional(
+                    CONF_REMOTE_ACCESS,
+                    default=entry.data.get(CONF_REMOTE_ACCESS, DEFAULT_REMOTE_ACCESS),
+                ): bool,
+            }
+        )
+
+        if user_input is None:
+            return self.async_show_form(step_id="reconfigure", data_schema=schema)
+
+        self._host = user_input[CONF_HOST].strip()
+        self._port = user_input.get(CONF_PORT, DEFAULT_PORT)
+        self._remote_access = user_input.get(CONF_REMOTE_ACCESS, DEFAULT_REMOTE_ACCESS)
+        self._username = user_input[CONF_USERNAME]
+        self._password = user_input[CONF_PASSWORD]
+        self._use_tls = self._remote_access or user_input.get(
+            CONF_USE_TLS, DEFAULT_USE_TLS
+        )
+
+        result = await self.hass.async_add_executor_job(self._try_connect)
+        if result != RESULT_SUCCESS:
+            return self.async_show_form(
+                step_id="reconfigure", data_schema=schema, errors={"base": result}
+            )
+
+        # Verhindert, dass eine geaenderte Adresse versehentlich auf eine
+        # ANDERE, bereits vorhandene FRITZ!Box zeigt (erkennbar an einer
+        # abweichenden Seriennummer). Wird die Seriennummer nicht geliefert
+        # (siehe _try_connect - z. B. FRITZ!Box 5690 Pro), greift dieser
+        # Schutz nicht, weil die bestehende Kennung dann ohnehin schon die
+        # alte Host-Adresse war - ein bekanntes, bereits vor 1.6.3
+        # bestehendes Verhalten der Kennungsvergabe.
+        await self.async_set_unique_id(self._serial_number or self._host)
+        self._abort_if_unique_id_mismatch()
+
+        return self.async_update_reload_and_abort(
+            entry,
+            data_updates={
+                CONF_HOST: self._host,
+                CONF_USERNAME: self._username,
+                CONF_PASSWORD: self._password,
+                CONF_USE_TLS: self._use_tls,
+                CONF_PORT: self._port,
+                CONF_REMOTE_ACCESS: self._remote_access,
+            },
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(
@@ -295,6 +372,16 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                 ): vol.All(
                     vol.Coerce(int),
                     vol.Range(min=MIN_PAIRING_MINUTES, max=MAX_PAIRING_MINUTES),
+                ),
+                # Idee 7 aus feature-ideen.md: Zaehler-Sensoren je benanntem
+                # IP-Bereich, z. B. "Drucker online: 2 von 3". Eine Zeile je
+                # Bereich ("Name=Muster"), siehe hosts.parse_ip_ranges - dieselbe
+                # Platzhalter-Syntax wie das Kartenfeld "IP-Filter".
+                vol.Optional(
+                    CONF_IP_RANGES,
+                    default=options.get(CONF_IP_RANGES, DEFAULT_IP_RANGES),
+                ): selector.TextSelector(
+                    selector.TextSelectorConfig(multiline=True)
                 ),
             }
         )

@@ -1,7 +1,7 @@
 {
   "domain": "fritzbox_netzwerk",
   "name": "FRITZ!Box Netzwerk",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "documentation": "https://github.com/Meine-smarte-Welt/fritzbox_netzwerk",
   "issue_tracker": "https://github.com/Meine-smarte-Welt/fritzbox_netzwerk/issues",
   "codeowners": ["@Meine-smarte-Welt"],
@@ -10,5 +10,5 @@
   "integration_type": "device",
   "iot_class": "local_polling",
   "loggers": ["fritzconnection"],
-  "requirements": ["fritzconnection==1.15.1"]
+  "requirements": ["fritzconnection==1.15.1", "segno==1.6.6"]
 }

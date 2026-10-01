@@ -10,6 +10,11 @@ set_device_name:
       example: "Drucker Arbeitszimmer"
       selector:
         text:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
 
 wake_on_lan:
   fields:
@@ -18,6 +23,11 @@ wake_on_lan:
       example: "3C:A6:F6:00:11:22"
       selector:
         text:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
 
 set_internet_access:
   fields:
@@ -31,6 +41,11 @@ set_internet_access:
       example: true
       selector:
         boolean:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
 
 set_mac_filter:
   fields:
@@ -39,6 +54,11 @@ set_mac_filter:
       example: true
       selector:
         boolean:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
 
 start_pairing:
   fields:
@@ -51,5 +71,24 @@ start_pairing:
           max: 120
           unit_of_measurement: min
           mode: box
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
 
 reboot_mesh:
+  fields:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+gast_wlan_info:
+  fields:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk

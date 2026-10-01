@@ -6,7 +6,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.6.2"
+VERSION: Final = "1.6.3"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -37,6 +37,9 @@ CONF_ENABLE_DEVICE_TRACKER: Final = "enable_device_tracker"
 CONF_ENABLE_CONTROLS: Final = "enable_controls"
 CONF_ENABLE_REPEATERS: Final = "enable_repeaters"
 CONF_PAIRING_MINUTES: Final = "pairing_minutes"
+# Benannte IP-Bereiche fuer Zaehler-Sensoren (Idee 7 aus feature-ideen.md),
+# z. B. "Drucker=192.168.2.*" - eine Zeile je Bereich, siehe hosts.parse_ip_ranges.
+CONF_IP_RANGES: Final = "ip_ranges"
 
 DEFAULT_SCAN_INTERVAL: Final = 60  # Sekunden
 DEFAULT_TRACK_ADDRESS_SOURCE: Final = True
@@ -46,6 +49,7 @@ DEFAULT_ENABLE_DEVICE_TRACKER: Final = False
 DEFAULT_ENABLE_CONTROLS: Final = False
 DEFAULT_ENABLE_REPEATERS: Final = True
 DEFAULT_PAIRING_MINUTES: Final = 5  # Minuten
+DEFAULT_IP_RANGES: Final = ""
 
 MIN_PAIRING_MINUTES: Final = 1
 MAX_PAIRING_MINUTES: Final = 120
@@ -77,16 +81,42 @@ SERVICE_SET_INTERNET_ACCESS: Final = "set_internet_access"
 SERVICE_SET_MAC_FILTER: Final = "set_mac_filter"
 SERVICE_START_PAIRING: Final = "start_pairing"
 SERVICE_REBOOT_MESH: Final = "reboot_mesh"
+SERVICE_GAST_WLAN_INFO: Final = "gast_wlan_info"
+
+# WLANConfiguration-Dienstindex des Gast-WLANs - dieselbe Annahme (Dualband-
+# Box: 1 = 2,4 GHz, 2 = 5 GHz, 3 = Gast), die switch.py (WLAN_BANDS) und
+# coordinator.py (_wlan_supported) bereits fuer den Gast-WLAN-Schalter
+# verwenden. Bewusst NICHT fritzconnections eigene FritzGuestWLAN-
+# Autoerkennung (waehlt den hoechsten vorhandenen WLANConfiguration-Index) -
+# auf Boxen mit mehr als drei WLAN-Diensten wuerde das vom Schalter abweichen
+# und zu widerspruechlichen Angaben zwischen Schalter und Gast-WLAN-Info
+# fuehren (Idee 11 aus feature-ideen.md).
+GAST_WLAN_SERVICE_INDEX: Final = 3
 
 ATTR_MAC: Final = "mac"
 ATTR_NAME: Final = "name"
 ATTR_BLOCKED_PARAM: Final = "blocked"
 ATTR_ENABLED: Final = "enabled"
 ATTR_MINUTES: Final = "minutes"
+# Optionales Feld in allen Diensten (Idee 14 aus feature-ideen.md): ohne
+# Angabe wirkt ein Dienst weiterhin auf die zuerst geladene Box (bisheriges
+# Verhalten, siehe README "Bekannte Einschränkungen").
+ATTR_CONFIG_ENTRY: Final = "config_entry"
 
 # --- Speicher ------------------------------------------------------------
 LAST_SEEN_STORAGE_VERSION: Final = 1
+FIRST_SEEN_STORAGE_VERSION: Final = 1
 PAIRING_STORAGE_VERSION: Final = 1
+
+# Filter "Neu (letzte N Tage)" in der Karte (Idee 2 aus feature-ideen.md).
+NEW_DEVICE_FILTER_DAYS: Final = 7
+
+# DHCP-Bereich (Idee 8 aus feature-ideen.md): Anfang/Ende aendern sich in der
+# Praxis so gut wie nie (nur bei manueller Umstellung der DHCP-Einstellungen
+# an der Box) - deshalb reicht ein fester, grosszuegiger Abstand zwischen den
+# Abfragen von ``LANHostConfigManagement1.GetInfo``, unabhaengig von der
+# (fuer etwas anderes gedachten) IP-Typ-Erfassung.
+DHCP_POOL_INTERVAL_MINUTES: Final = 30
 
 # --- Dashboard-Karte -----------------------------------------------------
 CARD_FILENAME: Final = "fritzbox-netzwerk-card.js"

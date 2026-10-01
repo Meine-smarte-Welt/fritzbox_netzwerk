@@ -87,12 +87,26 @@ def mac_key(mac: Any) -> str:
 # --- Hersteller aus der MAC-Adresse (OUI) --------------------------------
 
 # Praefixe, die das IEEE selbst als Verwalter fuehrt: Der eigentliche Inhaber
-# steht dann in den kleineren MA-M/MA-S-Registern, die hier nicht enthalten
-# sind. Ein Treffer waere keine Auskunft, deshalb gilt der Hersteller als
-# unbekannt.
+# steht dann in den kleineren MA-M/MA-S-Registern (seit 1.6.3 unterstuetzt,
+# siehe OUI_PREFIX_LENGTHS/vendor_for unten - die Zeilen dafuer muessen aber
+# zusaetzlich in data/oui.txt stehen, siehe scripts/update_oui.py). Ohne eine
+# solche Zeile waere ein Treffer auf diesen Eintrag selbst keine Auskunft,
+# deshalb gilt der Hersteller in dem Fall weiterhin als unbekannt.
 UNRESOLVED_OWNERS: Final = frozenset({"ieee registration authority"})
 
-_OUI_PREFIX = re.compile(r"[0-9A-F]{6}")
+# IEEE fuehrt drei Register unterschiedlicher Groesse (siehe
+# https://standards.ieee.org/products-programs/regauth/):
+# MA-L ("OUI", 24 Bit, 6 Hex-Zeichen) fuer grosse Hersteller, MA-M (28 Bit,
+# 7 Hex-Zeichen) und MA-S (36 Bit, 9 Hex-Zeichen) fuer kleinere Hersteller
+# mit weniger benoetigten Adressen - genau die Smart-Home-Hersteller, die
+# bisher oft als "unbekannt" erschienen (Idee 4a aus feature-ideen.md).
+# Absteigend sortiert: ein 9-stelliger MA-S-Treffer ist spezifischer als ein
+# zufaellig passender 6-stelliger MA-L-Teilstring und hat deshalb Vorrang.
+OUI_PREFIX_LENGTHS: Final = (9, 7, 6)
+
+_OUI_PREFIX = re.compile(
+    "|".join(rf"[0-9A-F]{{{length}}}" for length in OUI_PREFIX_LENGTHS)
+)
 
 
 def mac_prefix(mac: Any) -> str:
@@ -144,10 +158,21 @@ def load_oui(path: str) -> dict[str, str]:
 
 
 def vendor_for(mac: Any, oui: dict[str, str] | None) -> str:
-    """Hersteller zu einer MAC-Adresse; leer, wenn unbekannt."""
+    """Hersteller zu einer MAC-Adresse; leer, wenn unbekannt.
+
+    Probiert die Praefix-Laengen aus ``OUI_PREFIX_LENGTHS`` von der
+    spezifischsten (MA-S, 9 Hex-Zeichen) zur allgemeinsten (MA-L, 6
+    Hex-Zeichen): ``oui.txt`` kann Zeilen in allen drei Laengen enthalten,
+    ein laengerer (spezifischerer) Treffer gilt vor einem kuerzeren.
+    """
     if not oui:
         return ""
-    return oui.get(mac_prefix(mac), "")
+    key = mac_key(mac).upper()
+    for length in OUI_PREFIX_LENGTHS:
+        vendor = oui.get(key[:length])
+        if vendor:
+            return vendor
+    return ""
 
 
 def apply_vendors(
@@ -319,6 +344,13 @@ def normalize_host(raw: dict[str, Any]) -> dict[str, Any]:
         # Geraet zuletzt als aktiv gesehen wurde. Die FRITZ!Box liefert das
         # NICHT - die Integration schreibt es selbst mit.
         "last_seen": None,
+        # Wird in ``apply_mesh_links()`` ergaenzt (Idee 5 aus feature-ideen.md):
+        # Name des Mesh-Nachbarn (FRITZ!Box oder Repeater), ueber den dieses
+        # Geraet gerade verbunden ist, und die aktuelle Verbindungsrate in
+        # Mbit/s. Bleibt leer/None ohne eindeutige Mesh-Verbindung - siehe
+        # dortigen Hinweis.
+        "connected_via": "",
+        "link_mbit": None,
     }
 
 
@@ -450,6 +482,30 @@ def apply_last_seen(
     return hosts
 
 
+def apply_first_seen(
+    hosts: list[dict[str, Any]], first_seen: dict[str, str] | None
+) -> list[dict[str, Any]]:
+    """Ergaenzt den Zeitpunkt, zu dem ein Geraet zum ersten Mal gesehen wurde.
+
+    ``first_seen`` bildet ``mac_key`` auf einen ISO-Zeitstempel ab und wird
+    vom Coordinator genau dann geschrieben, wenn ein Geraet erstmals als
+    "neu" erkannt wird (``_process_new_devices``, dieselbe Grundlage wie das
+    Ereignis "Neues Geraet"). Fuer alle Geraete, die schon vor 1.6.3
+    bestanden (und damit schon in ``last_seen`` standen, bevor diese
+    Zeiterfassung eingefuehrt wurde), fehlt bewusst ein Wert - sie wuerden
+    sonst beim Update auf 1.6.3 faelschlich als "neu" erscheinen. Ein
+    fehlender Wert bedeutet fuer die Karte deshalb "nicht neu", nicht
+    "unbekannt".
+    """
+    if not first_seen:
+        return hosts
+    for host in hosts:
+        stamp = first_seen.get(mac_key(host["mac"]))
+        if stamp:
+            host["first_seen"] = stamp
+    return hosts
+
+
 # --- WLAN-Band je Geraet -------------------------------------------------
 
 BAND_2_4: Final = "2.4"
@@ -570,6 +626,8 @@ def build_hosts(
     pool: tuple[int, int] | None = None,
     oui: dict[str, str] | None = None,
     bands: dict[str, str] | None = None,
+    first_seen: dict[str, str] | None = None,
+    mesh_links: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Baut die vollstaendige, sortierte Hostliste fuer das Sensorattribut.
 
@@ -591,8 +649,10 @@ def build_hosts(
     apply_address_sources(hosts, address_sources)
     apply_ha_devices(hosts, ha_devices)
     apply_last_seen(hosts, last_seen)
+    apply_first_seen(hosts, first_seen)
     apply_vendors(hosts, oui)
     apply_bands(hosts, bands)
+    apply_mesh_links(hosts, mesh_links)
     for host in hosts:
         host["ip_class"] = classify_ip(host, pool)
     hosts.sort(key=lambda host: ip_sort_key(host["ip"]))
@@ -613,6 +673,170 @@ def summarize(hosts: list[dict[str, Any]]) -> dict[str, int]:
         # fest zugewiesenen Adressen (fest/reserviert).
         "static": sum(1 for host in hosts if host.get("ip_class") == "fixed"),
     }
+
+
+# ---------------------------------------------------------------------------
+# Benannte IP-Bereiche, Baender-Zaehler, DHCP-Auslastung, Adresskonflikte
+# (Idee 7 + 8 aus feature-ideen.md)
+# ---------------------------------------------------------------------------
+
+
+def _wildcard_to_regex(pattern: str) -> re.Pattern[str]:
+    """Wandelt ein Muster mit ``*``/``?`` in einen verankerten, case-insensitiven
+    regulaeren Ausdruck um - dieselbe Syntax wie ``wildcardToRegExp`` im
+    Karten-Javascript (Kartenfeld ``ip_filter``), damit IP-Bereiche in den
+    Optionen und in der Karte identisch ausgewertet werden.
+    """
+    body = re.escape(pattern).replace(r"\*", ".*").replace(r"\?", ".")
+    return re.compile(f"^{body}$", re.IGNORECASE)
+
+
+def parse_wildcard_filter(value: Any) -> dict[str, list[re.Pattern[str]]] | None:
+    """Zerlegt eine Mustervorgabe in Treffer-/Ausschlussmuster.
+
+    Portierung von ``parseIpFilter`` aus der Karte: durch Leerraum, Komma
+    oder Semikolon getrennte Muster, ein fuehrendes ``!`` schliesst aus
+    (z. B. ``192.168.1.*,!192.168.1.1``). ``None``, wenn nichts zu filtern ist.
+    """
+    text = (
+        ",".join(str(item) for item in value)
+        if isinstance(value, (list, tuple))
+        else str(value if value is not None else "")
+    )
+    include: list[re.Pattern[str]] = []
+    exclude: list[re.Pattern[str]] = []
+    for token in re.split(r"[\s,;]+", text):
+        if not token:
+            continue
+        if token.startswith("!"):
+            rest = token[1:]
+            if rest:
+                exclude.append(_wildcard_to_regex(rest))
+        else:
+            include.append(_wildcard_to_regex(token))
+    if not include and not exclude:
+        return None
+    return {"include": include, "exclude": exclude}
+
+
+def ip_matches_filter(ip: Any, filt: dict[str, list[re.Pattern[str]]] | None) -> bool:
+    """Prueft eine IP-Adresse gegen ein geparstes Muster (siehe ``ipMatchesFilter``
+    im Karten-Javascript). Ohne Treffermuster gilt jede nicht ausgeschlossene
+    Adresse als Treffer; eine leere Adresse trifft nie auf ein Treffermuster."""
+    if not filt:
+        return True
+    text = str(ip or "").strip()
+    include = filt.get("include") or []
+    if include and not any(regex.match(text) for regex in include):
+        return False
+    return not any(regex.match(text) for regex in filt.get("exclude") or [])
+
+
+def parse_ip_ranges(text: Any) -> list[dict[str, Any]]:
+    """Liest die Options-Angabe benannter IP-Bereiche (Idee 7 aus feature-ideen.md).
+
+    Format: eine Zeile je Bereich, ``Name=Muster`` - das Muster folgt derselben
+    Syntax wie das Kartenfeld ``ip_filter`` (siehe ``parse_wildcard_filter``)
+    und darf auch mehrere Adressen/Ausschluesse enthalten, z. B.
+    ``Drucker=192.168.2.10,192.168.2.11``. Zeilen ohne ``=``, mit leerem
+    Namen oder leerem/unbrauchbarem Muster werden uebersprungen; bei
+    doppeltem Namen zaehlt die letzte Zeile.
+    """
+    ranges: dict[str, dict[str, Any]] = {}
+    for line in str(text or "").splitlines():
+        if "=" not in line:
+            continue
+        name, _, pattern = line.partition("=")
+        name = name.strip()
+        pattern = pattern.strip()
+        if not name or not pattern:
+            continue
+        parsed = parse_wildcard_filter(pattern)
+        if parsed is None:
+            continue
+        ranges[name] = {"name": name, "pattern": pattern, "filter": parsed}
+    return list(ranges.values())
+
+
+def count_ip_range(hosts: list[dict[str, Any]], ip_range: dict[str, Any]) -> dict[str, int]:
+    """Zaehlt die Geraete eines IP-Bereichs (Idee 7, z. B. "Drucker online: 2 von 3").
+
+    Geraete ohne IP-Adresse treffen nie auf einen Bereich - wie beim
+    gleichnamigen Kartenfeld ``ip_filter``.
+    """
+    filt = ip_range["filter"]
+    matching = [
+        host for host in hosts if host.get("ip") and ip_matches_filter(host["ip"], filt)
+    ]
+    active = sum(1 for host in matching if host.get("active"))
+    return {"active": active, "total": len(matching)}
+
+
+def count_band(hosts: list[dict[str, Any]], band: str) -> dict[str, int]:
+    """Zaehlt die Geraete eines Funkbands (Idee 7, z. B. "WLAN 5 GHz: 4 Geraete").
+
+    Das Band steht nur, wenn "WLAN-Band je Geraet erfassen" eingeschaltet ist
+    und das Geraet direkt an der FRITZ!Box haengt (siehe ``apply_bands``);
+    ohne das wird hier fuer jedes Band 0 gezaehlt.
+    """
+    matching = [host for host in hosts if host.get("band") == band]
+    active = sum(1 for host in matching if host.get("active"))
+    return {"active": active, "total": len(matching)}
+
+
+def dhcp_pool_usage(
+    hosts: list[dict[str, Any]], pool: tuple[int, int] | None
+) -> dict[str, int] | None:
+    """Belegung des DHCP-Bereichs (Idee 8, z. B. "Belegte Adressen im Pool: 63 von 100").
+
+    Gezaehlt werden AKTIVE Geraete, deren Adresse im Bereich liegt - eine
+    echte Lease-Tabelle liefert TR-064 nicht, ``LANHostConfigManagement1``
+    kennt nur Anfang und Ende des Bereichs (siehe ``dhcp_pool``). Ein Geraet,
+    das sich abgemeldet hat, zaehlt deshalb bewusst nicht mehr mit, auch wenn
+    seine Lease an der Box rein theoretisch noch nicht abgelaufen ist -
+    Annahme: das kommt der tatsaechlichen Belegung naeher als jeder Eintrag,
+    den die Box jemals in diesem Bereich vergeben hat. ``None`` ohne
+    bekannten Bereich (DHCP-Server aus oder (noch) nicht ermittelbar).
+    """
+    if pool is None:
+        return None
+    low, high = pool
+    total = high - low + 1
+    used = 0
+    for host in hosts:
+        if not host.get("active"):
+            continue
+        number = ipv4_number(host.get("ip"))
+        if number is not None and low <= number <= high:
+            used += 1
+    return {"total": total, "used": used, "free": max(total - used, 0)}
+
+
+def ip_conflicts(hosts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Findet IP-Adressen, die mehrere AKTIVE Geraete gleichzeitig melden (Idee 8).
+
+    Ein Adresskonflikt zeigt sich in der Hostliste der FRITZ!Box als zwei
+    eigene Eintraege mit identischer ``IPAddress``, die beide ``active`` sind -
+    typischerweise, weil ein Geraet mit fest eingestellter Adresse dieselbe
+    zusaetzlich per DHCP zugeteilt bekommen hat. Inaktive Geraete mit
+    derselben, laengst nicht mehr genutzten Adresse sind KEIN Konflikt und
+    werden hier bewusst nicht gezaehlt.
+    """
+    by_ip: dict[str, list[dict[str, Any]]] = {}
+    for host in hosts:
+        ip = host.get("ip")
+        if not ip or not host.get("active"):
+            continue
+        by_ip.setdefault(ip, []).append(host)
+    return [
+        {
+            "ip": ip,
+            "macs": [host["mac"] for host in matching],
+            "names": [host["name"] for host in matching],
+        }
+        for ip, matching in by_ip.items()
+        if len(matching) > 1
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -756,6 +980,73 @@ def mesh_reboot_plan(
         else:
             skipped.append(member)
     return targets, skipped
+
+
+# ---------------------------------------------------------------------------
+# Mesh-Topologie: "Verbunden ueber" und Verbindungsrate (Idee 5 aus
+# feature-ideen.md)
+# ---------------------------------------------------------------------------
+
+
+def mesh_link_mbit(kbit_per_s: Any) -> float | None:
+    """Rechnet eine Mesh-Verbindungsrate in Mbit/s um (eine Nachkommastelle).
+
+    Die Mesh-Topologie (siehe ``coordinator._fetch_mesh_topology``) liefert
+    die Rate ueber ``fritzconnection.lib.fritztopology.Connection`` in
+    kbit/s (laut Quelltext dieser Bibliotheksklasse) - ANDERE Einheit als
+    ``to_mbit_per_s`` (dort: bit/s fuer die Leitungs-Sync-Rate), deshalb eine
+    eigene Umrechnung statt doppelter Verwendung.
+    """
+    value = as_int(kbit_per_s, default=-1)
+    if value < 0:
+        return None
+    return round(value / 1000, 1)
+
+
+def slowest_mesh_link(hosts: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Das aktive Geraet mit der aktuell langsamsten Mesh-Verbindungsrate.
+
+    Gedacht als Sensor "Schwaechstes Geraet" aus Idee 5 aus feature-ideen.md -
+    bewusst ueber die Verbindungsrate (``link_mbit``, siehe
+    ``apply_mesh_links``) statt einer Signalstaerke in dBm: TR-064 liefert
+    laut der mit diesem Projekt gepinnten ``fritzconnection``-Bibliothek
+    (1.15.1, ``fritzconnection.lib.fritztopology``) keinen Signalstaerke-Wert,
+    nur Datenraten (``cur_data_rate_tx``/``cur_data_rate_rx``) - eine
+    niedrige Rate ist in der Praxis aber ohnehin der Grund, warum sich
+    jemand fuer das "schwaechste Geraet" interessiert. ``None`` ohne
+    Geraete mit bekannter Rate (kein Mesh, oder Topologie nicht abrufbar).
+    """
+    candidates = [
+        host
+        for host in hosts
+        if host.get("active") and isinstance(host.get("link_mbit"), (int, float))
+    ]
+    if not candidates:
+        return None
+    return min(candidates, key=lambda host: host["link_mbit"])
+
+
+def apply_mesh_links(
+    hosts: list[dict[str, Any]], links: dict[str, dict[str, Any]] | None
+) -> list[dict[str, Any]]:
+    """Ergaenzt "verbunden ueber" und die Verbindungsrate anhand des MAC-Schluessels.
+
+    ``links`` kommt von ``FritzboxNetzwerkCoordinator._fetch_mesh_topology``:
+    je Geraet mit GENAU EINER aktiven Mesh-Verbindung der Name des Nachbarn
+    (FRITZ!Box oder Repeater) und die aktuelle Verbindungsrate. Geraete mit
+    mehreren oder keiner aktiven Verbindung (z. B. die Box selbst, oder ein
+    Repeater mit mehreren eigenen Clients) bleiben ohne Angabe - "verbunden
+    ueber" waere dort nicht aus einem einzelnen Nachbarn eindeutig ablesbar.
+    """
+    if not links:
+        return hosts
+    for host in hosts:
+        link = links.get(mac_key(host["mac"]))
+        if not link:
+            continue
+        host["connected_via"] = link.get("connected_via") or ""
+        host["link_mbit"] = link.get("link_mbit")
+    return hosts
 
 
 # ---------------------------------------------------------------------------

@@ -1,8 +1,16 @@
 # FRITZ!Box Netzwerk - Hersteller-Zuordnung (OUI) fuer MAC-Adressen
-# Format: PRAEFIX:Herstellername  (PRAEFIX = die ersten 3 Byte der MAC, 6 Hex-Zeichen)
-# Quelle: IEEE Registration Authority, oeffentliches MA-L-Register (OUI).
-# Diese Kopie stammt aus dem PyPI-Paket mac-vendor-lookup 0.1.15 (veroeffentlicht am 2025-11-30, Apache-2.0).
-# Sie laesst sich jederzeit durch eine neuere Liste im selben Format ersetzen.
+# Format: PRAEFIX:Herstellername
+#   PRAEFIX = 6 Hex-Zeichen fuer MA-L (24 Bit, grosse Hersteller),
+#             7 fuer MA-M (28 Bit) bzw. 9 fuer MA-S (36 Bit) - beide fuer
+#             kleinere Hersteller mit weniger benoetigten Adressen (seit
+#             1.6.3 unterstuetzt, siehe hosts.OUI_PREFIX_LENGTHS).
+# Quelle: IEEE Registration Authority, MA-L-Register (OUI). Diese Kopie
+# stammt aus dem PyPI-Paket mac-vendor-lookup 0.1.15 (veroeffentlicht am
+# 2025-11-30, Apache-2.0).
+# MA-M/MA-S sind in dieser Datei noch NICHT enthalten: scripts/update_oui.py
+# kann sie direkt von IEEE dazuladen, braucht dafuer aber echten
+# Internetzugriff auf standards-oui.ieee.org (in der Entwicklungsumgebung
+# dieses Patches nicht verfuegbar - bitte einmal selbst ausfuehren).
 # Eintraege "IEEE Registration Authority" (Praefix an kleinere Bloecke weitergegeben) ignoriert die Integration.
 # Eintraege: 38437
 000000:XEROX CORPORATION

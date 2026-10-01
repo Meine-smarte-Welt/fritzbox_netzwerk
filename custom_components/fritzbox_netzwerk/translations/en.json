@@ -2,7 +2,9 @@
   "config": {
     "abort": {
       "already_configured": "This FRITZ!Box is already set up.",
-      "reauth_successful": "The credentials have been updated."
+      "reauth_successful": "The credentials have been updated.",
+      "reconfigure_successful": "The settings have been updated.",
+      "unique_id_mismatch": "The new address points to a different FRITZ!Box than the one already set up. Please set up a new integration for a different box."
     },
     "error": {
       "cannot_connect": "The FRITZ!Box cannot be reached at this address.",
@@ -35,6 +37,22 @@
           "username": "Username",
           "password": "Password"
         }
+      },
+      "reconfigure": {
+        "title": "Change FRITZ!Box settings",
+        "data": {
+          "host": "Address",
+          "username": "Username",
+          "password": "Password",
+          "use_tls": "Connect encrypted (HTTPS)",
+          "port": "Port (0 = automatic)",
+          "remote_access": "Remote access via MyFRITZ!/HTTPS"
+        },
+        "data_description": {
+          "host": "Hostname or IP address of the FRITZ!Box, usually fritz.box.",
+          "port": "Remote access: HTTPS port of the FRITZ!Box, e.g. 65443. 0 uses 49000/49443 locally and 443 remotely.",
+          "remote_access": "Enables HTTPS and TR-064 remote access."
+        }
       }
     }
   },
@@ -50,7 +68,8 @@
           "enable_device_tracker": "Create device trackers",
           "enable_repeaters": "Create repeaters as their own devices",
           "enable_controls": "FRITZ!Box controls (experimental)",
-          "pairing_minutes": "Pairing duration (minutes)"
+          "pairing_minutes": "Pairing duration (minutes)",
+          "ip_ranges": "IP ranges (Name=Pattern, one line per range)"
         },
         "data_description": {
           "track_address_source": "This value is not part of the host list and costs one extra request per device. It rarely changes, so it runs on its own slower schedule.",
@@ -59,7 +78,8 @@
           "enable_device_tracker": "Creates a device_tracker (home/away) per network device for presence and automations. May result in many entities on large networks.",
           "enable_repeaters": "Creates a separate device with a connected status for every FRITZ! mesh repeater in the home network, plus a reboot button when the FRITZ!Box controls are enabled. It also adds a mesh sensor (FRITZ!Box + repeaters) and, with controls, the \"Restart all FRITZ! devices\" button. Devices whose reported model contains \"Repeater\" or \"FRITZ!Box\" are detected - including a second FRITZ!Box running as a Wi-Fi mesh repeater.",
           "enable_controls": "Creates switches for the Wi-Fi bands (2.4 GHz, 5 GHz, guest) and for the Wi-Fi MAC filter, plus buttons to reconnect, reboot and start a pairing (MAC filter temporarily off), and a reboot button per repeater when repeater devices are enabled. Availability and assignment depend on the model.",
-          "pairing_minutes": "How long the MAC filter stays off during pairing before it switches itself back on. Applies to the \"Start pairing\" button and to the service when no duration is given."
+          "pairing_minutes": "How long the MAC filter stays off during pairing before it switches itself back on. Applies to the \"Start pairing\" button and to the service when no duration is given.",
+          "ip_ranges": "Creates a counter sensor per line, e.g. \"Printers=192.168.2.*\" for \"Printers online: 2 of 3\". The pattern uses the same syntax as the card field \"IP filter\" (\"*\"/\"?\" as wildcards, several patterns separated by a comma, \"!\" excludes). Empty = no range sensors."
         }
       }
     }
@@ -99,6 +119,25 @@
       },
       "online_seit": {
         "name": "Online since"
+      },
+      "band_24": {
+        "name": "WLAN 2.4 GHz",
+        "unit_of_measurement": "devices"
+      },
+      "band_5": {
+        "name": "WLAN 5 GHz",
+        "unit_of_measurement": "devices"
+      },
+      "band_6": {
+        "name": "WLAN 6 GHz",
+        "unit_of_measurement": "devices"
+      },
+      "dhcp_pool": {
+        "name": "Used addresses in pool",
+        "unit_of_measurement": "addresses"
+      },
+      "schwaechstes_geraet": {
+        "name": "Weakest device"
       }
     },
     "binary_sensor": {
@@ -107,6 +146,9 @@
       },
       "internet_verbunden": {
         "name": "Internet connected"
+      },
+      "ip_konflikt": {
+        "name": "IP address conflict"
       }
     },
     "switch": {
@@ -158,6 +200,10 @@
         "name": {
           "name": "New name",
           "description": "The new display name (max. 64 characters)."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Only needed with more than one FRITZ!Box set up: selects which one this service applies to. Without it, the service affects the first loaded box."
         }
       }
     },
@@ -168,6 +214,10 @@
         "mac": {
           "name": "MAC address",
           "description": "MAC address of the device."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Only needed with more than one FRITZ!Box set up: selects which one this service applies to. Without it, the service affects the first loaded box."
         }
       }
     },
@@ -182,6 +232,10 @@
         "blocked": {
           "name": "Blocked",
           "description": "On = block internet access, Off = allow."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Only needed with more than one FRITZ!Box set up: selects which one this service applies to. Without it, the service affects the first loaded box."
         }
       }
     },
@@ -192,6 +246,10 @@
         "enabled": {
           "name": "Filter active",
           "description": "On = only known devices may join the Wi-Fi, off = any device with the correct Wi-Fi password."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Only needed with more than one FRITZ!Box set up: selects which one this service applies to. Without it, the service affects the first loaded box."
         }
       }
     },
@@ -202,12 +260,32 @@
         "minutes": {
           "name": "Duration (minutes)",
           "description": "How long the filter stays off. If omitted, the integration setting is used."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Only needed with more than one FRITZ!Box set up: selects which one this service applies to. Without it, the service affects the first loaded box."
         }
       }
     },
     "reboot_mesh": {
       "name": "Restart mesh",
-      "description": "Restarts all FRITZ! devices: the repeaters first, then the FRITZ!Box. Repeaters that cannot be reached are skipped. The home network is offline for a few minutes afterwards."
+      "description": "Restarts all FRITZ! devices: the repeaters first, then the FRITZ!Box. Repeaters that cannot be reached are skipped. The home network is offline for a few minutes afterwards.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Only needed with more than one FRITZ!Box set up: selects which one this service applies to. Without it, the service affects the first loaded box."
+        }
+      }
+    },
+    "gast_wlan_info": {
+      "name": "Get guest Wi-Fi credentials",
+      "description": "Returns the guest Wi-Fi's SSID, on/off state and a QR code to connect - only as a return value, never as a sensor (so the password never ends up in an attribute or in history). Requires a separate guest Wi-Fi (WLANConfiguration3).",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Only needed with more than one FRITZ!Box set up: selects which one this service applies to. Without it, the service affects the first loaded box."
+        }
+      }
     }
   },
   "exceptions": {
@@ -246,6 +324,12 @@
     },
     "mesh_reboot_partial": {
       "message": "The FRITZ!Box is restarting, but these repeaters could not be restarted: {names} ({error})"
+    }
+  },
+  "issues": {
+    "remote_access_no_tls_verification": {
+      "title": "Remote access without certificate verification",
+      "description": "Remote access via MyFRITZ!/HTTPS is enabled for {host}. The library used (fritzconnection) does not verify TLS certificates - a low risk on the local home network, but a higher one over the open internet (potentially man-in-the-middle). See the README section \"Zugriff auf eine entfernte FRITZ!Box\" for details. This notice disappears automatically once remote access is turned off again, in the options or via \"Reconfigure\"."
     }
   }
 }

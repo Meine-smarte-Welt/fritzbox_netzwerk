@@ -15,7 +15,7 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
-from homeassistant.const import CONF_HOST
+from homeassistant.const import CONF_HOST, EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -23,7 +23,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, MANUFACTURER, VERSION
 from .coordinator import FritzboxNetzwerkCoordinator
-from .hosts import mac_key
+from .hosts import ip_conflicts, mac_key
 from .repeater import (
     find_repeater,
     repeater_device_info,
@@ -45,8 +45,15 @@ async def async_setup_entry(
     einen Verbunden-Sensor an."""
     coordinator = entry.runtime_data
     # Seit 1.6.2: ob die FRITZ!Box aktuell eine Internetverbindung hat.
-    # Unabhaengig von der Repeater-Option, deshalb immer angelegt.
-    async_add_entities([FritzboxNetzwerkInternetSensor(coordinator, entry)])
+    # Seit 1.6.3: Warnung bei doppelt vergebener IP-Adresse (Idee 8 aus
+    # feature-ideen.md). Beide unabhaengig von der Repeater-Option, deshalb
+    # immer angelegt.
+    async_add_entities(
+        [
+            FritzboxNetzwerkInternetSensor(coordinator, entry),
+            FritzboxNetzwerkIpConflictSensor(coordinator, entry),
+        ]
+    )
 
     if not repeaters_enabled(entry):
         return
@@ -143,3 +150,48 @@ class FritzboxNetzwerkInternetSensor(
         """Verbindungsstatus der FRITZ!Box, oder ``None`` ohne Angabe."""
         connection = (self.coordinator.data or {}).get("connection")
         return (connection or {}).get("online")
+
+
+class FritzboxNetzwerkIpConflictSensor(
+    CoordinatorEntity[FritzboxNetzwerkCoordinator], BinarySensorEntity
+):
+    """Warnt, wenn mehrere aktive Geraete dieselbe IP-Adresse melden.
+
+    Idee 8 aus feature-ideen.md: ein Adresskonflikt (typischerweise ein
+    Geraet mit fest eingestellter Adresse, die zusaetzlich per DHCP vergeben
+    wurde) zeigt sich in der Hostliste als zwei eigene, beide aktive
+    Eintraege mit identischer IP - siehe ``hosts.ip_conflicts``. Als
+    Diagnose-Entitaet eingestuft, damit sie nicht im normalen Dashboard
+    auftaucht, aber in Automationen/Benachrichtigungen nutzbar bleibt.
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "ip_konflikt"
+    _attr_device_class = BinarySensorDeviceClass.PROBLEM
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: FritzboxNetzwerkCoordinator, entry) -> None:
+        """Initialisiert den Sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_ip_conflict"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            manufacturer=MANUFACTURER,
+            name=entry.title,
+            configuration_url=f"http://{entry.data[CONF_HOST]}",
+            sw_version=VERSION,
+        )
+
+    def _conflicts(self) -> list[dict[str, Any]]:
+        hosts = (self.coordinator.data or {}).get("hosts", [])
+        return ip_conflicts(hosts)
+
+    @property
+    def is_on(self) -> bool:
+        """Ein oder mehr IP-Adressen werden gerade doppelt verwendet."""
+        return bool(self._conflicts())
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Die betroffenen Adressen mit den jeweils beteiligten Geraeten."""
+        return {"konflikte": self._conflicts()}

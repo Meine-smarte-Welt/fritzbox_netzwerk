@@ -2,7 +2,9 @@
   "config": {
     "abort": {
       "already_configured": "Deze FRITZ!Box is al ingesteld.",
-      "reauth_successful": "De inloggegevens zijn bijgewerkt."
+      "reauth_successful": "De inloggegevens zijn bijgewerkt.",
+      "reconfigure_successful": "De instellingen zijn bijgewerkt.",
+      "unique_id_mismatch": "Het nieuwe adres verwijst naar een andere FRITZ!Box dan de reeds ingerichte. Richt voor een andere box een nieuwe integratie in."
     },
     "error": {
       "cannot_connect": "De FRITZ!Box is niet bereikbaar op dit adres.",
@@ -35,6 +37,22 @@
           "username": "Gebruikersnaam",
           "password": "Wachtwoord"
         }
+      },
+      "reconfigure": {
+        "title": "FRITZ!Box-instellingen wijzigen",
+        "data": {
+          "host": "Adres",
+          "username": "Gebruikersnaam",
+          "password": "Wachtwoord",
+          "use_tls": "Versleuteld verbinden (HTTPS)",
+          "port": "Poort (0 = automatisch)",
+          "remote_access": "Externe toegang via MyFRITZ!/HTTPS"
+        },
+        "data_description": {
+          "host": "Hostnaam of IP-adres van de FRITZ!Box, meestal fritz.box.",
+          "port": "Externe toegang: HTTPS-poort van de FRITZ!Box, bijv. 65443. 0 gebruikt lokaal 49000/49443 en extern 443.",
+          "remote_access": "Schakelt HTTPS en TR-064-externe toegang in."
+        }
       }
     }
   },
@@ -50,7 +68,8 @@
           "enable_device_tracker": "Device-trackers aanmaken",
           "enable_repeaters": "Repeaters als eigen apparaten aanmaken",
           "enable_controls": "FRITZ!Box-bediening (experimenteel)",
-          "pairing_minutes": "Duur van het koppelen (minuten)"
+          "pairing_minutes": "Duur van het koppelen (minuten)",
+          "ip_ranges": "IP-bereiken (Naam=Patroon, één regel per bereik)"
         },
         "data_description": {
           "track_address_source": "Deze waarde staat niet in de hostlijst en kost één extra verzoek per apparaat. Ze verandert zelden en loopt daarom op een eigen, langzamer schema.",
@@ -59,7 +78,8 @@
           "enable_device_tracker": "Maakt per netwerkapparaat een device_tracker (thuis/afwezig) aan voor aanwezigheid en automatiseringen. Kan bij veel apparaten tot veel entiteiten leiden.",
           "enable_repeaters": "Maakt voor elke FRITZ!-mesh-repeater in het thuisnetwerk een eigen apparaat met verbindingsstatus aan, bij ingeschakelde FRITZ!Box-bediening ook met een herstartknop. Ook komt er een mesh-sensor (FRITZ!Box + repeaters) en, met bediening, de knop \"Alle FRITZ!-apparaten herstarten\". Herkend worden apparaten waarvan het gemelde model \"Repeater\" of \"FRITZ!Box\" bevat - ook een tweede FRITZ!Box die in het mesh als wifi-repeater meedraait.",
           "enable_controls": "Maakt schakelaars voor de wifi-banden (2,4 GHz, 5 GHz, gast) en voor het wifi-MAC-filter aan, plus knoppen voor opnieuw verbinden, herstarten en het starten van een koppelmoment (MAC-filter tijdelijk uit), en bij ingeschakelde repeater-apparaten een herstartknop per repeater. Beschikbaarheid en toewijzing hangen af van het model.",
-          "pairing_minutes": "Hoe lang het MAC-filter tijdens het koppelen uitgeschakeld blijft voordat het zichzelf weer inschakelt. Geldt voor de knop \"Koppelen starten\" en voor de service zonder tijdsduur."
+          "pairing_minutes": "Hoe lang het MAC-filter tijdens het koppelen uitgeschakeld blijft voordat het zichzelf weer inschakelt. Geldt voor de knop \"Koppelen starten\" en voor de service zonder tijdsduur.",
+          "ip_ranges": "Maakt per regel een tellersensor aan, bijv. \"Printers=192.168.2.*\" voor \"Printers online: 2 van 3\". Het patroon volgt dezelfde schrijfwijze als het kaartveld \"IP-filter\" (\"*\"/\"?\" als jokertekens, meerdere patronen gescheiden door een komma, \"!\" sluit uit). Leeg = geen bereikssensoren."
         }
       }
     }
@@ -99,6 +119,25 @@
       },
       "online_seit": {
         "name": "Online sinds"
+      },
+      "band_24": {
+        "name": "WLAN 2,4 GHz",
+        "unit_of_measurement": "apparaten"
+      },
+      "band_5": {
+        "name": "WLAN 5 GHz",
+        "unit_of_measurement": "apparaten"
+      },
+      "band_6": {
+        "name": "WLAN 6 GHz",
+        "unit_of_measurement": "apparaten"
+      },
+      "dhcp_pool": {
+        "name": "Bezette adressen in de pool",
+        "unit_of_measurement": "adressen"
+      },
+      "schwaechstes_geraet": {
+        "name": "Zwakste apparaat"
       }
     },
     "binary_sensor": {
@@ -107,6 +146,9 @@
       },
       "internet_verbunden": {
         "name": "Internet verbonden"
+      },
+      "ip_konflikt": {
+        "name": "IP-adresconflict"
       }
     },
     "switch": {
@@ -158,6 +200,10 @@
         "name": {
           "name": "Nieuwe naam",
           "description": "De nieuwe weergavenaam (max. 64 tekens)."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Alleen nodig bij meerdere ingerichte FRITZ!Boxen: bepaalt op welke deze dienst van toepassing is. Zonder opgave werkt de dienst op de eerst geladen box."
         }
       }
     },
@@ -168,6 +214,10 @@
         "mac": {
           "name": "MAC-adres",
           "description": "MAC-adres van het apparaat."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Alleen nodig bij meerdere ingerichte FRITZ!Boxen: bepaalt op welke deze dienst van toepassing is. Zonder opgave werkt de dienst op de eerst geladen box."
         }
       }
     },
@@ -182,6 +232,10 @@
         "blocked": {
           "name": "Geblokkeerd",
           "description": "Aan = internettoegang blokkeren, Uit = toestaan."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Alleen nodig bij meerdere ingerichte FRITZ!Boxen: bepaalt op welke deze dienst van toepassing is. Zonder opgave werkt de dienst op de eerst geladen box."
         }
       }
     },
@@ -192,6 +246,10 @@
         "enabled": {
           "name": "Filter actief",
           "description": "Aan = alleen bekende apparaten mogen op de wifi, uit = elk apparaat met het juiste wifi-wachtwoord."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Alleen nodig bij meerdere ingerichte FRITZ!Boxen: bepaalt op welke deze dienst van toepassing is. Zonder opgave werkt de dienst op de eerst geladen box."
         }
       }
     },
@@ -202,12 +260,32 @@
         "minutes": {
           "name": "Duur (minuten)",
           "description": "Hoe lang het filter uit blijft. Zonder opgave geldt de instelling van de integratie."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Alleen nodig bij meerdere ingerichte FRITZ!Boxen: bepaalt op welke deze dienst van toepassing is. Zonder opgave werkt de dienst op de eerst geladen box."
         }
       }
     },
     "reboot_mesh": {
       "name": "Mesh herstarten",
-      "description": "Herstart alle FRITZ!-apparaten: eerst de repeaters, daarna de FRITZ!Box. Repeaters die niet bereikbaar zijn, worden overgeslagen. Het thuisnetwerk is daarna enkele minuten offline."
+      "description": "Herstart alle FRITZ!-apparaten: eerst de repeaters, daarna de FRITZ!Box. Repeaters die niet bereikbaar zijn, worden overgeslagen. Het thuisnetwerk is daarna enkele minuten offline.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Alleen nodig bij meerdere ingerichte FRITZ!Boxen: bepaalt op welke deze dienst van toepassing is. Zonder opgave werkt de dienst op de eerst geladen box."
+        }
+      }
+    },
+    "gast_wlan_info": {
+      "name": "Gegevens gastennetwerk ophalen",
+      "description": "Geeft de SSID, aan/uit-status en een QR-code voor het gastennetwerk terug - alleen als retourwaarde, nooit als sensor (het wachtwoord komt zo nooit in een attribuut of de geschiedenis terecht). Vereist een apart gastennetwerk (WLANConfiguration3).",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Alleen nodig bij meerdere ingerichte FRITZ!Boxen: bepaalt op welke deze dienst van toepassing is. Zonder opgave geldt de dienst voor de eerst geladen box."
+        }
+      }
     }
   },
   "exceptions": {
@@ -246,6 +324,12 @@
     },
     "mesh_reboot_partial": {
       "message": "De FRITZ!Box wordt herstart, maar deze repeaters konden niet worden herstart: {names} ({error})"
+    }
+  },
+  "issues": {
+    "remote_access_no_tls_verification": {
+      "title": "Externe toegang zonder certificaatcontrole",
+      "description": "Voor {host} is externe toegang via MyFRITZ!/HTTPS ingeschakeld. De gebruikte bibliotheek (fritzconnection) controleert daarbij geen TLS-certificaten - binnen het lokale thuisnetwerk een gering risico, maar via het open internet een groter risico (mogelijk man-in-the-middle). Details in de README onder \"Zugriff auf eine entfernte FRITZ!Box\". Deze melding verdwijnt automatisch zodra externe toegang weer wordt uitgeschakeld, via de opties of \"Opnieuw configureren\"."
     }
   }
 }
