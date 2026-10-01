@@ -126,10 +126,24 @@ Einstellungen → Geräte & Dienste → **Integration hinzufügen** → „FRITZ
 | Benutzername | FRITZ!Box-Benutzer mit der Berechtigung „FRITZ!Box Einstellungen" |
 | Kennwort | Das zugehörige Kennwort |
 | Verschlüsselt verbinden | HTTPS statt HTTP zur FRITZ!Box |
+| Port | `0` verwendet die Standardports; alternativ einen eigenen Port eintragen |
+| Fernzugriff über MyFRITZ!/HTTPS | Verwendet HTTPS und den TR-064-Pfadpräfix `/tr064` |
 
 Die Zugangsdaten werden beim Anlegen sofort geprüft: erreichbar, Anmeldung gültig und
 Hosts-Dienst nutzbar. Schlägt eines davon fehl, nennt der Dialog die konkrete Ursache,
 statt später still keine Daten zu liefern.
+
+---
+
+### Zugriff auf eine entfernte FRITZ!Box
+
+Für den Fernzugriff die MyFRITZ!- oder DynDNS-Adresse **ohne Protokoll, Port und Pfad** eingeben, den HTTPS-Fernzugriffsport separat eintragen und „Fernzugriff über MyFRITZ!/HTTPS“ aktivieren. Der Fernzugriffsmodus verwendet immer HTTPS. Port `0` entspricht dabei `443`; bei lokalen Verbindungen bleiben `49000` (HTTP) und `49443` (HTTPS) die Standardwerte.
+
+Auf der FRITZ!Box müssen „Zugriff für Anwendungen zulassen“ und HTTPS-Fernzugriff aktiviert sein. Der Benutzer benötigt Internetzugriff und die Berechtigung „FRITZ!Box Einstellungen“. Die Anmeldung prüft weiterhin den Hosts-Dienst. Bestehende lokale Einträge benötigen keine Migration.
+
+Der Pfadpräfix wird vor dem Vorbereiten der HTTP-Anfrage ergänzt, damit die Digest-Authentifizierung den tatsächlichen Anfragepfad verwendet. Das entspricht der [FRITZ! TR-064-Fernzugriffsdokumentation](https://fritz.support/resources/TR-064_Remote_Access.pdf).
+
+Nicht alle lokalen Funktionen sind dadurch aus der Ferne erreichbar: Insbesondere direkte Zugriffe auf interne Repeater-Adressen benötigen weiterhin eine Netzverbindung, etwa ein VPN. Die Zertifikatsprüfung bleibt unverändert beim Verhalten von `fritzconnection`.
 
 ---
 
