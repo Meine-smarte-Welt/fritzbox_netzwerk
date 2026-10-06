@@ -36,6 +36,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
+from .auth_guard import AUTH_FAILURE_LIMIT, AuthFailureGuard
 from .const import (
     CONF_ADDRESS_SOURCE_INTERVAL,
     BLUEPRINTS_DIRNAME,
@@ -174,10 +175,15 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         hass: HomeAssistant,
         entry: ConfigEntry,
         fritz_hosts: FritzHosts,
+        auth_guard: AuthFailureGuard | None = None,
     ) -> None:
         """Initialisiert den Coordinator."""
         self.entry = entry
         self.fritz_hosts = fritz_hosts
+        # Zaehlt aufeinanderfolgende abgelehnte Anmeldungen (siehe auth_guard.py):
+        # eine einzelne kurzzeitige Ablehnung durch die Box verlangt noch keine
+        # erneute Anmeldung.
+        self._auth_guard = auth_guard or AuthFailureGuard()
         self._address_sources: dict[str, dict[str, Any]] = {}
         self._address_source_scan: datetime | None = None
         self._address_source_failed = False
@@ -1282,9 +1288,26 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await self.hass.async_add_executor_job(self._fetch)
             )
         except (FritzSecurityError, FritzAuthorizationError) as err:
-            raise ConfigEntryAuthFailed(
-                "Das FRITZ!Box-Konto hat keine ausreichenden Rechte. Benoetigt wird "
-                "die Berechtigung 'FRITZ!Box Einstellungen'."
+            # Die Box lehnt Anmeldungen gelegentlich kurzzeitig ab, obwohl die
+            # Zugangsdaten stimmen (Neustart, Update, parallele Anmeldungen).
+            # Erst mehrere Ablehnungen in Folge verlangen eine neue Anmeldung.
+            count, give_up = self._auth_guard.failure(self.entry.entry_id)
+            if give_up:
+                raise ConfigEntryAuthFailed(
+                    "Die FRITZ!Box lehnt die Anmeldung wiederholt ab. Bitte Benutzername "
+                    "und Kennwort pruefen; das Konto braucht die Berechtigung "
+                    "'FRITZ!Box Einstellungen'."
+                ) from err
+            _LOGGER.warning(
+                "Die FRITZ!Box hat die Anmeldung abgelehnt (%s) - Versuch %s von %s, "
+                "es wird erneut versucht",
+                err,
+                count,
+                AUTH_FAILURE_LIMIT,
+            )
+            raise UpdateFailed(
+                f"Anmeldung voruebergehend abgelehnt (Versuch {count} von "
+                f"{AUTH_FAILURE_LIMIT}): {err}"
             ) from err
         except FritzServiceError as err:
             raise UpdateFailed(
@@ -1293,6 +1316,9 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ) from err
         except FritzConnectionException as err:
             raise UpdateFailed(f"Abruf der Geraeteliste fehlgeschlagen: {err}") from err
+
+        # Abruf gelungen: fruehere Ablehnungen waren nur vorubergehend.
+        self._auth_guard.success(self.entry.entry_id)
 
         if refreshed:
             self._address_source_scan = dt_util.utcnow()

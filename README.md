@@ -4,7 +4,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.7.0-blue)
+![Version](https://img.shields.io/badge/Version-1.7.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -781,7 +781,7 @@ Button nicht.
 ### Version und Update-Hinweis
 
 Auf der Steuerungsseite (Steuerungsleiste, bei Tabs der Tab „Steuerung“) zeigt die Karte die
-**installierte Version der Integration** (`v1.7.0`). Gibt es bei GitHub eine neuere veröffentlichte
+**installierte Version der Integration** (`v1.7.1`). Gibt es bei GitHub eine neuere veröffentlichte
 Version, erscheint **direkt daneben ein farbig hervorgehobener Hinweis** („Update 1.7.1“, Farbe =
 Warnfarbe des Themes) mit Link zu den Release-Notizen. Die Prüfung läuft einmal täglich und lässt
 sich in den Optionen abschalten („Täglich auf neue Version prüfen“); zusätzlich steht der Stand
@@ -1168,6 +1168,8 @@ Alle Blueprints nutzen ausschließlich Entitäten und Dienste dieser Integration
 
 ## Fehlerbehebung
 
+**Home Assistant verlangt wiederholt „Neu authentifizieren“, obwohl sich Benutzername und Kennwort nicht geändert haben.** Bis 1.7.0 reichte eine einzige kurzzeitig abgelehnte Anmeldung (HTTP 401 bzw. UPnP 606) der FRITZ!Box, etwa während eines Neustarts oder Updates oder bei mehreren gleichzeitigen Anmeldungen mit demselben Konto. Seit 1.7.1 wird die erneute Anmeldung erst verlangt, wenn die Box die Anmeldung dreimal in Folge ablehnt; ein erfolgreicher Abruf setzt den Zähler zurück. Einzelne Ablehnungen stehen als Warnung im Protokoll („Anmeldung abgelehnt … Versuch 1 von 3“). Tritt die Meldung trotzdem auf, prüfe in der FRITZ!Box unter System → Ereignisse, ob zur selben Zeit Anmeldungen fehlgeschlagen sind, und verwende ein eigenes Konto nur für diese Integration.
+
 **Ein Klick auf die MAC-Adresse kopiert nichts.**
 Die Karte zeigt dann „Kopieren nicht möglich" und ein Kreuz statt des Haken. Das passiert, wenn
 weder die moderne Zwischenablage-Funktion (nur HTTPS/`localhost`) noch die ältere Ausweichmethode
@@ -1462,6 +1464,10 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 1.7.1 – Neu-Anmeldung nicht mehr bei einer einzelnen abgelehnten Anmeldung
+
+- **Behoben:** Home Assistant zeigte „Neu authentifizieren“, obwohl Benutzername und Kennwort unverändert waren. Ursache: Schon eine einzige kurzzeitig abgelehnte Anmeldung der FRITZ!Box (HTTP 401 / UPnP 606) beim Abruf der Geräteliste löste sofort die erneute Anmeldung aus. Jetzt werden erst drei abgelehnte Abrufe in Folge als echter Anmeldefehler gewertet; einzelne Ablehnungen werden als Warnung protokolliert und beim nächsten Abruf erneut versucht. Das gilt auch beim Start von Home Assistant. Ein erfolgreicher Abruf setzt den Zähler zurück.
 
 ### 1.7.0 – Kindersicherung, Versionsanzeige mit Update-Hinweis, Blueprints per Klick, Notizen, Herstellerliste, Gruppieren/CSV
 

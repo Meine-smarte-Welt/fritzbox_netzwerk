@@ -28,6 +28,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
 
+from .auth_guard import AUTH_FAILURE_LIMIT, AuthFailureGuard
 from .connection import create_connection
 from .const import (
     ATTR_BLOCKED_PARAM,
@@ -161,16 +162,27 @@ async def async_setup_entry(
         connection = create_connection(entry.data)
         return FritzHosts(fc=connection)
 
+    # Ein Zaehler je Home-Assistant-Lauf: ueberlebt die Wiederholungen beim
+    # Start, damit eine kurzzeitig ablehnende Box nicht sofort die erneute
+    # Anmeldung ausloest (siehe auth_guard.py).
+    guard: AuthFailureGuard = hass.data.setdefault(f"{DOMAIN}_auth_guard", AuthFailureGuard())
+
     try:
         fritz_hosts = await hass.async_add_executor_job(_connect)
     except (FritzSecurityError, FritzAuthorizationError) as err:
-        raise ConfigEntryAuthFailed(str(err)) from err
+        count, give_up = guard.failure(entry.entry_id)
+        if give_up:
+            raise ConfigEntryAuthFailed(str(err)) from err
+        raise ConfigEntryNotReady(
+            f"FRITZ!Box hat die Anmeldung abgelehnt (Versuch {count} von "
+            f"{AUTH_FAILURE_LIMIT}), neuer Versuch folgt: {err}"
+        ) from err
     except (FritzConnectionException, RequestsConnectionError) as err:
         raise ConfigEntryNotReady(
             f"FRITZ!Box unter {entry.data[CONF_HOST]} nicht erreichbar: {err}"
         ) from err
 
-    coordinator = FritzboxNetzwerkCoordinator(hass, entry, fritz_hosts)
+    coordinator = FritzboxNetzwerkCoordinator(hass, entry, fritz_hosts, guard)
     await coordinator.async_load_last_seen()
     await coordinator.async_load_first_seen()
     await coordinator.async_load_notes()
