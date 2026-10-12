@@ -1,10 +1,12 @@
+🇩🇪 Deutsch · [🇬🇧 English](README.en.md) · [🇳🇱 Nederlands](README.nl.md)
+
 # FRITZ!Box Netzwerk
 
 Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sortierbare
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.7.1-blue)
+![Version](https://img.shields.io/badge/Version-1.8.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -23,6 +25,8 @@ passenden Home-Assistant-Gerätenamen.
 - [MAC-Filter und Pairing](#mac-filter-und-pairing)
 - [Kindersicherung: Zugangsprofile (experimentell)](#kindersicherung-zugangsprofile-experimentell)
 - [CPU und RAM der Box (experimentell)](#cpu-und-ram-der-box-experimentell)
+- [DNS-Einstellungen (experimentell)](#dns-einstellungen-experimentell)
+- [Statische IP-Adresse (experimentell)](#statische-ip-adresse-experimentell)
 - [Netzwerkgeräte als eigene Home-Assistant-Geräte](#netzwerkgeräte-als-eigene-home-assistant-geräte)
 - [Dashboard-Karte](#dashboard-karte)
   - [Spalten](#spalten)
@@ -46,6 +50,7 @@ passenden Home-Assistant-Gerätenamen.
 - [Blueprints](#blueprints)
 - [Fehlerbehebung](#fehlerbehebung)
 - [Bekannte Einschränkungen](#bekannte-einschränkungen)
+- [Datei-Integrität](#datei-integrität)
 - [Entwicklung und Tests](#entwicklung-und-tests)
 - [Versionshistorie](#versionshistorie)
 
@@ -186,6 +191,8 @@ Nicht alle lokalen Funktionen sind dadurch aus der Ferne erreichbar: Insbesonder
 | FRITZ!Box-Steuerung (experimentell) | aus | WLAN-Schalter, MAC-Filter-Schalter, Pairing-Button, Buttons Neuverbinden und Neustart sowie „Alle FRITZ!-Geräte neu starten“ |
 | Täglich auf neue Version prüfen | an | Fragt einmal am Tag bei GitHub nach der neuesten Version und zeigt in der Karte einen Hinweis; es werden keine Daten über dich oder die Box übertragen |
 | Zugangsprofile der Kindersicherung steuern (experimentell) | aus | Schaltet die Dienste und die Profilauswahl im Popup frei, siehe [Kindersicherung](#kindersicherung-zugangsprofile-experimentell) |
+| DNS-Einstellungen der Box ändern (experimentell) | aus | Erlaubt dem Dienst `set_dns_settings` das Schreiben; Lesen und die Vorschau gehen immer, siehe [DNS-Einstellungen](#dns-einstellungen-experimentell) |
+| Statische IP-Adresse setzen (experimentell) | aus | Erlaubt dem Dienst `set_static_ip` und dem Karten-Button das Schreiben; die Vorschau (`dry_run`) geht immer, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell) |
 | CPU und RAM der Box lesen (experimentell) | aus | Drei Sensoren aus der Weboberfläche der Box, siehe [CPU und RAM](#cpu-und-ram-der-box-experimentell) |
 | Netzwerkgeräte als eigene Geräte anlegen | aus | Je ausgewähltem Gerät ein HA-Gerät, Auswahl per Muster, siehe [Netzwerkgeräte als HA-Geräte](#netzwerkgeräte-als-eigene-home-assistant-geräte) |
 | Pairing-Dauer | 5 min | Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt (1–120 min), siehe [MAC-Filter und Pairing](#mac-filter-und-pairing) |
@@ -491,6 +498,75 @@ System → Energiemonitor vergleichen. Abruf alle 5 Minuten; schlägt er fehl, f
 
 ---
 
+## Statische IP-Adresse (experimentell)
+
+Seit 1.8.0 kann die Integration einem Gerät eine feste IPv4-Adresse zuweisen – das entspricht an der
+FRITZ!Box *Heimnetz → Netzwerk → Gerät bearbeiten → „Diesem Netzwerkgerät immer die gleiche
+IPv4-Adresse zuweisen“*. Aus: Option „Statische IP-Adresse setzen (experimentell)“ einschalten.
+
+- **Dienst:** `fritzbox_netzwerk.set_static_ip` mit `mac`, `ip`, optional `dry_run: true` (Vorschau, geht
+  auch ohne Option).
+- **Button in der Karte:** (ausblendbar mit `show_static_ip: false`) Im Geräte-Popup die Zeile „Statische IP“ → *Festlegen* → Adresse eingeben →
+  *Prüfen* (nur Prüfung) oder *Übernehmen*.
+- **Keine doppelten Adressen:** Vor dem Schreiben wird abgelehnt, wenn die Adresse einem anderen aktiven,
+  fest vergebenen oder als „reserviert“ markierten Gerät gehört, die Adresse der Box ist, außerhalb des
+  Heimnetzes liegt, Netz-/Broadcast-Adresse oder keine gültige Geräteadresse ist. Ein offline gemeldetes
+  Gerät mit derselben Adresse und eine Adresse im DHCP-Bereich erzeugen eine Warnung.
+- **Neustart nötig:** Die neue Adresse gilt erst, wenn das Gerät neu gestartet bzw. neu mit dem Netzwerk
+  verbunden wurde. Der Dienst weist in der Antwort darauf hin.
+- **Sicherheitsnetz:** Fehlen die erwarteten Felder in der Antwort der Box, wird nichts geschrieben. Nach dem
+  Schreiben wird erneut gelesen; bei Abweichung wird der Ausgangszustand zurückgeschrieben. Das bisherige
+  Zugangsprofil wird mitgeschickt.
+
+**Teststand (ehrlich):** Die Prüfung gegen Doppelvergabe ist mit Tests belegt. Die **Feldnamen der
+Weboberfläche** (`edit_device`) sind **angenommen** und an **keiner** Box geprüft – weder gelesen noch
+geschrieben. Passt der Aufbau nicht, meldet der Dienst „nichts geändert“; dann bitte ein Issue mit der
+Anfrage öffnen, die die Box-Oberfläche beim Speichern sendet (Browser-Entwicklerwerkzeuge → Netzwerk).
+
+## DNS-Einstellungen (experimentell)
+
+Seit 1.8.0 liest die Integration die DNS-Einstellungen der FRITZ!Box und kann sie – nur nach
+Einschalten der Option „DNS-Einstellungen der Box ändern (experimentell)“ – auch ändern. Das
+betrifft diese Stellen der Weboberfläche:
+
+| Stelle in der FRITZ!Box | Felder des Dienstes `set_dns_settings` |
+| --- | --- |
+| Internet → Zugangsdaten → DNS-Server → „Andere DNSv4-Server verwenden“ | `internet_ipv4_custom`, `internet_ipv4_dns1`, `internet_ipv4_dns2` |
+| Internet → Zugangsdaten → DNS-Server → „Andere DNSv6-Server verwenden“ | `internet_ipv6_custom`, `internet_ipv6_dns1`, `internet_ipv6_dns2` |
+| Heimnetz → Netzwerk → Netzwerkeinstellungen → Erweiterte Netzwerkeinstellungen ändern → IPv4-Adressen (lokaler DNS-Server) | `home_ipv4_dns` |
+| dasselbe → IPv6-Adressen (lokaler DNSv6-Server, „DNSv6-Server auch über Router Advertisement bekanntgeben“) | `home_ipv6_dns`, `home_ipv6_advertise` |
+
+Das ist **nicht TR-064**. Die neue Weboberfläche der FRITZ!Box (FRITZ!OS 8) liest und schreibt diese
+Werte über die REST-Schnittstelle `/api/v0/generic/dnscfg` bzw. `/api/v0/generic/ipv6`; die
+Integration nutzt dieselben Pfade. AVM dokumentiert das nicht, es kann sich mit jedem FRITZ!OS
+ändern. Die Zuordnung der Felder zu den Stellen der Oberfläche ist aus den Feldnamen und den
+Beschriftungen abgeleitet, nicht Feld für Feld gegen die Oberfläche geprüft.
+
+**Sicherheitsnetz beim Schreiben:**
+- Es werden nur die Felder geändert, die du angibst; alle anderen Werte schickt die Integration
+  unverändert zurück (die Box erwartet das ganze Objekt).
+- Adressen werden geprüft (richtige IP-Version; nicht erlaubt sind `0.0.0.0`, `::`, Loopback,
+  Multicast, Link-Local und reservierte Adressen). „Eigene DNS-Server“ ohne ersten Server wird
+  abgelehnt. Fehlen erwartete Felder in der Antwort der Box, wird nichts geschrieben.
+- Nach dem Schreiben liest die Integration alles erneut. Weicht der Zustand ab, schreibt sie den
+  Ausgangszustand zurück und meldet einen Fehler mit den alten Werten.
+- Verlangt die Box eine Bestätigung (Fehlercode `TWO-FACTOR`), wird nichts geändert und eine
+  verständliche Meldung ausgegeben. Bestätige die Anfrage an der Box und rufe den Dienst erneut auf.
+- `dry_run: true` zeigt nur, was sich ändern würde, und geht auch ohne eingeschaltete Option.
+
+**Teststand (ehrlich):** Der Aufbau der Antworten `dnscfg` und `ipv6`, die Anmeldung per
+`AUTHORIZATION: AVM-SID …` und die Schreibweise (`PUT` mit dem ganzen Objekt, Fehlercodes
+`TWO-FACTOR` und `INVALID-SID`) wurden an einer **FRITZ!Box 5690 Pro** nur **gelesen** (Antworten
+und ausgelieferter Quelltext der Oberfläche). **Ungeprüft** sind: das tatsächliche Schreiben an einer
+echten Box, der HTTP-Status bei `TWO-FACTOR`, wie die Bestätigung abgeschlossen wird, ob die Box
+den Kopf `Client-Name` dieser Integration akzeptiert und ob ein `PUT` auf `ipv6` wirklich nur die
+gewünschten Felder ändert. Die automatischen Tests laufen gegen eine simulierte Box. Mach den
+ersten Schreibtest deshalb mit einem unkritischen Wert, z. B. bei ausgeschalteten eigenen
+DNS-Servern nur `internet_ipv4_dns2` setzen und wieder leeren, und prüfe das Ergebnis in der
+Oberfläche.
+
+---
+
 ## Netzwerkgeräte als eigene Home-Assistant-Geräte
 
 Option „Netzwerkgeräte als eigene Geräte anlegen“ (standardmäßig aus): Für ausgewählte Geräte
@@ -781,8 +857,8 @@ Button nicht.
 ### Version und Update-Hinweis
 
 Auf der Steuerungsseite (Steuerungsleiste, bei Tabs der Tab „Steuerung“) zeigt die Karte die
-**installierte Version der Integration** (`v1.7.1`). Gibt es bei GitHub eine neuere veröffentlichte
-Version, erscheint **direkt daneben ein farbig hervorgehobener Hinweis** („Update 1.7.1“, Farbe =
+**installierte Version der Integration** (`v1.8.0`). Gibt es bei GitHub eine neuere veröffentlichte
+Version, erscheint **direkt daneben ein farbig hervorgehobener Hinweis** („Update 1.8.1“, Farbe =
 Warnfarbe des Themes) mit Link zu den Release-Notizen. Die Prüfung läuft einmal täglich und lässt
 sich in den Optionen abschalten („Täglich auf neue Version prüfen“); zusätzlich steht der Stand
 im Diagnose-Binärsensor **„Update verfügbar“** (nutzbar in Automationen). Installiert wird
@@ -1106,6 +1182,29 @@ data:
   minutes: 60
 ```
 
+### `fritzbox_netzwerk.get_dns_settings`, `set_dns_settings` (experimentell)
+
+Lesen und Ändern der DNS-Einstellungen, siehe [DNS-Einstellungen](#dns-einstellungen-experimentell).
+`get_dns_settings` liefert immer eine Antwort und ändert nichts. `set_dns_settings` braucht die
+Option „DNS-Einstellungen der Box ändern (experimentell)“ (die Vorschau `dry_run` nicht) und liefert
+eine Antwort mit `geschrieben`, `aenderungen` (`vorher`/`nachher` je Feld) und – nach dem Schreiben –
+`ergebnis`. Nicht angegebene Felder bleiben unverändert; ein leerer Text löscht bei Internet-DNS und
+zweitem Server den Eintrag.
+
+```yaml
+action: fritzbox_netzwerk.get_dns_settings
+response_variable: dns
+# dns.internet.ipv4.eigene_server, dns.internet.ipv4.dns1, dns.heimnetz.ipv4_lokaler_dns, ...
+---
+# Vorschau, schreibt nichts
+action: fritzbox_netzwerk.set_dns_settings
+data:
+  internet_ipv4_custom: true
+  internet_ipv4_dns1: "9.9.9.9"
+  internet_ipv4_dns2: "149.112.112.112"
+  dry_run: true
+```
+
 ### `fritzbox_netzwerk.install_blueprints`
 
 Kopiert die mitgelieferten Blueprints (Automationen und Skript) in den Blueprint-Ordner von Home
@@ -1395,11 +1494,9 @@ language: nl   # "" = automatisch, sonst de | en | nl
   eine Aktion zum Löschen eines Eintrags noch eine zum Aufräumen. Über die undokumentierte
   Weboberfläche wäre es nur mit ungeprüften Annahmen möglich und würde bei jedem
   FRITZ!OS-Update riskieren zu brechen. Bewusst nicht Teil dieser Version.
-- **Statische IP-Adressen lassen sich nicht ändern.** Die TR-064-Schnittstelle von AVM
-  kennt dafür keine Aktion. Schreibbar sind dort nur Gerätename, Anzeigename,
-  Wake-on-LAN, Echtzeitpriorität und Geräteklasse. Ein Setzen der IP-Adresse wäre nur über
-  die Weboberfläche der FRITZ!Box möglich – undokumentiert und bei jedem FRITZ!OS-Update
-  potenziell defekt. Das ist bewusst nicht Teil dieser Version.
+- **Statische IP nur über die Weboberfläche.** TR-064 kennt dafür keine Aktion. Seit 1.8.0 gibt es den
+  experimentellen Dienst `set_static_ip` über die undokumentierte Weboberfläche; dessen Feldnamen sind angenommen und
+  an keiner Box geprüft, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell).
 - **Mesh nur in Teilen.** FRITZ!Box und Repeater bilden eine Gruppe (siehe oben); seit 1.6.3
   zeigt die Karte in „Verbunden über“, an welchem Mesh-Nachbarn ein Gerät hängt, samt
   Verbindungsrate. **Keine Signalstärke in dBm** (liefert die Mesh-Liste nicht) und **kein
@@ -1433,11 +1530,29 @@ language: nl   # "" = automatisch, sonst de | en | nl
   [Kindersicherung](#kindersicherung-zugangsprofile-experimentell).
 - **CPU/RAM (experimentell)** stammen aus der Weboberfläche, nicht aus TR-064, und sind an keiner
   Box geprüft, siehe [CPU und RAM](#cpu-und-ram-der-box-experimentell).
+- **DNS-Einstellungen ändern (experimentell, seit 1.8.0)** läuft über die undokumentierte REST-Schnittstelle der
+  Weboberfläche. Das Schreiben ist an keiner echten Box geprüft (nur das Lesen der Antworten und des Quelltexts der
+  Oberfläche), die Box kann eine Zwei-Faktor-Bestätigung verlangen, siehe
+  [DNS-Einstellungen](#dns-einstellungen-experimentell). Eine Karten-Oberfläche dafür gibt es noch nicht, nur Dienste.
+- **Statische IP (experimentell, seit 1.8.0)** nutzt die Weboberfläche (`data.lua`, `edit_device`); die Feldnamen sind
+  angenommen und an keiner Box geprüft, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell).
 - **Datenverbrauch je Gerät** liefert die Box nicht über TR-064.
 - Die Zuordnung zu Home-Assistant-Geräten erfolgt ausschließlich über die MAC-Adresse.
   Es wird bewusst nicht über Namensähnlichkeit geraten.
 
 ---
+
+## Datei-Integrität
+
+Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zeile 2 …)`. Prüfen: `tail -n +2 datei.py | sha256sum`. JSON-Dateien haben keine Kommentare, ihre SHA-256-Summen (über die komplette Datei) stehen hier; Bilddateien sind ausgenommen.
+
+| Datei | SHA-256 |
+| --- | --- |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `e0ebc88c70d09e76c84da38c416f4fe0779892e194e88e7aef63c9d2cedd5761` |
+| `custom_components/fritzbox_netzwerk/strings.json` | `51003570d903e754bd1d7c1e391e9b8746778301bef1441667110f01afbb61dd` |
+| `custom_components/fritzbox_netzwerk/translations/de.json` | `216bb38eac58355919b357182075b31bda8c7d00d756632661a8d10bdd3f3daa` |
+| `custom_components/fritzbox_netzwerk/translations/en.json` | `e6092f3bed6994d3bde110e5fd771fe403abe68759b0c7f67ae189a17cce03eb` |
+| `custom_components/fritzbox_netzwerk/translations/nl.json` | `3951d6b745e1498810c0da5f43394ce5ff68c6956735f7e202684d38238e56d6` |
 
 ## Entwicklung und Tests
 
@@ -1448,9 +1563,13 @@ Home-Assistant-Instanz und ohne echte FRITZ!Box prüfbar. Die Entity-Klassen (`s
 per Unittest geprüft:
 
 ```bash
-python3 -m unittest discover -s tests -p "test_*.py" -v   # 71 Fälle
-npm ci && npm test                                         # 91 Fälle, Dashboard-Karte (jsdom)
+python3 -m unittest discover -s tests -p "test_*.py" -v   # 47 Fälle (dns_settings, static_ip, simulierte Box)
 ```
+
+**Hinweis zum Stand des Repositorys:** In dieser Fassung liegen nur die Tests für `dns_settings.py`
+(`tests/test_dns_settings.py`, `tests/test_static_ip.py`). Weitere Tests, `package.json` und die GitHub-Workflows, die frühere
+Fassungen dieses Abschnitts nennen, sind im Repository nicht enthalten; die folgenden Absätze
+beschreiben sie deshalb nur, soweit sie dort wieder eingecheckt werden.
 
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein DOM
 (`jsdom`) und steuern die Karte über `setConfig()`, den `hass`-Setter und echte Klick-Ereignisse
@@ -1464,6 +1583,23 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 1.8.0 – DNS-Einstellungen der FRITZ!Box lesen und ändern (experimentell)
+
+- **Neu:** Dienst `fritzbox_netzwerk.get_dns_settings` liest die DNS-Einstellungen (Internet IPv4/IPv6, lokaler
+  DNS im Heimnetz, DNS over TLS) und liefert sie als Antwort.
+- **Neu:** Dienst `fritzbox_netzwerk.set_dns_settings` ändert Internet-DNS (v4/v6), lokalen DNS (v4/v6) und die
+  Bekanntgabe des DNSv6-Servers per Router Advertisement. Nur nach Einschalten der neuen Option „DNS-Einstellungen
+  der Box ändern (experimentell)“; mit `dry_run` gibt es eine Vorschau ohne Schreiben. Mit Adressprüfung,
+  Nachkontrolle und Rückschreiben bei Abweichung; bei einer Zwei-Faktor-Anforderung der Box wird nichts geändert.
+- **Grundlage:** REST-Schnittstelle der neuen Weboberfläche (`/api/v0/generic/dnscfg` und `ipv6`), nicht TR-064.
+  Aufbau und Schreibweise an einer FRITZ!Box 5690 Pro gelesen; **das Schreiben ist an keiner echten Box geprüft.**
+- **Neu (experimentell):** Dienst `fritzbox_netzwerk.set_static_ip` und Button „Statische IP“ im Geräte-Popup der
+  Karte. Weist eine feste IPv4-Adresse zu, lehnt doppelt vergebene Adressen ab und weist auf den nötigen
+  Neustart des Geräts hin. Option „Statische IP-Adresse setzen (experimentell)“, Vorschau mit `dry_run`.
+  **Die Feldnamen der Weboberfläche sind angenommen und an keiner Box geprüft.**
+- Übersetzungen (de/en/nl) für Optionen, Dienste und Karte; Tests gegen simulierte Boxen (47 Fälle).
+- Die Karte ist sonst unverändert; DNS hat weiterhin keine Karten-Oberfläche.
 
 ### 1.7.1 – Neu-Anmeldung nicht mehr bei einer einzelnen abgelehnten Anmeldung
 

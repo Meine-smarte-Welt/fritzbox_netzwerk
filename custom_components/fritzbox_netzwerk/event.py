@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 351210f21af1c07a322b3db9d9e3736242f0f3514e7441e56a222a0d3365af0d
 """Event-Entitaeten der Integration fritzbox_netzwerk.
 
 Zwei Ereignisse, beide ohne zusaetzlichen TR-064-Aufruf:

@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 700344c3fa1e98105474a5a5b56bd7a9a21cd02e74f62cec23fa033681644d81
 """Verbunden-Status der Repeater als eigene Geraete.
 
 Fuer jeden AVM-Repeater in der Hostliste der FRITZ!Box entsteht ein eigenes

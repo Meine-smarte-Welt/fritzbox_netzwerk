@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): aa5b9c62857bef905f19bfd5cb600c8dbf3a6314d6926ff7fb5b91da9aa437c8
 """Custom TR-064 port and HTTPS remote access.
 
 Scoped to this integration; does not modify fritzconnection globally.

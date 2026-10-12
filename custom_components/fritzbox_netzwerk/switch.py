@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 3284c03fa36f6c5e8eea67836580bef076f340ea654e0f150ecefbde66a7120f
 """WLAN-Schalter der Integration fritzbox_netzwerk.
 
 Erzeugt - wenn in den Optionen aktiviert - je vorhandenem WLAN-Band einen

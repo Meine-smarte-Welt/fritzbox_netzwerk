@@ -1,3 +1,4 @@
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): b39932de87148c9983cd2603788e8e5f8eaedfd519e1026246e162ed9d527cb0
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -17,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.7.1";
+const FBN_VERSION = "1.8.0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -76,6 +77,7 @@ const CONFIG_DEFAULTS = {
   // Zugangsprofil (Kindersicherung) im Detail-Popup - erscheint nur, wenn die Funktion in
   // den Integrationsoptionen eingeschaltet ist.
   show_parental: true,
+  show_static_ip: true,
   show_tabs: false,
   // Einzelne Filter-Buttons an/aus (nur wirksam, wenn show_filter an ist).
   filter_alle: true,
@@ -274,6 +276,7 @@ const I18N = {
     "arrow.left": "Nach links blättern", "arrow.right": "Nach rechts blättern",
     "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} von {total} online", "ctl.mesh_reboot": "Alle neu starten", "ctl.mesh_reboot_confirm": "Alle wirklich neu starten?", "ctl.mesh_reboot_tip": "FRITZ!Box und alle Repeater neu starten (erst die Repeater, dann die Box)", "ctl.throughput": "Aktueller Durchsatz (Download / Upload)", "ctl.wlan_24": "WLAN 2,4 GHz", "ctl.wlan_5": "WLAN 5 GHz", "ctl.wlan_guest": "Gast-WLAN", "ctl.reconnect": "Neu verbinden", "ctl.reconnect_confirm": "Wirklich neu verbinden?", "ctl.reboot": "Neustart", "ctl.reboot_confirm": "Wirklich neu starten?", "ctl.mac_filter": "MAC-Filter", "ctl.mac_filter_tip": "WLAN-Zugang auf bekannte Geräte beschränken", "ctl.pairing": "Pairing starten", "ctl.pairing_confirm": "Wirklich starten?", "ctl.pairing_tip": "MAC-Filter kurz ausschalten, damit sich ein neues Gerät anmelden kann", "ctl.pairing_until": "Pairing bis {time}", "ctl.pairing_end_tip": "Klicken: Filter sofort wieder einschalten", "ctl.gast_wlan_qr": "QR-Code", "ctl.gast_wlan_qr_tip": "Gast-WLAN: SSID, Passwort und QR-Code zum Verbinden anzeigen", "gwlan.title": "Gast-WLAN", "gwlan.loading": "Lade Zugangsdaten …", "gwlan.ssid": "Netzwerkname (SSID)", "gwlan.password": "Passwort", "gwlan.open_network": "Offenes Netz – kein Passwort nötig", "gwlan.scan_hint": "Mit der Smartphone-Kamera scannen, um sich automatisch mit dem Gast-WLAN zu verbinden.", "gwlan.disabled_hint": "Das Gast-WLAN ist derzeit ausgeschaltet. Der QR-Code funktioniert, sobald es wieder eingeschaltet ist.", "gwlan.error": "Zugangsdaten konnten nicht geladen werden: {error}",
     "ver.title": "Installierte Version der Integration", "ver.update": "Update {version}", "ver.update_tip": "Neue Version {version} verfügbar – klicken für die Release-Notizen", "ver.update_plain_tip": "Neue Version {version} verfügbar", "ver.card_mismatch": "Karte {card} ≠ Integration {integration} – Seite neu laden (Strg+F5)", "ver.checked": "Zuletzt geprüft: {time}",
+    "sip.title": "Statische IP", "sip.open": "Festlegen", "sip.open_tip": "Diesem Gerät immer die gleiche IPv4-Adresse zuweisen (Box-Weboberfläche, experimentell)", "sip.check": "Prüfen", "sip.apply": "Übernehmen", "sip.cancel": "Abbrechen", "sip.placeholder": "z. B. 192.168.178.50", "sip.busy": "Prüfe …", "sip.ok_check": "Adresse {ip} ist frei.", "sip.saved": "Statische IP {ip} gesetzt.", "sip.restart": "Gilt erst nach Neustart bzw. erneutem Verbinden des Geräts.", "sip.error": "Statische IP: {error}", "sip.off": "Zum Übernehmen die Option „Statische IP-Adresse setzen“ in den Integrationsoptionen einschalten.", "sip.warn": "Experimentell – an keiner Box geprüft",
     "prof.title": "Zugangsprofil", "prof.load": "Anzeigen", "prof.load_tip": "Aktuelles Zugangsprofil aus der FRITZ!Box laden (Kindersicherung, experimentell)", "prof.loading": "Lade …", "prof.current": "Aktuell: {name}", "prof.apply": "Übernehmen", "prof.apply_tip": "Ausgewähltes Zugangsprofil dem Gerät zuweisen", "prof.minutes": "Minuten (optional)", "prof.minutes_hint": "Mit Minuten gilt das Profil nur so lange, danach wird das bisherige Profil wiederhergestellt.", "prof.revert": "Zurück auf {name} um {time}", "prof.error": "Zugangsprofil: {error}", "prof.saved": "Zugangsprofil geändert: {name}", "prof.warn": "Experimentell – läuft über die Weboberfläche der Box", "prof.unknown": "unbekannt", "prof.retry": "Erneut versuchen",
     "field.tracker": "Anwesenheit", "tracker.home": "zuhause", "tracker.away": "abwesend", "tracker.open": "Tracker öffnen",
     "tracker.unknown": "unbekannt", "tracker.disabled": "Entität deaktiviert",
@@ -364,6 +367,7 @@ const I18N = {
     "arrow.left": "Scroll left", "arrow.right": "Scroll right",
     "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} of {total} online", "ctl.mesh_reboot": "Restart all", "ctl.mesh_reboot_confirm": "Really restart all?", "ctl.mesh_reboot_tip": "Restart the FRITZ!Box and all repeaters (repeaters first, then the box)", "ctl.throughput": "Current throughput (download / upload)", "ctl.wlan_24": "Wi-Fi 2.4 GHz", "ctl.wlan_5": "Wi-Fi 5 GHz", "ctl.wlan_guest": "Guest Wi-Fi", "ctl.reconnect": "Reconnect", "ctl.reconnect_confirm": "Really reconnect?", "ctl.reboot": "Reboot", "ctl.reboot_confirm": "Really reboot?", "ctl.mac_filter": "MAC filter", "ctl.mac_filter_tip": "Restrict Wi-Fi access to known devices", "ctl.pairing": "Start pairing", "ctl.pairing_confirm": "Really start?", "ctl.pairing_tip": "Turn the MAC filter off briefly so a new device can join", "ctl.pairing_until": "Pairing until {time}", "ctl.pairing_end_tip": "Click: turn the filter back on now", "ctl.gast_wlan_qr": "QR code", "ctl.gast_wlan_qr_tip": "Guest Wi-Fi: show SSID, password and a QR code to connect", "gwlan.title": "Guest Wi-Fi", "gwlan.loading": "Loading credentials …", "gwlan.ssid": "Network name (SSID)", "gwlan.password": "Password", "gwlan.open_network": "Open network – no password needed", "gwlan.scan_hint": "Scan with your phone's camera to connect to the guest Wi-Fi automatically.", "gwlan.disabled_hint": "The guest Wi-Fi is currently switched off. The QR code will work again once it's switched back on.", "gwlan.error": "Could not load the guest Wi-Fi credentials: {error}",
     "ver.title": "Installed version of the integration", "ver.update": "Update {version}", "ver.update_tip": "New version {version} available – click for the release notes", "ver.update_plain_tip": "New version {version} available", "ver.card_mismatch": "Card {card} ≠ integration {integration} – reload the page (Ctrl+F5)", "ver.checked": "Last checked: {time}",
+    "sip.title": "Static IP", "sip.open": "Set", "sip.open_tip": "Always assign this device the same IPv4 address (box web interface, experimental)", "sip.check": "Check", "sip.apply": "Apply", "sip.cancel": "Cancel", "sip.placeholder": "e.g. 192.168.178.50", "sip.busy": "Checking …", "sip.ok_check": "Address {ip} is free.", "sip.saved": "Static IP {ip} set.", "sip.restart": "Only applies after the device restarts or reconnects.", "sip.error": "Static IP: {error}", "sip.off": "To apply, enable the option “Set static IP address” in the integration options.", "sip.warn": "Experimental – not verified on any box",
     "prof.title": "Access profile", "prof.load": "Show", "prof.load_tip": "Load the current access profile from the FRITZ!Box (parental control, experimental)", "prof.loading": "Loading …", "prof.current": "Current: {name}", "prof.apply": "Apply", "prof.apply_tip": "Assign the selected access profile to the device", "prof.minutes": "Minutes (optional)", "prof.minutes_hint": "With minutes the profile only applies that long, then the previous profile is restored.", "prof.revert": "Back to {name} at {time}", "prof.error": "Access profile: {error}", "prof.saved": "Access profile changed: {name}", "prof.warn": "Experimental – uses the box web interface", "prof.unknown": "unknown", "prof.retry": "Try again",
     "field.tracker": "Presence", "tracker.home": "home", "tracker.away": "away", "tracker.open": "Open tracker",
     "tracker.unknown": "unknown", "tracker.disabled": "entity disabled",
@@ -454,6 +458,7 @@ const I18N = {
     "arrow.left": "Naar links bladeren", "arrow.right": "Naar rechts bladeren",
     "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} van {total} online", "ctl.mesh_reboot": "Alles herstarten", "ctl.mesh_reboot_confirm": "Echt alles herstarten?", "ctl.mesh_reboot_tip": "FRITZ!Box en alle repeaters herstarten (eerst de repeaters, dan de box)", "ctl.throughput": "Huidige doorvoer (download / upload)", "ctl.wlan_24": "Wifi 2,4 GHz", "ctl.wlan_5": "Wifi 5 GHz", "ctl.wlan_guest": "Gast-wifi", "ctl.reconnect": "Opnieuw verbinden", "ctl.reconnect_confirm": "Echt opnieuw verbinden?", "ctl.reboot": "Herstart", "ctl.reboot_confirm": "Echt herstarten?", "ctl.mac_filter": "MAC-filter", "ctl.mac_filter_tip": "Wifi-toegang beperken tot bekende apparaten", "ctl.pairing": "Koppelen starten", "ctl.pairing_confirm": "Echt starten?", "ctl.pairing_tip": "MAC-filter kort uitschakelen zodat een nieuw apparaat zich kan aanmelden", "ctl.pairing_until": "Koppelen tot {time}", "ctl.pairing_end_tip": "Klik: filter meteen weer inschakelen", "ctl.gast_wlan_qr": "QR-code", "ctl.gast_wlan_qr_tip": "Gast-wifi: SSID, wachtwoord en een QR-code om te verbinden tonen", "gwlan.title": "Gast-wifi", "gwlan.loading": "Gegevens laden …", "gwlan.ssid": "Netwerknaam (SSID)", "gwlan.password": "Wachtwoord", "gwlan.open_network": "Open netwerk – geen wachtwoord nodig", "gwlan.scan_hint": "Scan met de camera van je telefoon om automatisch met het gastennetwerk te verbinden.", "gwlan.disabled_hint": "Het gastennetwerk staat momenteel uit. De QR-code werkt weer zodra het is ingeschakeld.", "gwlan.error": "Gegevens konden niet worden geladen: {error}",
     "ver.title": "Geïnstalleerde versie van de integratie", "ver.update": "Update {version}", "ver.update_tip": "Nieuwe versie {version} beschikbaar – klik voor de release-notities", "ver.update_plain_tip": "Nieuwe versie {version} beschikbaar", "ver.card_mismatch": "Kaart {card} ≠ integratie {integration} – pagina opnieuw laden (Ctrl+F5)", "ver.checked": "Laatst gecontroleerd: {time}",
+    "sip.title": "Statisch IP", "sip.open": "Instellen", "sip.open_tip": "Dit apparaat altijd hetzelfde IPv4-adres geven (webinterface van de box, experimenteel)", "sip.check": "Controleren", "sip.apply": "Toepassen", "sip.cancel": "Annuleren", "sip.placeholder": "bijv. 192.168.178.50", "sip.busy": "Controleren …", "sip.ok_check": "Adres {ip} is vrij.", "sip.saved": "Statisch IP {ip} ingesteld.", "sip.restart": "Geldt pas na herstart of opnieuw verbinden van het apparaat.", "sip.error": "Statisch IP: {error}", "sip.off": "Schakel om toe te passen de optie „Statisch IP-adres instellen” in bij de integratieopties.", "sip.warn": "Experimenteel – op geen enkele box getest",
     "prof.title": "Toegangsprofiel", "prof.load": "Tonen", "prof.load_tip": "Huidig toegangsprofiel uit de FRITZ!Box laden (ouderlijk toezicht, experimenteel)", "prof.loading": "Laden …", "prof.current": "Huidig: {name}", "prof.apply": "Toepassen", "prof.apply_tip": "Geselecteerd toegangsprofiel aan het apparaat toewijzen", "prof.minutes": "Minuten (optioneel)", "prof.minutes_hint": "Met minuten geldt het profiel slechts zo lang, daarna wordt het vorige profiel hersteld.", "prof.revert": "Terug naar {name} om {time}", "prof.error": "Toegangsprofiel: {error}", "prof.saved": "Toegangsprofiel gewijzigd: {name}", "prof.warn": "Experimenteel – via de webinterface van de box", "prof.unknown": "onbekend", "prof.retry": "Opnieuw proberen",
     "field.tracker": "Aanwezigheid", "tracker.home": "thuis", "tracker.away": "afwezig", "tracker.open": "Tracker openen",
     "tracker.unknown": "onbekend", "tracker.disabled": "entiteit uitgeschakeld",
@@ -2640,6 +2645,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._popupEditingNote = false;
     this._popupNoteDraft = null;
     this._parental = null;
+    this._staticIp = null;
 
     const overlay = document.createElement("div");
     overlay.className = "fbn-overlay";
@@ -2884,6 +2890,27 @@ class FritzboxNetzwerkCard extends HTMLElement {
     }
     const profApply = this._popup.querySelector(".fbn-prof-apply");
     if (profApply) profApply.addEventListener("click", () => this._applyProfile(host));
+
+    // Statische IP: Eingabe, Pruefen, Uebernehmen.
+    const sipOpen = this._popup.querySelector(".fbn-sip-open");
+    if (sipOpen) sipOpen.addEventListener("click", () => this._staticIpOpen(host));
+    const sipInput = this._popup.querySelector(".fbn-sip-input");
+    if (sipInput) {
+      sipInput.addEventListener("input", () => {
+        if (this._staticIp) this._staticIp.draft = sipInput.value;
+      });
+    }
+    const sipCheck = this._popup.querySelector(".fbn-sip-check");
+    if (sipCheck) sipCheck.addEventListener("click", () => this._staticIpRun(host, true));
+    const sipApply = this._popup.querySelector(".fbn-sip-apply");
+    if (sipApply) sipApply.addEventListener("click", () => this._staticIpRun(host, false));
+    const sipCancel = this._popup.querySelector(".fbn-sip-cancel");
+    if (sipCancel) {
+      sipCancel.addEventListener("click", () => {
+        this._staticIp = null;
+        this._renderPopupContent(host);
+      });
+    }
 
     // Schliessen in der Fusszeile.
     const footClose = this._popup.querySelector(".fbn-modal-close2");
@@ -3132,6 +3159,88 @@ class FritzboxNetzwerkCard extends HTMLElement {
       });
   }
 
+  /* -- Statische IP im Popup (experimentell) -----------------------------
+   *
+   * Nutzt fritzbox_netzwerk.set_static_ip. "Pruefen" ruft den Dienst mit dry_run auf (prueft
+   * Doppelvergabe, schreibt nichts); "Uebernehmen" schreibt und braucht die Option der Integration.
+   */
+  _staticIpRowsHtml(host) {
+    if (!this._hass || !host.mac || this._config.show_static_ip === false) return "";
+    const t = (key, params) => escapeHtml(this._t(key, params));
+    const st = this._staticIp && this._staticIp.mac === host.mac ? this._staticIp : null;
+    const row = (inner) =>
+      `<div class="fbn-drow fbn-prof-row"><div class="fbn-dt">${t("sip.title")}</div><div class="fbn-dd fbn-prof-box">${inner}</div></div>`;
+    const warn = `<div class="fbn-prof-hint">${t("sip.warn")}</div>`;
+    if (!st) {
+      return row(
+        `<button class="fbn-prof-btn fbn-sip-open" type="button" title="${t("sip.open_tip")}">
+           <ha-icon icon="mdi:ip-network-outline"></ha-icon>${t("sip.open")}</button>${warn}`
+      );
+    }
+    const busy = st.status === "busy";
+    const stateObj = this._stateObj();
+    const enabled = !!(stateObj && stateObj.attributes && stateObj.attributes.static_ip === true);
+    let msg = "";
+    if (busy) msg = `<div class="fbn-prof-hint">${t("sip.busy")}</div>`;
+    else if (st.status === "error") msg = `<div class="fbn-prof-err">${t("sip.error", { error: String(st.error || "") })}</div>`;
+    else if (st.status === "checked" || st.status === "saved") {
+      const text = st.status === "saved" ? t("sip.saved", { ip: st.ip }) : t("sip.ok_check", { ip: st.ip });
+      const warns = (st.warnings || []).map((w) => `<div class="fbn-prof-hint">${escapeHtml(w)}</div>`).join("");
+      msg = `<div class="fbn-prof-current">${text}</div>${warns}<div class="fbn-prof-hint">${t("sip.restart")}</div>`;
+    }
+    const off = enabled ? "" : `<div class="fbn-prof-hint">${t("sip.off")}</div>`;
+    const dis = busy ? " disabled" : "";
+    return row(`
+      <div class="fbn-prof-line">
+        <input class="fbn-sip-input fbn-prof-minutes" type="text" inputmode="decimal" maxlength="15"
+               placeholder="${t("sip.placeholder")}" aria-label="${t("sip.title")}"
+               value="${escapeHtml(st.draft || "")}"${dis}>
+        <button class="fbn-prof-btn fbn-sip-check" type="button"${dis}>
+          <ha-icon icon="mdi:shield-search"></ha-icon>${t("sip.check")}</button>
+        <button class="fbn-prof-btn fbn-sip-apply" type="button"${busy || !enabled ? " disabled" : ""}>
+          <ha-icon icon="mdi:check"></ha-icon>${t("sip.apply")}</button>
+        <button class="fbn-prof-btn fbn-sip-cancel" type="button"${dis}>
+          <ha-icon icon="mdi:close"></ha-icon>${t("sip.cancel")}</button>
+      </div>${msg}${off}${warn}`);
+  }
+
+  _staticIpOpen(host) {
+    this._staticIp = { mac: host.mac, status: "edit", draft: host.ip || "" };
+    this._renderPopupContent(host);
+  }
+
+  _staticIpRun(host, dryRun) {
+    const st = this._staticIp;
+    const ip = ((st && st.draft) || "").trim();
+    if (!this._hass || !st || st.mac !== host.mac || !ip) return;
+    this._staticIp = { ...st, status: "busy" };
+    this._renderPopupContent(host);
+    this._hass
+      .callService("fritzbox_netzwerk", "set_static_ip", { mac: host.mac, ip, dry_run: dryRun }, undefined, true, true)
+      .then((result) => {
+        if (this._popupMac !== host.mac) return;
+        const r = (result && result.response) || {};
+        this._staticIp = {
+          mac: host.mac,
+          draft: ip,
+          ip: r.ip || ip,
+          warnings: Array.isArray(r.warnings) ? r.warnings : [],
+          status: dryRun ? "checked" : "saved",
+        };
+        this._renderPopupContent(host);
+      })
+      .catch((err) => {
+        if (this._popupMac !== host.mac) return;
+        this._staticIp = {
+          mac: host.mac,
+          draft: ip,
+          status: "error",
+          error: String((err && (err.message || err.error)) || err || ""),
+        };
+        this._renderPopupContent(host);
+      });
+  }
+
   /** Etikett-, Notiz- und Reserviert-Zeilen des Popups (Idee 3). */
   _noteRowsHtml(host) {
     if (!this._hass) return "";
@@ -3241,6 +3350,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (noteRows) rows.push(noteRows);
     const parentalRows = this._parentalRowsHtml(host);
     if (parentalRows) rows.push(parentalRows);
+    const staticIpRows = this._staticIpRowsHtml(host);
+    if (staticIpRows) rows.push(staticIpRows);
     add(this._t("col.ip"), escapeHtml(host.ip), { mono: true, copy: host.ip });
     add(this._t("col.mac"), escapeHtml(host.mac), { mono: true, copy: host.mac });
     add(
@@ -3500,6 +3611,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._popup = null;
     this._popupMac = null;
     this._parental = null;
+    this._staticIp = null;
     this._popupEditingName = false;
     this._popupNameDraft = "";
     const returnTo = this._popupReturnFocus;
@@ -4160,6 +4272,7 @@ const EDITOR_SCHEMA = [
       { name: "show_controls", selector: { boolean: {} } },
       { name: "show_version", selector: { boolean: {} } },
       { name: "show_parental", selector: { boolean: {} } },
+      { name: "show_static_ip", selector: { boolean: {} } },
       { name: "show_tabs", selector: { boolean: {} } },
       {
         name: "group_by",
@@ -4291,6 +4404,7 @@ const EDITOR_LABELS = {
   show_controls: "Steuerungsleiste anzeigen",
   show_version: "Version und Update-Hinweis anzeigen",
   show_parental: "Zugangsprofil (Kindersicherung) im Popup anzeigen",
+  show_static_ip: "Statische IP (experimentell) im Popup anzeigen",
   show_tabs: "Kategorien als Tabs anzeigen",
   filter_alle: "Button „Alle“",
   filter_aktiv: "Button „Aktiv“",
@@ -4320,6 +4434,7 @@ const EDITOR_HELPERS = {
   show_tabs: "Zeigt oben Reiter für die Kategorien Netzwerk und Steuerung. Jeder Reiter zeigt ausschließlich seine eigenen Elemente: Netzwerk die Filter, die Suche und die Geräteliste, Steuerung die Down/Up-Anzeige, die WLAN-Schalter und Neuverbinden/Neustart. Der Steuerungs-Reiter erscheint nur, wenn die Steuerungsleiste aktiviert ist. Ohne Reiter erscheinen beide Bereiche wie bisher untereinander.",
   show_controls: "Zeigt in der Karte eine Leiste mit Live-Down/Up sowie – wenn die FRITZ!Box-Steuerung in den Integrationseinstellungen aktiviert ist – WLAN-Schaltern, MAC-Filter/Pairing und den Buttons Neuverbinden/Neustart. Gibt es Repeater, erscheint zusätzlich die Mesh-Gruppe (FRITZ!Box + Repeater) mit „Alle neu starten“.",
   show_version: "Zeigt auf der Steuerungsseite die Version der Integration. Gibt es eine neuere Version, wird sie farblich hervorgehoben.",
+  show_static_ip: "Zeigt im Geräte-Popup die Zeile „Statische IP“ (feste IPv4-Adresse zuweisen, mit Prüfung gegen doppelte Adressen). Schreiben nur mit eingeschalteter Integrationsoption.",
   show_parental: "Zeigt im Geräte-Popup die Auswahl des Zugangsprofils (Kindersicherung). Erscheint nur, wenn die Funktion in den Integrationsoptionen eingeschaltet ist.",
   default_filter: "Welcher Filter aktiv ist, wenn die Karte geladen oder neu geöffnet wird (z. B. „Aktiv“). Nach einem Refresh wird nicht mehr auf „Alle“ zurückgesetzt.",
   language: "Sprache der Beschriftungen in der Karte. „Automatisch“ folgt der in Home Assistant eingestellten Sprache (Deutsch, Englisch, Niederländisch).",
@@ -4389,10 +4504,12 @@ const EDITOR_TX = {
     show_controls: "Show controls bar",
     show_version: "Show version and update notice",
     show_parental: "Show access profile (parental control) in the popup",
+    show_static_ip: "Show static IP (experimental) in the popup",
     show_tabs: "Show categories as tabs",
     help_show_tabs: "Shows tabs for the Network and Controls categories at the top. Each tab shows only its own elements: Network the filters, search and device list, Controls the download/upload display, Wi-Fi switches and reconnect/reboot. The Controls tab only appears when the controls bar is enabled. Without tabs, both areas appear below each other as before.",
     help_show_controls: "Shows a bar with live download/upload and \u2013 if FRITZ!Box controls are enabled in the integration settings \u2013 Wi-Fi switches, MAC filter/pairing and reconnect/reboot buttons. If there are repeaters, a mesh group (FRITZ!Box + repeaters) with \u201cRestart all\u201d is shown as well.",
     help_show_version: "Shows the integration version on the controls page. If a newer version exists it is highlighted in colour.",
+    help_show_static_ip: "Shows the “Static IP” row in the device popup (assign a fixed IPv4 address, checked against duplicates). Writing only with the integration option enabled.",
     help_show_parental: "Shows the access profile selection (parental control) in the device popup. Only appears if the feature is enabled in the integration options.",
     filter_alle: '"All" button', filter_aktiv: '"Active" button',
     filter_inaktiv: '"Inactive" button', filter_gast: '"Guest" button',
@@ -4469,10 +4586,12 @@ const EDITOR_TX = {
     show_controls: "Bedieningsbalk tonen",
     show_version: "Versie en updatemelding tonen",
     show_parental: "Toegangsprofiel (ouderlijk toezicht) in de popup tonen",
+    show_static_ip: "Statisch IP (experimenteel) in de popup tonen",
     show_tabs: "Categorieën als tabs tonen",
     help_show_tabs: "Toont bovenaan tabs voor de categorieën Netwerk en Bediening. Elke tab toont uitsluitend de eigen elementen: Netwerk de filters, het zoekveld en de apparatenlijst, Bediening de download/upload-weergave, de wifi-schakelaars en opnieuw verbinden/herstarten. De tab Bediening verschijnt alleen als de bedieningsbalk is ingeschakeld. Zonder tabs verschijnen beide gebieden onder elkaar zoals voorheen.",
     help_show_controls: "Toont een balk met live download/upload en \u2013 als de FRITZ!Box-bediening in de integratie-instellingen is ingeschakeld \u2013 wifi-schakelaars, MAC-filter/koppelen en knoppen voor opnieuw verbinden/herstarten. Als er repeaters zijn, verschijnt ook de meshgroep (FRITZ!Box + repeaters) met \u201cAlles herstarten\u201d.",
     help_show_version: "Toont op de bedieningspagina de versie van de integratie. Is er een nieuwere versie, dan wordt die gekleurd gemarkeerd.",
+    help_show_static_ip: "Toont in de apparaat-popup de rij „Statisch IP” (vast IPv4-adres toewijzen, gecontroleerd op dubbele adressen). Schrijven alleen met ingeschakelde integratie-optie.",
     help_show_parental: "Toont in de apparaat-popup de keuze van het toegangsprofiel (ouderlijk toezicht). Verschijnt alleen als de functie in de integratie-opties is ingeschakeld.",
     filter_alle: 'Knop "Alle"', filter_aktiv: 'Knop "Actief"',
     filter_inaktiv: 'Knop "Inactief"', filter_gast: 'Knop "Gast"',

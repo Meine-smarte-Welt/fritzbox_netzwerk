@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 301efa721d0ba9a08f86deec273dcce3b95e322d7e0e315a64001b8e7f80ca9d
 """Mesh-Topologie ueber ``fritzconnection.lib.fritztopology`` (Idee 5 aus feature-ideen.md).
 
 Eigenes, von Home Assistant unabhaengiges Modul - wie ``connection.py`` -

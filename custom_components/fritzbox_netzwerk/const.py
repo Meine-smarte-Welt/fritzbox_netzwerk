@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 7bcf04484d3eb1798c99347237574ec28286de9850aa30fd131cbb7a511924d4
 """Konstanten der Integration fritzbox_netzwerk."""
 
 from typing import Final
@@ -6,7 +7,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.7.1"
+VERSION: Final = "1.8.0"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -48,6 +49,11 @@ CONF_ENABLE_SYSTEM_STATS: Final = "enable_system_stats"
 CONF_ENABLE_PARENTAL: Final = "enable_parental_control"
 CONF_CHECK_UPDATES: Final = "check_updates"
 CONF_HOST_DEVICE_FILTER: Final = "host_device_filter"
+# DNS-Einstellungen der Box aendern (experimentell, REST-Schnittstelle der
+# Weboberflaeche - siehe dns_settings.py). Lesen ist immer moeglich.
+CONF_ENABLE_DNS_SETTINGS: Final = "enable_dns_settings"
+# Feste IPv4-Adresse je Geraet setzen (experimentell, siehe static_ip.py).
+CONF_ENABLE_STATIC_IP: Final = "enable_static_ip"
 
 DEFAULT_SCAN_INTERVAL: Final = 60  # Sekunden
 DEFAULT_TRACK_ADDRESS_SOURCE: Final = True
@@ -64,6 +70,8 @@ DEFAULT_ENABLE_SYSTEM_STATS: Final = False
 # Idee 22 (experimentell): Zugangsprofile der Kindersicherung ueber die Weboberflaeche
 DEFAULT_ENABLE_PARENTAL: Final = False
 DEFAULT_CHECK_UPDATES: Final = True
+DEFAULT_ENABLE_DNS_SETTINGS: Final = False
+DEFAULT_ENABLE_STATIC_IP: Final = False
 UPDATE_CHECK_HOURS: Final = 24
 GITHUB_LATEST_RELEASE_URL: Final = (
     "https://api.github.com/repos/Meine-smarte-Welt/fritzbox_netzwerk/releases/latest"
@@ -112,6 +120,10 @@ SERVICE_REBOOT_MESH: Final = "reboot_mesh"
 SERVICE_GAST_WLAN_INFO: Final = "gast_wlan_info"
 SERVICE_SET_DEVICE_NOTE: Final = "set_device_note"
 SERVICE_UPDATE_OUI: Final = "update_oui"
+SERVICE_GET_DNS_SETTINGS: Final = "get_dns_settings"
+SERVICE_SET_DNS_SETTINGS: Final = "set_dns_settings"
+SERVICE_SET_STATIC_IP: Final = "set_static_ip"
+ATTR_DRY_RUN: Final = "dry_run"
 
 # WLANConfiguration-Dienstindex des Gast-WLANs - dieselbe Annahme (Dualband-
 # Box: 1 = 2,4 GHz, 2 = 5 GHz, 3 = Gast), die switch.py (WLAN_BANDS) und

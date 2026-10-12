@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f9c426cef912480a6683884f2e0a9521e59ab18c242ba8f2eba2e06942718247
 """Device-Tracker der Integration fritzbox_netzwerk.
 
 Erzeugt - wenn in den Optionen aktiviert - je Netzwerkgeraet einen

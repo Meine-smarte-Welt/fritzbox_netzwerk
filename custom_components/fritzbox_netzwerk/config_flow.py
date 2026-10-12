@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 5de5d60e4a9317fb104890f2d52f1b4ab02d25e83c53ab3c96385f4e8a225bee
 """Einrichtungsdialog fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -32,9 +33,13 @@ from .const import (
     CONF_ENABLE_DEVICE_TRACKER,
     CONF_ENABLE_HOST_DEVICES,
     CONF_CHECK_UPDATES,
+    CONF_ENABLE_DNS_SETTINGS,
+    CONF_ENABLE_STATIC_IP,
     CONF_ENABLE_PARENTAL,
     DEFAULT_CHECK_UPDATES,
     CONF_ENABLE_SYSTEM_STATS,
+    DEFAULT_ENABLE_DNS_SETTINGS,
+    DEFAULT_ENABLE_STATIC_IP,
     DEFAULT_ENABLE_PARENTAL,
     DEFAULT_ENABLE_SYSTEM_STATS,
     CONF_ENABLE_REPEATERS,
@@ -415,6 +420,16 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                 vol.Optional(
                     CONF_ENABLE_PARENTAL,
                     default=options.get(CONF_ENABLE_PARENTAL, DEFAULT_ENABLE_PARENTAL),
+                ): bool,
+                vol.Optional(
+                    CONF_ENABLE_DNS_SETTINGS,
+                    default=options.get(
+                        CONF_ENABLE_DNS_SETTINGS, DEFAULT_ENABLE_DNS_SETTINGS
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_ENABLE_STATIC_IP,
+                    default=options.get(CONF_ENABLE_STATIC_IP, DEFAULT_ENABLE_STATIC_IP),
                 ): bool,
                 vol.Optional(
                     CONF_HOST_DEVICE_FILTER,

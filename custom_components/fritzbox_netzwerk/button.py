@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ab80194dddfe55a8ca8345117e4aad40c3924a0f45b1aaa2e073da75f386b3c7
 """Aktions-Buttons der Integration fritzbox_netzwerk.
 
 Erzeugt - wenn in den Optionen aktiviert - Buttons zum Neu-Verbinden der

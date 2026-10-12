@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 9d8de7ac6ce87ad4be97632568eaca8fc7b593b08c03513fa008fd5899e52709
 set_device_name:
   fields:
     mac:
@@ -188,6 +189,92 @@ set_access_profile:
 install_blueprints:
   fields:
     overwrite:
+      required: false
+      default: false
+      selector:
+        boolean:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+get_dns_settings:
+  fields:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+set_dns_settings:
+  fields:
+    internet_ipv4_custom:
+      required: false
+      selector:
+        boolean:
+    internet_ipv4_dns1:
+      required: false
+      example: "9.9.9.9"
+      selector:
+        text:
+    internet_ipv4_dns2:
+      required: false
+      example: "149.112.112.112"
+      selector:
+        text:
+    internet_ipv6_custom:
+      required: false
+      selector:
+        boolean:
+    internet_ipv6_dns1:
+      required: false
+      example: "2620:fe::fe"
+      selector:
+        text:
+    internet_ipv6_dns2:
+      required: false
+      example: "2620:fe::9"
+      selector:
+        text:
+    home_ipv4_dns:
+      required: false
+      example: "192.168.178.1"
+      selector:
+        text:
+    home_ipv6_dns:
+      required: false
+      example: "fd00::1"
+      selector:
+        text:
+    home_ipv6_advertise:
+      required: false
+      selector:
+        boolean:
+    dry_run:
+      required: false
+      default: false
+      selector:
+        boolean:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+set_static_ip:
+  fields:
+    mac:
+      required: true
+      example: "AA:BB:CC:DD:EE:FF"
+      selector:
+        text:
+    ip:
+      required: true
+      example: "192.168.178.50"
+      selector:
+        text:
+    dry_run:
       required: false
       default: false
       selector:

@@ -74,7 +74,9 @@
           "host_device_filter": "Device selection (IP pattern)",
           "enable_system_stats": "Read CPU and RAM of the box (experimental)",
           "enable_parental_control": "Control parental-control access profiles (experimental)",
-          "check_updates": "Check for a new version daily"
+          "check_updates": "Check for a new version daily",
+          "enable_dns_settings": "Change DNS settings of the box (experimental)",
+          "enable_static_ip": "Set static IP address (experimental)"
         },
         "data_description": {
           "track_address_source": "This value is not part of the host list and costs one extra request per device. It rarely changes, so it runs on its own slower schedule.",
@@ -89,7 +91,9 @@
           "host_device_filter": "Which devices get their own device: same notation as the card filter \"IP filter\" (e.g. \"192.168.2.*\", separate several patterns with commas, \"!\" excludes; \"*\" selects all). Empty = none. At most 150 devices.",
           "enable_system_stats": "Reads CPU load, RAM usage and temperature through the box web interface (not TR-064, undocumented by AVM, FRITZ!OS dependent). Off by default; if the request fails only these values are missing.",
           "enable_parental_control": "Enables services that read access profiles and assign them to devices (e.g. \"Blocked\" for one hour). Uses the box web interface, not TR-064 – undocumented by AVM, FRITZ!OS dependent. Off by default.",
-          "check_updates": "Asks GitHub once a day for the latest published version and shows a notice in the card (Controls) when a newer one is available. No data about you or your box is transmitted."
+          "check_updates": "Asks GitHub once a day for the latest published version and shows a notice in the card (Controls) when a newer one is available. No data about you or your box is transmitted.",
+          "enable_dns_settings": "Allows the “Change DNS settings” service to write DNS servers of the FRITZ!Box (internet IPv4/IPv6, local DNS in the home network). Uses the web interface REST API, not TR-064 – undocumented by AVM, FRITZ!OS dependent, writing not tested on real hardware. Reading and the preview (dry_run) always work. Off by default.",
+          "enable_static_ip": "Allows the “Set static IP” service to assign a fixed IPv4 address to a device (Home Network → Network → edit device). Uses the web interface, not TR-064 – field names are assumed and not verified on any box. The preview (dry_run) always works. Off by default."
         }
       }
     }
@@ -415,6 +419,88 @@
         "config_entry": {
           "name": "FRITZ!Box",
           "description": "With several boxes: which box is meant."
+        }
+      }
+    },
+    "get_dns_settings": {
+      "name": "Get DNS settings",
+      "description": "Returns the DNS settings of the box (internet IPv4/IPv6, local DNS in the home network, DNS over TLS). Read-only, experimental.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "With several boxes: which box is meant."
+        }
+      }
+    },
+    "set_dns_settings": {
+      "name": "Change DNS settings",
+      "description": "Changes DNS servers of the box. Only the given fields change; the box is read first, checked afterwards and restored on mismatch. Experimental, option required (preview with dry_run always works). The box may ask for a confirmation.",
+      "fields": {
+        "internet_ipv4_custom": {
+          "name": "Internet IPv4: custom DNS servers",
+          "description": "On: “Use other DNSv4 servers” (Internet → Account Information → DNS Server)."
+        },
+        "internet_ipv4_dns1": {
+          "name": "Internet IPv4: preferred server",
+          "description": "IPv4 address. Empty removes the entry."
+        },
+        "internet_ipv4_dns2": {
+          "name": "Internet IPv4: alternative server",
+          "description": "IPv4 address. Empty removes the entry."
+        },
+        "internet_ipv6_custom": {
+          "name": "Internet IPv6: custom DNS servers",
+          "description": "On: “Use other DNSv6 servers” (Internet → Account Information → DNS Server)."
+        },
+        "internet_ipv6_dns1": {
+          "name": "Internet IPv6: preferred server",
+          "description": "IPv6 address. Empty removes the entry."
+        },
+        "internet_ipv6_dns2": {
+          "name": "Internet IPv6: alternative server",
+          "description": "IPv6 address. Empty removes the entry."
+        },
+        "home_ipv4_dns": {
+          "name": "Home network IPv4: local DNS server",
+          "description": "IPv4 address (Home Network → Network → Network Settings → IPv4 addresses)."
+        },
+        "home_ipv6_dns": {
+          "name": "Home network IPv6: local DNSv6 server",
+          "description": "IPv6 address (Home Network → Network → Network Settings → IPv6 addresses)."
+        },
+        "home_ipv6_advertise": {
+          "name": "Home network IPv6: announce via Router Advertisement",
+          "description": "Also announce the DNSv6 server via Router Advertisement (RFC 5006)."
+        },
+        "dry_run": {
+          "name": "Preview only",
+          "description": "Only shows what would change and writes nothing."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "With several boxes: which box is meant."
+        }
+      }
+    },
+    "set_static_ip": {
+      "name": "Set static IP",
+      "description": "Assigns a fixed IPv4 address to a device and first checks that it is not already in use. The address only applies after the device is restarted or reconnected. Experimental, option required (preview with dry_run always works).",
+      "fields": {
+        "mac": {
+          "name": "MAC address",
+          "description": "The device, e.g. AA:BB:CC:DD:EE:FF."
+        },
+        "ip": {
+          "name": "IPv4 address",
+          "description": "The fixed address, e.g. 192.168.178.50."
+        },
+        "dry_run": {
+          "name": "Preview only",
+          "description": "Only checks, writes nothing."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "With several boxes: which one is meant."
         }
       }
     }

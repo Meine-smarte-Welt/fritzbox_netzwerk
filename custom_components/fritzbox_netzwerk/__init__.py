@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 055dade94982382f131d448049158edb1897682ebfc7fcee633c4f6698954034
 """Die Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ from .connection import create_connection
 from .const import (
     ATTR_BLOCKED_PARAM,
     ATTR_CONFIG_ENTRY,
+    ATTR_DRY_RUN,
     ATTR_ENABLED,
     ATTR_LABEL,
     ATTR_MAC,
@@ -53,6 +55,7 @@ from .const import (
     MIN_PAIRING_MINUTES,
     PLATFORMS,
     SERVICE_GAST_WLAN_INFO,
+    SERVICE_GET_DNS_SETTINGS,
     SERVICE_INSTALL_BLUEPRINTS,
     SERVICE_GET_ACCESS_PROFILE,
     SERVICE_LIST_ACCESS_PROFILES,
@@ -60,6 +63,8 @@ from .const import (
     SERVICE_REBOOT_MESH,
     SERVICE_SET_DEVICE_NAME,
     SERVICE_SET_DEVICE_NOTE,
+    SERVICE_SET_DNS_SETTINGS,
+    SERVICE_SET_STATIC_IP,
     SERVICE_SET_INTERNET_ACCESS,
     SERVICE_SET_MAC_FILTER,
     SERVICE_START_PAIRING,
@@ -69,6 +74,7 @@ from .const import (
     VERSION,
 )
 from .coordinator import FritzboxNetzwerkCoordinator
+from .dns_settings import CHANGE_FIELDS, FIELD_MAP
 from .hosts import normalize_mac
 
 # Beacontype -> "offenes Netz, kein Passwort noetig". Gespiegelt aus
@@ -148,6 +154,36 @@ SET_PROFILE_SCHEMA = vol.Schema(
         vol.Required(ATTR_MAC): cv.string,
         vol.Required(ATTR_PROFILE): cv.string,
         vol.Optional(ATTR_MINUTES): vol.All(vol.Coerce(int), vol.Range(min=1, max=10080)),
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+    }
+)
+
+
+GET_DNS_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY): cv.string})
+
+
+def _dns_field_validator(field: str) -> Any:
+    kind = FIELD_MAP[field][2]
+    return cv.boolean if kind == "bool" else cv.string
+
+
+# Nicht uebergebene Felder bleiben unveraendert. Bei den "optionalen" Adressen
+# (zweiter Server, Internet-DNS) loescht ein leerer Text den Eintrag.
+SET_DNS_SCHEMA = vol.Schema(
+    {
+        **{vol.Optional(field): _dns_field_validator(field) for field in CHANGE_FIELDS},
+        vol.Optional(ATTR_DRY_RUN, default=False): cv.boolean,
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+    }
+)
+
+
+# Feste IPv4-Adresse (experimentell): Pruefung gegen Doppelvergabe, siehe static_ip.py.
+SET_STATIC_IP_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_MAC): cv.string,
+        vol.Required("ip"): cv.string,
+        vol.Optional(ATTR_DRY_RUN, default=False): cv.boolean,
         vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
     }
 )
@@ -274,6 +310,9 @@ async def async_unload_entry(
             SERVICE_LIST_ACCESS_PROFILES,
             SERVICE_GET_ACCESS_PROFILE,
             SERVICE_SET_ACCESS_PROFILE,
+            SERVICE_GET_DNS_SETTINGS,
+            SERVICE_SET_DNS_SETTINGS,
+            SERVICE_SET_STATIC_IP,
             SERVICE_INSTALL_BLUEPRINTS,
         ):
             hass.services.async_remove(DOMAIN, service)
@@ -580,6 +619,23 @@ def _async_register_services(hass: HomeAssistant) -> None:
             call.data[ATTR_MAC], call.data[ATTR_PROFILE], call.data.get(ATTR_MINUTES)
         )
 
+    async def _handle_get_dns(call: ServiceCall) -> dict[str, Any]:
+        """Liest die DNS-Einstellungen der Box (nur lesend, experimentell)."""
+        return await _resolve_coordinator(call.data).async_get_dns_settings()
+
+    async def _handle_set_dns(call: ServiceCall) -> dict[str, Any]:
+        """Aendert DNS-Einstellungen der Box (experimentell, Option noetig)."""
+        changes = {field: call.data[field] for field in CHANGE_FIELDS if field in call.data}
+        return await _resolve_coordinator(call.data).async_set_dns_settings(
+            changes, bool(call.data.get(ATTR_DRY_RUN, False))
+        )
+
+    async def _handle_set_static_ip(call: ServiceCall) -> dict[str, Any]:
+        """Setzt eine feste IPv4-Adresse fuer ein Geraet (experimentell, Option noetig)."""
+        return await _resolve_coordinator(call.data).async_set_static_ip(
+            call.data[ATTR_MAC], call.data["ip"], bool(call.data.get(ATTR_DRY_RUN, False))
+        )
+
     async def _handle_install_blueprints(call: ServiceCall) -> dict[str, Any]:
         """Kopiert die mitgelieferten Blueprints in das Konfigurationsverzeichnis."""
         return await _resolve_coordinator(call.data).async_install_blueprints(
@@ -591,6 +647,9 @@ def _async_register_services(hass: HomeAssistant) -> None:
         (SERVICE_LIST_ACCESS_PROFILES, _handle_list_profiles, LIST_PROFILES_SCHEMA, SupportsResponse.ONLY),
         (SERVICE_GET_ACCESS_PROFILE, _handle_get_profile, GET_PROFILE_SCHEMA, SupportsResponse.ONLY),
         (SERVICE_SET_ACCESS_PROFILE, _handle_set_profile, SET_PROFILE_SCHEMA, SupportsResponse.OPTIONAL),
+        (SERVICE_GET_DNS_SETTINGS, _handle_get_dns, GET_DNS_SCHEMA, SupportsResponse.ONLY),
+        (SERVICE_SET_DNS_SETTINGS, _handle_set_dns, SET_DNS_SCHEMA, SupportsResponse.OPTIONAL),
+        (SERVICE_SET_STATIC_IP, _handle_set_static_ip, SET_STATIC_IP_SCHEMA, SupportsResponse.OPTIONAL),
     ):
         if not hass.services.has_service(DOMAIN, name):
             hass.services.async_register(

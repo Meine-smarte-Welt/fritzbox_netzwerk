@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 858e0db6ad8018dce5145e671eff314f2ee017a1c32bd5890c9fc584a3c936df
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -41,12 +42,16 @@ from .const import (
     CONF_ADDRESS_SOURCE_INTERVAL,
     BLUEPRINTS_DIRNAME,
     CONF_CHECK_UPDATES,
+    CONF_ENABLE_DNS_SETTINGS,
+    CONF_ENABLE_STATIC_IP,
     CONF_ENABLE_PARENTAL,
     DEFAULT_CHECK_UPDATES,
     GITHUB_LATEST_RELEASE_URL,
     UPDATE_CHECK_HOURS,
     VERSION,
     CONF_ENABLE_SYSTEM_STATS,
+    DEFAULT_ENABLE_DNS_SETTINGS,
+    DEFAULT_ENABLE_STATIC_IP,
     DEFAULT_ENABLE_PARENTAL,
     PROFILE_REVERT_STORAGE_VERSION,
     CONF_REMOTE_ACCESS,
@@ -112,6 +117,8 @@ from .hosts import (
 from .blueprints_install import install_blueprints
 from .mesh_topology import fetch_mesh_links
 from .updates import build_version_info, parse_release
+from .dns_settings import change_dns_settings, read_dns_settings
+from .static_ip import NEEDS_RESTART, StaticIpError, plan_static_ip, set_static_ip
 from .webui import (
     assign_profile,
     base_url,
@@ -1691,6 +1698,92 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
         except OSError as err:
             raise HomeAssistantError(f"Blueprints konnten nicht kopiert werden: {err}") from err
+
+    # -- DNS-Einstellungen (1.8.0, experimentell) -------------------------
+
+    @property
+    def dns_write_enabled(self) -> bool:
+        """Ob das Aendern der DNS-Einstellungen freigeschaltet ist (Lesen geht immer)."""
+        return bool(self.entry.options.get(CONF_ENABLE_DNS_SETTINGS, DEFAULT_ENABLE_DNS_SETTINGS))
+
+    async def async_get_dns_settings(self) -> dict[str, Any]:
+        """Liest die DNS-Einstellungen der Box (nur lesend, Option nicht noetig)."""
+        try:
+            return await self.hass.async_add_executor_job(self._run_web, read_dns_settings)
+        except (ValueError, RequestException) as err:
+            raise HomeAssistantError(f"DNS-Einstellungen: {err}") from err
+
+    async def async_set_dns_settings(
+        self, changes: dict[str, Any], dry_run: bool = False
+    ) -> dict[str, Any]:
+        """Aendert DNS-Einstellungen (vorher lesen, danach pruefen, bei Abweichung zurueck).
+
+        ``dry_run`` rechnet nur aus, was sich aendern wuerde, und ist auch ohne
+        freigeschaltete Option erlaubt (es wird nichts geschrieben).
+        """
+        if not dry_run and not self.dns_write_enabled:
+            raise HomeAssistantError(
+                "Das Ändern der DNS-Einstellungen ist aus - in den Optionen "
+                "'DNS-Einstellungen der Box ändern (experimentell)' einschalten "
+                "(oder mit dry_run nur die Vorschau abrufen)."
+            )
+        try:
+            return await self.hass.async_add_executor_job(
+                self._run_web, change_dns_settings, changes, dry_run
+            )
+        except (ValueError, RequestException) as err:
+            raise HomeAssistantError(f"DNS-Einstellungen: {err}") from err
+
+    # -- Feste IPv4-Adresse je Geraet (experimentell, 1.8.0) ----------------
+
+    @property
+    def static_ip_enabled(self) -> bool:
+        """Ob das Setzen fester IP-Adressen freigeschaltet ist (Vorschau geht immer)."""
+        return bool(self.entry.options.get(CONF_ENABLE_STATIC_IP, DEFAULT_ENABLE_STATIC_IP))
+
+    def _lan_info(self) -> tuple[str | None, str | None]:
+        """Adresse und Netzmaske der Box im Heimnetz (None, wenn nicht ermittelbar)."""
+        try:
+            info = self.call_action("LANHostConfigManagement1", "GetInfo")
+        except (FritzConnectionException, RequestException) as err:
+            _LOGGER.debug("LAN-Info nicht abrufbar: %s", err)
+            return None, None
+        router = str(info.get("NewIPRouters") or "").split(",")[0].strip() or None
+        mask = str(info.get("NewSubnetMask") or "").strip() or None
+        return router, mask
+
+    async def async_set_static_ip(self, mac: str, ip: str, dry_run: bool = False) -> dict[str, Any]:
+        """Setzt eine feste IPv4-Adresse (Pruefung gegen Doppelvergabe, dann Schreiben)."""
+        if not dry_run and not self.static_ip_enabled:
+            raise HomeAssistantError(
+                "Das Setzen statischer IP-Adressen ist aus - in den Optionen "
+                "'Statische IP-Adresse setzen (experimentell)' einschalten "
+                "(oder mit dry_run nur die Vorschau abrufen)."
+            )
+        hosts = list((self.data or {}).get("hosts", []))
+
+        def _run() -> dict[str, Any]:
+            box_ip, mask = self._lan_info()
+            plan = plan_static_ip(
+                hosts, mac, ip, box_ip=box_ip, netmask=mask, pool=self.dhcp_pool
+            )
+            result: dict[str, Any] = {**plan, "dry_run": dry_run, "hinweis": NEEDS_RESTART}
+            if plan["unchanged"]:
+                result["geschrieben"] = False
+                return result
+            outcome = self._run_web(set_static_ip, mac, plan["ip"], dry_run)
+            result["geschrieben"] = not dry_run
+            result["vorher"] = outcome.get("before")
+            result["nachher"] = outcome.get("after")
+            return result
+
+        try:
+            result = await self.hass.async_add_executor_job(_run)
+        except (StaticIpError, ValueError, RequestException) as err:
+            raise HomeAssistantError(f"Statische IP: {err}") from err
+        if result.get("geschrieben"):
+            await self.async_request_refresh()
+        return result
 
     # -- Kindersicherung: Zugangsprofile (Idee 22, experimentell) ---------
 

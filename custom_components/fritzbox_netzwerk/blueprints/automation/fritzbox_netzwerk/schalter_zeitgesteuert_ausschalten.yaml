@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): be3a9dc0b49aa85e57df64ff684c9d6556e71c74d6d82bb44a04da5dedf58e06
 blueprint:
   name: "FRITZ!Box Netzwerk – Schalter zeitgesteuert ausschalten (z. B. Gast-WLAN)"
   description: >

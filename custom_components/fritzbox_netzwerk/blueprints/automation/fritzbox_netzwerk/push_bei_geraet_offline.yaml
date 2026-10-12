@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): e8383be1035ff8a4d72ed243344a58fac2562843042ea00dbdbbb87678db353a
 blueprint:
   name: "FRITZ!Box Netzwerk – Push bei Gerät offline"
   description: >

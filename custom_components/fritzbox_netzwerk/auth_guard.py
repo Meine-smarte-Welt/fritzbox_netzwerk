@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 556b49dd42df37ec7461db41f830080d927591337e1e5ba6fd579a08918c384a
 """Schutz vor voreiligen Neu-Anmeldungen (ohne Abhaengigkeit von Home Assistant).
 
 Die FRITZ!Box lehnt Anmeldungen gelegentlich kurzzeitig ab (HTTP 401 bzw.

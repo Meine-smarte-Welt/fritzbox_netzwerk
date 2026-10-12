@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): a4ed48fd85cabb6d3b1ffdec384246616aefade1956f3e05cff9cb6a0112b729
 """Gemeinsame Bausteine fuer Repeater als eigene Home-Assistant-Geraete.
 
 AVM-Repeater im Mesh tauchen in der Hostliste der FRITZ!Box als ganz normale

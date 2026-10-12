@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 97681ec3351dc0b9f222aec20125aa5dda80266adc6beace2a6c94b7ebb5e4c3
 """Sensoren der Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -284,6 +285,8 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             "version": data.get("version"),
             # Ob die Zugangsprofil-Funktionen freigeschaltet sind (Popup der Karte).
             "parental": self.coordinator.parental_enabled,
+            # Ob der Button "Statische IP" im Popup freigeschaltet ist.
+            "static_ip": self.coordinator.static_ip_enabled,
         }
         return attributes
 

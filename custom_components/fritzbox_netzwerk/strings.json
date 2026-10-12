@@ -74,7 +74,9 @@
           "host_device_filter": "Auswahl der Geräte (IP-Muster)",
           "enable_system_stats": "CPU und RAM der Box lesen (experimentell)",
           "enable_parental_control": "Zugangsprofile der Kindersicherung steuern (experimentell)",
-          "check_updates": "Täglich auf neue Version prüfen"
+          "check_updates": "Täglich auf neue Version prüfen",
+          "enable_dns_settings": "DNS-Einstellungen der Box ändern (experimentell)",
+          "enable_static_ip": "Statische IP-Adresse setzen (experimentell)"
         },
         "data_description": {
           "track_address_source": "Diese Angabe steht nicht in der Geräteliste und kostet einen zusätzlichen Aufruf pro Gerät. Sie ändert sich selten, deshalb läuft sie in einem eigenen, langsameren Takt.",
@@ -89,7 +91,9 @@
           "host_device_filter": "Welche Geräte ein eigenes Gerät bekommen: dieselbe Schreibweise wie der Karten-Filter „IP-Filter“ (z. B. „192.168.2.*“, mehrere Muster mit Komma, „!“ schließt aus; „*“ wählt alle). Leer = keines. Höchstens 150 Geräte.",
           "enable_system_stats": "Liest CPU-Auslastung, RAM-Auslastung und Temperatur über die Weboberfläche der Box (nicht über TR-064, von AVM nicht dokumentiert, FRITZ!OS-abhängig). Standardmäßig aus; schlägt der Abruf fehl, fehlen nur diese Werte.",
           "enable_parental_control": "Erlaubt Dienste, die Zugangsprofile lesen und Geräten zuweisen (z. B. „Gesperrt“ für eine Stunde). Nutzt die Weboberfläche der Box, nicht TR-064 – von AVM nicht dokumentiert, FRITZ!OS-abhängig. Standardmäßig aus.",
-          "check_updates": "Fragt einmal am Tag bei GitHub nach der neuesten veröffentlichten Version und zeigt in der Karte (Steuerung) einen Hinweis, wenn eine neuere verfügbar ist. Es werden keine Daten über dich oder deine Box übertragen."
+          "check_updates": "Fragt einmal am Tag bei GitHub nach der neuesten veröffentlichten Version und zeigt in der Karte (Steuerung) einen Hinweis, wenn eine neuere verfügbar ist. Es werden keine Daten über dich oder deine Box übertragen.",
+          "enable_dns_settings": "Erlaubt dem Dienst „DNS-Einstellungen ändern“, DNS-Server der FRITZ!Box zu schreiben (Internet IPv4/IPv6, lokaler DNS im Heimnetz). Nutzt die REST-Schnittstelle der Weboberfläche, nicht TR-064 – von AVM nicht dokumentiert, FRITZ!OS-abhängig, ohne Test an echter Hardware beim Schreiben. Lesen und die Vorschau (dry_run) gehen immer. Standardmäßig aus.",
+          "enable_static_ip": "Erlaubt dem Dienst „Statische IP setzen“, einem Gerät eine feste IPv4-Adresse zuzuweisen (Heimnetz → Netzwerk → Gerät bearbeiten). Nutzt die Weboberfläche der Box, nicht TR-064 – die Feldnamen sind angenommen und an keiner Box geprüft. Die Vorschau (dry_run) geht immer. Standardmäßig aus."
         }
       }
     }
@@ -411,6 +415,88 @@
         "overwrite": {
           "name": "Überschreiben",
           "description": "Auch bereits vorhandene, abweichende Blueprint-Dateien durch die mitgelieferten ersetzen."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bei mehreren Boxen: welche Box gemeint ist."
+        }
+      }
+    },
+    "get_dns_settings": {
+      "name": "DNS-Einstellungen lesen",
+      "description": "Liefert die DNS-Einstellungen der Box (Internet IPv4/IPv6, lokaler DNS im Heimnetz, DNS over TLS). Nur lesend, experimentell.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bei mehreren Boxen: welche Box gemeint ist."
+        }
+      }
+    },
+    "set_dns_settings": {
+      "name": "DNS-Einstellungen ändern",
+      "description": "Ändert DNS-Server der Box. Nur angegebene Felder werden geändert; vorher wird gelesen, danach geprüft und bei Abweichung zurückgeschrieben. Experimentell, Option nötig (Vorschau mit dry_run geht immer). Die Box kann eine Bestätigung verlangen.",
+      "fields": {
+        "internet_ipv4_custom": {
+          "name": "Internet IPv4: eigene DNS-Server",
+          "description": "Ein: „Andere DNSv4-Server verwenden“ (Internet → Zugangsdaten → DNS-Server)."
+        },
+        "internet_ipv4_dns1": {
+          "name": "Internet IPv4: bevorzugter Server",
+          "description": "IPv4-Adresse. Leer löscht den Eintrag."
+        },
+        "internet_ipv4_dns2": {
+          "name": "Internet IPv4: alternativer Server",
+          "description": "IPv4-Adresse. Leer löscht den Eintrag."
+        },
+        "internet_ipv6_custom": {
+          "name": "Internet IPv6: eigene DNS-Server",
+          "description": "Ein: „Andere DNSv6-Server verwenden“ (Internet → Zugangsdaten → DNS-Server)."
+        },
+        "internet_ipv6_dns1": {
+          "name": "Internet IPv6: bevorzugter Server",
+          "description": "IPv6-Adresse. Leer löscht den Eintrag."
+        },
+        "internet_ipv6_dns2": {
+          "name": "Internet IPv6: alternativer Server",
+          "description": "IPv6-Adresse. Leer löscht den Eintrag."
+        },
+        "home_ipv4_dns": {
+          "name": "Heimnetz IPv4: lokaler DNS-Server",
+          "description": "IPv4-Adresse (Heimnetz → Netzwerk → Netzwerkeinstellungen → IPv4-Adressen)."
+        },
+        "home_ipv6_dns": {
+          "name": "Heimnetz IPv6: lokaler DNSv6-Server",
+          "description": "IPv6-Adresse (Heimnetz → Netzwerk → Netzwerkeinstellungen → IPv6-Adressen)."
+        },
+        "home_ipv6_advertise": {
+          "name": "Heimnetz IPv6: per Router Advertisement bekanntgeben",
+          "description": "DNSv6-Server auch über Router Advertisement (RFC 5006) bekanntgeben."
+        },
+        "dry_run": {
+          "name": "Nur Vorschau",
+          "description": "Zeigt nur, was sich ändern würde, und schreibt nichts."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bei mehreren Boxen: welche Box gemeint ist."
+        }
+      }
+    },
+    "set_static_ip": {
+      "name": "Statische IP setzen",
+      "description": "Weist einem Gerät eine feste IPv4-Adresse zu und prüft vorher, dass sie nicht doppelt vergeben ist. Die Adresse gilt erst nach Neustart bzw. erneutem Verbinden des Geräts. Experimentell, Option nötig (Vorschau mit dry_run geht immer).",
+      "fields": {
+        "mac": {
+          "name": "MAC-Adresse",
+          "description": "Das Gerät, z. B. AA:BB:CC:DD:EE:FF."
+        },
+        "ip": {
+          "name": "IPv4-Adresse",
+          "description": "Die feste Adresse, z. B. 192.168.178.50."
+        },
+        "dry_run": {
+          "name": "Nur Vorschau",
+          "description": "Prüft nur und schreibt nichts."
         },
         "config_entry": {
           "name": "FRITZ!Box",

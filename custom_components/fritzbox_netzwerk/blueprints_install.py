@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 32139b16286624085ac1a4dde62d626c2495f3a1c6cc9d074dab2749fcceb52c
 """Kopiert die mitgelieferten Blueprints in das Home-Assistant-Konfigurationsverzeichnis.
 
 Ohne Home-Assistant-Importe, damit es mit temporären Ordnern prüfbar ist.

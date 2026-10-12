@@ -1,3 +1,4 @@
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ba8357949d34cc51e6ee317fd4b58281f27f18432dd3b96e1ce42180c7e94326
 """Versionsvergleich und Auswertung der GitHub-Release-Antwort.
 
 Enthält weder Home-Assistant- noch Netzwerk-Importe und ist ohne laufendes
