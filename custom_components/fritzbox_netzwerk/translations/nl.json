@@ -318,8 +318,12 @@
     },
     "gast_wlan_info": {
       "name": "Gegevens gastennetwerk ophalen",
-      "description": "Geeft de SSID, aan/uit-status en een QR-code voor het gastennetwerk terug - alleen als retourwaarde, nooit als sensor (het wachtwoord komt zo nooit in een attribuut of de geschiedenis terecht). Vereist een apart gastennetwerk (WLANConfiguration3).",
+      "description": "Geeft de SSID, aan/uit-status en een QR-code voor het gastennetwerk terug - alleen als retourwaarde, nooit als sensor (het wachtwoord komt zo nooit in een attribuut of de geschiedenis terecht). Vereist een apart gastennetwerk (WLANConfiguration, automatisch herkend - meestal 3).",
       "fields": {
+        "service": {
+          "name": "Servicenummer",
+          "description": "Alleen nodig als de automatisch gevonden servicenummer niet het gast-wifi is (1-4, standaard: automatisch)."
+        },
         "config_entry": {
           "name": "FRITZ!Box (config entry)",
           "description": "Alleen nodig bij meerdere ingerichte FRITZ!Boxen: bepaalt op welke deze dienst van toepassing is. Zonder opgave geldt de dienst voor de eerst geladen box."
@@ -497,6 +501,28 @@
         "dry_run": {
           "name": "Alleen voorvertoning",
           "description": "Controleert alleen en schrijft niets."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bij meerdere boxen: welke box bedoeld is."
+        }
+      }
+    },
+    "mark_devices_reserved": {
+      "name": "Meerdere apparaten als \"gereserveerd\" markeren",
+      "description": "Markeert alle apparaten waarvan het IP-adres bij het patroon past in één keer als \"gereserveerd\" - alleen in Home Assistant opgeslagen, de FRITZ!Box wordt niet gewijzigd. Handig, omdat de box reserveringen binnen het DHCP-bereik niet meldt en zulke apparaten anders als \"dynamisch\" verschijnen. Met \"Alleen voorbeeld\" zie je eerst wat er zou veranderen.",
+      "fields": {
+        "ip_filter": {
+          "name": "IP-patroon",
+          "description": "Patroon met jokertekens, meerdere met komma scheiden, \"!\" sluit uit, bijv. 192.168.178.*,!192.168.178.1. Een leeg patroon selecteert niets."
+        },
+        "reserved": {
+          "name": "Gereserveerd",
+          "description": "Aan: markeren, uit: markering weer verwijderen."
+        },
+        "dry_run": {
+          "name": "Alleen voorbeeld",
+          "description": "Toont alleen welke apparaten geraakt zouden worden en wijzigt niets."
         },
         "config_entry": {
           "name": "FRITZ!Box",

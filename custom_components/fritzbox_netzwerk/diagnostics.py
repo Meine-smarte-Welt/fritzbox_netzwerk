@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f620ffd255bcc2fd222cd2dfa715e45ae2858f32ba9ca7951167eb09467bbc47
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): fead395333227608ae52dfb373a9a8b91c0fced4f998f33820ff918e38e35e6e
 """Diagnose-Export fuer fritzbox_netzwerk (Idee 15 aus feature-ideen.md).
 
 Liefert die Angaben, die zur Fehlersuche bei einer GitHub-Issue-Meldung am
@@ -99,6 +99,12 @@ async def async_get_config_entry_diagnostics(
                     for host in hosts
                 ],
                 "host_count": len(hosts),
+                # Zur Fehlersuche (z. B. "Geraete fehlen"): wie viele Eintraege die
+                # Box lieferte und wie die Mesh-/Gast-Erkennung entschied.
+                "hosts_active": sum(1 for host in hosts if host.get("active")),
+                "hosts_inactive": sum(1 for host in hosts if not host.get("active")),
+                "mesh_repeaters_from_topology": len(getattr(coordinator, "_mesh_repeaters", {}) or {}),
+                "guest_wlan_service": getattr(coordinator, "_guest_service", None),
                 # Nur Zaehler - Etiketten und Notizen selbst gehoeren nicht in
                 # einen Export (sie koennen Namen und Orte enthalten).
                 "notes_count": sum(

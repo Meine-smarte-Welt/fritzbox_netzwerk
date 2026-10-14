@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 7bcf04484d3eb1798c99347237574ec28286de9850aa30fd131cbb7a511924d4
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ef1e4dc6f274c13b7edc2efcc5965445b389dd37b95144ea8cbbdb5948269f77
 """Konstanten der Integration fritzbox_netzwerk."""
 
 from typing import Final
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.8.0"
+VERSION: Final = "1.9.0"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -91,7 +91,7 @@ MAX_PAIRING_MINUTES: Final = 120
 # X_AVM-DE_FriendlynameMaxChars): die FRITZ!Box erlaubt fuer die
 # "Bezeichnung" (X_AVM-DE_FriendlyName) 1 bis 64 Zeichen.
 MAX_FRIENDLY_NAME_LENGTH: Final = 64
-MIN_SCAN_INTERVAL: Final = 15
+MIN_SCAN_INTERVAL: Final = 30
 MAX_SCAN_INTERVAL: Final = 3600
 
 # --- Attribute des Sammelsensors ----------------------------------------
@@ -123,6 +123,9 @@ SERVICE_UPDATE_OUI: Final = "update_oui"
 SERVICE_GET_DNS_SETTINGS: Final = "get_dns_settings"
 SERVICE_SET_DNS_SETTINGS: Final = "set_dns_settings"
 SERVICE_SET_STATIC_IP: Final = "set_static_ip"
+SERVICE_MARK_RESERVED: Final = "mark_devices_reserved"
+ATTR_IP_FILTER: Final = "ip_filter"
+ATTR_SERVICE: Final = "service"
 ATTR_DRY_RUN: Final = "dry_run"
 
 # WLANConfiguration-Dienstindex des Gast-WLANs - dieselbe Annahme (Dualband-
@@ -171,6 +174,11 @@ NEW_DEVICE_FILTER_DAYS: Final = 7
 # Abfragen von ``LANHostConfigManagement1.GetInfo``, unabhaengig von der
 # (fuer etwas anderes gedachten) IP-Typ-Erfassung.
 DHCP_POOL_INTERVAL_MINUTES: Final = 30
+
+# Selten aendernde Angaben (Funkband je Geraet, Mesh-Topologie, externe IP, Leitungs-
+# Sync-Raten) werden hoechstens so oft (Sekunden) neu von der Box geholt, statt bei
+# jeder Aktualisierung. Spart pro Zyklus rund 10-20 TR-064-Aufrufe (Issue: hohe Last).
+SLOW_FETCH_INTERVAL: Final = 300
 
 # --- Dashboard-Karte -----------------------------------------------------
 CARD_FILENAME: Final = "fritzbox-netzwerk-card.js"

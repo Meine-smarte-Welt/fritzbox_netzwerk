@@ -4,7 +4,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-1.8.0-blue)
+![Version](https://img.shields.io/badge/Version-1.9.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Dit is de Nederlandse uitgave. De Duitse [README.md](README.md) is het hoofdbestand en bevat de volledige kaartreferentie, het hoofdstuk probleemoplossing en de complete versiegeschiedenis. Onderdelen met „alleen Duits” zijn nog niet vertaald.
@@ -111,7 +111,7 @@ Via *Configureren* bij de integratie:
 
 | Instelling | Standaard | Betekenis |
 | --- | --- | --- |
-| Ophaalinterval | 60 s | Hoe vaak de apparatenlijst wordt opgehaald (15–3600 s) |
+| Ophaalinterval | 60 s | Hoe vaak de apparatenlijst wordt opgehaald (30–3600 s) |
 | IP-type vastleggen | aan | Of DHCP/statisch wordt bepaald |
 | Interval IP-type | 15 min | Cyclus van de IP-typebepaling |
 | Wifi-band per apparaat vastleggen | aan | Leest per wifi-netwerk de verbonden apparaten, zodat de kaart de band kan tonen |
@@ -152,7 +152,7 @@ Sinds 1.6.2: „nieuw apparaat” bij het eerste verschijnen in het thuisnetwerk
 
 ## Mesh en repeaters
 
-De FRITZ!Box en de AVM-repeaters vormen samen het mesh. De integratie behandelt ze als **één groep**: repeaters verschijnen als eigen apparaten onder de box, er is een online-teller en de knop „Alle FRITZ!-apparaten herstarten” (eerst repeaters, de box als laatste). Sinds 1.6.3 toont de kaart bij „Verbonden via” welke meshbuur een apparaat gebruikt, met de verbindingssnelheid. Geen signaalsterkte in dBm (de meshlijst levert die niet). Details: Duitse README.
+De FRITZ!Box en de AVM-repeaters vormen samen het mesh. De integratie behandelt ze als **één groep**: repeaters verschijnen als eigen apparaten onder de box, er is een online-teller en de knop „Alle FRITZ!-apparaten herstarten” (eerst repeaters, de box als laatste). Sinds 1.6.3 toont de kaart bij „Verbonden via” welke meshbuur een apparaat gebruikt, met de verbindingssnelheid. Geen signaalsterkte in dBm (de meshlijst levert die niet). Sinds 1.9.0 geldt een apparaat ook als repeater als de mesh-topologie van de box het als meshlid vermeldt, wordt de wifi-band van apparaten achter een repeater uit de naam van de mesh-interface gelezen (beide aannames niet op echte hardware getest), worden repeaters met alleen een wachtwoord (zonder gebruikersnaam) opnieuw met een lege gebruikersnaam geprobeerd en kan de lijst op mesh-verbinding worden gegroepeerd (`group_by: mesh`). Details: Duitse README.
 
 ## MAC-filter en pairing
 
@@ -241,8 +241,9 @@ Zijn er meerdere boxen ingesteld, dan accepteren alle services een optioneel vel
 | `set_internet_access` (experimenteel) | Internettoegang van een apparaat blokkeren/toestaan |
 | `set_mac_filter`, `start_pairing` (experimenteel) | Wifi-MAC-filter en tijdelijke pairing |
 | `reboot_mesh` (experimenteel) | Repeaters en box herstarten |
-| `gast_wlan_info` | Gast-wifigegevens (voor de QR-code) |
+| `gast_wlan_info` | Gast-wifigegevens (voor de QR-code); sinds 1.9.0 wordt de gastservice herkend en kan een optionele `service` (1-4) die afdwingen |
 | `set_device_note` | Label, notitie en „gereserveerd”-markering (alleen in Home Assistant opgeslagen) |
+| `mark_devices_reserved` | Veel apparaten tegelijk als „gereserveerd” markeren via IP-patroon (alleen in Home Assistant opgeslagen; `dry_run` toont een voorbeeld) |
 | `list_access_profiles`, `get_access_profile`, `set_access_profile` (experimenteel) | Profielen van ouderlijk toezicht |
 | `get_dns_settings`, `set_dns_settings` (experimenteel) | DNS-instellingen van de box |
 | `set_static_ip` (experimenteel) | Vast IPv4-adres voor een apparaat |
@@ -288,12 +289,30 @@ Elk `.py`-, `.js`- en `.yaml`-bestand begint met een SHA-256-header over de inho
 ## Ontwikkeling en tests
 
 ```bash
-python3 -m unittest discover -s tests -p "test_*.py" -v   # 47 gevallen (dns_settings, static_ip, gesimuleerde box)
+pip install fritzconnection==1.15.1 segno==1.6.6 pytest
+python3 -m pytest -q tests
+node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fritzbox-netzwerk-card.js
 ```
 
-De repository bevat nu alleen de tests voor `dns_settings.py` en `static_ip.py`; ze draaien tegen gesimuleerde boxen, niet tegen echte hardware.
+De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 1.9.0 – Mesh-herkenning, gastwifi-service, bulkmarkering „gereserveerd”, repeater-aanmelding
+
+Pakt de openstaande GitHub-issues aan voor zover dat zonder echte box kon. **Niets hiervan is getest op een echte FRITZ!Box of in een draaiende Home Assistant** – alleen tegen synthetische gegevens.
+
+- **Nieuw (#27):** de lijst groeperen op **mesh-verbinding** (`group_by: mesh`).
+- **Verbeterd (belasting):** minder verzoeken aan de FRITZ!Box. Zelden wijzigende gegevens (band per apparaat, mesh-topologie, extern IP, synchronisatiesnelheden) worden hoogstens elke 5 minuten opgehaald in plaats van bij elke update (circa 10–20 TR-064-aanroepen minder per cyclus, afhankelijk van de opstelling). Het kleinste ophaalinterval is nu 30 s (was 15 s); lagere opgeslagen waarden worden naar 30 s verhoogd. Het effect is berekend, niet gemeten op een box of in Home Assistant.
+- **Verbeterd (kaart):** de lijst wordt hoogstens elke `refresh_interval` seconden opnieuw getekend (standaard 15, `0` = direct zoals voorheen), wacht tijdens scrollen of bedienen en behoudt de scrollpositie – de kaart springt niet meer naar boven. Kleine schommelingen van de verbindingssnelheid veroorzaken geen hertekening meer. Niet getest in een browser (alleen een Node-test van de rem).
+- **Opgelost (#21):** de **wifi-band** ontbrak bij apparaten achter een repeater; die wordt nu ook uit de mesh-topologie gelezen (interfacenaam zoals `AP:5G:0` – aanname, niet getest). Een band uit de eigen wifi-lijst van de box heeft voorrang.
+- **Opgelost (#16):** **niet alle mesh-repeaters werden herkend**: naast de modelnaam telt nu elk meshlid volgens de topologie (`is_meshed`) (niet getest).
+- **Opgelost (#20):** de **QR-code van het gastwifi** toonde bij boxen met meer dan drie wifi-services een hoofdnetwerk. De gastservice wordt nu herkend (hoogste service vanaf 3 zonder bandmelding, anders 3 zoals voorheen); de gastschakelaar volgt dezelfde keuze; `gast_wlan_info` accepteert een optionele `service` en geeft `dienst` terug. De aanname „gast meldt geen band” is niet getest.
+- **Opgelost (#25):** **repeater herstarten** mislukte bij repeaters met alleen een wachtwoord: na een geweigerde aanmelding wordt met een lege gebruikersnaam opnieuw geprobeerd.
+- **Nieuw (#22, #23):** service `mark_devices_reserved` markeert veel apparaten via IP-patroon als „gereserveerd” (alleen Home Assistant). De box meldt reserveringen *binnen* het DHCP-bereik niet via TR-064, dus zulke apparaten verschijnen als „dynamisch” – een beperking van de interface, geen bug.
+- **Niet opgelost (#24):** *offline apparaten verdwijnen* – geen oorzaak in de code gevonden; de diagnose-download bevat nu aantallen actief/inactief.
+- **Niet geïmplementeerd (#26):** *dataverbruik per apparaat* – TR-064 levert geen verkeer per apparaat.
+- **Al opgelost, issue nog open (#17):** de titel springt niet meer terug bij het wissen van het laatste teken (opgelost in 1.6.3); nieuwe test `tests/test_card_editor_title.js`.
 
 ### 1.8.0 – DNS-instellingen en statisch IP-adres (experimenteel)
 

@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 055dade94982382f131d448049158edb1897682ebfc7fcee633c4f6698954034
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): aed5ad0ed8981ac3fe9e0afbb0e32f198c9d154d228c26a23691ba5ae5e1ed24
 """Die Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -35,6 +35,9 @@ from .const import (
     ATTR_BLOCKED_PARAM,
     ATTR_CONFIG_ENTRY,
     ATTR_DRY_RUN,
+    ATTR_IP_FILTER,
+    ATTR_SERVICE,
+    SERVICE_MARK_RESERVED,
     ATTR_ENABLED,
     ATTR_LABEL,
     ATTR_MAC,
@@ -124,7 +127,23 @@ PAIRING_SCHEMA = vol.Schema(
 
 REBOOT_MESH_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY): cv.string})
 
-GAST_WLAN_INFO_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY): cv.string})
+GAST_WLAN_INFO_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+        # Dienstnummer erzwingen, falls die automatische Erkennung danebenliegt.
+        vol.Optional(ATTR_SERVICE): vol.All(vol.Coerce(int), vol.Range(min=1, max=4)),
+    }
+)
+
+# Sammelmarkierung "reserviert" (Issue #22/#23).
+MARK_RESERVED_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_IP_FILTER): cv.string,
+        vol.Optional(ATTR_RESERVED, default=True): cv.boolean,
+        vol.Optional(ATTR_DRY_RUN, default=False): cv.boolean,
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+    }
+)
 
 # Nicht uebergebene Felder bleiben unveraendert; ein leerer Text loescht das Feld.
 DEVICE_NOTE_SCHEMA = vol.Schema(
@@ -306,6 +325,7 @@ async def async_unload_entry(
             SERVICE_REBOOT_MESH,
             SERVICE_GAST_WLAN_INFO,
             SERVICE_SET_DEVICE_NOTE,
+            SERVICE_MARK_RESERVED,
             SERVICE_UPDATE_OUI,
             SERVICE_LIST_ACCESS_PROFILES,
             SERVICE_GET_ACCESS_PROFILE,
@@ -539,9 +559,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
             )
 
         def _fetch() -> dict[str, Any]:
-            guest = FritzWLAN(
-                fc=coordinator.fritz_hosts.fc, service=GAST_WLAN_SERVICE_INDEX
-            )
+            # Dienst 3 ist nicht auf jeder Box das Gast-WLAN (Issue #20): die
+            # Nummer wird erkannt oder per Parameter "service" vorgegeben.
+            service = call.data.get(ATTR_SERVICE) or coordinator.ensure_guest_service()
+            guest = FritzWLAN(fc=coordinator.fritz_hosts.fc, service=service)
             info = guest.get_info()
             enabled = bool(info.get("NewEnable"))
             ssid = str(info.get("NewSSID") or "")
@@ -565,6 +586,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 qr_code_svg_base64 = base64.b64encode(stream.read()).decode("ascii")
 
             return {
+                "dienst": service,
                 "ssid": ssid,
                 "eingeschaltet": enabled,
                 "offen": offen,
@@ -597,6 +619,17 @@ def _async_register_services(hass: HomeAssistant) -> None:
             label=call.data.get(ATTR_LABEL),
             note=call.data.get(ATTR_NOTE),
             reserved=call.data.get(ATTR_RESERVED),
+        )
+
+    async def _handle_mark_reserved(call: ServiceCall) -> dict[str, Any]:
+        """Markiert viele Geraete (IP-Muster) auf einmal als "reserviert" (Issue #22/#23).
+
+        Nur in Home Assistant gespeichert - die FRITZ!Box wird nicht angesprochen.
+        """
+        return await _resolve_coordinator(call.data).async_mark_reserved(
+            call.data[ATTR_IP_FILTER],
+            bool(call.data.get(ATTR_RESERVED, True)),
+            bool(call.data.get(ATTR_DRY_RUN, False)),
         )
 
     async def _handle_update_oui(call: ServiceCall) -> dict[str, Any]:
@@ -650,6 +683,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
         (SERVICE_GET_DNS_SETTINGS, _handle_get_dns, GET_DNS_SCHEMA, SupportsResponse.ONLY),
         (SERVICE_SET_DNS_SETTINGS, _handle_set_dns, SET_DNS_SCHEMA, SupportsResponse.OPTIONAL),
         (SERVICE_SET_STATIC_IP, _handle_set_static_ip, SET_STATIC_IP_SCHEMA, SupportsResponse.OPTIONAL),
+        (SERVICE_MARK_RESERVED, _handle_mark_reserved, MARK_RESERVED_SCHEMA, SupportsResponse.OPTIONAL),
     ):
         if not hass.services.has_service(DOMAIN, name):
             hass.services.async_register(

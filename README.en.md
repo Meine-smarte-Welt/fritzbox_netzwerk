@@ -4,7 +4,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-1.8.0-blue)
+![Version](https://img.shields.io/badge/Version-1.9.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > This is the English edition. The German [README.md](README.md) is the main file and has the full card reference, the troubleshooting chapter and the complete version history. Sections marked “German only” are not translated yet.
@@ -111,7 +111,7 @@ Via *Configure* on the integration:
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| Polling interval | 60 s | How often the device list is fetched (15–3600 s) |
+| Polling interval | 60 s | How often the device list is fetched (30–3600 s) |
 | Record IP type | on | Whether DHCP/static is determined |
 | IP type interval | 15 min | Cycle of the IP type collection |
 | Record Wi-Fi band per device | on | Reads the connected devices per Wi-Fi network so the card can show the band |
@@ -152,7 +152,7 @@ Since 1.6.2: “new device” on first appearance in the home network and “ext
 
 ## Mesh and repeaters
 
-The FRITZ!Box and its AVM repeaters form the mesh. The integration treats them as **one group**: repeaters appear as own devices below the box, there is an online counter and the button “Restart all FRITZ! devices” (repeaters first, box last). Since 1.6.3 the card shows in “Connected via” which mesh neighbour a device uses, with the link rate. No signal strength in dBm (the mesh list does not provide it). Details: German README.
+The FRITZ!Box and its AVM repeaters form the mesh. The integration treats them as **one group**: repeaters appear as own devices below the box, there is an online counter and the button “Restart all FRITZ! devices” (repeaters first, box last). Since 1.6.3 the card shows in “Connected via” which mesh neighbour a device uses, with the link rate. No signal strength in dBm (the mesh list does not provide it). Since 1.9.0 a device is also treated as a repeater if the box's mesh topology lists it as a mesh member, the Wi-Fi band of devices behind a repeater is read from the mesh interface name (both assumptions untested on real hardware), repeaters that only have a password (no user name) are retried with an empty user name, and the list can be grouped by mesh connection (`group_by: mesh`). Details: German README.
 
 ## MAC filter and pairing
 
@@ -241,8 +241,9 @@ If several boxes are set up, all services accept an optional field `config_entry
 | `set_internet_access` (experimental) | Block/allow internet access of a device |
 | `set_mac_filter`, `start_pairing` (experimental) | Wi-Fi MAC filter and temporary pairing |
 | `reboot_mesh` (experimental) | Restart repeaters and box |
-| `gast_wlan_info` | Guest Wi-Fi data (for the QR code) |
+| `gast_wlan_info` | Guest Wi-Fi data (for the QR code); since 1.9.0 the guest service is detected and an optional `service` (1-4) can force it |
 | `set_device_note` | Label, note and “reserved” marker (stored in Home Assistant only) |
+| `mark_devices_reserved` | Mark many devices as “reserved” by IP pattern (stored in Home Assistant only; `dry_run` previews) |
 | `list_access_profiles`, `get_access_profile`, `set_access_profile` (experimental) | Parental-control profiles |
 | `get_dns_settings`, `set_dns_settings` (experimental) | DNS settings of the box |
 | `set_static_ip` (experimental) | Fixed IPv4 address for a device |
@@ -288,12 +289,30 @@ Every `.py`, `.js` and `.yaml` file starts with a SHA-256 header over its conten
 ## Development and tests
 
 ```bash
-python3 -m unittest discover -s tests -p "test_*.py" -v   # 47 cases (dns_settings, static_ip, simulated box)
+pip install fritzconnection==1.15.1 segno==1.6.6 pytest
+python3 -m pytest -q tests
+node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fritzbox-netzwerk-card.js
 ```
 
-The repository currently contains only the tests for `dns_settings.py` and `static_ip.py`; they run against simulated boxes, not real hardware.
+The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 1.9.0 – Mesh detection, guest Wi-Fi service, bulk “reserved” marker, repeater login
+
+Addresses the open GitHub issues as far as possible without a real box. **None of it was tested on a real FRITZ!Box or in a running Home Assistant** – only against synthetic data.
+
+- **New (#27):** group the list by **mesh connection** (`group_by: mesh`).
+- **Improved (load):** fewer requests to the FRITZ!Box. Rarely changing data (band per device, mesh topology, external IP, line sync rates) is fetched at most every 5 minutes instead of on every update (roughly 10–20 fewer TR-064 calls per cycle, depending on setup). The smallest polling interval is now 30 s (was 15 s); smaller stored values are raised to 30 s. The effect is calculated, not measured on a box or in Home Assistant.
+- **Improved (card):** the list is redrawn at most every `refresh_interval` seconds (default 15, `0` = immediately as before), waits while you scroll or interact and keeps the scroll position – the card no longer jumps to the top. Small fluctuations of the link rate no longer trigger a redraw. Untested in a browser (only a Node test of the throttle).
+- **Fixed (#21):** the **Wi-Fi band** was missing for devices behind a repeater; it is now also read from the mesh topology (interface name such as `AP:5G:0` – assumption untested). A band from the box's own Wi-Fi list takes precedence.
+- **Fixed (#16):** **not all mesh repeaters were detected**: besides the model name, every mesh member per the topology (`is_meshed`) now counts (untested).
+- **Fixed (#20):** the **guest Wi-Fi QR code** showed a main network on boxes with more than three Wi-Fi services. The guest service is now detected (highest service from 3 up that reports no band, otherwise 3 as before); the guest switch follows the same choice; `gast_wlan_info` accepts an optional `service` and returns `dienst`. The assumption "guest reports no band" is untested.
+- **Fixed (#25):** **repeater restart** failed for repeaters with a password only: after a rejected login it retries with an empty user name.
+- **New (#22, #23):** service `mark_devices_reserved` marks many devices as “reserved” by IP pattern (Home Assistant only). The box does not report reservations *inside* the DHCP range via TR-064, so such devices show as “dynamic” - an interface limit, not a bug.
+- **Not fixed (#24):** *offline devices disappear* - no cause found in the code; the diagnostics download now includes active/inactive counts.
+- **Not implemented (#26):** *data volume per device* - TR-064 provides no per-device traffic.
+- **Already fixed, issue still open (#17):** the title no longer jumps back when deleting the last character (fixed in 1.6.3); new test `tests/test_card_editor_title.js`.
 
 ### 1.8.0 – DNS settings and static IP address (experimental)
 

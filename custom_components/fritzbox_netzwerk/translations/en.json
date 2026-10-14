@@ -318,8 +318,12 @@
     },
     "gast_wlan_info": {
       "name": "Get guest Wi-Fi credentials",
-      "description": "Returns the guest Wi-Fi's SSID, on/off state and a QR code to connect - only as a return value, never as a sensor (so the password never ends up in an attribute or in history). Requires a separate guest Wi-Fi (WLANConfiguration3).",
+      "description": "Returns the guest Wi-Fi's SSID, on/off state and a QR code to connect - only as a return value, never as a sensor (so the password never ends up in an attribute or in history). Requires a separate guest Wi-Fi (WLANConfiguration, detected automatically - usually 3).",
       "fields": {
+        "service": {
+          "name": "Service number",
+          "description": "Only needed if the automatically detected service number is not the guest Wi-Fi (1-4, default: automatic)."
+        },
         "config_entry": {
           "name": "FRITZ!Box (config entry)",
           "description": "Only needed with more than one FRITZ!Box set up: selects which one this service applies to. Without it, the service affects the first loaded box."
@@ -501,6 +505,28 @@
         "config_entry": {
           "name": "FRITZ!Box",
           "description": "With several boxes: which one is meant."
+        }
+      }
+    },
+    "mark_devices_reserved": {
+      "name": "Mark several devices as \"reserved\"",
+      "description": "Marks every device whose IP address matches the pattern as \"reserved\" in one go - stored in Home Assistant only, the FRITZ!Box is not changed. Useful because the box does not report reservations inside the DHCP range, so such devices would otherwise show as \"dynamic\". Use \"Preview only\" to see what would change first.",
+      "fields": {
+        "ip_filter": {
+          "name": "IP pattern",
+          "description": "Pattern with wildcards, separate several with commas, \"!\" excludes, e.g. 192.168.178.*,!192.168.178.1. An empty pattern selects nothing."
+        },
+        "reserved": {
+          "name": "Reserved",
+          "description": "On: mark, off: remove the mark again."
+        },
+        "dry_run": {
+          "name": "Preview only",
+          "description": "Only shows which devices would be affected and changes nothing."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "With several boxes: which box is meant."
         }
       }
     }

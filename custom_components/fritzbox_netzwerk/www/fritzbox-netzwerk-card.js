@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): b39932de87148c9983cd2603788e8e5f8eaedfd519e1026246e162ed9d527cb0
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): e224caabe4f557fedfcddae95df2695c93b916f23bb9987aad97085797ebf48a
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.8.0";
+const FBN_VERSION = "1.9.0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -57,7 +57,7 @@ const CONFIG_DEFAULTS = {
   show_label: false,
   show_note: false,
   // Gruppierung der Liste (Idee 18): "", "state", "connection", "vendor",
-  // "band", "subnet" oder "label".
+  // "band", "subnet", "label" oder "mesh" (Mesh-Verbindung).
   group_by: "",
   show_group_select: true,
   // CSV-Export der sichtbaren Liste (Idee 18).
@@ -112,6 +112,10 @@ const CONFIG_DEFAULTS = {
   // Höchstzahl gleichzeitig sichtbarer Zeilen; darüber wird der
   // Datenbereich scrollbar, Kopf und Auswahl bleiben stehen. 0 = alle.
   max_visible_rows: 0,
+  // Mindestabstand in Sekunden zwischen zwei automatischen Neuzeichnungen der
+  // Liste. Waehrend du scrollst oder die Maus darueber bewegst, wird ohnehin
+  // gewartet. 0 = sofort bei jeder Aenderung (Verhalten bis 1.8.0).
+  refresh_interval: 15,
   show_details_popup: true,
   open_device_on_click: true,
   show_scroll_arrows: true,
@@ -229,11 +233,13 @@ const I18N = {
     "group.band": "Gruppieren: Funkband",
     "group.subnet": "Gruppieren: IP-Bereich",
     "group.label": "Gruppieren: Etikett",
+    "group.mesh": "Gruppieren: Mesh-Verbindung",
     "group.empty.connection": "Ohne Angabe",
     "group.empty.band": "Ohne Funkband",
     "group.empty.vendor": "Hersteller unbekannt",
     "group.empty.subnet": "Ohne IP-Adresse",
     "group.empty.label": "Ohne Etikett",
+    "group.empty.mesh": "Ohne Mesh-Angabe",
     "flt.alle": "Alle", "flt.aktiv": "Aktiv", "flt.inaktiv": "Inaktiv",
     "flt.gast": "Gast", "flt.gesperrt": "Gesperrt", "flt.update": "Update", "flt.fest": "Feste IP", "flt.neu": "Neu (7 Tage)", "flt.lange_offline": "Lange offline",
     "search.placeholder": "Name, IP oder MAC", "search.aria": "Geräte durchsuchen",
@@ -320,11 +326,13 @@ const I18N = {
     "group.band": "Group: Wi-Fi band",
     "group.subnet": "Group: IP range",
     "group.label": "Group: label",
+    "group.mesh": "Group: mesh connection",
     "group.empty.connection": "Not specified",
     "group.empty.band": "No Wi-Fi band",
     "group.empty.vendor": "Manufacturer unknown",
     "group.empty.subnet": "No IP address",
     "group.empty.label": "No label",
+    "group.empty.mesh": "No mesh info",
     "flt.alle": "All", "flt.aktiv": "Active", "flt.inaktiv": "Inactive",
     "flt.gast": "Guest", "flt.gesperrt": "Blocked", "flt.update": "Update", "flt.fest": "Fixed IP", "flt.neu": "New (7 days)", "flt.lange_offline": "Long offline",
     "search.placeholder": "Name, IP or MAC", "search.aria": "Search devices",
@@ -411,11 +419,13 @@ const I18N = {
     "group.band": "Groeperen: wifi-band",
     "group.subnet": "Groeperen: IP-bereik",
     "group.label": "Groeperen: label",
+    "group.mesh": "Groeperen: mesh-verbinding",
     "group.empty.connection": "Niet opgegeven",
     "group.empty.band": "Geen wifi-band",
     "group.empty.vendor": "Fabrikant onbekend",
     "group.empty.subnet": "Geen IP-adres",
     "group.empty.label": "Geen label",
+    "group.empty.mesh": "Geen mesh-gegevens",
     "flt.alle": "Alle", "flt.aktiv": "Actief", "flt.inaktiv": "Inactief",
     "flt.gast": "Gast", "flt.gesperrt": "Geblokkeerd", "flt.update": "Update", "flt.fest": "Vast IP", "flt.neu": "Nieuw (7 dagen)", "flt.lange_offline": "Lang offline",
     "search.placeholder": "Naam, IP of MAC", "search.aria": "Apparaten zoeken",
@@ -881,7 +891,7 @@ function sortValue(host, key) {
 /* Gruppierung, CSV (Idee 18)                                          */
 /* ------------------------------------------------------------------ */
 
-const GROUP_MODES = ["state", "connection", "vendor", "band", "subnet", "label"];
+const GROUP_MODES = ["state", "connection", "vendor", "band", "subnet", "label", "mesh"];
 
 /** Dritter-Oktett-Bereich einer IPv4-Adresse ("192.168.2.x") oder "". */
 function subnetOf(ip) {
@@ -916,6 +926,12 @@ function groupKeyOf(host, mode) {
     case "label": {
       const l = String(host.label || "").trim();
       return { key: l, empty: !l };
+    }
+    case "mesh": {
+      // Mesh-Nachbar (FRITZ!Box oder Repeater), über den das Gerät verbunden
+      // ist (Issue #27) - gefüllt nur bei Repeatern im Heimnetz.
+      const m = String(host.connected_via || "").trim();
+      return { key: m, empty: !m };
     }
     default:
       return { key: "", empty: true };
@@ -987,6 +1003,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // Gruppierung (Idee 18): aktueller Modus und eingeklappte Gruppen.
     this._groupBy = "";
     this._collapsed = new Set();
+    // Bremse fuer automatische Neuzeichnungen (refresh_interval).
+    this._lastRedraw = 0;
+    this._lastInteract = 0;
+    this._redrawTimer = null;
   }
 
   /* -- Lovelace-Schnittstelle -------------------------------------- */
@@ -1008,6 +1028,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._signature = "";
     this._renderedOnce = false;
     this._lastStateObj = null;
+    if (this._redrawTimer) {
+      clearTimeout(this._redrawTimer);
+      this._redrawTimer = null;
+    }
     this._closePopup();
     this._closeGastWlanPopup();
     this.innerHTML = "";
@@ -1080,6 +1104,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (this._resizeObserver) {
       this._resizeObserver.disconnect();
       this._resizeObserver = null;
+    }
+    if (this._redrawTimer) {
+      clearTimeout(this._redrawTimer);
+      this._redrawTimer = null;
     }
     // Ein offenes Popup nicht verwaist am body haengen lassen.
     this._closePopup();
@@ -1193,12 +1221,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
           host.connection_label,
           host.band,
           host.connected_via,
-          host.link_mbit,
+          Math.round(Number(host.link_mbit) / 50) * 50,
           host.ha_name,
           host.static_ip,
           host.blocked ? 1 : 0,
           host.update_available ? 1 : 0,
-          host.speed,
+          Math.round(Number(host.speed) / 50) * 50,
           host.label,
           host.note,
           host.reserved ? 1 : 0,
@@ -1345,11 +1373,68 @@ class FritzboxNetzwerkCard extends HTMLElement {
       if (this._popup) this._refreshPopup();
       return;
     }
+    // Erste Zeichnung sofort; danach bremsen (refresh_interval) und warten,
+    // solange gescrollt oder mit der Maus ueber der Liste gearbeitet wird.
+    const wait = this._renderedOnce ? this._redrawWait() : 0;
+    if (wait > 0) {
+      if (!this._redrawTimer) {
+        this._redrawTimer = setTimeout(() => {
+          this._redrawTimer = null;
+          this._redrawIfChanged();
+        }, wait);
+      }
+      return;
+    }
+    this._redraw(signature, true);
+  }
+
+  /**
+   * Wie lange (ms) eine automatische Neuzeichnung noch warten soll:
+   * mindestens ``refresh_interval`` Sekunden nach der letzten Zeichnung und
+   * 4 s Ruhe nach der letzten Bedienung (scrollen, Maus, Touch). Spaetestens
+   * nach 60 s wird trotzdem gezeichnet, damit die Anzeige nicht veraltet.
+   */
+  _redrawWait() {
+    const interval = Math.max(0, Number(this._config.refresh_interval) || 0) * 1000;
+    if (interval <= 0) return 0;
+    const now = Date.now();
+    const sinceDraw = now - this._lastRedraw;
+    const byInterval = interval - sinceDraw;
+    const byIdle = 4000 - (now - this._lastInteract);
+    const wait = Math.max(byInterval, sinceDraw < 60000 ? byIdle : 0);
+    return wait > 0 ? Math.ceil(wait) : 0;
+  }
+
+  /** Vom Timer aufgerufen: zeichnet nur, wenn sich inzwischen etwas geaendert hat. */
+  _redrawIfChanged() {
+    if (!this._hass || !this._built) return;
+    const wait = this._redrawWait();
+    if (wait > 0) {
+      this._redrawTimer = setTimeout(() => {
+        this._redrawTimer = null;
+        this._redrawIfChanged();
+      }, wait);
+      return;
+    }
+    const signature = this._computeSignature(this._hosts());
+    if (signature === this._signature) return;
+    this._redraw(signature, true);
+  }
+
+  /** Zeichnet Zusammenfassung und Tabelle neu; optional mit erhaltener Scrollposition. */
+  _redraw(signature, keepScroll) {
     this._signature = signature;
     this._renderedOnce = true;
-
+    this._lastRedraw = Date.now();
+    const scroll = this._scrollEl;
+    const top = keepScroll && scroll ? scroll.scrollTop : 0;
+    const left = keepScroll && scroll ? scroll.scrollLeft : 0;
     this._renderSummary();
     this._renderBody();
+    if (keepScroll && scroll) {
+      scroll.scrollTop = top;
+      scroll.scrollLeft = left;
+    }
     if (this._popup) this._refreshPopup();
   }
 
@@ -1410,6 +1495,15 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._renderTabs();
     this._observeWidth();
     this._bindScrollArrows(card.querySelector(".fbn-scrollwrap"));
+    const touch = () => {
+      this._lastInteract = Date.now();
+    };
+    const wrapEl = card.querySelector(".fbn-scrollwrap");
+    if (wrapEl) {
+      for (const type of ["scroll", "wheel", "pointermove", "pointerdown", "touchmove", "keydown"]) {
+        wrapEl.addEventListener(type, touch, { passive: true, capture: true });
+      }
+    }
   }
 
   /** Liste der aktuell eingeschalteten Filter-Buttons. */
@@ -1629,6 +1723,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
         return group.empty ? this._t("group.empty.subnet") : group.key;
       case "label":
         return group.empty ? this._t("group.empty.label") : group.key;
+      case "mesh":
+        return group.empty ? this._t("group.empty.mesh") : group.key;
       default:
         return group.key;
     }
@@ -4305,6 +4401,10 @@ const EDITOR_SCHEMA = [
         name: "max_visible_rows",
         selector: { number: { min: 0, max: 100, mode: "box" } },
       },
+      {
+        name: "refresh_interval",
+        selector: { number: { min: 0, max: 600, mode: "box", unit_of_measurement: "s" } },
+      },
     ],
   },
   {
@@ -4425,6 +4525,7 @@ const EDITOR_LABELS = {
   ip_web_fallback: "Notfalls http://IP verwenden",
   max_rows: "Höchstzahl Zeilen (0 = alle)",
   max_visible_rows: "Sichtbare Zeilen, dann scrollen (0 = alle)",
+  refresh_interval: "Liste höchstens alle … Sekunden neu zeichnen (0 = sofort)",
   sort_by: "Sortieren nach",
   sort_dir: "Richtung",
   default_filter: "Standardfilter beim Laden",
@@ -4460,6 +4561,7 @@ const EDITOR_HELPERS = {
   ip_web_fallback: "Meldet die FRITZ!Box keine Adresse, wird http://<IP> versucht. Kann bei Geräten ohne Weboberfläche ins Leere laufen.",
   max_rows: "Begrenzt die Tabelle, zum Beispiel für eine Übersichtskarte.",
   max_visible_rows: "Ab dieser Zeilenzahl wird der Datenbereich scrollbar; Titel, Auswahl und Tabellenüberschrift bleiben stehen. 0 zeigt alle Zeilen.",
+  refresh_interval: "Mindestabstand zwischen zwei automatischen Aktualisierungen der Liste. Beim Scrollen oder Bedienen wird zusätzlich gewartet, die Scrollposition bleibt erhalten. 0 aktualisiert sofort bei jeder Änderung.",
 };
 
 const EDITOR_TX = {
@@ -4523,6 +4625,7 @@ const EDITOR_TX = {
     ip_web_fallback: "Fall back to http://IP",
     max_rows: "Maximum rows (0 = all)",
     max_visible_rows: "Visible rows, then scroll (0 = all)",
+    refresh_interval: "Redraw the list at most every … seconds (0 = immediately)",
     sort_by: "Sort by", sort_dir: "Direction",
     default_filter: "Default filter on load",
     help_default_filter: "Which filter is active when the card loads or is reopened (e.g. \"Active\"). After a refresh it no longer resets to \"All\".",
@@ -4539,6 +4642,7 @@ const EDITOR_TX = {
     help_ip_web_fallback: "If the FRITZ!Box reports no address, http://<IP> is tried. May lead nowhere for devices without a web interface.",
     help_max_rows: "Limits the table, for example for an overview card.",
     help_max_visible_rows: "From this row count the data area becomes scrollable; title, selection and table header stay fixed. 0 shows all rows.",
+    help_refresh_interval: "Minimum gap between two automatic list updates. While you scroll or interact, it waits additionally and the scroll position is kept. 0 updates immediately on every change.",
     group_columns: "Columns", group_display: "Appearance",
     group_filter: "Filter buttons", group_sort: "Sorting",
     colors_title: "Colors", reset: "Reset all colors",
@@ -4605,6 +4709,7 @@ const EDITOR_TX = {
     ip_web_fallback: "Zo nodig http://IP gebruiken",
     max_rows: "Maximaal aantal rijen (0 = alle)",
     max_visible_rows: "Zichtbare rijen, dan scrollen (0 = alle)",
+    refresh_interval: "Lijst hoogstens elke … seconden opnieuw tekenen (0 = direct)",
     sort_by: "Sorteren op", sort_dir: "Richting",
     default_filter: "Standaardfilter bij laden",
     help_default_filter: "Welk filter actief is als de kaart wordt geladen of opnieuw geopend (bijv. \"Actief\"). Na een refresh wordt niet meer teruggezet naar \"Alle\".",
@@ -4621,6 +4726,7 @@ const EDITOR_TX = {
     help_ip_web_fallback: "Meldt de FRITZ!Box geen adres, dan wordt http://<IP> geprobeerd. Kan doodlopen bij apparaten zonder webinterface.",
     help_max_rows: "Beperkt de tabel, bijvoorbeeld voor een overzichtskaart.",
     help_max_visible_rows: "Vanaf dit aantal rijen wordt het gegevensgebied scrollbaar; titel, selectie en tabelkop blijven staan. 0 toont alle rijen.",
+    help_refresh_interval: "Minimale tijd tussen twee automatische lijstupdates. Tijdens scrollen of bedienen wordt extra gewacht en de scrollpositie blijft behouden. 0 werkt direct bij elke wijziging bij.",
     group_columns: "Kolommen", group_display: "Weergave",
     group_filter: "Filterknoppen", group_sort: "Sorteren",
     colors_title: "Kleuren", reset: "Alle kleuren resetten",

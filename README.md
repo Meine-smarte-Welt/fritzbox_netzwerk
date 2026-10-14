@@ -6,7 +6,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.8.0-blue)
+![Version](https://img.shields.io/badge/Version-1.9.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -182,7 +182,7 @@ Nicht alle lokalen Funktionen sind dadurch aus der Ferne erreichbar: Insbesonder
 
 | Einstellung | Standard | Bedeutung |
 | --- | --- | --- |
-| Abfrageintervall | 60 s | Wie oft die Geräteliste geholt wird (15–3600 s) |
+| Abfrageintervall | 60 s | Wie oft die Geräteliste geholt wird (30–3600 s) |
 | IP-Typ erfassen | an | Ob DHCP/statisch ermittelt wird |
 | Intervall der IP-Typ-Abfrage | 15 min | Takt der IP-Typ-Erfassung |
 | WLAN-Band je Gerät erfassen | an | Liest je WLAN-Netz die Liste der verbundenen Geräte (ein Aufruf pro Netz und Abfrage), damit die Karte das Funkband zeigen kann |
@@ -301,12 +301,17 @@ erscheint der Rahmen nicht.
 
 **Hinweise.**
 
-- Der Sammel-Neustart setzt voraus, dass die Repeater die Anmeldung mit den Zugangsdaten der
-  FRITZ!Box akzeptieren – dieselbe Bedingung wie beim Neustart eines einzelnen Repeaters.
+- Der Sammel-Neustart setzt voraus, dass die Repeater die Anmeldung mit dem Kennwort der FRITZ!Box
+  akzeptieren – dieselbe Bedingung wie beim Neustart eines einzelnen Repeaters. Seit 1.9.0 versucht die
+  Integration nach einer Ablehnung dasselbe Kennwort noch einmal **ohne Benutzernamen** (viele Repeater sind
+  nur durch ein Kennwort geschützt, Issue #25). Hat ein Repeater ein *anderes* Kennwort, geht der Neustart
+  weiterhin nicht.
 - Erkannt werden Repeater am Modell: sowohl native FRITZ!Repeater („…Repeater…“) als auch eine
   weitere FRITZ!Box, die im Mesh als WLAN-Repeater mitläuft („…FRITZ!Box…“, seit 1.6.2 – siehe
-  [Fehlerbehebung](#fehlerbehebung)). Andere Mesh-Geräte, etwa Powerline-Adapter mit
-  Mesh-Funktion, gehören derzeit nicht zur Gruppe.
+  [Fehlerbehebung](#fehlerbehebung)). Seit 1.9.0 gilt zusätzlich jedes Gerät, das die Mesh-Topologie der Box als
+  Mesh-Mitglied (`is_meshed`) führt – auch mit einem anderen Modellnamen (Issue #16, **an keiner echten Box
+  geprüft**). Andere Mesh-Geräte, etwa Powerline-Adapter mit Mesh-Funktion, gehören nur dann zur Gruppe, wenn die
+  Box sie so meldet.
 - Die Funktion ist neu und konnte ohne Repeater-Hardware nicht getestet werden –
   Rückmeldungen als GitHub-Issue willkommen.
 
@@ -319,7 +324,8 @@ Netzwerkgerät. Die Integration legt für jeden von ihnen zusätzlich ein
 **eigenes Home-Assistant-Gerät** an, das an der FRITZ!Box hängt. Erkannt wird ein Repeater
 daran, dass sein von der FRITZ!Box gemeldetes Modell „Repeater“ enthält (etwa
 *FRITZ!Repeater 1200 AX*) oder – seit 1.6.2 – „FRITZ!Box“ (etwa eine zweite *FRITZ!Box 7590*,
-die im Mesh als WLAN-Repeater mitläuft) – der Name wird nicht geraten.
+die im Mesh als WLAN-Repeater mitläuft) – der Name wird nicht geraten. Seit 1.9.0 zählt außerdem ein Gerät, das
+die Mesh-Topologie der Box als Mesh-Mitglied führt (deren MAC-Adressen werden mit der Geräteliste abgeglichen).
 
 | Entität | Wann | Zweck |
 | --- | --- | --- |
@@ -702,6 +708,13 @@ Eine Reservierung **innerhalb** des DHCP-Bereichs sieht die Box wie eine gewöhn
 aller Reservierungen ist deshalb mit dieser Schnittstelle nicht möglich. Der Filter braucht
 außerdem die Option *IP-Typ erfassen* der Integration (Standard an).
 
+**Viele Geräte auf einmal als „reserviert“ markieren (seit 1.9.0).** Wer viele Reservierungen
+innerhalb des DHCP-Bereichs hat, muss die Markierung nicht je Gerät im Popup setzen: Der Dienst
+[`fritzbox_netzwerk.mark_devices_reserved`](#fritzbox_netzwerkmark_devices_reserved) markiert alle
+Geräte, deren IP-Adresse zu einem Muster passt – nur in Home Assistant, die FRITZ!Box bleibt
+unverändert. Die Markierung stimmt nur, wenn die Reservierung in der Box wirklich besteht; die
+Integration prüft das nicht.
+
 ### Funkband: 2,4 oder 5 GHz
 
 Die Spalte **Funkband** (Editor: *Spalten* → *Funkband*, YAML `show_band: true`, Standard aus)
@@ -857,7 +870,7 @@ Button nicht.
 ### Version und Update-Hinweis
 
 Auf der Steuerungsseite (Steuerungsleiste, bei Tabs der Tab „Steuerung“) zeigt die Karte die
-**installierte Version der Integration** (`v1.8.0`). Gibt es bei GitHub eine neuere veröffentlichte
+**installierte Version der Integration** (`v1.9.0`). Gibt es bei GitHub eine neuere veröffentlichte
 Version, erscheint **direkt daneben ein farbig hervorgehobener Hinweis** („Update 1.8.1“, Farbe =
 Warnfarbe des Themes) mit Link zu den Release-Notizen. Die Prüfung läuft einmal täglich und lässt
 sich in den Optionen abschalten („Täglich auf neue Version prüfen“); zusätzlich steht der Stand
@@ -877,8 +890,9 @@ die Lücke bei Reservierungen innerhalb des DHCP-Bereichs (rein manuell). Per Di
 
 ### Gruppieren, CSV-Export und gemerkte Ansicht
 
-`group_by` gruppiert die Liste nach `state`, `connection`, `vendor`, `band`, `subnet` oder
-`label` mit einklappbaren Überschriften (Auswahlfeld in der Filterleiste: `show_group_select`).
+`group_by` gruppiert die Liste nach `state`, `connection`, `vendor`, `band`, `subnet`,
+`label` oder `mesh` (Mesh-Verbindung, seit 1.9.0: über welche FRITZ!Box bzw. welchen Repeater ein Gerät
+verbunden ist – nur bei Repeatern im Heimnetz gefüllt) mit einklappbaren Überschriften (Auswahlfeld in der Filterleiste: `show_group_select`).
 Der **CSV-Export** (`show_csv_export`) speichert die sichtbare Liste; geht der Download im Browser
 nicht, landet die CSV in der Zwischenablage. Zellen, die mit `=`, `+`, `-` oder `@` beginnen,
 werden entschärft, damit Tabellenprogramme sie nicht als Formel ausführen. Filter, Sortierung,
@@ -1006,6 +1020,7 @@ ip_opens_web: true
 ip_web_fallback: true
 max_rows: 0
 max_visible_rows: 0   # 0 = alle; z. B. 15 = danach scrollen
+refresh_interval: 15  # Liste höchstens alle … s neu zeichnen; 0 = sofort bei jeder Änderung
 
 # Sortierung
 sort_by: ip
@@ -1145,6 +1160,20 @@ die Integration automatisch, es ist keine zusätzliche Einrichtung nötig. Setzt
 Gast-WLAN voraus (`WLANConfiguration3`, dieselbe Annahme wie beim bereits vorhandenen
 Gast-WLAN-Schalter); ohne das meldet der Dienst einen Fehler.
 
+**Seit 1.9.0:** Auf Boxen mit mehr als drei WLAN-Diensten (z. B. getrennte Netze je Band) ist Dienst 3
+nicht immer das Gast-WLAN – dort zeigte der QR-Code ein Hauptnetz (Issue #20). Die Integration wählt
+jetzt den höchsten Dienst ab 3, der **kein** Frequenzband meldet (Annahme: das Gast-WLAN meldet keins),
+sonst weiter Dienst 3; der Gast-WLAN-Schalter folgt derselben Wahl. Die Antwort enthält zusätzlich
+`dienst` (die benutzte Nummer). Liegt die Erkennung daneben, erzwingt der optionale Parameter
+`service` (1–4) die Nummer:
+
+```yaml
+action: fritzbox_netzwerk.gast_wlan_info
+data:
+  service: 4
+response_variable: gast_wlan
+```
+
 ---
 
 ### `fritzbox_netzwerk.set_device_note`
@@ -1164,6 +1193,29 @@ data:
 
 Das Feld `minutes` bei `set_internet_access` (seit 1.7.0) gibt den Zugang nach der angegebenen
 Zeit wieder frei (nur beim Sperren; gespeichert, übersteht einen Neustart).
+
+### `fritzbox_netzwerk.mark_devices_reserved`
+
+Markiert alle Geräte, deren IP-Adresse zu einem Muster passt, auf einmal als „reserviert“ (oder hebt
+die Markierung auf) – nur in Home Assistant gespeichert, die FRITZ!Box wird nicht verändert (seit 1.9.0,
+Issue #22/#23). Gedacht für Reservierungen **innerhalb** des DHCP-Bereichs, die die Box nicht meldet und
+die deshalb als „dynamisch“ erscheinen. Das Muster hat dieselbe Syntax wie `ip_filter` der Karte
+(`*`, `?`, mehrere mit Komma, `!` schließt aus). Ein leeres Muster wählt nichts aus. Mit `dry_run: true`
+gibt es nur die Vorschau.
+
+```yaml
+action: fritzbox_netzwerk.mark_devices_reserved
+data:
+  ip_filter: "192.168.178.*,!192.168.178.1"
+  reserved: true      # false hebt die Markierung wieder auf
+  dry_run: true       # erst ansehen, dann ohne dry_run ausführen
+response_variable: ergebnis
+```
+
+Antwortfelder: `gefunden` (Treffer des Musters), `geaendert` (davon wirklich geändert), `dry_run`, `geraete`
+(Namen der geänderten Geräte).
+
+---
 
 ### `fritzbox_netzwerk.list_access_profiles`, `get_access_profile`, `set_access_profile` (experimentell)
 
@@ -1345,12 +1397,14 @@ nicht die Berechtigung *App* (siehe [`set_device_name`](#fritzbox_netzwerkset_de
 **„Alle neu starten“ meldet, dass Repeater nicht neu gestartet werden konnten.**
 Die FRITZ!Box wurde trotzdem neu gestartet, die Meldung nennt die betroffenen Repeater.
 Meist lehnt der Repeater die Anmeldung ab: Am Repeater muss der Zugriff für Anwendungen
-(TR-064) erlaubt sein, und er muss die Zugangsdaten der FRITZ!Box übernommen haben (im Mesh
-üblich). Ein einzelner Repeater lässt sich über seinen eigenen *Neustart*-Button testen.
+(TR-064) erlaubt sein, und er muss das Kennwort der FRITZ!Box übernommen haben (im Mesh
+üblich). Repeater ohne Benutzernamen (nur Kennwort) werden seit 1.9.0 automatisch mit leerem
+Benutzernamen erneut versucht (Issue #25). Ein einzelner Repeater lässt sich über seinen eigenen
+*Neustart*-Button testen.
 
 **Der Mesh-Sensor und der Button „Alle neu starten“ fehlen.**
 Beide entstehen erst, sobald die FRITZ!Box mindestens einen Repeater in der Geräteliste führt
-(Modell enthält „Repeater“ oder – seit 1.6.2 – „FRITZ!Box“), und nur bei eingeschalteter
+(Modell enthält „Repeater“ oder – seit 1.6.2 – „FRITZ!Box“, seit 1.9.0 auch laut Mesh-Topologie), und nur bei eingeschalteter
 Option *Repeater als eigene Geräte anlegen*. Der Button braucht außerdem die
 *FRITZ!Box-Steuerung*.
 
@@ -1359,7 +1413,7 @@ erscheint nicht als Repeater; der Mesh-Sensor fehlt oder `mesh` bleibt `null`.**
 Bis 1.6.1 erkannte die Integration nur Geräte, deren gemeldetes Modell „Repeater“ enthält –
 eine FRITZ!Box, die im Mesh als WLAN-Repeater mitläuft, meldet aber schlicht ihren eigenen
 Modellnamen (z. B. „FRITZ!Box 7590“), nicht „FRITZ!Repeater …“. Seit 1.6.2 wird zusätzlich
-„FRITZ!Box“ im Modell erkannt. Tritt der Fehler danach weiterhin auf: In den
+„FRITZ!Box“ im Modell erkannt, seit 1.9.0 zusätzlich über die Mesh-Topologie der Box. Tritt der Fehler danach weiterhin auf: In den
 Integrationseinstellungen muss *Repeater als eigene Geräte anlegen* eingeschaltet sein, und
 das Gerät muss tatsächlich als Mesh-Mitglied bei der Haupt-FRITZ!Box eingebunden sein (nicht
 nur über einen separaten, ungemeshten Zugangspunkt).
@@ -1499,10 +1553,11 @@ language: nl   # "" = automatisch, sonst de | en | nl
   an keiner Box geprüft, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell).
 - **Mesh nur in Teilen.** FRITZ!Box und Repeater bilden eine Gruppe (siehe oben); seit 1.6.3
   zeigt die Karte in „Verbunden über“, an welchem Mesh-Nachbarn ein Gerät hängt, samt
-  Verbindungsrate. **Keine Signalstärke in dBm** (liefert die Mesh-Liste nicht) und **kein
-  Funkband für Geräte hinter einem Repeater**. Die Repeater-Erkennung stützt sich auf den
-  gemeldeten Modellnamen („…Repeater…“ oder „…FRITZ!Box…“) – ein Mesh-Mitglied mit abweichender
-  Bezeichnung würde nicht erkannt. Fremdsysteme (z. B. TP-Link Deco) sieht die Box nicht.
+  Verbindungsrate. **Keine Signalstärke in dBm** (liefert die Mesh-Liste nicht). Das Funkband
+  eines Geräts hinter einem Repeater liest die Integration seit 1.9.0 aus dem Namen der Mesh-Schnittstelle
+  (z. B. `AP:5G:0`, **Annahme, an keiner echten Box geprüft**); bleibt die Angabe leer, ist es unbekannt.
+  Die Repeater-Erkennung stützt sich auf den Modellnamen („…Repeater…“ oder „…FRITZ!Box…“) und die
+  Mesh-Topologie (`is_meshed`). Fremdsysteme (z. B. TP-Link Deco) sieht die Box nicht.
 - **Externe IP, Online-Zeit und Verbindungsstatus (seit 1.6.2) laufen über dieselben
   WAN-Dienste wie die Down-/Upload-Raten** und fehlen deshalb unter denselben Bedingungen
   (reiner Access-Point-Betrieb). „Online seit" wird aus der gemeldeten Verbindungsdauer
@@ -1548,11 +1603,11 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `e0ebc88c70d09e76c84da38c416f4fe0779892e194e88e7aef63c9d2cedd5761` |
-| `custom_components/fritzbox_netzwerk/strings.json` | `51003570d903e754bd1d7c1e391e9b8746778301bef1441667110f01afbb61dd` |
-| `custom_components/fritzbox_netzwerk/translations/de.json` | `216bb38eac58355919b357182075b31bda8c7d00d756632661a8d10bdd3f3daa` |
-| `custom_components/fritzbox_netzwerk/translations/en.json` | `e6092f3bed6994d3bde110e5fd771fe403abe68759b0c7f67ae189a17cce03eb` |
-| `custom_components/fritzbox_netzwerk/translations/nl.json` | `3951d6b745e1498810c0da5f43394ce5ff68c6956735f7e202684d38238e56d6` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `8207f508ae8b7d99d4732efd73a961e78cfce828759b25ea74fd6a88e7513be3` |
+| `custom_components/fritzbox_netzwerk/strings.json` | `6f7d47ed889a4390b68b86009023c792463bd7f763c798f55f226b1608ef1abb` |
+| `custom_components/fritzbox_netzwerk/translations/de.json` | `8910940c95724197d205bee07d3d9c60f2d3e261809736efe4ba9fd553747a4f` |
+| `custom_components/fritzbox_netzwerk/translations/en.json` | `f17b3ad99a87ab0a1b7a75680c205cdf4037c6cbb616a091eaff0fc9582051a8` |
+| `custom_components/fritzbox_netzwerk/translations/nl.json` | `15844590a80a5b22d6eedf82c16014a38daa58e9ebd56c4c9c8152be682872ad` |
 
 ## Entwicklung und Tests
 
@@ -1563,12 +1618,15 @@ Home-Assistant-Instanz und ohne echte FRITZ!Box prüfbar. Die Entity-Klassen (`s
 per Unittest geprüft:
 
 ```bash
-python3 -m unittest discover -s tests -p "test_*.py" -v   # 47 Fälle (dns_settings, static_ip, simulierte Box)
+pip install fritzconnection==1.15.1 segno==1.6.6 pytest
+python3 -m pytest -q tests                                  # Fälle zu 1.9.0 (Mesh, Gast-Dienst, Sammelmarkierung, …)
+node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fritzbox-netzwerk-card.js
 ```
 
-**Hinweis zum Stand des Repositorys:** In dieser Fassung liegen nur die Tests für `dns_settings.py`
-(`tests/test_dns_settings.py`, `tests/test_static_ip.py`). Weitere Tests, `package.json` und die GitHub-Workflows, die frühere
-Fassungen dieses Abschnitts nennen, sind im Repository nicht enthalten; die folgenden Absätze
+**Hinweis zum Stand des Repositorys:** Im Repository liegen nur die Tests zu 1.9.0 (`tests/test_issues_1_9_0.py`
+mit `conftest.py`, die Module ohne Home Assistant lädt, und `tests/test_card_editor_title.js`). Die Tests für
+`dns_settings.py` und `static_ip.py` aus 1.8.0 sind nicht eingecheckt. `package.json` und die
+GitHub-Workflows, die frühere Fassungen dieses Abschnitts nennen, fehlen ebenfalls; die folgenden Absätze
 beschreiben sie deshalb nur, soweit sie dort wieder eingecheckt werden.
 
 Die JS-Tests laden die ausgelieferte `fritzbox-netzwerk-card.js` unverändert in ein DOM
@@ -1583,6 +1641,39 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 1.9.0 – Mesh-Erkennung, Gast-WLAN-Dienst, Sammelmarkierung „reserviert“, Repeater-Anmeldung
+
+Behebt die offenen GitHub-Issues, soweit sie sich ohne echte Box beheben ließen. **Nichts davon wurde an einer
+echten FRITZ!Box oder in einer laufenden Home-Assistant-Instanz geprüft** – die Auswertungen laufen nur gegen
+synthetische Daten (`tests/`).
+
+- **Neu (#27):** Gruppierung der Liste nach **Mesh-Verbindung** (`group_by: mesh`) – über welche FRITZ!Box bzw.
+  welchen Repeater ein Gerät verbunden ist.
+- **Verbessert (Last):** Weniger Abfragen an die FRITZ!Box. Selten ändernde Angaben (Funkband je Gerät, Mesh-Topologie, externe IP, Leitungs-Sync-Raten) werden höchstens alle 5 Minuten neu geholt statt bei jeder Aktualisierung (rund 10–20 TR-064-Aufrufe weniger je Zyklus, je nach Ausstattung). Das kleinste Abfrageintervall ist jetzt 30 s (vorher 15 s); kleinere gespeicherte Werte werden auf 30 s angehoben. Die Wirkung ist nur berechnet, nicht an einer Box oder in Home Assistant gemessen.
+- **Verbessert (Karte):** Die Liste wird höchstens alle `refresh_interval` Sekunden (Standard 15, `0` = sofort wie bisher) neu gezeichnet, wartet während des Scrollens/Bedienens und behält die Scrollposition – die Karte springt nicht mehr nach oben. Kleine Schwankungen der Verbindungsrate lösen keine Neuzeichnung mehr aus. Wirkung ungeprüft im Browser (nur Node-Test der Bremse).
+- **Behoben (#21):** Das **Funkband** fehlte bei Geräten hinter einem Repeater (die WLAN-Liste der Box kennt sie
+  nicht). Es wird jetzt zusätzlich aus der Mesh-Topologie gelesen (Name der Schnittstelle, z. B. `AP:5G:0`); ein Band
+  aus der WLAN-Liste der Box hat Vorrang. Die Namensannahme ist ungeprüft.
+- **Behoben (#16):** **Nicht alle Mesh-Repeater erkannt.** Neben dem Modellnamen zählt jetzt jedes Mesh-Mitglied laut
+  Topologie (`is_meshed`); WLAN-Repeater werden über die MAC ihrer Schnittstellen zugeordnet. Die Abfrage der
+  Topologie läuft jetzt auch, wenn nur meshfähige Geräte (statt eines erkannten Repeaters) in der Liste stehen.
+- **Behoben (#20):** Der **Gast-WLAN-QR-Code** zeigte auf Boxen mit mehr als drei WLAN-Diensten ein Hauptnetz.
+  Der Gast-Dienst wird jetzt erkannt (höchster Dienst ab 3 ohne Bandangabe, sonst wie bisher 3), der
+  Gast-WLAN-Schalter folgt derselben Wahl; der Dienst `gast_wlan_info` nimmt optional `service` entgegen und
+  liefert `dienst` zurück. Die Annahme „Gast meldet kein Band“ ist ungeprüft.
+- **Behoben (#25):** **Repeater-Neustart** scheiterte bei Repeatern, die nur ein Kennwort ohne Benutzernamen haben:
+  Nach einer abgelehnten Anmeldung wird mit leerem Benutzernamen erneut versucht.
+- **Neu (#22, #23):** Dienst `fritzbox_netzwerk.mark_devices_reserved` markiert viele Geräte per IP-Muster als
+  „reserviert“ (nur in Home Assistant). Grund: Die Box meldet Reservierungen **innerhalb** des DHCP-Bereichs über
+  TR-064 nicht; solche Geräte erscheinen als „dynamisch“. Das ist kein Fehler der Integration, sondern eine Grenze der
+  Schnittstelle – die Markierung bleibt Handarbeit.
+- **Nicht behoben (#24):** *Offline-Geräte verschwinden.* Die Ursache ist im Code nicht zu finden. Neu im
+  Diagnose-Download: Zahl aktiver und inaktiver Geräte; im Debug-Protokoll steht je Abruf die Zahl der Einträge.
+- **Nicht umgesetzt (#26):** *Datenverbrauch je Gerät.* TR-064 liefert keine Verbrauchszahlen je Gerät.
+- **Bereits behoben, Issue noch offen (#17):** Der Titel springt beim Löschen des letzten Buchstabens nicht mehr zurück
+  (Fix seit 1.6.3); neuer Test `tests/test_card_editor_title.js`.
+- Neue Tests unter `tests/`; Debug-Protokoll und Diagnose um Zähler erweitert.
 
 ### 1.8.0 – DNS-Einstellungen der FRITZ!Box lesen und ändern (experimentell)
 

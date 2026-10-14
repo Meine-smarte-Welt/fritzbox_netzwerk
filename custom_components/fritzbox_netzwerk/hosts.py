@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 926882b478cfc71fb7ab69924794d3d5e438b39a05783b4f14a263db5af6669c
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 30414d11f8748900ad5c73fc9e4584bc7a0c8b32b068606af64d2b997039c30e
 """Aufbereitung der FRITZ!Box-Hostliste.
 
 Dieses Modul enthaelt bewusst KEINE Home-Assistant- und keine
@@ -535,6 +535,7 @@ def apply_first_seen(
 
 # --- WLAN-Band je Geraet -------------------------------------------------
 
+GUEST_SERVICE_DEFAULT: Final = 3
 BAND_2_4: Final = "2.4"
 BAND_5: Final = "5"
 BAND_6: Final = "6"
@@ -1017,6 +1018,49 @@ def mesh_reboot_plan(
 # ---------------------------------------------------------------------------
 
 
+def guest_service_index(bands: dict[int, str] | None) -> int:
+    """Welcher ``WLANConfiguration``-Dienst ist das Gast-WLAN? (Issue #20)
+
+    ``bands`` bildet die vorhandenen Dienstnummern auf ihr gemeldetes Band ab
+    (``""`` = die Box meldet keins). Bis 1.8.0 galt immer Dienst 3. Auf Boxen mit
+    getrennten SSIDs/mehr als drei Diensten ist Dienst 3 aber ein
+    Hauptnetz - dort zeigte der QR-Code das 5-GHz-Netz statt des Gast-WLANs.
+
+    ANNAHME (nicht an echter Hardware geprueft): das Gast-WLAN meldet kein
+    eigenes Frequenzband. Gewaehlt wird deshalb der hoechste Dienst ab 3 ohne
+    Bandangabe; gibt es keinen, bleibt es bei Dienst 3 (bisheriges Verhalten).
+    """
+    candidates = sorted(index for index in (bands or {}) if index >= 3)
+    without_band = [index for index in candidates if not (bands or {}).get(index)]
+    return without_band[-1] if without_band else GUEST_SERVICE_DEFAULT
+
+
+def select_hosts_by_ip(hosts: list[dict[str, Any]], pattern: Any) -> list[dict[str, Any]]:
+    """Geraete mit IP-Adresse, die zum Muster passen (Syntax wie ``ip_filter``).
+
+    Ein leeres Muster waehlt NICHTS aus - das schuetzt vor einer versehentlichen
+    Sammelaenderung ueber alle Geraete (``*`` waehlt bewusst alle).
+    """
+    parsed = parse_wildcard_filter(pattern)
+    if parsed is None:
+        return []
+    return [
+        host
+        for host in hosts
+        if host.get("ip") and ip_matches_filter(host["ip"], parsed)
+    ]
+
+
+def repeater_login_users(user: str) -> list[str]:
+    """Benutzernamen, mit denen ein Repeater angesprochen wird (Reihenfolge = Versuche).
+
+    Zuerst der Name der Hauptbox, danach ein leerer Name: manche Repeater sind
+    nur durch ein Kennwort geschuetzt und kennen keinen Benutzer (Issue #25).
+    """
+    name = str(user or "").strip()
+    return [name, ""] if name else [""]
+
+
 def mesh_link_mbit(kbit_per_s: Any) -> float | None:
     """Rechnet eine Mesh-Verbindungsrate in Mbit/s um (eine Nachkommastelle).
 
@@ -1075,6 +1119,36 @@ def apply_mesh_links(
             continue
         host["connected_via"] = link.get("connected_via") or ""
         host["link_mbit"] = link.get("link_mbit")
+        # Band hinter einem Repeater: die WLAN-Liste der Box kennt solche
+        # Geraete nicht, die Mesh-Topologie schon (Issue #21). Ein Band aus
+        # der WLAN-Liste der Box hat Vorrang.
+        if not host.get("band") and link.get("band"):
+            host["band"] = link["band"]
+    return hosts
+
+
+def apply_mesh_repeaters(
+    hosts: list[dict[str, Any]],
+    repeaters: dict[str, dict[str, str]] | None,
+    box_ip: str = "",
+) -> list[dict[str, Any]]:
+    """Markiert Hosts als Repeater, die die Mesh-Topologie als FRITZ!-Geraet kennt.
+
+    Ergaenzt ``is_repeater`` (Modellname): ein Repeater, dessen Modell weder
+    "Repeater" noch "FRITZ!Box" enthaelt oder leer ist, wird sonst nicht
+    erkannt (Issue #16). Die Hauptbox (``box_ip``) wird nie markiert.
+    """
+    if not repeaters:
+        return hosts
+    for host in hosts:
+        if host.get("repeater") or (box_ip and host.get("ip") == box_ip):
+            continue
+        info = repeaters.get(mac_key(host["mac"]))
+        if not info:
+            continue
+        host["repeater"] = True
+        if not host.get("model") and info.get("model"):
+            host["model"] = info["model"]
     return hosts
 
 

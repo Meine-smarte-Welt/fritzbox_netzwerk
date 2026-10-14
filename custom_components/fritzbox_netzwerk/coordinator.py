@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 858e0db6ad8018dce5145e671eff314f2ee017a1c32bd5890c9fc584a3c936df
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 70b9455cfe8a92801a4e7530fe8668b31833c34ae57533a2fc5637146bf75702
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -41,6 +41,7 @@ from .auth_guard import AUTH_FAILURE_LIMIT, AuthFailureGuard
 from .const import (
     CONF_ADDRESS_SOURCE_INTERVAL,
     BLUEPRINTS_DIRNAME,
+    GAST_WLAN_SERVICE_INDEX,
     CONF_CHECK_UPDATES,
     CONF_ENABLE_DNS_SETTINGS,
     CONF_ENABLE_STATIC_IP,
@@ -69,6 +70,8 @@ from .const import (
     DEFAULT_TRACK_WLAN_BAND,
     DEFAULT_USE_TLS,
     DHCP_POOL_INTERVAL_MINUTES,
+    MIN_SCAN_INTERVAL,
+    SLOW_FETCH_INTERVAL,
     DOMAIN,
     CONF_PAIRING_MINUTES,
     FIRST_SEEN_STORAGE_VERSION,
@@ -85,11 +88,13 @@ from .hosts import (
     MIN_MA_L_ENTRIES,
     UPNP_ALREADY_TERMINATED,
     UPNP_DISCONNECT_IN_PROGRESS,
+    apply_mesh_repeaters,
     as_bool,
     build_hosts,
     classify_ip_with_reserved,
     dhcp_pool,
     frequency_band,
+    guest_service_index,
     is_mac_filter_band,
     is_repeater,
     list_path,
@@ -104,6 +109,8 @@ from .hosts import (
     parse_oui,
     parse_wlan_device_list,
     reconnect_plan,
+    repeater_login_users,
+    select_hosts_by_ip,
     set_config_arguments,
     summarize,
     serialize_oui,
@@ -115,7 +122,7 @@ from .hosts import (
     wlan_bands,
 )
 from .blueprints_install import install_blueprints
-from .mesh_topology import fetch_mesh_links
+from .mesh_topology import fetch_mesh
 from .updates import build_version_info, parse_release
 from .dns_settings import change_dns_settings, read_dns_settings
 from .static_ip import NEEDS_RESTART, StaticIpError, plan_static_ip, set_static_ip
@@ -214,6 +221,15 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # die meisten Installationen (eine einzelne FRITZ!Box ohne Mesh).
         self._repeater_seen = False
         self._mesh_topology_supported = True
+        # Zwischenspeicher fuer selten aendernde Abrufe (siehe SLOW_FETCH_INTERVAL).
+        self._slow_last: dict[str, float] = {}
+        self._bands_cache: dict[str, str] = {}
+        self._mesh_links_cache: dict[str, dict[str, Any]] = {}
+        self._max_rates_cache: tuple[Any, Any] | None = None
+        self._external_ip_cache: str | None = None
+        # FRITZ!-Geraete laut Mesh-Topologie (MAC-Schluessel -> Name/Modell);
+        # erkennt auch Repeater, deren Modellname nicht "Repeater" enthaelt.
+        self._mesh_repeaters: dict[str, dict[str, str]] = {}
 
         # Herstellertabelle (MAC-Praefix -> Name); wird einmal beim Start
         # geladen, siehe ``async_load_oui``. Bleibt sie leer, fehlt nur die
@@ -284,6 +300,9 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # WLAN-Baender fuer die Steuerung: gemerkt wird, welche Dienste die
         # Box bereitstellt (1=2,4 GHz, 2=5 GHz, 3=Gast bei Dualband).
         self._wlan_supported: dict[int, bool] = {1: True, 2: True, 3: True}
+        # Nummer des WLANConfiguration-Dienstes, der das Gast-WLAN ist (None =
+        # noch nicht ermittelt), siehe ``hosts.guest_service_index``.
+        self._guest_service: int | None = None
 
         # "Zuletzt gesehen" pflegt die Integration selbst (die FRITZ!Box
         # liefert es nicht) und speichert es dauerhaft, damit die Angabe
@@ -318,7 +337,10 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(
-                seconds=entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+                seconds=max(
+                    MIN_SCAN_INTERVAL,
+                    entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                )
             ),
         )
 
@@ -442,12 +464,31 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._dhcp_pool_scan = dt_util.utcnow()
         connection = self._fetch_connection()
         wlan = self._fetch_wlan() if self._controls_enabled else {}
-        bands = self._fetch_wlan_bands() if self.track_wlan_band else {}
-        mesh_links = self._fetch_mesh_topology() if self._repeater_seen else {}
+        if self.track_wlan_band:
+            if self._slow_due("bands"):
+                self._bands_cache = self._fetch_wlan_bands()
+            bands = self._bands_cache
+        else:
+            bands = {}
+        if self._repeater_seen:
+            if self._slow_due("mesh"):
+                self._mesh_links_cache = self._fetch_mesh_topology()
+            mesh_links = self._mesh_links_cache
+        else:
+            mesh_links = {}
         if self.system_stats_enabled and self._system_stats_due():
             self._system_stats = self._fetch_system_stats()
             self._system_stats_scan = dt_util.utcnow()
         return raw_hosts, refreshed, connection, wlan, bands, mesh_links
+
+    def _slow_due(self, key: str) -> bool:
+        """Ob ein selten aendernder Abruf wieder faellig ist (und merkt sich den Zeitpunkt)."""
+        now = time.monotonic()
+        last = self._slow_last.get(key)
+        if last is not None and now - last < SLOW_FETCH_INTERVAL:
+            return False
+        self._slow_last[key] = now
+        return True
 
     @property
     def system_stats_enabled(self) -> bool:
@@ -589,7 +630,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not self._mesh_topology_supported:
             return {}
         try:
-            return fetch_mesh_links(self.fritz_hosts.fc)
+            links, self._mesh_repeaters = fetch_mesh(self.fritz_hosts.fc)
+            return links
         except (FritzConnectionException, RequestException) as err:
             _LOGGER.debug("Mesh-Topologie nicht abrufbar: %s", err)
             self._mesh_topology_supported = False
@@ -737,19 +779,38 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         Ein Repeater im Mesh wird ueber sein EIGENES TR-064 angesprochen -
         die Hauptbox kann fremde Geraete nicht neu starten. Verwendet werden
         dieselben Zugangsdaten wie fuer die Hauptbox. Im Mesh uebernehmen
-        Repeater in der Regel die Anmeldedaten der FRITZ!Box; ist das nicht
-        der Fall oder ist TR-064 am Repeater aus, lehnt er die Anmeldung ab
-        und der Aufrufer bekommt eine entsprechende Fehlermeldung.
+        Repeater in der Regel die Anmeldedaten der FRITZ!Box. Haben sie nur
+        ein Kennwort ohne Benutzernamen (Issue #25), wird nach einer
+        Ablehnung mit demselben Kennwort und leerem Benutzernamen erneut
+        versucht. Ist TR-064 am Repeater aus oder das Kennwort ein anderes,
+        bekommt der Aufrufer eine entsprechende Fehlermeldung.
         """
         data = self.entry.data
-        connection = FritzConnection(
-            address=address,
-            user=data[CONF_USERNAME],
-            password=data[CONF_PASSWORD],
-            use_tls=data.get(CONF_USE_TLS, DEFAULT_USE_TLS),
-            timeout=REPEATER_TIMEOUT,
-        )
-        connection.call_action("DeviceConfig1", "Reboot")
+        last_error: Exception | None = None
+        for user in repeater_login_users(str(data[CONF_USERNAME] or "")):
+            try:
+                connection = FritzConnection(
+                    address=address,
+                    user=user,
+                    password=data[CONF_PASSWORD],
+                    use_tls=data.get(CONF_USE_TLS, DEFAULT_USE_TLS),
+                    timeout=REPEATER_TIMEOUT,
+                )
+                connection.call_action("DeviceConfig1", "Reboot")
+            except (FritzAuthorizationError, FritzSecurityError) as err:
+                # Repeater sind oft nur durch ein Kennwort geschuetzt, ohne
+                # Benutzernamen (Issue #25) - dann mit leerem Namen erneut.
+                _LOGGER.debug(
+                    "Repeater %s hat die Anmeldung (Benutzer %r) abgelehnt: %s",
+                    address,
+                    user,
+                    err,
+                )
+                last_error = err
+                continue
+            return
+        if last_error is not None:
+            raise last_error
 
     @property
     def box_model(self) -> str:
@@ -1054,6 +1115,34 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Beim Entladen: Termin stoppen (die gespeicherte Frist bleibt bestehen)."""
         self._async_cancel_pairing_timer()
 
+    def ensure_guest_service(self) -> int:
+        """Ermittelt (einmalig) den Gast-WLAN-Dienst; blockierend, im Executor nutzen.
+
+        Fragt dazu die vorhandenen WLAN-Dienste ab (je ein ``GetInfo``). Jeder
+        Fehler ist harmlos: dann bleibt es beim bisherigen Dienst 3.
+        """
+        if self._guest_service is not None:
+            return self._guest_service
+        bands: dict[int, str] = {}
+        for index in range(1, WLAN_BAND_MAX_SERVICE + 1):
+            try:
+                info = self.call_action(f"WLANConfiguration{index}", "GetInfo")
+            except FritzServiceError:
+                continue
+            except (FritzConnectionException, RequestException) as err:
+                _LOGGER.debug("WLAN-Dienst %s nicht lesbar: %s", index, err)
+                return GAST_WLAN_SERVICE_INDEX  # nicht merken, spaeter erneut versuchen
+            bands[index] = frequency_band(info.get("NewX_AVM-DE_FrequencyBand"))
+        self._guest_service = guest_service_index(bands)
+        _LOGGER.debug("WLAN-Dienste %s - Gast-WLAN: Dienst %s", bands, self._guest_service)
+        return self._guest_service
+
+    def wlan_service_number(self, index: int) -> int:
+        """Dienstnummer zu einem Schalter (1 = 2,4 GHz, 2 = 5 GHz, 3 = Gast)."""
+        if index == 3 and self._guest_service is not None:
+            return self._guest_service
+        return index
+
     def _fetch_wlan(self) -> dict[str, bool]:
         """Liest den An/Aus-Zustand der vorhandenen WLAN-Baender.
 
@@ -1062,12 +1151,13 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """
         state: dict[str, bool] = {}
         mac_filter: list[bool] = []
+        self.ensure_guest_service()
         for index in (1, 2, 3):
             if not self._wlan_supported.get(index):
                 continue
             try:
                 info = self.fritz_hosts.fc.call_action(
-                    f"WLANConfiguration{index}", "GetInfo"
+                    f"WLANConfiguration{self.wlan_service_number(index)}", "GetInfo"
                 )
             except FritzServiceError:
                 self._wlan_supported[index] = False
@@ -1097,7 +1187,9 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if self._fritz_status is None:
                 self._fritz_status = FritzStatus(fc=self.fritz_hosts.fc)
             up_bytes, down_bytes = self._fritz_status.transmission_rate
-            up_max_bits, down_max_bits = self._fritz_status.max_bit_rate
+            if self._max_rates_cache is None or self._slow_due("max_rates"):
+                self._max_rates_cache = self._fritz_status.max_bit_rate
+            up_max_bits, down_max_bits = self._max_rates_cache
         except FritzServiceError:
             # Dieser FRITZ!Box fehlt der WAN-Dienst (z. B. Access-Point-Modus).
             self._connection_supported = False
@@ -1114,10 +1206,16 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "up_rate": to_kbytes_per_s(up_bytes),
             "down_max": to_mbit_per_s(down_max_bits),
             "up_max": to_mbit_per_s(up_max_bits),
-            "external_ip": self._fetch_external_ip(),
+            "external_ip": self._external_ip(),
             "online": self._fetch_is_connected(),
             "uptime": self._fetch_connection_uptime(),
         }
+
+    def _external_ip(self) -> str | None:
+        """Externe IP, hoechstens alle SLOW_FETCH_INTERVAL Sekunden neu gelesen."""
+        if self._external_ip_cache is None or self._slow_due("external_ip"):
+            self._external_ip_cache = self._fetch_external_ip()
+        return self._external_ip_cache
 
     def _fetch_external_ip(self) -> str | None:
         """Aktuelle oeffentliche IPv4-Adresse, oder ``None`` bei Fehler.
@@ -1355,10 +1453,25 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             mesh_links,
             self._notes,
         )
+        _LOGGER.debug(
+            "Geraeteliste: %s Eintraege (%s aktiv, %s inaktiv)",
+            len(hosts),
+            sum(1 for host in hosts if host["active"]),
+            sum(1 for host in hosts if not host["active"]),
+        )
+        # Repeater, die die Mesh-Topologie kennt, deren Modellname aber nicht
+        # danach aussieht (Issue #16).
+        apply_mesh_repeaters(
+            hosts, self._mesh_repeaters, str(self.entry.data.get(CONF_HOST, ""))
+        )
         # Fuer den NAECHSTEN Zyklus: ob sich eine Mesh-Topologie-Abfrage
-        # ueberhaupt lohnt (siehe ``_fetch``/``_fetch_mesh_topology``).
+        # ueberhaupt lohnt (siehe ``_fetch``/``_fetch_mesh_topology``). Auch
+        # "meshfaehige" Geraete zaehlen: ein Repeater mit unerwartetem Modell
+        # wird so ueberhaupt erst gefunden.
         self._repeater_seen = any(
-            is_repeater(str(raw.get("X_AVM-DE_Model") or "")) for raw in raw_hosts
+            is_repeater(str(raw.get("X_AVM-DE_Model") or ""))
+            or as_bool(raw.get("X_AVM-DE_IsMeshable"))
+            for raw in raw_hosts
         )
 
         if not is_baseline_cycle:
@@ -1930,6 +2043,54 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 {**self.data, "hosts": hosts, "summary": summarize(hosts)}
             )
         return entry
+
+    async def async_mark_reserved(
+        self, pattern: Any, reserved: bool, dry_run: bool = False
+    ) -> dict[str, Any]:
+        """Markiert alle Geraete mit passender IP-Adresse als "reserviert" (oder hebt es auf).
+
+        Gedacht fuer Issue #22/#23: Reservierungen INNERHALB des DHCP-Bereichs
+        meldet die FRITZ!Box ueber TR-064 nicht, die Spalte "IP-Typ" zeigt sie
+        als "dynamisch". Mit diesem Sammelaufruf legt man die Markierung
+        einmal fuer viele Geraete fest, statt jedes einzeln zu oeffnen.
+        Nur in Home Assistant gespeichert - die Box wird nicht angesprochen.
+        ``dry_run`` aendert nichts und meldet nur, was geaendert wuerde.
+        """
+        hosts = (self.data or {}).get("hosts", [])
+        matched = select_hosts_by_ip(hosts, pattern)
+        if not matched and not str(pattern or "").strip():
+            raise HomeAssistantError("Bitte ein IP-Muster angeben, z. B. 192.168.178.*")
+        changes = [
+            host for host in matched if bool(host.get("reserved")) != bool(reserved)
+        ]
+        names = [str(host.get("name") or host.get("mac")) for host in changes]
+        result = {
+            "gefunden": len(matched),
+            "geaendert": len(changes),
+            "dry_run": dry_run,
+            "geraete": names,
+        }
+        if dry_run or not changes:
+            return result
+        for host in changes:
+            key = mac_key(host.get("mac"))
+            current = self._notes.get(key, {})
+            entry = make_note_entry(current.get("label"), current.get("note"), reserved)
+            if entry:
+                self._notes[key] = entry
+            else:
+                self._notes.pop(key, None)
+        self._notes_store.async_delay_save(lambda: dict(self._notes), 1)
+        pool = self._dhcp_pool if self.track_address_source else None
+        changed_keys = {mac_key(host.get("mac")) for host in changes}
+        for host in hosts:
+            if mac_key(host.get("mac")) in changed_keys:
+                host["reserved"] = bool(reserved)
+                host["ip_class"] = classify_ip_with_reserved(host, pool)
+        self.async_set_updated_data(
+            {**self.data, "hosts": hosts, "summary": summarize(hosts)}
+        )
+        return result
 
     # -- "Zuletzt gesehen" ------------------------------------------------
 

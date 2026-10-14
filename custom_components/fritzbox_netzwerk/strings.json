@@ -318,8 +318,12 @@
     },
     "gast_wlan_info": {
       "name": "Gast-WLAN-Zugangsdaten abrufen",
-      "description": "Liefert SSID, Ein/Aus-Status und einen QR-Code zum Verbinden mit dem Gast-WLAN - nur als Rückgabewert, nicht als Sensor (der Schlüssel erscheint dadurch nie in einem Attribut oder im Verlauf). Setzt ein separates Gast-WLAN voraus (WLANConfiguration3).",
+      "description": "Liefert SSID, Ein/Aus-Status und einen QR-Code zum Verbinden mit dem Gast-WLAN - nur als Rückgabewert, nicht als Sensor (der Schlüssel erscheint dadurch nie in einem Attribut oder im Verlauf). Setzt ein separates Gast-WLAN voraus; der Dienst wird automatisch erkannt (meist WLANConfiguration3).",
       "fields": {
+        "service": {
+          "name": "Dienstnummer",
+          "description": "Nur nötig, wenn die automatisch erkannte Dienstnummer nicht das Gast-WLAN ist (1–4, Standard: automatisch)."
+        },
         "config_entry": {
           "name": "FRITZ!Box (Config Entry)",
           "description": "Nur nötig, wenn mehrere FRITZ!Boxen eingerichtet sind: legt fest, auf welche sich dieser Dienst bezieht. Ohne Angabe wirkt der Dienst auf die zuerst geladene Box."
@@ -497,6 +501,28 @@
         "dry_run": {
           "name": "Nur Vorschau",
           "description": "Prüft nur und schreibt nichts."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bei mehreren Boxen: welche Box gemeint ist."
+        }
+      }
+    },
+    "mark_devices_reserved": {
+      "name": "Mehrere Geräte als „reserviert“ markieren",
+      "description": "Markiert alle Geräte, deren IP-Adresse zum Muster passt, auf einmal als „reserviert“ – nur in Home Assistant, die FRITZ!Box wird nicht verändert. Hilfreich, weil die Box Reservierungen innerhalb des DHCP-Bereichs nicht meldet und solche Geräte sonst als „dynamisch“ erscheinen. Mit „Nur Vorschau“ siehst du vorher, was sich ändern würde.",
+      "fields": {
+        "ip_filter": {
+          "name": "IP-Muster",
+          "description": "Muster mit Platzhaltern, mehrere mit Komma trennen, „!“ schließt aus, z. B. 192.168.178.*,!192.168.178.1. Ein leeres Muster wählt nichts aus."
+        },
+        "reserved": {
+          "name": "Reserviert",
+          "description": "An: markieren, aus: Markierung wieder entfernen."
+        },
+        "dry_run": {
+          "name": "Nur Vorschau",
+          "description": "Zeigt nur, welche Geräte betroffen wären, und ändert nichts."
         },
         "config_entry": {
           "name": "FRITZ!Box",

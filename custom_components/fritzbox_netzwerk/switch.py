@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 3284c03fa36f6c5e8eea67836580bef076f340ea654e0f150ecefbde66a7120f
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f11973fee8e1787d44d5ae25ffca83efe61591c9e88b4dd6799a7fa79c3d4886
 """WLAN-Schalter der Integration fritzbox_netzwerk.
 
 Erzeugt - wenn in den Optionen aktiviert - je vorhandenem WLAN-Band einen
@@ -127,7 +127,9 @@ class FritzboxNetzwerkWlanSwitch(
     async def _async_set(self, enable: bool) -> None:
         def _set() -> None:
             self.coordinator.call_action(
-                f"WLANConfiguration{self._index}", "SetEnable", NewEnable=enable
+                f"WLANConfiguration{self.coordinator.wlan_service_number(self._index)}",
+                "SetEnable",
+                NewEnable=enable,
             )
 
         try:

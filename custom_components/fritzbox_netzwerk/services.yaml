@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 9d8de7ac6ce87ad4be97632568eaca8fc7b593b08c03513fa008fd5899e52709
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): dcb6c2af47158730e54f432afbd56b251c189c4ac8e6e3a49d6024ef67b4be3b
 set_device_name:
   fields:
     mac:
@@ -96,6 +96,14 @@ reboot_mesh:
 
 gast_wlan_info:
   fields:
+    service:
+      required: false
+      example: 4
+      selector:
+        number:
+          min: 1
+          max: 4
+          mode: box
     config_entry:
       required: false
       selector:
@@ -274,6 +282,29 @@ set_static_ip:
       example: "192.168.178.50"
       selector:
         text:
+    dry_run:
+      required: false
+      default: false
+      selector:
+        boolean:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+mark_devices_reserved:
+  fields:
+    ip_filter:
+      required: true
+      example: "192.168.178.*"
+      selector:
+        text:
+    reserved:
+      required: false
+      default: true
+      selector:
+        boolean:
     dry_run:
       required: false
       default: false
