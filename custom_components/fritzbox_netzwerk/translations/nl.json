@@ -68,6 +68,7 @@
           "enable_device_tracker": "Device-trackers aanmaken",
           "enable_repeaters": "Repeaters als eigen apparaten aanmaken",
           "enable_controls": "FRITZ!Box-bediening (experimenteel)",
+          "guest_service": "Gast-wifi-service",
           "pairing_minutes": "Duur van het koppelen (minuten)",
           "ip_ranges": "IP-bereiken (Naam=Patroon, één regel per bereik)",
           "enable_host_devices": "Netwerkapparaten als eigen apparaat aanmaken",
@@ -85,6 +86,7 @@
           "enable_device_tracker": "Maakt per netwerkapparaat een device_tracker (thuis/afwezig) aan voor aanwezigheid en automatiseringen. Kan bij veel apparaten tot veel entiteiten leiden.",
           "enable_repeaters": "Maakt voor elke FRITZ!-mesh-repeater in het thuisnetwerk een eigen apparaat met verbindingsstatus aan, bij ingeschakelde FRITZ!Box-bediening ook met een herstartknop. Ook komt er een mesh-sensor (FRITZ!Box + repeaters) en, met bediening, de knop \"Alle FRITZ!-apparaten herstarten\". Herkend worden apparaten waarvan het gemelde model \"Repeater\" of \"FRITZ!Box\" bevat - ook een tweede FRITZ!Box die in het mesh als wifi-repeater meedraait.",
           "enable_controls": "Maakt schakelaars voor de wifi-banden (2,4 GHz, 5 GHz, gast) en voor het wifi-MAC-filter aan, plus knoppen voor opnieuw verbinden, herstarten en het starten van een koppelmoment (MAC-filter tijdelijk uit), en bij ingeschakelde repeater-apparaten een herstartknop per repeater. Beschikbaarheid en toewijzing hangen af van het model.",
+          "guest_service": "Nummer van de wifi-service (WLANConfiguration) van de box die het gastnetwerk is. „Automatisch” herkent hem zelf. Alleen wijzigen als schakelaar of QR-code van de gast-wifi het verkeerde netwerk toont (bijv. FRITZ!Box 4060: service 4). De diagnose-download toont onder wlan_service_bands welk band elke service meldt.",
           "pairing_minutes": "Hoe lang het MAC-filter tijdens het koppelen uitgeschakeld blijft voordat het zichzelf weer inschakelt. Geldt voor de knop \"Koppelen starten\" en voor de service zonder tijdsduur.",
           "ip_ranges": "Maakt per regel een tellersensor aan, bijv. \"Printers=192.168.2.*\" voor \"Printers online: 2 van 3\". Het patroon volgt dezelfde schrijfwijze als het kaartveld \"IP-filter\" (\"*\"/\"?\" als jokertekens, meerdere patronen gescheiden door een komma, \"!\" sluit uit). Leeg = geen bereikssensoren.",
           "enable_host_devices": "Maakt voor elk geselecteerd netwerkapparaat een eigen Home Assistant-apparaat aan, met fabrikant (uit het MAC-adres) en een verbindingsstatus. Standaard uit – elk apparaat levert een apparaat en een entiteit op.",
@@ -95,6 +97,17 @@
           "enable_dns_settings": "Staat de service „DNS-instellingen wijzigen” toe om DNS-servers van de FRITZ!Box te schrijven (internet IPv4/IPv6, lokale DNS in het thuisnetwerk). Gebruikt de REST-interface van de webinterface, niet TR-064 – niet gedocumenteerd door AVM, afhankelijk van FRITZ!OS, schrijven niet getest op echte hardware. Lezen en de voorvertoning (dry_run) werken altijd. Standaard uit.",
           "enable_static_ip": "Staat de service „Statisch IP instellen” toe om een apparaat een vast IPv4-adres te geven (Thuisnetwerk → Netwerk → apparaat bewerken). Gebruikt de webinterface, niet TR-064 – veldnamen zijn aangenomen en op geen enkele box getest. De voorvertoning (dry_run) werkt altijd. Standaard uit."
         }
+      }
+    }
+  },
+  "selector": {
+    "guest_service": {
+      "options": {
+        "0": "Automatisch herkennen",
+        "1": "Service 1",
+        "2": "Service 2",
+        "3": "Service 3",
+        "4": "Service 4"
       }
     }
   },

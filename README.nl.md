@@ -4,7 +4,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-1.9.0-blue)
+![Version](https://img.shields.io/badge/Version-1.9.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Dit is de Nederlandse uitgave. De Duitse [README.md](README.md) is het hoofdbestand en bevat de volledige kaartreferentie, het hoofdstuk probleemoplossing en de complete versiegeschiedenis. Onderdelen met „alleen Duits” zijn nog niet vertaald.
@@ -118,6 +118,7 @@ Via *Configureren* bij de integratie:
 | Apparaattrackers aanmaken | uit | Eén `device_tracker` per netwerkapparaat |
 | Repeaters als eigen apparaten aanmaken | aan | Eén Home Assistant-apparaat per AVM-repeater, meshsensor, knop „Alles herstarten” |
 | FRITZ!Box-besturing (experimenteel) | uit | Wifi-schakelaar, MAC-filterschakelaar, pairingknop, knoppen voor opnieuw verbinden/herstarten |
+| Gast-wifi-service (sinds 1.9.1) | Automatisch | Nummer (1–4) van de wifi-service van de box die het gastnetwerk is. „Automatisch” herkent hem zelf; alleen wijzigen als gastschakelaar of QR-code het verkeerde netwerk tonen |
 | Dagelijks op nieuwe versie controleren | aan | Vraagt eenmaal per dag bij GitHub naar de nieuwste versie; er worden geen gegevens over jou of de box verzonden |
 | Toegangsprofielen van ouderlijk toezicht besturen (experimenteel) | uit | Schakelt de services en de profielkeuze in het detailvenster in |
 | DNS-instellingen van de box wijzigen (experimenteel) | uit | Staat `set_dns_settings` toe te schrijven; lezen en voorvertoning werken altijd |
@@ -241,7 +242,7 @@ Zijn er meerdere boxen ingesteld, dan accepteren alle services een optioneel vel
 | `set_internet_access` (experimenteel) | Internettoegang van een apparaat blokkeren/toestaan |
 | `set_mac_filter`, `start_pairing` (experimenteel) | Wifi-MAC-filter en tijdelijke pairing |
 | `reboot_mesh` (experimenteel) | Repeaters en box herstarten |
-| `gast_wlan_info` | Gast-wifigegevens (voor de QR-code); sinds 1.9.0 wordt de gastservice herkend en kan een optionele `service` (1-4) die afdwingen |
+| `gast_wlan_info` | Gast-wifigegevens (voor de QR-code); sinds 1.9.0 wordt de gastservice herkend en kan een optionele `service` (1-4) die afdwingen; sinds 1.9.1 geeft de kaart het bekende nummer door en kan de instelling „Gast-wifi-service” het vastleggen |
 | `set_device_note` | Label, notitie en „gereserveerd”-markering (alleen in Home Assistant opgeslagen) |
 | `mark_devices_reserved` | Veel apparaten tegelijk als „gereserveerd” markeren via IP-patroon (alleen in Home Assistant opgeslagen; `dry_run` toont een voorbeeld) |
 | `list_access_profiles`, `get_access_profile`, `set_access_profile` (experimenteel) | Profielen van ouderlijk toezicht |
@@ -275,12 +276,13 @@ Schrijfacties vereisen beheerdersrechten; invoer wordt in de backend gecontrolee
 - **Statisch IP en DNS schrijven zijn experimenteel** en gebruiken de ongedocumenteerde webinterface van de box. Schrijven is op geen enkele echte box getest; de veldnamen voor het statische IP zijn aangenomen. Ze kunnen met elke FRITZ!OS-update breken.
 - **Mesh maar gedeeltelijk:** geen signaalsterkte in dBm.
 - **Dataverbruik per apparaat** levert de box niet via TR-064.
+- **VPN-apparaten (issue #29):** een apparaat dat de box in de apparatenlijst met de markering „VPN” meldt, krijgt het label „VPN”. WireGuard-/IPsec-gesprekspartners worden niet apart opgevraagd; of en hoe de box ze via TR-064 meldt, is ongetest. Gevraagd werd om WireGuard-verbindingen van de FRITZ!Box met een MyFRITZ!-adres als eindpunt (terugmelding bij #29); een gedocumenteerde interface daarvoor ken ik niet.
 - Apparaten worden uitsluitend via het MAC-adres aan Home Assistant-apparaten gekoppeld.
 - De volledige lijst staat in de Duitse README.
 
 ## Probleemoplossing
 
-Alleen Duits: zie het hoofdstuk „Fehlerbehebung” in [README.md](README.md#fehlerbehebung). Logger: `custom_components.fritzbox_netzwerk`; de diagnose-download is geanonimiseerd.
+Alleen Duits: zie het hoofdstuk „Fehlerbehebung” in [README.md](README.md#fehlerbehebung). Twee opmerkingen: HACS bepaalt zelf wanneer een nieuwe release verschijnt (issue #28) – gebruik ⋮ → *Informatie bijwerken* bij de repository in HACS; en voor ontbrekende offline-apparaten (issue #24) de diagnose-download en het debuglog aan het issue toevoegen – sinds 1.9.1 staat daarin hoeveel items de box leverde (`box_hosts`). Logger: `custom_components.fritzbox_netzwerk`; de diagnose-download is geanonimiseerd.
 
 ## Bestandsintegriteit
 
@@ -297,6 +299,17 @@ node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fri
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 1.9.1 – Kiesbare gast-wifi-service, IPv6-DNS met HTTP 400, uitgebreide diagnose
+
+Bouwt voort op 1.9.0. **Niets hiervan is getest op een echte FRITZ!Box of in een draaiende Home Assistant** – alleen tegen synthetische gegevens.
+
+- **Nieuw (#20):** instelling **„Gast-wifi-service”** (automatisch, 1–4). De kaart geeft het bekende servicenummer door aan `gast_wlan_info` (attribuut `controls.guest_service`); gastschakelaar en QR-code volgen hetzelfde nummer. De diagnose-download toont `wlan_service_bands`. Het voorstel uit het issue (vast service 4) is niet overgenomen, omdat het gastnetwerk op andere boxen service 3 is.
+- **Opgelost (#30):** `set_dns_settings` draaide op een FRITZ!Box 6591 Cable de IPv4-waarde terug, omdat het schrijven van `home_ipv6_dns` met HTTP 400 antwoordt terwijl de box de waarde overneemt. Een HTTP-fout bij het schrijven van IPv6 geldt nu als geschreven als opnieuw lezen de gewenste waarde toont (met een `hinweis` in het antwoord); anders verandert er niets. Ongetest op een box.
+- **Opgelost (#17):** de **kaarttitel** sprong in de editor terug naar „Netzwerkgeräte” bij het wissen van het laatste teken. Oorzaak: huidige Home Assistant meldt een leeggemaakt tekstveld als `undefined` in plaats van een lege tekst, wat niet als „bewust leeggemaakt” werd herkend. Een **lege titel is nu toegestaan**: hij blijft leeg, wordt als lege tekst opgeslagen en de kaart toont dan geen kop. Een nieuwe kaart zonder titel toont nog steeds „Netzwerkgeräte”. In de browser getest met nagebootst gedrag van Home Assistant, niet in een echt dashboard.
+- **Verbeterd (#24):** diagnose-download en debuglog tonen hoeveel apparaten de box leverde (`box_hosts`: `raw_total`, `raw_active`, `raw_without_mac`). **De oorzaak van verdwijnende offline-apparaten is niet gevonden en niet opgelost.**
+- **Documentatie:** probleemoplossing voor #28 (HACS toont updates pas na „Informatie bijwerken”) en #24; opmerking over VPN-apparaten (#29) onder bekende beperkingen.
+- **Niet uitgevoerd:** #29 (VPN-gesprekspartners in de apparatenlijst) – zonder box of voorbeeldgegevens niet te controleren; #26 (dataverbruik per apparaat) – niet beschikbaar via TR-064; #28 ligt aan HACS, niet aan de integratie.
 
 ### 1.9.0 – Mesh-herkenning, gastwifi-service, bulkmarkering „gereserveerd”, repeater-aanmelding
 

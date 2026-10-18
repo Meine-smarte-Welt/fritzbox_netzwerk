@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): fa8cf32c25fdde05d5056f4046dd6e917a9b6b9b6a44bc9676f5694e761b8213
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 362573f1d57c0c9be046c3afd85bceeee65d93d00772f56138a8b6dfbd5e2e14
 """DNS-Einstellungen der FRITZ!Box ueber die REST-Schnittstelle der Weboberflaeche.
 
 EXPERIMENTELL: Das ist NICHT TR-064. Die neue Weboberflaeche (FRITZ!OS 8,
@@ -25,6 +25,14 @@ Kopf ``Client-Name`` dieser Integration akzeptiert wird, welcher HTTP-Status bei
 ``ipv6`` nur die gewuenschten Felder aendert. Deshalb gilt beim Schreiben:
 vorher lesen, nur die gewuenschten Felder aendern, danach erneut lesen und bei
 Abweichung den Ausgangszustand zurueckschreiben.
+
+Seit 1.9.1 (Issue #30, gemeldet an einer FRITZ!Box 6591 Cable, FRITZ!OS 8.25):
+Dort antwortet ``PUT ipv6`` mit HTTP 400, obwohl die Box den Wert uebernimmt.
+Ein HTTP-Fehler auf ``ipv6`` gilt deshalb nicht sofort als Misserfolg: der Zustand
+wird nachgelesen, und stimmt er mit dem Wunsch ueberein, zaehlt die Aenderung als
+geschrieben (mit Hinweis im Ergebnis). Sonst bleibt es beim Fehler und der
+Ausgangszustand wird zurueckgeschrieben. Der Ablauf ist an keiner Box geprueft;
+belegt ist er nur durch die Meldung im Issue.
 
 Das Modul enthaelt keine Home-Assistant- und keine fritzconnection-Importe und
 ist mit Attrappen pruefbar.
@@ -323,10 +331,25 @@ def change_dns_settings(
                 "aenderungen": diff,
                 "hinweis": None if diff else "Alle Werte entsprechen bereits dem Wunsch",
             }
+        notes: list[str] = []
         try:
             for endpoint in (DNSCFG, IPV6):
                 if endpoint in new:
-                    api_request(session, base, sid, "PUT", endpoint, new[endpoint])
+                    try:
+                        api_request(session, base, sid, "PUT", endpoint, new[endpoint])
+                    except (ConfirmationRequired, SessionExpired):
+                        raise
+                    except DnsSettingsError as err:
+                        # Issue #30: manche Boxen melden HTTP 400 und uebernehmen
+                        # den IPv6-Wert trotzdem - dann nachlesen und vergleichen.
+                        if endpoint != IPV6 or not _is_http_error(err):
+                            raise
+                        if not _ipv6_applied(session, base, sid, new[IPV6], diff):
+                            raise
+                        notes.append(
+                            f"Die FRITZ!Box antwortete auf das Schreiben der IPv6-Einstellung mit "
+                            f"einem Fehler ({err}), hat den Wert aber übernommen."
+                        )
                     written.append(endpoint)
             after, after_ipv6, _e = _read_all(session, base, sid, need_ipv6=IPV6 in new)
             check = {DNSCFG: after, IPV6: after_ipv6 or {}}
@@ -349,9 +372,40 @@ def change_dns_settings(
                 f"vorher: {json.dumps({f: d['vorher'] for f, d in diff.items()}, ensure_ascii=False)}"
             ) from err
         summary = summarize_dns(after, after_ipv6)
-        return {"geschrieben": True, "vorschau": False, "aenderungen": diff, "ergebnis": summary}
+        result: dict[str, Any] = {
+            "geschrieben": True,
+            "vorschau": False,
+            "aenderungen": diff,
+            "ergebnis": summary,
+        }
+        if notes:
+            result["hinweis"] = " ".join(notes)
+        return result
     finally:
         logout(session, base, sid)
+
+
+def _is_http_error(err: Exception) -> bool:
+    """Ob ``api_request`` wegen eines HTTP-Status (nicht wegen fehlerhafter Antwort) scheiterte."""
+    return ": HTTP " in str(err)
+
+
+def _ipv6_applied(
+    session: Any,
+    base: str,
+    sid: str,
+    expected: dict[str, Any],
+    diff: dict[str, dict[str, str]],
+) -> bool:
+    """Ob die gewuenschten ``ipv6``-Felder nach einem Fehler beim Schreiben schon gelten."""
+    try:
+        _dnscfg, ipv6, _err = _read_all(session, base, sid, need_ipv6=True)
+    except (DnsSettingsError, OSError):
+        return False
+    if not isinstance(ipv6, dict):
+        return False
+    keys = [key for field, (ep, key, _k) in FIELD_MAP.items() if ep == IPV6 and field in diff]
+    return bool(keys) and all(str(ipv6.get(key)) == str(expected.get(key)) for key in keys)
 
 
 def _rollback(

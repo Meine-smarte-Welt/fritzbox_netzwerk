@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 97681ec3351dc0b9f222aec20125aa5dda80266adc6beace2a6c94b7ebb5e4c3
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 166b634b6085ac5b8c7cff8af035c1e57433dfa5754cdf3045e96931fec1ed56
 """Sensoren der Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -373,6 +373,9 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
         until = self.coordinator.pairing_until
         return {
             "wlan": wlan,
+            # Issue #20: Dienstnummer des Gast-WLANs, damit die Karte sie dem
+            # Dienst gast_wlan_info mitgibt (gleiche Quelle wie die Schalter).
+            "guest_service": self.coordinator.guest_service,
             "reconnect": _eid("button", "reconnect"),
             "reboot": _eid("button", "reboot"),
             "reboot_mesh": _eid("button", "reboot_mesh"),

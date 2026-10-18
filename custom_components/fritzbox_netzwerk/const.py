@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ef1e4dc6f274c13b7edc2efcc5965445b389dd37b95144ea8cbbdb5948269f77
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ea1a45f2a26aa6345bee2a0eb8b3f5307adb6dcef82430fa27aa99fd0ee4f3e8
 """Konstanten der Integration fritzbox_netzwerk."""
 
 from typing import Final
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.9.0"
+VERSION: Final = "1.9.1"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -34,6 +34,7 @@ CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_TRACK_ADDRESS_SOURCE: Final = "track_address_source"
 CONF_ADDRESS_SOURCE_INTERVAL: Final = "address_source_interval"
 CONF_TRACK_WLAN_BAND: Final = "track_wlan_band"
+CONF_GUEST_SERVICE: Final = "guest_service"
 CONF_ENABLE_DEVICE_TRACKER: Final = "enable_device_tracker"
 CONF_ENABLE_CONTROLS: Final = "enable_controls"
 CONF_ENABLE_REPEATERS: Final = "enable_repeaters"
@@ -59,6 +60,7 @@ DEFAULT_SCAN_INTERVAL: Final = 60  # Sekunden
 DEFAULT_TRACK_ADDRESS_SOURCE: Final = True
 DEFAULT_ADDRESS_SOURCE_INTERVAL: Final = 15  # Minuten
 DEFAULT_TRACK_WLAN_BAND: Final = True
+DEFAULT_GUEST_SERVICE: Final = 0  # 0 = automatisch erkennen, 1-4 = fest (Issue #20)
 DEFAULT_ENABLE_DEVICE_TRACKER: Final = False
 DEFAULT_ENABLE_CONTROLS: Final = False
 DEFAULT_ENABLE_REPEATERS: Final = True

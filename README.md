@@ -6,7 +6,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.9.0-blue)
+![Version](https://img.shields.io/badge/Version-1.9.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -189,6 +189,7 @@ Nicht alle lokalen Funktionen sind dadurch aus der Ferne erreichbar: Insbesonder
 | Geräte-Tracker anlegen | aus | Ein `device_tracker` je Netzwerkgerät (zuhause/abwesend) |
 | Repeater als eigene Geräte anlegen | an | Ein Home-Assistant-Gerät je AVM-Repeater sowie Mesh-Sensor und „Alle neu starten“-Button, siehe [Mesh](#mesh-fritzbox-und-repeater-als-gruppe) und [Repeater als eigene Geräte](#repeater-als-eigene-geräte) |
 | FRITZ!Box-Steuerung (experimentell) | aus | WLAN-Schalter, MAC-Filter-Schalter, Pairing-Button, Buttons Neuverbinden und Neustart sowie „Alle FRITZ!-Geräte neu starten“ |
+| Gast-WLAN-Dienst (seit 1.9.1) | Automatisch | Nummer (1–4) des WLAN-Dienstes der Box, der das Gast-WLAN ist. „Automatisch“ erkennt ihn selbst; nur ändern, wenn Gast-Schalter oder QR-Code das falsche Netz zeigen, siehe [`gast_wlan_info`](#fritzbox_netzwerkgast_wlan_info) |
 | Täglich auf neue Version prüfen | an | Fragt einmal am Tag bei GitHub nach der neuesten Version und zeigt in der Karte einen Hinweis; es werden keine Daten über dich oder die Box übertragen |
 | Zugangsprofile der Kindersicherung steuern (experimentell) | aus | Schaltet die Dienste und die Profilauswahl im Popup frei, siehe [Kindersicherung](#kindersicherung-zugangsprofile-experimentell) |
 | DNS-Einstellungen der Box ändern (experimentell) | aus | Erlaubt dem Dienst `set_dns_settings` das Schreiben; Lesen und die Vorschau gehen immer, siehe [DNS-Einstellungen](#dns-einstellungen-experimentell) |
@@ -559,6 +560,14 @@ Beschriftungen abgeleitet, nicht Feld für Feld gegen die Oberfläche geprüft.
 - Verlangt die Box eine Bestätigung (Fehlercode `TWO-FACTOR`), wird nichts geändert und eine
   verständliche Meldung ausgegeben. Bestätige die Anfrage an der Box und rufe den Dienst erneut auf.
 - `dry_run: true` zeigt nur, was sich ändern würde, und geht auch ohne eingeschaltete Option.
+
+**Seit 1.9.1 (Issue #30):** Auf einer FRITZ!Box 6591 Cable (FRITZ!OS 8.25) antwortet das Schreiben der
+IPv6-Einstellung (`home_ipv6_dns`, `home_ipv6_advertise`) mit HTTP 400, obwohl die Box den Wert übernimmt.
+Früher führte das dazu, dass die Integration alles zurückrollte – auch den im selben Aufruf schon
+geschriebenen IPv4-Wert. Jetzt liest sie nach einem HTTP-Fehler beim IPv6-Schreiben den Zustand erneut:
+stimmt er mit dem Wunsch überein, gilt die Änderung als geschrieben (die Antwort des Dienstes enthält
+dann einen `hinweis`), sonst bleibt es beim Fehler samt Rückschreiben des Ausgangszustands. Dieser
+Ablauf stützt sich nur auf die Meldung im Issue und ist **an keiner Box geprüft**.
 
 **Teststand (ehrlich):** Der Aufbau der Antworten `dnscfg` und `ipv6`, die Anmeldung per
 `AUTHORIZATION: AVM-SID …` und die Schreibweise (`PUT` mit dem ganzen Objekt, Fehlercodes
@@ -1160,6 +1169,13 @@ die Integration automatisch, es ist keine zusätzliche Einrichtung nötig. Setzt
 Gast-WLAN voraus (`WLANConfiguration3`, dieselbe Annahme wie beim bereits vorhandenen
 Gast-WLAN-Schalter); ohne das meldet der Dienst einen Fehler.
 
+**Seit 1.9.1:** Die Integration-Option **„Gast-WLAN-Dienst“** (Einstellungen → Konfigurieren) legt die
+Nummer fest (1–4); „Automatisch“ lässt die Erkennung aus 1.9.0 wirken. Die Karte reicht die bekannte
+Nummer an diesen Dienst weiter (Attribut `controls.guest_service` des Übersichts-Sensors); der
+Gast-WLAN-Schalter folgt derselben Nummer. Der Diagnose-Download nennt unter `wlan_service_bands`, welches
+Band jeder WLAN-Dienst der Box meldet. Ein fest vorgegebener Dienst 4 wurde bewusst nicht zum Standard,
+weil das Gast-WLAN auf anderen Boxen auf Dienst 3 liegt.
+
 **Seit 1.9.0:** Auf Boxen mit mehr als drei WLAN-Diensten (z. B. getrennte Netze je Band) ist Dienst 3
 nicht immer das Gast-WLAN – dort zeigte der QR-Code ein Hauptnetz (Issue #20). Die Integration wählt
 jetzt den höchsten Dienst ab 3, der **kein** Frequenzband meldet (Annahme: das Gast-WLAN meldet keins),
@@ -1478,6 +1494,20 @@ greift mit der nächsten IP-Typ-Abfrage (Standard: alle 15 Minuten, sofort nach 
 Neustart von Home Assistant). Die Rohwerte der Box stehen im Debug-Protokoll
 (`AddressSource`, `LeaseTimeRemaining`, DHCP-Bereich).
 
+**HACS zeigt neue Versionen erst nach „Informationen aktualisieren“ (Issue #28).**
+Ob und wann HACS ein neues Release anzeigt, entscheidet HACS selbst; die Integration kann das nicht
+beeinflussen. Die Releases und Tags stehen bei GitHub bereit. Abhilfe: In HACS beim Repository ⋮ →
+*Informationen aktualisieren* (bzw. *Erneut herunterladen*). Unabhängig von HACS zeigt die Integration
+selbst eine neue Version an (Karte, Binärsensor „Update verfügbar“, tägliche Prüfung, abschaltbar).
+
+**Offline-Geräte fehlen in der Liste (Issue #24).**
+Eine Ursache ist bisher nicht gefunden; im Code werden Offline-Geräte nicht ausgefiltert. Bitte den
+Diagnose-Download (Einstellungen → Geräte & Dienste → FRITZ!Box Netzwerk → ⋮ → Diagnose herunterladen)
+und das Debug-Protokoll im Issue anhängen. Seit 1.9.1 steht in `box_hosts`, wie viele Einträge die Box
+lieferte (`raw_total`), wie viele davon aktiv waren (`raw_active`) und wie viele die Integration
+ohne MAC-Adresse verwarf (`raw_without_mac`); im Debug-Protokoll steht dasselbe je Abruf. Daran lässt sich
+erkennen, ob die Box die Geräte gar nicht mehr liefert oder ob sie erst danach verschwinden.
+
 **HACS meldet „Repository structure for 1.5.x is not compliant".**
 Steht in der Meldung `<Plugin Meine-smarte-Welt/fritzbox_netzwerk>`, wurde das Repository in
 HACS als *Dashboard* (Plugin) statt als *Integration* hinzugefügt. Als Dashboard-Plugin sucht
@@ -1551,6 +1581,11 @@ language: nl   # "" = automatisch, sonst de | en | nl
 - **Statische IP nur über die Weboberfläche.** TR-064 kennt dafür keine Aktion. Seit 1.8.0 gibt es den
   experimentellen Dienst `set_static_ip` über die undokumentierte Weboberfläche; dessen Feldnamen sind angenommen und
   an keiner Box geprüft, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell).
+- **VPN-Geräte (Issue #29).** Ein Gerät, das die Box in ihrer Geräteliste mit dem Kennzeichen „VPN“ meldet,
+  trägt in der Karte das Abzeichen „VPN“. Gegenstellen von WireGuard- oder IPsec-Verbindungen fragt die
+  Integration nicht gesondert ab; ob und wie die Box sie über TR-064 meldet, ist ungeprüft. Gewünscht wurde die Anzeige
+  für WireGuard-Verbindungen der FRITZ!Box mit MyFRITZ!-Adresse als Endpunkt (Rückmeldung zu #29); eine dokumentierte
+  Schnittstelle dafür ist mir nicht bekannt.
 - **Mesh nur in Teilen.** FRITZ!Box und Repeater bilden eine Gruppe (siehe oben); seit 1.6.3
   zeigt die Karte in „Verbunden über“, an welchem Mesh-Nachbarn ein Gerät hängt, samt
   Verbindungsrate. **Keine Signalstärke in dBm** (liefert die Mesh-Liste nicht). Das Funkband
@@ -1603,11 +1638,11 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `8207f508ae8b7d99d4732efd73a961e78cfce828759b25ea74fd6a88e7513be3` |
-| `custom_components/fritzbox_netzwerk/strings.json` | `6f7d47ed889a4390b68b86009023c792463bd7f763c798f55f226b1608ef1abb` |
-| `custom_components/fritzbox_netzwerk/translations/de.json` | `8910940c95724197d205bee07d3d9c60f2d3e261809736efe4ba9fd553747a4f` |
-| `custom_components/fritzbox_netzwerk/translations/en.json` | `f17b3ad99a87ab0a1b7a75680c205cdf4037c6cbb616a091eaff0fc9582051a8` |
-| `custom_components/fritzbox_netzwerk/translations/nl.json` | `15844590a80a5b22d6eedf82c16014a38daa58e9ebd56c4c9c8152be682872ad` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `82d7aff0e6d3e9deb645a72ce0aa5c7bef0d5156b79cc3e15d1f5288f73cfe71` |
+| `custom_components/fritzbox_netzwerk/strings.json` | `1367dbd2a4c612a52846454b2b3d117235650165f68b2d9daf4c2a832e2cdfc0` |
+| `custom_components/fritzbox_netzwerk/translations/de.json` | `2216d593dcc312cbd26569531b47b9e535720d96dc76cfdf351e249f15dc9150` |
+| `custom_components/fritzbox_netzwerk/translations/en.json` | `3d5363e7ebfbac2523f13d0945ef5542443450f9f17272e59c941c30483fa39d` |
+| `custom_components/fritzbox_netzwerk/translations/nl.json` | `b9a25c8706b387dc8255197b5140bf171fc64e7f227c2f2b488f5065c3009c18` |
 
 ## Entwicklung und Tests
 
@@ -1641,6 +1676,32 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 1.9.1 – Gast-WLAN-Dienst wählbar, IPv6-DNS mit HTTP 400, erweiterte Diagnose
+
+Baut auf 1.9.0 auf. **Nichts davon wurde an einer echten FRITZ!Box oder in einer laufenden Home-Assistant-Instanz
+geprüft** – die Auswertungen laufen nur gegen synthetische Daten.
+
+- **Neu (#20):** Option **„Gast-WLAN-Dienst“** (Automatisch, 1–4) in den Einstellungen. Die Karte gibt die bekannte
+  Dienstnummer an `gast_wlan_info` weiter (Attribut `controls.guest_service`); Gast-WLAN-Schalter und QR-Code
+  folgen derselben Nummer. Der Diagnose-Download nennt `wlan_service_bands`. Der Vorschlag aus dem Issue (fest
+  Dienst 4) wurde nicht übernommen, weil das Gast-WLAN auf anderen Boxen auf Dienst 3 liegt.
+- **Behoben (#30):** `set_dns_settings` rollte auf einer FRITZ!Box 6591 Cable den IPv4-Wert zurück, weil das
+  Schreiben von `home_ipv6_dns` mit HTTP 400 antwortet, die Box den Wert aber übernimmt. Ein HTTP-Fehler beim
+  IPv6-Schreiben gilt jetzt als geschrieben, wenn ein erneutes Lesen den gewünschten Wert zeigt (mit `hinweis`
+  in der Antwort); sonst bleibt alles wie bisher. Ungeprüft an einer Box.
+- **Behoben (#17):** Der **Kartentitel** sprang beim Löschen des letzten Buchstabens im Editor auf „Netzwerkgeräte“
+  zurück. Ursache: Aktuelles Home Assistant meldet ein geleertes Textfeld als `undefined` statt als leeren Text; das
+  wurde nicht als „bewusst geleert“ erkannt. Ein **leerer Titel ist jetzt erlaubt**: er bleibt leer, wird als leerer Text
+  gespeichert und die Karte zeigt dann keine Überschrift. Eine neue Karte ohne Titel zeigt weiter „Netzwerkgeräte“.
+  Im Browser-Test mit nachgestelltem Verhalten von Home Assistant geprüft, nicht in einem echten Dashboard.
+- **Verbessert (#24):** Diagnose-Download und Debug-Protokoll nennen, wie viele Geräte die Box lieferte
+  (`box_hosts`: `raw_total`, `raw_active`, `raw_without_mac`). **Die Ursache der verschwindenden Offline-Geräte ist
+  nicht gefunden und nicht behoben.**
+- **Dokumentation:** Fehlerbehebung zu #28 (HACS zeigt Updates erst nach „Informationen aktualisieren“) und #24;
+  Hinweis zu VPN-Geräten (#29) unter „Bekannte Einschränkungen“.
+- **Nicht umgesetzt:** #29 (VPN-Gegenstellen in der Geräteliste) – ohne Box oder Beispieldaten nicht prüfbar;
+  #26 (Datenvolumen je Gerät) – über TR-064 nicht verfügbar; #28 liegt an HACS, nicht an der Integration.
 
 ### 1.9.0 – Mesh-Erkennung, Gast-WLAN-Dienst, Sammelmarkierung „reserviert“, Repeater-Anmeldung
 

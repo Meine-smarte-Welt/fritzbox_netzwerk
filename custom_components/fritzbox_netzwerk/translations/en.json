@@ -68,6 +68,7 @@
           "enable_device_tracker": "Create device trackers",
           "enable_repeaters": "Create repeaters as their own devices",
           "enable_controls": "FRITZ!Box controls (experimental)",
+          "guest_service": "Guest Wi-Fi service",
           "pairing_minutes": "Pairing duration (minutes)",
           "ip_ranges": "IP ranges (Name=Pattern, one line per range)",
           "enable_host_devices": "Create network devices as devices",
@@ -85,6 +86,7 @@
           "enable_device_tracker": "Creates a device_tracker (home/away) per network device for presence and automations. May result in many entities on large networks.",
           "enable_repeaters": "Creates a separate device with a connected status for every FRITZ! mesh repeater in the home network, plus a reboot button when the FRITZ!Box controls are enabled. It also adds a mesh sensor (FRITZ!Box + repeaters) and, with controls, the \"Restart all FRITZ! devices\" button. Devices whose reported model contains \"Repeater\" or \"FRITZ!Box\" are detected - including a second FRITZ!Box running as a Wi-Fi mesh repeater.",
           "enable_controls": "Creates switches for the Wi-Fi bands (2.4 GHz, 5 GHz, guest) and for the Wi-Fi MAC filter, plus buttons to reconnect, reboot and start a pairing (MAC filter temporarily off), and a reboot button per repeater when repeater devices are enabled. Availability and assignment depend on the model.",
+          "guest_service": "Number of the box's Wi-Fi service (WLANConfiguration) that is the guest network. \"Automatic\" detects it itself. Only change it if the guest Wi-Fi switch or QR code shows the wrong network (e.g. FRITZ!Box 4060: service 4). The diagnostics download lists under wlan_service_bands which band each service reports.",
           "pairing_minutes": "How long the MAC filter stays off during pairing before it switches itself back on. Applies to the \"Start pairing\" button and to the service when no duration is given.",
           "ip_ranges": "Creates a counter sensor per line, e.g. \"Printers=192.168.2.*\" for \"Printers online: 2 of 3\". The pattern uses the same syntax as the card field \"IP filter\" (\"*\"/\"?\" as wildcards, several patterns separated by a comma, \"!\" excludes). Empty = no range sensors.",
           "enable_host_devices": "Creates a Home Assistant device for each selected network device, with the manufacturer (from the MAC address) and a connected status. Off by default – every device creates a device and an entity.",
@@ -95,6 +97,17 @@
           "enable_dns_settings": "Allows the “Change DNS settings” service to write DNS servers of the FRITZ!Box (internet IPv4/IPv6, local DNS in the home network). Uses the web interface REST API, not TR-064 – undocumented by AVM, FRITZ!OS dependent, writing not tested on real hardware. Reading and the preview (dry_run) always work. Off by default.",
           "enable_static_ip": "Allows the “Set static IP” service to assign a fixed IPv4 address to a device (Home Network → Network → edit device). Uses the web interface, not TR-064 – field names are assumed and not verified on any box. The preview (dry_run) always works. Off by default."
         }
+      }
+    }
+  },
+  "selector": {
+    "guest_service": {
+      "options": {
+        "0": "Detect automatically",
+        "1": "Service 1",
+        "2": "Service 2",
+        "3": "Service 3",
+        "4": "Service 4"
       }
     }
   },

@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): fead395333227608ae52dfb373a9a8b91c0fced4f998f33820ff918e38e35e6e
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): a9b5eb757be3e2fbff1eb83a1546e346201b7cd176dd4cc819df31a202aaad03
 """Diagnose-Export fuer fritzbox_netzwerk (Idee 15 aus feature-ideen.md).
 
 Liefert die Angaben, die zur Fehlersuche bei einer GitHub-Issue-Meldung am
@@ -105,6 +105,18 @@ async def async_get_config_entry_diagnostics(
                 "hosts_inactive": sum(1 for host in hosts if not host.get("active")),
                 "mesh_repeaters_from_topology": len(getattr(coordinator, "_mesh_repeaters", {}) or {}),
                 "guest_wlan_service": getattr(coordinator, "_guest_service", None),
+                # Issue #20: von Hand gewaehlter Dienst (0 = automatisch) und
+                # das Band, das jeder WLAN-Dienst der Box meldete ("" = keins).
+                "guest_wlan_service_configured": getattr(
+                    coordinator, "configured_guest_service", 0
+                ),
+                "wlan_service_bands": {
+                    str(index): band
+                    for index, band in (getattr(coordinator, "_guest_bands", {}) or {}).items()
+                },
+                # Issue #24: was die Box lieferte, bevor die Integration
+                # Eintraege ohne MAC-Adresse verwarf (Abgleich mit host_count).
+                "box_hosts": dict(getattr(coordinator, "_host_stats", {}) or {}),
                 # Nur Zaehler - Etiketten und Notizen selbst gehoeren nicht in
                 # einen Export (sie koennen Namen und Orte enthalten).
                 "notes_count": sum(

@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): e224caabe4f557fedfcddae95df2695c93b916f23bb9987aad97085797ebf48a
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 6652a84c89da519374305216e6ab63b7be96109bd2ae57c2739487cce4d818ab
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.9.0";
+const FBN_VERSION = "1.9.1";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -3787,8 +3787,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
 
   /** Ruft gast_wlan_info auf und baut den Popup-Inhalt mit dem Ergebnis neu auf. */
   _fetchGastWlanInfo() {
+    // Issue #20: die Dienstnummer des Gast-WLANs kommt aus der Integration
+    // (erkannt oder in den Optionen gewaehlt) und wird dem Dienst mitgegeben.
+    const state = this._stateObj();
+    const controls = (state && state.attributes && state.attributes.controls) || null;
+    const service = controls && Number(controls.guest_service);
+    const data = service >= 1 && service <= 4 ? { service } : {};
     this._hass
-      .callService("fritzbox_netzwerk", "gast_wlan_info", {}, undefined, true, true)
+      .callService("fritzbox_netzwerk", "gast_wlan_info", data, undefined, true, true)
       .then((result) => {
         if (!this._gastWlanPopup) return;
         this._renderGastWlanPopupContent((result && result.response) || {});
@@ -4788,6 +4794,9 @@ class FritzboxNetzwerkCardEditor extends HTMLElement {
   _preserveClearedTitle(config) {
     const incoming = { ...(config || {}) };
     if ("title" in incoming) {
+      // 1.9.1 (Issue #17): "undefined"/"null" heisst ebenfalls "geleert" - so
+      // meldet aktuelles Home Assistant ein leeres optionales Textfeld.
+      if (incoming.title === undefined || incoming.title === null) incoming.title = "";
       this._titleCleared = incoming.title === "";
     } else if (this._rendered && this._titleCleared) {
       incoming.title = "";
@@ -5003,10 +5012,20 @@ class FritzboxNetzwerkCardEditor extends HTMLElement {
         // als der spaetere Umweg ueber Home Assistants eigenen
         // Konfigurations-Rahmen, der das Feld ganz entfernt, siehe
         // _preserveClearedTitle()).
-        if ("title" in event.detail.value) {
-          this._titleCleared = event.detail.value.title === "";
+        //
+        // 1.9.1 (Issue #17): Aktuelles Home Assistant meldet ein geleertes,
+        // nicht erforderliches Textfeld als "undefined" (nicht als ""). Das
+        // wurde bisher nicht als "geleert" erkannt: der Titel fiel beim
+        // Loeschen des letzten Buchstabens auf "Netzwerkgeräte" zurueck. Ein
+        // leerer Titel ist erlaubt und bleibt ein leerer String - so geht er
+        // auch beim Speichern nicht verloren und die Karte zeigt keine
+        // Ueberschrift.
+        const changed = { ...event.detail.value };
+        if ("title" in changed) {
+          if (changed.title === undefined || changed.title === null) changed.title = "";
+          this._titleCleared = changed.title === "";
         }
-        this._config = withDefaults({ ...this._config, ...event.detail.value });
+        this._config = withDefaults({ ...this._config, ...changed });
         this._fire(this._config);
       });
       this.querySelector(".fbn-form").appendChild(this._form);

@@ -4,7 +4,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-1.9.0-blue)
+![Version](https://img.shields.io/badge/Version-1.9.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > This is the English edition. The German [README.md](README.md) is the main file and has the full card reference, the troubleshooting chapter and the complete version history. Sections marked “German only” are not translated yet.
@@ -118,6 +118,7 @@ Via *Configure* on the integration:
 | Create device trackers | off | One `device_tracker` per network device |
 | Create repeaters as own devices | on | One Home Assistant device per AVM repeater, mesh sensor, “restart all” button |
 | FRITZ!Box control (experimental) | off | Wi-Fi switch, MAC filter switch, pairing button, reconnect/restart buttons |
+| Guest Wi-Fi service (since 1.9.1) | Automatic | Number (1–4) of the box's Wi-Fi service that is the guest network. “Automatic” detects it itself; only change it if the guest switch or QR code shows the wrong network |
 | Check daily for a new version | on | Asks GitHub once a day for the latest version; no data about you or the box is sent |
 | Control parental-control access profiles (experimental) | off | Enables the services and the profile selection in the popup |
 | Change DNS settings of the box (experimental) | off | Allows `set_dns_settings` to write; reading and the preview always work |
@@ -241,7 +242,7 @@ If several boxes are set up, all services accept an optional field `config_entry
 | `set_internet_access` (experimental) | Block/allow internet access of a device |
 | `set_mac_filter`, `start_pairing` (experimental) | Wi-Fi MAC filter and temporary pairing |
 | `reboot_mesh` (experimental) | Restart repeaters and box |
-| `gast_wlan_info` | Guest Wi-Fi data (for the QR code); since 1.9.0 the guest service is detected and an optional `service` (1-4) can force it |
+| `gast_wlan_info` | Guest Wi-Fi data (for the QR code); since 1.9.0 the guest service is detected and an optional `service` (1-4) can force it; since 1.9.1 the card passes the known number and the setting “Guest Wi-Fi service” can fix it |
 | `set_device_note` | Label, note and “reserved” marker (stored in Home Assistant only) |
 | `mark_devices_reserved` | Mark many devices as “reserved” by IP pattern (stored in Home Assistant only; `dry_run` previews) |
 | `list_access_profiles`, `get_access_profile`, `set_access_profile` (experimental) | Parental-control profiles |
@@ -275,12 +276,13 @@ Write actions need administrator rights; inputs are validated in the backend; te
 - **Static IP and DNS write access are experimental** and use the undocumented web interface of the box. Writing is not verified on any real box; the field names for the static IP are assumed. They may break with any FRITZ!OS update.
 - **Mesh only in parts:** no signal strength in dBm.
 - **Data volume per device** is not provided by the box via TR-064.
+- **VPN devices (issue #29):** a device the box reports with the “VPN” flag in its host list gets the “VPN” badge. WireGuard/IPsec peers are not queried separately; whether and how the box reports them via TR-064 is untested. What was asked for is WireGuard connections of the FRITZ!Box with a MyFRITZ! address as endpoint (feedback on #29); I know of no documented interface for it.
 - Devices are matched to Home Assistant devices only by MAC address.
 - The full list is in the German README.
 
 ## Troubleshooting
 
-German only: see the chapter “Fehlerbehebung” in [README.md](README.md#fehlerbehebung). Logger: `custom_components.fritzbox_netzwerk`; the diagnostics download is anonymised.
+German only: see the chapter “Fehlerbehebung” in [README.md](README.md#fehlerbehebung). Two notes: HACS decides itself when it shows a new release (issue #28) – use ⋮ → *Update information* on the repository in HACS; and for missing offline devices (issue #24) attach the diagnostics download and the debug log to the issue – since 1.9.1 it shows how many entries the box delivered (`box_hosts`). Logger: `custom_components.fritzbox_netzwerk`; the diagnostics download is anonymised.
 
 ## File integrity
 
@@ -297,6 +299,17 @@ node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fri
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 1.9.1 – Selectable guest Wi-Fi service, IPv6 DNS with HTTP 400, extended diagnostics
+
+Builds on 1.9.0. **None of it was tested on a real FRITZ!Box or in a running Home Assistant** – only against synthetic data.
+
+- **New (#20):** setting **“Guest Wi-Fi service”** (automatic, 1–4). The card passes the known service number to `gast_wlan_info` (attribute `controls.guest_service`); the guest switch and QR code follow the same number. The diagnostics download lists `wlan_service_bands`. The suggestion from the issue (fixed service 4) was not adopted because the guest network is service 3 on other boxes.
+- **Fixed (#30):** `set_dns_settings` rolled back the IPv4 value on a FRITZ!Box 6591 Cable because writing `home_ipv6_dns` answers with HTTP 400 although the box applies the value. An HTTP error while writing IPv6 now counts as written if re-reading shows the wanted value (with a `hinweis` in the response); otherwise nothing changes. Untested on a box.
+- **Fixed (#17):** the **card title** jumped back to “Netzwerkgeräte” in the editor when deleting the last character. Cause: current Home Assistant reports a cleared text field as `undefined` instead of an empty string, which was not recognised as “deliberately cleared”. An **empty title is now allowed**: it stays empty, is saved as an empty string and the card then shows no header. A new card without a title still shows “Netzwerkgeräte”. Tested in the browser against simulated Home Assistant behaviour, not in a real dashboard.
+- **Improved (#24):** the diagnostics download and the debug log state how many devices the box delivered (`box_hosts`: `raw_total`, `raw_active`, `raw_without_mac`). **The cause of vanishing offline devices has not been found or fixed.**
+- **Documentation:** troubleshooting for #28 (HACS shows updates only after “Update information”) and #24; note on VPN devices (#29) under known limitations.
+- **Not implemented:** #29 (VPN peers in the device list) – cannot be verified without a box or sample data; #26 (data volume per device) – not available via TR-064; #28 is a HACS matter, not the integration's.
 
 ### 1.9.0 – Mesh detection, guest Wi-Fi service, bulk “reserved” marker, repeater login
 

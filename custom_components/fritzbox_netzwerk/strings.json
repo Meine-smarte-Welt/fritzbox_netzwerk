@@ -68,6 +68,7 @@
           "enable_device_tracker": "Geräte-Tracker anlegen",
           "enable_repeaters": "Repeater als eigene Geräte anlegen",
           "enable_controls": "FRITZ!Box-Steuerung (experimentell)",
+          "guest_service": "Gast-WLAN-Dienst",
           "pairing_minutes": "Pairing-Dauer (Minuten)",
           "ip_ranges": "IP-Bereiche (Name=Muster, eine Zeile je Bereich)",
           "enable_host_devices": "Netzwerkgeräte als eigene Geräte anlegen",
@@ -85,6 +86,7 @@
           "enable_device_tracker": "Legt pro Netzwerkgerät einen device_tracker (zuhause/abwesend) für Anwesenheit und Automationen an. Kann bei vielen Geräten zu vielen Entitäten führen.",
           "enable_repeaters": "Legt für jeden FRITZ!-Mesh-Repeater im Heimnetz ein eigenes Gerät mit Verbunden-Status an, bei aktivierter FRITZ!Box-Steuerung zusätzlich mit einem Neustart-Button. Dazu gibt es einen Mesh-Sensor (FRITZ!Box + Repeater) und – mit Steuerung – den Button „Alle FRITZ!-Geräte neu starten“. Erkannt werden Geräte, deren gemeldetes Modell „Repeater“ oder „FRITZ!Box“ enthält – also auch eine zweite FRITZ!Box, die im Mesh als WLAN-Repeater mitläuft.",
           "enable_controls": "Legt Schalter für die WLAN-Bänder (2,4 GHz, 5 GHz, Gast) und für den WLAN-MAC-Filter an, dazu Buttons zum Neuverbinden, Neustarten und zum Starten eines Pairings (MAC-Filter zeitweise aus), bei eingeschalteten Repeater-Geräten auch je einen Neustart-Button pro Repeater. Verfügbarkeit und Zuordnung hängen vom Modell ab.",
+          "guest_service": "Nummer des WLAN-Dienstes (WLANConfiguration) der Box, der das Gast-WLAN ist. „Automatisch“ erkennt ihn selbst. Nur ändern, wenn Schalter oder QR-Code des Gast-WLANs das falsche Netz zeigen (z. B. FRITZ!Box 4060: Dienst 4). Die Diagnose („Diagnose herunterladen“) listet unter wlan_service_bands, welches Band jeder Dienst meldet.",
           "pairing_minutes": "Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt, bevor er sich von selbst wieder einschaltet. Gilt für den Button „Pairing starten“ und für den Dienst ohne Zeitangabe.",
           "ip_ranges": "Legt je Zeile einen Zähler-Sensor an, z. B. \"Drucker=192.168.2.*\" für \"Drucker online: 2 von 3\". Das Muster folgt derselben Schreibweise wie das Kartenfeld \"IP-Filter\" (\"*\"/\"?\" als Platzhalter, mehrere Muster mit Komma getrennt, \"!\" schließt aus). Leer = keine Bereichs-Sensoren.",
           "enable_host_devices": "Legt für die ausgewählten Netzwerkgeräte je ein eigenes Home-Assistant-Gerät mit Hersteller (aus der MAC-Adresse) und einem Verbunden-Status an. Standardmäßig aus – jedes Gerät erzeugt ein Gerät und eine Entität.",
@@ -95,6 +97,17 @@
           "enable_dns_settings": "Erlaubt dem Dienst „DNS-Einstellungen ändern“, DNS-Server der FRITZ!Box zu schreiben (Internet IPv4/IPv6, lokaler DNS im Heimnetz). Nutzt die REST-Schnittstelle der Weboberfläche, nicht TR-064 – von AVM nicht dokumentiert, FRITZ!OS-abhängig, ohne Test an echter Hardware beim Schreiben. Lesen und die Vorschau (dry_run) gehen immer. Standardmäßig aus.",
           "enable_static_ip": "Erlaubt dem Dienst „Statische IP setzen“, einem Gerät eine feste IPv4-Adresse zuzuweisen (Heimnetz → Netzwerk → Gerät bearbeiten). Nutzt die Weboberfläche der Box, nicht TR-064 – die Feldnamen sind angenommen und an keiner Box geprüft. Die Vorschau (dry_run) geht immer. Standardmäßig aus."
         }
+      }
+    }
+  },
+  "selector": {
+    "guest_service": {
+      "options": {
+        "0": "Automatisch erkennen",
+        "1": "Dienst 1",
+        "2": "Dienst 2",
+        "3": "Dienst 3",
+        "4": "Dienst 4"
       }
     }
   },

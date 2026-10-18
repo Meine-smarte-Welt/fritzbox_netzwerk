@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 70b9455cfe8a92801a4e7530fe8668b31833c34ae57533a2fc5637146bf75702
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f741133fbd488b6fd7a74fb9b374b21a68e92053e2732e0653e66a0588f4b019
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -59,11 +59,13 @@ from .const import (
     DEFAULT_ENABLE_SYSTEM_STATS,
     INTERNET_BLOCK_STORAGE_VERSION,
     SYSTEM_STATS_INTERVAL_MINUTES,
+    CONF_GUEST_SERVICE,
     CONF_SCAN_INTERVAL,
     CONF_TRACK_ADDRESS_SOURCE,
     CONF_TRACK_WLAN_BAND,
     CONF_USE_TLS,
     DEFAULT_ADDRESS_SOURCE_INTERVAL,
+    DEFAULT_GUEST_SERVICE,
     DEFAULT_PAIRING_MINUTES,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TRACK_ADDRESS_SOURCE,
@@ -105,6 +107,7 @@ from .hosts import (
     merge_oui,
     mesh_members,
     mesh_reboot_plan,
+    normalize_mac,
     parse_ieee_csv,
     parse_oui,
     parse_wlan_device_list,
@@ -303,6 +306,11 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Nummer des WLANConfiguration-Dienstes, der das Gast-WLAN ist (None =
         # noch nicht ermittelt), siehe ``hosts.guest_service_index``.
         self._guest_service: int | None = None
+        # Gemeldete Baender je WLAN-Dienst (nur fuer die Diagnose, Issue #20).
+        self._guest_bands: dict[int, str] = {}
+        # Zaehler des letzten Geraetelisten-Abrufs (nur fuer die Diagnose,
+        # Issue #24): was die Box lieferte und was davon verworfen wurde.
+        self._host_stats: dict[str, int] = {}
 
         # "Zuletzt gesehen" pflegt die Integration selbst (die FRITZ!Box
         # liefert es nicht) und speichert es dauerhaft, damit die Angabe
@@ -1115,12 +1123,33 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Beim Entladen: Termin stoppen (die gespeicherte Frist bleibt bestehen)."""
         self._async_cancel_pairing_timer()
 
+    @property
+    def configured_guest_service(self) -> int:
+        """Von Hand gewaehlter Gast-WLAN-Dienst (1-4), ``0`` = automatisch (Issue #20)."""
+        try:
+            value = int(self.entry.options.get(CONF_GUEST_SERVICE, DEFAULT_GUEST_SERVICE))
+        except (TypeError, ValueError):
+            return 0
+        return value if 1 <= value <= 4 else 0
+
+    @property
+    def guest_service(self) -> int | None:
+        """Gast-WLAN-Dienst, soweit bekannt (gewaehlt oder erkannt), sonst ``None``.
+
+        Ohne Abruf bei der Box. ``None`` heisst: noch nicht ermittelt - die
+        Karte gibt dann keine Nummer vor und der Dienst erkennt sie selbst.
+        """
+        return self.configured_guest_service or self._guest_service
+
     def ensure_guest_service(self) -> int:
         """Ermittelt (einmalig) den Gast-WLAN-Dienst; blockierend, im Executor nutzen.
 
         Fragt dazu die vorhandenen WLAN-Dienste ab (je ein ``GetInfo``). Jeder
         Fehler ist harmlos: dann bleibt es beim bisherigen Dienst 3.
         """
+        configured = self.configured_guest_service
+        if configured:
+            return configured
         if self._guest_service is not None:
             return self._guest_service
         bands: dict[int, str] = {}
@@ -1133,14 +1162,19 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 _LOGGER.debug("WLAN-Dienst %s nicht lesbar: %s", index, err)
                 return GAST_WLAN_SERVICE_INDEX  # nicht merken, spaeter erneut versuchen
             bands[index] = frequency_band(info.get("NewX_AVM-DE_FrequencyBand"))
+        self._guest_bands = dict(bands)
         self._guest_service = guest_service_index(bands)
         _LOGGER.debug("WLAN-Dienste %s - Gast-WLAN: Dienst %s", bands, self._guest_service)
         return self._guest_service
 
     def wlan_service_number(self, index: int) -> int:
         """Dienstnummer zu einem Schalter (1 = 2,4 GHz, 2 = 5 GHz, 3 = Gast)."""
-        if index == 3 and self._guest_service is not None:
-            return self._guest_service
+        if index == 3:
+            configured = self.configured_guest_service
+            if configured:
+                return configured
+            if self._guest_service is not None:
+                return self._guest_service
         return index
 
     def _fetch_wlan(self) -> dict[str, bool]:
@@ -1435,6 +1469,13 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Einrichtung (Baseline) wird beides uebersprungen, sonst waere das
         # komplette vorhandene Heimnetz "neu".
         known_before = set(self._last_seen.keys())
+        self._host_stats = {
+            "raw_total": len(raw_hosts or []),
+            "raw_active": sum(1 for raw in raw_hosts or [] if as_bool(raw.get("Active"))),
+            "raw_without_mac": sum(
+                1 for raw in raw_hosts or [] if not normalize_mac(raw.get("MACAddress"))
+            ),
+        }
         self._update_last_seen(raw_hosts)
         is_baseline_cycle = self._new_device_baseline_pending
         self._new_device_baseline_pending = False
@@ -1454,10 +1495,14 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._notes,
         )
         _LOGGER.debug(
-            "Geraeteliste: %s Eintraege (%s aktiv, %s inaktiv)",
+            "Geraeteliste: %s Eintraege (%s aktiv, %s inaktiv); Box lieferte %s "
+            "(%s aktiv), davon ohne MAC-Adresse verworfen: %s",
             len(hosts),
             sum(1 for host in hosts if host["active"]),
             sum(1 for host in hosts if not host["active"]),
+            self._host_stats.get("raw_total"),
+            self._host_stats.get("raw_active"),
+            self._host_stats.get("raw_without_mac"),
         )
         # Repeater, die die Mesh-Topologie kennt, deren Modellname aber nicht
         # danach aussieht (Issue #16).

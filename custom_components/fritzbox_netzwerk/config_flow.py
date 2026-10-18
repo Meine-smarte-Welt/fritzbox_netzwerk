@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 5de5d60e4a9317fb104890f2d52f1b4ab02d25e83c53ab3c96385f4e8a225bee
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 3c588cde395cd6d744476b4c5b827f2287ad84b532cf317b18662b8b852c5a48
 """Einrichtungsdialog fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -50,6 +50,7 @@ from .const import (
     CONF_REMOTE_ACCESS,
     CONF_SCAN_INTERVAL,
     CONF_TRACK_ADDRESS_SOURCE,
+    CONF_GUEST_SERVICE,
     CONF_TRACK_WLAN_BAND,
     CONF_USE_TLS,
     DEFAULT_ADDRESS_SOURCE_INTERVAL,
@@ -65,6 +66,7 @@ from .const import (
     DEFAULT_REMOTE_ACCESS,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TRACK_ADDRESS_SOURCE,
+    DEFAULT_GUEST_SERVICE,
     DEFAULT_TRACK_WLAN_BAND,
     DEFAULT_USE_TLS,
     DEFAULT_USERNAME,
@@ -333,6 +335,11 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
     ) -> ConfigFlowResult:
         """Zeigt und speichert die Optionen."""
         if user_input is not None:
+            if CONF_GUEST_SERVICE in user_input:
+                try:
+                    user_input[CONF_GUEST_SERVICE] = int(user_input[CONF_GUEST_SERVICE])
+                except (TypeError, ValueError):
+                    user_input[CONF_GUEST_SERVICE] = DEFAULT_GUEST_SERVICE
             return self.async_create_entry(title="", data=user_input)
 
         options = self.config_entry.options
@@ -379,6 +386,18 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                         CONF_ENABLE_CONTROLS, DEFAULT_ENABLE_CONTROLS
                     ),
                 ): bool,
+                # Issue #20: auf manchen Boxen (z. B. FRITZ!Box 4060) liegt das
+                # Gast-WLAN nicht auf Dienst 3. "0" = automatisch erkennen.
+                vol.Optional(
+                    CONF_GUEST_SERVICE,
+                    default=str(options.get(CONF_GUEST_SERVICE, DEFAULT_GUEST_SERVICE)),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=["0", "1", "2", "3", "4"],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                        translation_key="guest_service",
+                    )
+                ),
                 vol.Optional(
                     CONF_PAIRING_MINUTES,
                     default=options.get(
