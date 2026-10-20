@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 3c588cde395cd6d744476b4c5b827f2287ad84b532cf317b18662b8b852c5a48
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 779436a6ff643e3cc91423125d82af8b70da75a66305e1deaf3a053f12d06023
 """Einrichtungsdialog fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .connection import create_connection
+from .nc_catalog import NC_TYPE_ORDER
 from .const import (
     CONF_ADDRESS_SOURCE_INTERVAL,
     CONF_ENABLE_CONTROLS,
@@ -35,6 +36,9 @@ from .const import (
     CONF_CHECK_UPDATES,
     CONF_ENABLE_DNS_SETTINGS,
     CONF_ENABLE_STATIC_IP,
+    CONF_NC_ENABLED,
+    CONF_NC_TYPES,
+    DEFAULT_NC_ENABLED,
     CONF_ENABLE_PARENTAL,
     DEFAULT_CHECK_UPDATES,
     CONF_ENABLE_SYSTEM_STATS,
@@ -340,9 +344,17 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                     user_input[CONF_GUEST_SERVICE] = int(user_input[CONF_GUEST_SERVICE])
                 except (TypeError, ValueError):
                     user_input[CONF_GUEST_SERVICE] = DEFAULT_GUEST_SERVICE
+            # Die Bruecke liest die Meldungsarten als {Art: an/aus}; der Dialog
+            # liefert eine Liste der angehakten Arten.
+            if CONF_NC_TYPES in user_input:
+                chosen = set(user_input[CONF_NC_TYPES] or [])
+                user_input[CONF_NC_TYPES] = {t: t in chosen for t in NC_TYPE_ORDER}
             return self.async_create_entry(title="", data=user_input)
 
         options = self.config_entry.options
+        nc_stored = options.get(CONF_NC_TYPES)
+        nc_stored = nc_stored if isinstance(nc_stored, dict) else {}
+        nc_selected = [t for t in NC_TYPE_ORDER if nc_stored.get(t, True)]
         schema = vol.Schema(
             {
                 vol.Optional(
@@ -456,6 +468,21 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                         CONF_HOST_DEVICE_FILTER, DEFAULT_HOST_DEVICE_FILTER
                     ),
                 ): selector.TextSelector(),
+                # Seit 1.9.2b1: Meldungen an das (optionale) Notification Center.
+                vol.Optional(
+                    CONF_NC_ENABLED,
+                    default=options.get(CONF_NC_ENABLED, DEFAULT_NC_ENABLED),
+                ): bool,
+                vol.Optional(
+                    CONF_NC_TYPES, default=nc_selected
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=list(NC_TYPE_ORDER),
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.LIST,
+                        translation_key="nc_types",
+                    )
+                ),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)

@@ -6,7 +6,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.9.1-blue)
+![Version](https://img.shields.io/badge/Version-1.9.2b1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -28,6 +28,7 @@ passenden Home-Assistant-Gerätenamen.
 - [DNS-Einstellungen (experimentell)](#dns-einstellungen-experimentell)
 - [Statische IP-Adresse (experimentell)](#statische-ip-adresse-experimentell)
 - [Netzwerkgeräte als eigene Home-Assistant-Geräte](#netzwerkgeräte-als-eigene-home-assistant-geräte)
+- [Notification Center (optional)](#notification-center-optional)
 - [Dashboard-Karte](#dashboard-karte)
   - [Spalten](#spalten)
   - [Sortieren, filtern, suchen](#sortieren-filtern-suchen)
@@ -136,6 +137,8 @@ vom 11.09.2025).
 3. „FRITZ!Box Netzwerk" installieren
 4. Home Assistant neu starten
 
+**Vorabversionen (Beta, Release Candidate):** HACS zeigt sie nur, wenn du beim Herunterladen **„Beta-Versionen anzeigen“** aktivierst. Die Versionsanzeige in der Karte weist bei einer installierten Beta auch auf neuere Betas hin (siehe [Version und Update-Hinweis](#version-und-update-hinweis)).
+
 ### Manuell
 
 Den Ordner `custom_components/fritzbox_netzwerk` in das `config`-Verzeichnis von Home
@@ -196,6 +199,8 @@ Nicht alle lokalen Funktionen sind dadurch aus der Ferne erreichbar: Insbesonder
 | Statische IP-Adresse setzen (experimentell) | aus | Erlaubt dem Dienst `set_static_ip` und dem Karten-Button das Schreiben; die Vorschau (`dry_run`) geht immer, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell) |
 | CPU und RAM der Box lesen (experimentell) | aus | Drei Sensoren aus der Weboberfläche der Box, siehe [CPU und RAM](#cpu-und-ram-der-box-experimentell) |
 | Netzwerkgeräte als eigene Geräte anlegen | aus | Je ausgewähltem Gerät ein HA-Gerät, Auswahl per Muster, siehe [Netzwerkgeräte als HA-Geräte](#netzwerkgeräte-als-eigene-home-assistant-geräte) |
+| Meldungen an das Notification Center senden (seit 1.9.2b1) | an | Hauptschalter für die optionale Anbindung, siehe [Notification Center](#notification-center-optional) |
+| Gesendete Meldungsarten (seit 1.9.2b1) | alle | Welche Meldungsarten ans Notification Center gehen (Verbindung verloren, überwachtes Gerät offline, neues Gerät) |
 | Pairing-Dauer | 5 min | Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt (1–120 min), siehe [MAC-Filter und Pairing](#mac-filter-und-pairing) |
 
 **Warum zwei Intervalle?** Die komplette Geräteliste kommt mit einem einzigen Aufruf von
@@ -252,6 +257,7 @@ nach jedem Neustart von Home Assistant löst keines der beiden Ereignisse aus, w
 jeweilige Vorzustand dann noch nicht bekannt ist (siehe [Fehlerbehebung](#fehlerbehebung)) –
 sonst würde beim ersten Start das komplette vorhandene Heimnetz als „neu" gemeldet. Nutzbar
 in Automationen über den Ereignis-Trigger auf die jeweilige Entität.
+Dasselbe „Neues Gerät“ geht – wenn vorhanden – auch an das [Notification Center](#notification-center-optional).
 
 ---
 
@@ -589,6 +595,54 @@ entsteht je ein Home-Assistant-Gerät mit **Hersteller** (aus der MAC-Adresse) u
 **Verbunden-Status**. Die Auswahl erfolgt mit dem Platzhalter-Muster der IP-Filter
 (`192.168.2.*`, `!` schließt aus); ein leeres Muster wählt nichts aus. Höchstens 150 Geräte.
 Nicht mehr ausgewählte Geräte werden beim nächsten Start der Integration wieder entfernt.
+
+---
+
+## Notification Center (optional)
+
+Seit **1.9.2b1** (Beta) kann die Integration Meldungen an das **Notification Center** senden – eine eigene, ebenfalls
+optionale Integration von „Meine smarte Welt“, die Meldungen sammelt, nach Dringlichkeit sortiert und zustellt. **Ohne
+installiertes Notification Center passiert nichts:** kein Fehler, kein zusätzlicher Eintrag im Protokoll, keine
+zusätzliche Abfrage bei der FRITZ!Box.
+
+Die Integration meldet über den Home-Assistant-Ereignisbus (kein MQTT, kein Broker nötig). Die Texte liefert sie einmalig
+beim Anmelden in fünf Sprachen (de, en, nl, fr, es); das Notification Center wählt die Anzeigesprache. Beim Start
+meldet sie nur den **Ausgangszustand** (sichtbar, ohne Push), danach nur Zustandswechsel – keine Wiederholungen.
+
+| Meldungsart | Dringlichkeit | Löst aus, wenn … | Schließt sich |
+| --- | --- | --- | --- |
+| Verbindung zur FRITZ!Box verloren | Warnung | ein Abruf bei der Box fehlschlägt (dann werden auch die Entitäten „nicht verfügbar“) | beim nächsten gelungenen Abruf |
+| Überwachtes Gerät offline | Info | ein überwachtes Gerät in der Geräteliste nicht mehr aktiv ist | sobald es wieder aktiv ist |
+| Neues Gerät im Netz | Info | ein Gerät erstmals im Heimnetz auftaucht (derselbe Auslöser wie die Ereignis-Entität „Neues Gerät“) | einmalige Meldung, bleibt bis zum Quittieren im Notification Center |
+
+**Überwacht** sind genau die Geräte, für die die Integration ohnehin einen „Verbunden“-Status anlegt: Repeater (Einstellung
+„Repeater als eigene Geräte anlegen“) und die per IP-Muster ausgewählten Netzwerkgeräte (Einstellung „Netzwerkgeräte als
+eigene Geräte anlegen“, siehe [oben](#netzwerkgeräte-als-eigene-home-assistant-geräte)). Alle anderen Geräte melden nur
+„Neues Gerät“.
+
+**Einstellen** unter *Konfigurieren*: ein Hauptschalter „Meldungen an das Notification Center senden“ und eine Auswahl
+„Gesendete Meldungsarten“ (nach Dringlichkeit sortiert). Ausgeschaltet heißt: es wird nichts gesendet, und das
+Notification Center schließt bereits offene Meldungen dieser Art. Eine Änderung lädt die Integration neu, wie jede
+andere Einstellung auch. Die Schalter gibt es **nur in diesem Dialog**, nicht in der Dashboard-Karte.
+
+**Was in den Meldungen steht:** der Gerätename (bei „Neues Gerät“ zusätzlich die IP-Adresse), sonst nichts – keine
+Zugangsdaten, keine Hersteller- oder Verbindungsangaben. Die MAC-Adresse dient als technische Kennung, damit sich eine
+Meldung später wieder schließen lässt; sie steht im Ereignis, nicht im Meldungstext. Weder Namen noch Adressen gelangen ins
+Protokoll oder in den Diagnose-Download; der Diagnose-Download nennt nur den Schalterstand und, wie viele Meldungen je Art
+seit dem Start gesendet wurden.
+
+**Grenzen:**
+
+- Es gibt bewusst **keine eigene Verzögerung** und keine neuen Schwellen: Meldet die Box ein überwachtes Gerät in einem
+  Abruf als inaktiv, entsteht die Meldung, und sie schließt sich beim nächsten Abruf, in dem es wieder aktiv ist. Wer das
+  zu unruhig findet, schaltet die Meldungsart „Überwachtes Gerät offline“ in den Einstellungen ab.
+- „Neues Gerät“ meldet ein Gerät, das erschien, während Home Assistant aus war, nach dem Start als Ausgangszustand
+  (sichtbar, ohne Push). Direkt nach der Einrichtung meldet es – wie die Ereignis-Entität – nichts.
+- Fällt die Anmeldung wiederholt aus und fordert Home Assistant deshalb eine Neu-Anmeldung an, ist das keine
+  Meldung „Verbindung verloren“; dafür gibt es den Hinweis in Home Assistant selbst.
+- **Teststand:** geprüft nur gegen einen **simulierten** Ereignisbus (Brücke und Auslöser, 44 Tests). **Nicht** gegen ein
+  echtes Notification Center und nicht an einer echten FRITZ!Box oder in einem laufenden Home Assistant. Beta:
+  Feedback ausdrücklich erwünscht.
 
 ---
 
@@ -1627,6 +1681,7 @@ language: nl   # "" = automatisch, sonst de | en | nl
 - **Statische IP (experimentell, seit 1.8.0)** nutzt die Weboberfläche (`data.lua`, `edit_device`); die Feldnamen sind
   angenommen und an keiner Box geprüft, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell).
 - **Datenverbrauch je Gerät** liefert die Box nicht über TR-064.
+- **Notification Center (seit 1.9.2b1, Beta)** ist nur gegen einen simulierten Ereignisbus geprüft, nicht gegen ein echtes Notification Center und nicht an echter Hardware; die Schalter gibt es nur im Konfigurieren-Dialog, nicht in der Karte, siehe [Notification Center](#notification-center-optional).
 - Die Zuordnung zu Home-Assistant-Geräten erfolgt ausschließlich über die MAC-Adresse.
   Es wird bewusst nicht über Namensähnlichkeit geraten.
 
@@ -1638,11 +1693,11 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `82d7aff0e6d3e9deb645a72ce0aa5c7bef0d5156b79cc3e15d1f5288f73cfe71` |
-| `custom_components/fritzbox_netzwerk/strings.json` | `1367dbd2a4c612a52846454b2b3d117235650165f68b2d9daf4c2a832e2cdfc0` |
-| `custom_components/fritzbox_netzwerk/translations/de.json` | `2216d593dcc312cbd26569531b47b9e535720d96dc76cfdf351e249f15dc9150` |
-| `custom_components/fritzbox_netzwerk/translations/en.json` | `3d5363e7ebfbac2523f13d0945ef5542443450f9f17272e59c941c30483fa39d` |
-| `custom_components/fritzbox_netzwerk/translations/nl.json` | `b9a25c8706b387dc8255197b5140bf171fc64e7f227c2f2b488f5065c3009c18` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `7e6b26d81b6d71fdab3fcd9df0e8b37c2c74cb54bdbf4a63f2398cd43f91f56a` |
+| `custom_components/fritzbox_netzwerk/strings.json` | `9740b6717b26eeb247be762e9e500be9c327d9cd356448ef68ed53da21eba7d6` |
+| `custom_components/fritzbox_netzwerk/translations/de.json` | `ef00666a1ed90ce387c6842d1200e87bd806c27d0a32670c1e8fc7c5d48b250a` |
+| `custom_components/fritzbox_netzwerk/translations/en.json` | `8c9de0e76d7e00adc915843e97341f45aa89fac98690de323bd7a49807556495` |
+| `custom_components/fritzbox_netzwerk/translations/nl.json` | `c471503daa1ca26fafa6d1ea992c21e692b746540e8785102676eb533dcc8a34` |
 
 ## Entwicklung und Tests
 
@@ -1657,6 +1712,8 @@ pip install fritzconnection==1.15.1 segno==1.6.6 pytest
 python3 -m pytest -q tests                                  # Fälle zu 1.9.0 (Mesh, Gast-Dienst, Sammelmarkierung, …)
 node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fritzbox-netzwerk-card.js
 ```
+
+**Tests zu 1.9.2b1** (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, mit eigener `conftest.py`, die Home Assistant durch Attrappen ersetzt) liegen dem Release als eigenes Paket bei, nicht im Repository.
 
 **Hinweis zum Stand des Repositorys:** Im Repository liegen nur die Tests zu 1.9.0 (`tests/test_issues_1_9_0.py`
 mit `conftest.py`, die Module ohne Home Assistant lädt, und `tests/test_card_editor_title.js`). Die Tests für
@@ -1676,6 +1733,25 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 1.9.2b1 – Notification Center (optional), Update-Hinweis für Vorabversionen
+
+**Beta (Vorabversion).** Baut auf 1.9.1 auf. **Nichts davon wurde gegen ein echtes Notification Center, an einer
+echten FRITZ!Box oder in einer laufenden Home-Assistant-Instanz geprüft** – Brücke und Auslöser laufen nur gegen einen
+simulierten Ereignisbus.
+
+- **Neu:** Optionale Anbindung an das **Notification Center** (Schnittstelle Schema 1, Ereignisbus, kein MQTT). Meldungsarten:
+  *Verbindung zur FRITZ!Box verloren* (Warnung), *Überwachtes Gerät offline* (Info; Repeater und per IP-Muster
+  ausgewählte Geräte) und *Neues Gerät im Netz* (Info). Texte in fünf Sprachen; beim Start nur der Ausgangszustand ohne
+  Push. Ohne Notification Center bleibt alles unverändert. Siehe [Notification Center](#notification-center-optional).
+- **Neu:** Zwei Einstellungen unter *Konfigurieren*: Hauptschalter und Auswahl der gesendeten Meldungsarten
+  (Übersetzungen de/en/nl). Der Diagnose-Download nennt Schalterstand und Zähler je Meldungsart, keine Inhalte.
+- **Verbessert:** Die Update-Prüfung berücksichtigt bei einer installierten Beta oder einem Release Candidate auch
+  Vorabversionen (Release-Liste statt `releases/latest`, das Vorabversionen nie liefert). Wer eine fertige Version
+  installiert hat, sieht weiterhin nur fertige Versionen.
+- **Hinweis:** HACS zeigt Vorabversionen nur mit der Einstellung „Beta-Versionen anzeigen“.
+- **Nicht umgesetzt:** Ein Bereich „Notification Center“ in der Dashboard-Karte (Zahnrad). Die Karte hat bisher keine
+  Einstellungsseite und keine eigene Schnittstelle zum Schreiben; die Schalter gibt es im Konfigurieren-Dialog.
 
 ### 1.9.1 – Gast-WLAN-Dienst wählbar, IPv6-DNS mit HTTP 400, erweiterte Diagnose
 

@@ -77,7 +77,9 @@
           "enable_parental_control": "Zugangsprofile der Kindersicherung steuern (experimentell)",
           "check_updates": "Täglich auf neue Version prüfen",
           "enable_dns_settings": "DNS-Einstellungen der Box ändern (experimentell)",
-          "enable_static_ip": "Statische IP-Adresse setzen (experimentell)"
+          "enable_static_ip": "Statische IP-Adresse setzen (experimentell)",
+          "nc_enabled": "Meldungen an das Notification Center senden",
+          "nc_types": "Gesendete Meldungsarten"
         },
         "data_description": {
           "track_address_source": "Diese Angabe steht nicht in der Geräteliste und kostet einen zusätzlichen Aufruf pro Gerät. Sie ändert sich selten, deshalb läuft sie in einem eigenen, langsameren Takt.",
@@ -95,7 +97,9 @@
           "enable_parental_control": "Erlaubt Dienste, die Zugangsprofile lesen und Geräten zuweisen (z. B. „Gesperrt“ für eine Stunde). Nutzt die Weboberfläche der Box, nicht TR-064 – von AVM nicht dokumentiert, FRITZ!OS-abhängig. Standardmäßig aus.",
           "check_updates": "Fragt einmal am Tag bei GitHub nach der neuesten veröffentlichten Version und zeigt in der Karte (Steuerung) einen Hinweis, wenn eine neuere verfügbar ist. Es werden keine Daten über dich oder deine Box übertragen.",
           "enable_dns_settings": "Erlaubt dem Dienst „DNS-Einstellungen ändern“, DNS-Server der FRITZ!Box zu schreiben (Internet IPv4/IPv6, lokaler DNS im Heimnetz). Nutzt die REST-Schnittstelle der Weboberfläche, nicht TR-064 – von AVM nicht dokumentiert, FRITZ!OS-abhängig, ohne Test an echter Hardware beim Schreiben. Lesen und die Vorschau (dry_run) gehen immer. Standardmäßig aus.",
-          "enable_static_ip": "Erlaubt dem Dienst „Statische IP setzen“, einem Gerät eine feste IPv4-Adresse zuzuweisen (Heimnetz → Netzwerk → Gerät bearbeiten). Nutzt die Weboberfläche der Box, nicht TR-064 – die Feldnamen sind angenommen und an keiner Box geprüft. Die Vorschau (dry_run) geht immer. Standardmäßig aus."
+          "enable_static_ip": "Erlaubt dem Dienst „Statische IP setzen“, einem Gerät eine feste IPv4-Adresse zuzuweisen (Heimnetz → Netzwerk → Gerät bearbeiten). Nutzt die Weboberfläche der Box, nicht TR-064 – die Feldnamen sind angenommen und an keiner Box geprüft. Die Vorschau (dry_run) geht immer. Standardmäßig aus.",
+          "nc_enabled": "Optional: Ist das Notification Center installiert, meldet diese Integration Verbindungsverlust, ausgefallene überwachte Geräte und neue Geräte dorthin. Ohne Notification Center passiert nichts.",
+          "nc_types": "Nur die angehakten Meldungsarten werden gesendet. Überwacht sind Repeater (Option „Repeater als eigene Geräte anlegen“) und die per IP-Muster ausgewählten Netzwerkgeräte."
         }
       }
     }
@@ -108,6 +112,13 @@
         "2": "Dienst 2",
         "3": "Dienst 3",
         "4": "Dienst 4"
+      }
+    },
+    "nc_types": {
+      "options": {
+        "connection_lost": "Verbindung zur FRITZ!Box verloren (Warnung)",
+        "device_offline": "Überwachtes Gerät offline (Info)",
+        "device_joined": "Neues Gerät im Netz (Info)"
       }
     }
   },

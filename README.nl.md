@@ -4,7 +4,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-1.9.1-blue)
+![Version](https://img.shields.io/badge/Version-1.9.2b1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Dit is de Nederlandse uitgave. De Duitse [README.md](README.md) is het hoofdbestand en bevat de volledige kaartreferentie, het hoofdstuk probleemoplossing en de complete versiegeschiedenis. Onderdelen met „alleen Duits” zijn nog niet vertaald.
@@ -18,6 +18,7 @@ Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk a
 - [Installatie](#installatie)
 - [Instellen](#instellen)
 - [Instellingen](#instellingen)
+- [Notification Center (optioneel)](#notification-center-optioneel)
 - [Sensoren](#sensoren)
 - [Gebeurtenissen](#gebeurtenissen)
 - [Mesh en repeaters](#mesh-en-repeaters)
@@ -80,6 +81,8 @@ De kaart wordt met de integratie meegeleverd en automatisch als Lovelace-resourc
 3. Installeer „FRITZ!Box Netzwerk”
 4. Herstart Home Assistant
 
+**Voorlopige versies (bèta, release candidate):** HACS toont ze alleen als je bij het downloaden **„Bètaversies tonen”** inschakelt. Met een geïnstalleerde bèta wijst de versieweergave in de kaart ook op nieuwere bèta's.
+
 ### Handmatig
 
 Kopieer de map `custom_components/fritzbox_netzwerk` naar de map `config` van Home Assistant en herstart.
@@ -125,6 +128,8 @@ Via *Configureren* bij de integratie:
 | Statisch IP-adres instellen (experimenteel) | uit | Staat `set_static_ip` en de kaartknop toe te schrijven; de voorvertoning (`dry_run`) werkt altijd |
 | CPU en RAM van de box lezen (experimenteel) | uit | Drie sensoren uit de webinterface van de box |
 | Netwerkapparaten als eigen apparaten aanmaken | uit | Eén HA-apparaat per geselecteerd apparaat, selectie via patroon |
+| Meldingen naar het Notification Center sturen (sinds 1.9.2b1) | aan | Hoofdschakelaar voor de optionele koppeling, zie [Notification Center](#notification-center-optioneel) |
+| Te verzenden soorten meldingen (sinds 1.9.2b1) | alle | Welke soorten meldingen naar het Notification Center gaan (verbinding verbroken, bewaakt apparaat offline, nieuw apparaat) |
 | Pairingduur | 5 min | Hoe lang het MAC-filter bij pairing uit blijft (1–120 min) |
 
 ---
@@ -200,6 +205,52 @@ Sinds 1.8.0 kan de integratie een apparaat een vast IPv4-adres toewijzen – dit
 
 ---
 
+## Notification Center (optioneel)
+
+Sinds **1.9.2b1** (bèta) kan de integratie meldingen naar het **Notification Center** sturen – een aparte, eveneens
+optionele „Meine smarte Welt”-integratie die meldingen verzamelt, op urgentie sorteert en aflevert. **Zonder geïnstalleerd
+Notification Center gebeurt er niets:** geen fout, geen extra logregel, geen extra aanvraag bij de FRITZ!Box.
+
+De integratie meldt via de Home Assistant-gebeurtenisbus (geen MQTT, geen broker). De teksten stuurt zij eenmalig bij het
+aanmelden in vijf talen (de, en, nl, fr, es); het Notification Center kiest de weergavetaal. Bij het opstarten meldt zij
+alleen de **beginsituatie** (zichtbaar, zonder push), daarna alleen statuswijzigingen – geen herhalingen.
+
+| Soort melding | Urgentie | Treedt op als … | Sluit zich |
+| --- | --- | --- | --- |
+| Verbinding met FRITZ!Box verbroken | Waarschuwing | een aanvraag bij de box mislukt (dan worden ook de entiteiten „niet beschikbaar”) | bij de volgende geslaagde aanvraag |
+| Bewaakt apparaat offline | Info | een bewaakt apparaat in de apparatenlijst niet meer actief is | zodra het weer actief is |
+| Nieuw apparaat in het netwerk | Info | een apparaat voor het eerst in het thuisnetwerk verschijnt (dezelfde trigger als de gebeurtenisentiteit „Nieuw apparaat”) | eenmalige melding, blijft tot bevestiging in het Notification Center |
+
+**Bewaakt** zijn precies de apparaten waarvoor de integratie al een „Verbonden”-status aanmaakt: repeaters (instelling
+„Repeaters als eigen apparaten aanmaken”) en de via IP-patroon gekozen netwerkapparaten (instelling „Netwerkapparaten als
+eigen apparaten aanmaken”). Alle andere apparaten melden alleen „Nieuw apparaat”.
+
+**Instellen** onder *Configureren*: een hoofdschakelaar „Meldingen naar het Notification Center sturen” en een keuze
+„Te verzenden soorten meldingen” (op urgentie gesorteerd). Uit betekent: er wordt niets verzonden en het Notification
+Center sluit al open meldingen van die soort. Een wijziging laadt de integratie opnieuw, net als elke andere instelling.
+De schakelaars bestaan **alleen in dit dialoogvenster**, niet in de dashboardkaart.
+
+**Wat in de meldingen staat:** de apparaatnaam (bij „Nieuw apparaat” ook het IP-adres), verder niets – geen
+inloggegevens, geen fabrikant- of verbindingsgegevens. Het MAC-adres dient als technische identificatie zodat een melding
+later weer gesloten kan worden; het staat in de gebeurtenis, niet in de meldingstekst. Noch namen noch adressen komen in
+het logboek of de diagnose-download; de download toont alleen de schakelaarstand en hoeveel meldingen per soort sinds de
+start zijn verzonden.
+
+**Grenzen:**
+
+- Er is bewust **geen eigen vertraging** en geen nieuwe drempel: meldt de box een bewaakt apparaat in één aanvraag als
+  inactief, dan ontstaat de melding en sluit zij bij de volgende aanvraag waarin het weer actief is. Vind je dat te
+  onrustig, schakel dan de soort „Bewaakt apparaat offline” uit.
+- „Nieuw apparaat” meldt een apparaat dat verscheen terwijl Home Assistant uit was na het opstarten als beginsituatie
+  (zichtbaar, zonder push). Direct na het instellen meldt het – zoals de gebeurtenisentiteit – niets.
+- Mislukt het inloggen herhaaldelijk en vraagt Home Assistant daarom om opnieuw in te loggen, dan is dat geen melding
+  „verbinding verbroken”; daarvoor toont Home Assistant zelf een melding.
+- **Teststatus:** alleen getest tegen een **gesimuleerde** gebeurtenisbus (koppeling en triggers, 44 tests). **Niet** tegen
+  een echt Notification Center en niet op een echte FRITZ!Box of in een draaiende Home Assistant. Bèta: feedback
+  uitdrukkelijk gewenst.
+
+---
+
 ## De dashboardkaart
 
 De kaart wordt met de integratie meegeleverd (`custom:fritzbox-netzwerk-card`). Hij heeft een grafische editor; elke kolom, elk filter, de besturingsbalk en de rijen van het detailvenster zijn afzonderlijk aan of uit te zetten, kleuren zijn vrij te kiezen, drie talen. De volledige referentie (kolommen, sorteren, IP-filter, tabs, groeperen, CSV-export, gast-wifi-QR-code, vegen op telefoons, kleuren) staat in de Duitse README.
@@ -272,6 +323,7 @@ Schrijfacties vereisen beheerdersrechten; invoer wordt in de backend gecontrolee
 
 ## Bekende beperkingen
 
+- **Notification Center (sinds 1.9.2b1, bèta)** is alleen getest tegen een gesimuleerde gebeurtenisbus, niet tegen een echt Notification Center of echte hardware; de schakelaars bestaan alleen in het dialoogvenster Configureren, niet in de kaart, zie [Notification Center](#notification-center-optioneel).
 - **„Alle ongebruikte verbindingen verwijderen” ontbreekt** – TR-064 heeft daarvoor geen actie.
 - **Statisch IP en DNS schrijven zijn experimenteel** en gebruiken de ongedocumenteerde webinterface van de box. Schrijven is op geen enkele echte box getest; de veldnamen voor het statische IP zijn aangenomen. Ze kunnen met elke FRITZ!OS-update breken.
 - **Mesh maar gedeeltelijk:** geen signaalsterkte in dBm.
@@ -296,9 +348,21 @@ python3 -m pytest -q tests
 node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fritzbox-netzwerk-card.js
 ```
 
+De tests voor 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, met een eigen `conftest.py` die Home Assistant door attrappen vervangt) worden als apart pakket bij de release geleverd, niet in de repository.
+
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 1.9.2b1 – Notification Center (optioneel), updatemelding voor voorlopige versies
+
+**Bèta (voorlopige versie).** Bouwt voort op 1.9.1. **Niets hiervan is getest tegen een echt Notification Center, op een echte FRITZ!Box of in een draaiende Home Assistant** – koppeling en triggers draaien alleen tegen een gesimuleerde gebeurtenisbus.
+
+- **Nieuw:** optionele koppeling met het **Notification Center** (interface schema 1, gebeurtenisbus, geen MQTT). Soorten meldingen: *Verbinding met FRITZ!Box verbroken* (waarschuwing), *Bewaakt apparaat offline* (info; repeaters en via IP-patroon gekozen apparaten) en *Nieuw apparaat in het netwerk* (info). Teksten in vijf talen; bij het opstarten alleen de beginsituatie zonder push. Zonder Notification Center verandert er niets. Zie [Notification Center](#notification-center-optioneel).
+- **Nieuw:** twee instellingen onder *Configureren*: hoofdschakelaar en keuze van de te verzenden soorten meldingen (vertalingen de/en/nl). De diagnose-download toont de schakelaarstand en een teller per soort melding, geen inhoud.
+- **Verbeterd:** bij een geïnstalleerde bèta of release candidate houdt de updatecontrole ook rekening met voorlopige versies (releaselijst in plaats van `releases/latest`, dat nooit voorlopige versies levert). Met een definitieve versie zie je nog steeds alleen definitieve versies.
+- **Opmerking:** HACS toont voorlopige versies alleen met de instelling „Bètaversies tonen”.
+- **Niet uitgevoerd:** een onderdeel „Notification Center” in de dashboardkaart (tandwiel). De kaart heeft nog geen instellingenpagina en geen interface om te schrijven; de schakelaars staan in het dialoogvenster Configureren.
 
 ### 1.9.1 – Kiesbare gast-wifi-service, IPv6-DNS met HTTP 400, uitgebreide diagnose
 

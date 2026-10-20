@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ba8357949d34cc51e6ee317fd4b58281f27f18432dd3b96e1ce42180c7e94326
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 2a6c5962091a9fe7fe99881f92b5d3ab09cac364d331ad6fa8e801d861786ecc
 """Versionsvergleich und Auswertung der GitHub-Release-Antwort.
 
 Enthält weder Home-Assistant- noch Netzwerk-Importe und ist ohne laufendes
@@ -55,6 +55,39 @@ def parse_release(payload: Any) -> dict[str, str] | None:
     if not url.startswith(RELEASE_URL_PREFIX):
         url = ""
     return {"version": tag.lstrip("vV"), "url": url}
+
+
+def is_prerelease_version(version: Any) -> bool:
+    """Ob die Versionsnummer eine Vorabversion ist (``1.9.2b1``, ``1.9.2rc1``)."""
+    parsed = parse_version(version)
+    return parsed is not None and parsed[3] < 3
+
+
+def parse_release_list(payload: Any, include_prereleases: bool = True) -> dict[str, str] | None:
+    """Liest die höchste Version aus der Antwort von ``releases?per_page=N``.
+
+    Entwürfe werden ignoriert; Vorabversionen nur mit ``include_prereleases``.
+    Verglichen wird die Versionsnummer, nicht die Reihenfolge der Liste. Die URL
+    wird nur übernommen, wenn sie auf github.com zeigt.
+    """
+    if not isinstance(payload, list):
+        return None
+    best: tuple[tuple[int, int, int, int, int], dict[str, str]] | None = None
+    for item in payload:
+        if not isinstance(item, dict) or item.get("draft"):
+            continue
+        if item.get("prerelease") and not include_prereleases:
+            continue
+        tag = str(item.get("tag_name") or "").strip()
+        parsed = parse_version(tag)
+        if parsed is None:
+            continue
+        url = str(item.get("html_url") or "")
+        if not url.startswith(RELEASE_URL_PREFIX):
+            url = ""
+        if best is None or parsed > best[0]:
+            best = (parsed, {"version": tag.lstrip("vV"), "url": url})
+    return best[1] if best else None
 
 
 def build_version_info(installed: str, release: dict[str, str] | None, checked: str | None) -> dict[str, Any]:

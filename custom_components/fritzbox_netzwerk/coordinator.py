@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f741133fbd488b6fd7a74fb9b374b21a68e92053e2732e0653e66a0588f4b019
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f8c7f8ddff8eb4bd9a68e348e0b4af99dbf8be79bc98e6b826a787cdd9ce714d
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -48,6 +48,7 @@ from .const import (
     CONF_ENABLE_PARENTAL,
     DEFAULT_CHECK_UPDATES,
     GITHUB_LATEST_RELEASE_URL,
+    GITHUB_RELEASES_LIST_URL,
     UPDATE_CHECK_HOURS,
     VERSION,
     CONF_ENABLE_SYSTEM_STATS,
@@ -126,7 +127,22 @@ from .hosts import (
 )
 from .blueprints_install import install_blueprints
 from .mesh_topology import fetch_mesh
-from .updates import build_version_info, parse_release
+from .updates import build_version_info, is_prerelease_version, parse_release, parse_release_list
+from .nc_catalog import (
+    NC_CATALOG,
+    NC_CONNECTION_KEY,
+    NC_ICON,
+    NC_NAME,
+    NC_TYPE_CONNECTION_LOST,
+    NC_TYPE_DEVICE_JOINED,
+    NC_TYPE_DEVICE_OFFLINE,
+    device_subject,
+    diff_offline,
+    joined_placeholders,
+    offline_items,
+)
+from .notification_bridge import NotificationBridge
+from .repeater import repeater_hosts, repeaters_enabled, selected_host_devices
 from .dns_settings import change_dns_settings, read_dns_settings
 from .static_ip import NEEDS_RESTART, StaticIpError, plan_static_ip, set_static_ip
 from .webui import (
@@ -254,6 +270,28 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._block_store: Store[dict[str, str]] = Store(
             hass, INTERNET_BLOCK_STORAGE_VERSION, f"{DOMAIN}.internet_block.{entry.entry_id}"
         )
+
+        # Optionale Anbindung an das Notification Center (seit 1.9.2b1, siehe
+        # nc_catalog.py): die Bruecke sendet nur Ereignisse auf dem HA-Event-Bus,
+        # ohne Notification Center passiert nichts. ``_nc_ready`` wird erst nach
+        # dem ersten erfolgreichen Abruf gesetzt (``async_nc_start``) - davor
+        # wird der Zustand nur gemerkt und als Ausgangszustand gemeldet.
+        self.nc = NotificationBridge(
+            hass,
+            entry,
+            source=DOMAIN,
+            name=NC_NAME,
+            version=VERSION,
+            icon=NC_ICON,
+            catalog=NC_CATALOG,
+        )
+        self.nc.set_state_provider(self._nc_active_state)
+        self._nc_ready = False
+        self._nc_connection_lost = False
+        self._nc_offline: dict[str, dict[str, Any]] = {}
+        self._nc_pending_joined: list[dict[str, Any]] = []
+        # Nur Zaehler je Meldungsart fuer die Diagnose (keine Namen, keine Texte).
+        self.nc_counts: dict[str, int] = {}
 
         # Versionspruefung gegen GitHub (taeglich, abschaltbar).
         self._latest_release: dict[str, str] | None = None
@@ -1444,20 +1482,24 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 count,
                 AUTH_FAILURE_LIMIT,
             )
+            self._nc_set_connection_lost(True)
             raise UpdateFailed(
                 f"Anmeldung voruebergehend abgelehnt (Versuch {count} von "
                 f"{AUTH_FAILURE_LIMIT}): {err}"
             ) from err
         except FritzServiceError as err:
+            self._nc_set_connection_lost(True)
             raise UpdateFailed(
                 "Der Dienst 'Hosts' ist auf dieser FRITZ!Box nicht verfuegbar. "
                 "Ist 'Zugriff fuer Anwendungen zulassen' aktiviert?"
             ) from err
         except FritzConnectionException as err:
+            self._nc_set_connection_lost(True)
             raise UpdateFailed(f"Abruf der Geraeteliste fehlgeschlagen: {err}") from err
 
         # Abruf gelungen: fruehere Ablehnungen waren nur vorubergehend.
         self._auth_guard.success(self.entry.entry_id)
+        self._nc_set_connection_lost(False)
 
         if refreshed:
             self._address_source_scan = dt_util.utcnow()
@@ -1522,6 +1564,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not is_baseline_cycle:
             self._notify_new_devices(hosts, known_before)
         self._notify_external_ip_change(connection)
+        self._nc_track_offline(hosts)
 
         return {
             "hosts": hosts,
@@ -1822,11 +1865,14 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._version_checked and now - self._version_checked < timedelta(hours=UPDATE_CHECK_HOURS):
             return
         self._version_checked = now
+        # "releases/latest" liefert nie Vorabversionen: wer eine Beta oder einen
+        # Release Candidate installiert hat, erfaehrt sonst nie von der naechsten.
+        prerelease = is_prerelease_version(VERSION)
         try:
             session = async_get_clientsession(self.hass)
             async with asyncio.timeout(10):
                 response = await session.get(
-                    GITHUB_LATEST_RELEASE_URL,
+                    GITHUB_RELEASES_LIST_URL if prerelease else GITHUB_LATEST_RELEASE_URL,
                     headers={
                         "Accept": "application/vnd.github+json",
                         "User-Agent": f"fritzbox_netzwerk/{VERSION}",
@@ -1842,7 +1888,11 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as err:  # noqa: BLE001 - aiohttp-Fehler duerfen nie die Abfrage stoeren
             _LOGGER.debug("Versionspruefung fehlgeschlagen: %s", err)
             return
-        release = parse_release(payload)
+        release = (
+            parse_release_list(payload, include_prereleases=True)
+            if prerelease
+            else parse_release(payload)
+        )
         if release:
             self._latest_release = release
 
@@ -2224,6 +2274,133 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if changed:
             self._first_seen_store.async_delay_save(lambda: dict(self._first_seen), 5)
 
+    # -- Notification Center (seit 1.9.2b1) -------------------------------
+
+    def _nc_monitored_keys(self, hosts: list[dict[str, Any]]) -> set[str]:
+        """MAC-Schluessel der ueberwachten Geraete.
+
+        Ueberwacht heisst: die Integration legt fuer das Geraet einen eigenen
+        "Verbunden"-Status an - Repeater (Option "Repeater als eigene Geraete")
+        und die per IP-Muster ausgewaehlten Netzwerkgeraete.
+        """
+        data = {"hosts": hosts}
+        monitored: set[str] = set()
+        if repeaters_enabled(self.entry):
+            monitored.update(mac_key(h.get("mac")) for h in repeater_hosts(data))
+        monitored.update(
+            mac_key(h.get("mac")) for h in selected_host_devices(self.entry, data)
+        )
+        monitored.discard("")
+        return monitored
+
+    @callback
+    def _nc_count(self, type_: str) -> None:
+        """Zaehlt eine tatsaechlich gesendete Meldung (nur fuer die Diagnose)."""
+        if self.nc.type_enabled(type_):
+            self.nc_counts[type_] = self.nc_counts.get(type_, 0) + 1
+
+    @callback
+    def _nc_active_state(self) -> dict[str, list[dict[str, Any]]]:
+        """Aktive Zustaende fuer ``register``/``sync`` (siehe Bruecke)."""
+        state: dict[str, list[dict[str, Any]]] = {
+            NC_TYPE_DEVICE_OFFLINE: list(self._nc_offline.values()),
+        }
+        if self._nc_connection_lost:
+            state[NC_TYPE_CONNECTION_LOST] = [
+                {
+                    "key": NC_CONNECTION_KEY,
+                    "subject": {"id": NC_CONNECTION_KEY, "name": NC_NAME, "kind": "network"},
+                    "placeholders": {},
+                }
+            ]
+        return state
+
+    @callback
+    def async_nc_start(self) -> None:
+        """Meldet den Katalog an und sendet den Ausgangszustand (ohne Push).
+
+        Nach dem ersten erfolgreichen Abruf aufrufen. Ohne Notification Center
+        bleibt das ohne Wirkung - es hoert schlicht niemand zu.
+        """
+        self._nc_ready = True
+        self.nc.async_start()
+        pending, self._nc_pending_joined = self._nc_pending_joined, []
+        for host in pending:
+            self._nc_report_joined(host, initial=True)
+
+    @callback
+    def _nc_set_connection_lost(self, lost: bool) -> None:
+        """Meldet den Wechsel zwischen "Abruf gelungen" und "Abruf fehlgeschlagen"."""
+        if lost == self._nc_connection_lost:
+            return
+        self._nc_connection_lost = lost
+        if not self._nc_ready:
+            return
+        subject = {"id": NC_CONNECTION_KEY, "name": NC_NAME, "kind": "network"}
+        if lost:
+            self._nc_count(NC_TYPE_CONNECTION_LOST)
+        self.nc.report(
+            NC_TYPE_CONNECTION_LOST,
+            NC_CONNECTION_KEY,
+            "active" if lost else "resolved",
+            subject=subject,
+        )
+
+    @callback
+    def _nc_track_offline(self, hosts: list[dict[str, Any]]) -> None:
+        """Vergleicht die offline gemeldeten, ueberwachten Geraete mit dem Vorzyklus."""
+        current = offline_items(hosts, self._nc_monitored_keys(hosts))
+        went_offline, back_online = diff_offline(set(self._nc_offline), current)
+        previous = self._nc_offline
+        self._nc_offline = current
+        if not self._nc_ready:
+            return
+        for key in went_offline:
+            self._nc_count(NC_TYPE_DEVICE_OFFLINE)
+            item = current[key]
+            self.nc.report(
+                NC_TYPE_DEVICE_OFFLINE,
+                key,
+                "active",
+                subject=item["subject"],
+                placeholders=item["placeholders"],
+            )
+        for key in back_online:
+            item = previous[key]
+            self.nc.report(
+                NC_TYPE_DEVICE_OFFLINE,
+                key,
+                "resolved",
+                subject=item["subject"],
+                placeholders=item["placeholders"],
+            )
+
+    @callback
+    def _nc_device_joined(self, host: dict[str, Any]) -> None:
+        """Ein neues Geraet ist aufgetaucht (einmalige Meldung)."""
+        if self._nc_ready:
+            self._nc_report_joined(host, initial=False)
+        else:
+            # Erschien waehrend Home Assistant aus war: nach dem Start als
+            # Ausgangszustand (sichtbar, ohne Push) nachreichen.
+            self._nc_pending_joined.append(dict(host))
+
+    @callback
+    def _nc_report_joined(self, host: dict[str, Any], *, initial: bool) -> None:
+        key = mac_key(host.get("mac"))
+        if not key:
+            return
+        if not initial:
+            self._nc_count(NC_TYPE_DEVICE_JOINED)
+        self.nc.report(
+            NC_TYPE_DEVICE_JOINED,
+            key,
+            "active",
+            subject=device_subject(host),
+            placeholders=joined_placeholders(host),
+            initial=initial,
+        )
+
     def _notify_new_devices(
         self, hosts: list[dict[str, Any]], known_before: set[str]
     ) -> None:
@@ -2235,14 +2412,13 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         sonst waere beim ersten Start das komplette vorhandene Heimnetz
         "neu".
         """
-        if not self._new_device_listeners:
-            return
         for host in hosts:
             if not host.get("active"):
                 continue
             key = mac_key(host.get("mac"))
             if not key or key in known_before:
                 continue
+            self._nc_device_joined(host)
             for listener in list(self._new_device_listeners):
                 try:
                     listener(host)

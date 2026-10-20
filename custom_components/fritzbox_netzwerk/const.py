@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ea1a45f2a26aa6345bee2a0eb8b3f5307adb6dcef82430fa27aa99fd0ee4f3e8
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 3b97d8f33fc2bddfc80bd9774d24613de1fbc4a0e54ce28c11e6f4d3ac1912a7
 """Konstanten der Integration fritzbox_netzwerk."""
 
 from typing import Final
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "1.9.1"
+VERSION: Final = "1.9.2b1"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -55,6 +55,11 @@ CONF_HOST_DEVICE_FILTER: Final = "host_device_filter"
 CONF_ENABLE_DNS_SETTINGS: Final = "enable_dns_settings"
 # Feste IPv4-Adresse je Geraet setzen (experimentell, siehe static_ip.py).
 CONF_ENABLE_STATIC_IP: Final = "enable_static_ip"
+# Optionale Anbindung an das Notification Center (seit 1.9.2b1): Hauptschalter
+# und Auswahl der gesendeten Meldungsarten. Die Namen entsprechen denen der
+# Bruecke (notification_bridge.OPT_ENABLED / OPT_TYPES).
+CONF_NC_ENABLED: Final = "nc_enabled"
+CONF_NC_TYPES: Final = "nc_types"
 
 DEFAULT_SCAN_INTERVAL: Final = 60  # Sekunden
 DEFAULT_TRACK_ADDRESS_SOURCE: Final = True
@@ -74,7 +79,13 @@ DEFAULT_ENABLE_PARENTAL: Final = False
 DEFAULT_CHECK_UPDATES: Final = True
 DEFAULT_ENABLE_DNS_SETTINGS: Final = False
 DEFAULT_ENABLE_STATIC_IP: Final = False
+DEFAULT_NC_ENABLED: Final = True
 UPDATE_CHECK_HOURS: Final = 24
+# Wer eine Vorabversion (b/rc) installiert hat, fragt die Release-Liste ab, weil
+# "releases/latest" Vorabversionen nie liefert.
+GITHUB_RELEASES_LIST_URL: Final = (
+    "https://api.github.com/repos/Meine-smarte-Welt/fritzbox_netzwerk/releases?per_page=5"
+)
 GITHUB_LATEST_RELEASE_URL: Final = (
     "https://api.github.com/repos/Meine-smarte-Welt/fritzbox_netzwerk/releases/latest"
 )

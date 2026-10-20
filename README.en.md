@@ -4,7 +4,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-1.9.1-blue)
+![Version](https://img.shields.io/badge/Version-1.9.2b1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > This is the English edition. The German [README.md](README.md) is the main file and has the full card reference, the troubleshooting chapter and the complete version history. Sections marked “German only” are not translated yet.
@@ -18,6 +18,7 @@ A Home Assistant integration that puts every device in the FRITZ!Box home networ
 - [Installation](#installation)
 - [Setup](#setup)
 - [Settings](#settings)
+- [Notification Center (optional)](#notification-center-optional)
 - [Sensors](#sensors)
 - [Events](#events)
 - [Mesh and repeaters](#mesh-and-repeaters)
@@ -80,6 +81,8 @@ The card ships with the integration and is registered as a Lovelace resource aut
 3. Install “FRITZ!Box Netzwerk”
 4. Restart Home Assistant
 
+**Pre-releases (beta, release candidate):** HACS only lists them if you enable **“Show beta versions”** when downloading. With a beta installed, the version display in the card also points to newer betas.
+
 ### Manually
 
 Copy the folder `custom_components/fritzbox_netzwerk` into the `config` directory of Home Assistant and restart.
@@ -125,6 +128,8 @@ Via *Configure* on the integration:
 | Set static IP address (experimental) | off | Allows `set_static_ip` and the card button to write; the preview (`dry_run`) always works |
 | Read CPU and RAM of the box (experimental) | off | Three sensors from the box web interface |
 | Create network devices as own devices | off | One HA device per selected device, selected by pattern |
+| Send messages to the Notification Center (since 1.9.2b1) | on | Master switch for the optional connection, see [Notification Center](#notification-center-optional) |
+| Message types to send (since 1.9.2b1) | all | Which message types go to the Notification Center (connection lost, monitored device offline, new device) |
 | Pairing duration | 5 min | How long the MAC filter stays off during pairing (1–120 min) |
 
 ---
@@ -197,6 +202,50 @@ Since 1.8.0 the integration can assign a fixed IPv4 address to a device – this
 - **Safety net:** if the expected fields are missing in the box response, nothing is written. After writing the box is read again; on a mismatch the previous state is restored. The current access profile is sent along.
 
 **Test status (honest):** the duplicate check is covered by tests. The **field names of the web interface** (`edit_device`) are **assumed** and not verified on any box – neither read nor written. If the layout does not match, the service reports “nothing changed”; please open an issue with the request the box sends when saving (browser developer tools → Network).
+
+---
+
+## Notification Center (optional)
+
+Since **1.9.2b1** (beta) the integration can send messages to the **Notification Center** – a separate, also optional
+“Meine smarte Welt” integration that collects, sorts and delivers messages. **Without the Notification Center installed
+nothing happens:** no error, no extra log entry, no extra request to the FRITZ!Box.
+
+It reports over the Home Assistant event bus (no MQTT, no broker). The texts are sent once, when registering, in five
+languages (de, en, nl, fr, es); the Notification Center picks the display language. At startup only the **initial state**
+is reported (visible, no push), afterwards only state changes – no repeats.
+
+| Message type | Urgency | Triggers when … | Closes |
+| --- | --- | --- | --- |
+| Connection to FRITZ!Box lost | Warning | a request to the box fails (the entities become “unavailable” at the same time) | on the next successful request |
+| Monitored device offline | Info | a monitored device is no longer active in the device list | when it is active again |
+| New device on the network | Info | a device appears in the home network for the first time (same trigger as the “New device” event entity) | one-off message, stays until acknowledged in the Notification Center |
+
+**Monitored** are exactly the devices the integration already gives a “connected” status: repeaters (setting “Create
+repeaters as own devices”) and the network devices selected by IP pattern (setting “Create network devices as own
+devices”). All other devices only report “New device”.
+
+**Settings** under *Configure*: a master switch “Send messages to the Notification Center” and a selection of “Message
+types to send” (sorted by urgency). Off means nothing is sent, and the Notification Center closes already open messages
+of that type. A change reloads the integration like any other setting. The switches exist **only in this dialog**, not in
+the dashboard card.
+
+**What the messages contain:** the device name (for “New device” also the IP address), nothing else – no credentials, no
+vendor or connection details. The MAC address serves as a technical identifier so a message can be closed later; it is in
+the event, not in the message text. Neither names nor addresses end up in the log or the diagnostics download; the
+download only lists the switch state and how many messages per type were sent since startup.
+
+**Limits:**
+
+- There is deliberately **no delay of its own** and no new threshold: if the box reports a monitored device as inactive in
+  one poll, the message appears and closes at the next poll in which it is active again. If that is too noisy, switch
+  off the message type “Monitored device offline”.
+- “New device” reports a device that appeared while Home Assistant was off as an initial state after startup (visible,
+  no push). Right after setup it reports nothing – like the event entity.
+- If the login fails repeatedly and Home Assistant asks for re-authentication, that is not a “connection lost” message;
+  Home Assistant shows its own notice for that.
+- **Test status:** checked only against a **simulated** event bus (bridge and triggers, 44 tests). **Not** against a real
+  Notification Center, and not on a real FRITZ!Box or in a running Home Assistant. Beta: feedback explicitly welcome.
 
 ---
 
@@ -273,6 +322,7 @@ Write actions need administrator rights; inputs are validated in the backend; te
 ## Known limitations
 
 - **“Remove all unused connections” is missing** – TR-064 has no action for it.
+- **Notification Center (since 1.9.2b1, beta)** is only tested against a simulated event bus, not a real Notification Center or real hardware; the switches exist only in the Configure dialog, not in the card, see [Notification Center](#notification-center-optional).
 - **Static IP and DNS write access are experimental** and use the undocumented web interface of the box. Writing is not verified on any real box; the field names for the static IP are assumed. They may break with any FRITZ!OS update.
 - **Mesh only in parts:** no signal strength in dBm.
 - **Data volume per device** is not provided by the box via TR-064.
@@ -296,9 +346,21 @@ python3 -m pytest -q tests
 node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fritzbox-netzwerk-card.js
 ```
 
+The tests for 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, with their own `conftest.py` that replaces Home Assistant with stubs) come with the release as a separate package, not in the repository.
+
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 1.9.2b1 – Notification Center (optional), update notice for pre-releases
+
+**Beta (pre-release).** Builds on 1.9.1. **None of it was tested against a real Notification Center, on a real FRITZ!Box or in a running Home Assistant** – the bridge and triggers only run against a simulated event bus.
+
+- **New:** optional connection to the **Notification Center** (interface schema 1, event bus, no MQTT). Message types: *Connection to FRITZ!Box lost* (warning), *Monitored device offline* (info; repeaters and devices selected by IP pattern) and *New device on the network* (info). Texts in five languages; only the initial state without push at startup. Without the Notification Center nothing changes. See [Notification Center](#notification-center-optional).
+- **New:** two settings under *Configure*: master switch and selection of the message types to send (translations de/en/nl). The diagnostics download lists the switch state and a counter per message type, no contents.
+- **Improved:** with a beta or release candidate installed, the update check also considers pre-releases (release list instead of `releases/latest`, which never returns pre-releases). With a final version installed you still only see final versions.
+- **Note:** HACS only shows pre-releases with “Show beta versions” enabled.
+- **Not implemented:** a “Notification Center” section in the dashboard card (cog). The card has no settings page and no interface for writing yet; the switches are in the Configure dialog.
 
 ### 1.9.1 – Selectable guest Wi-Fi service, IPv6 DNS with HTTP 400, extended diagnostics
 

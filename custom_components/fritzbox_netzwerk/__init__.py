@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): aed5ad0ed8981ac3fe9e0afbb0e32f198c9d154d228c26a23691ba5ae5e1ed24
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): b58d1c93dfb25aa04b0d0437d128b3fa9991f68af661f445616d2a6bf47f554d
 """Die Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -266,6 +266,11 @@ async def async_setup_entry(
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _async_register_services(hass)
     _async_update_remote_access_issue(hass, entry)
+
+    # Optional: Katalog und Ausgangszustand ans Notification Center melden. Ohne
+    # installiertes Notification Center bleibt das ohne Wirkung. Eine geaenderte
+    # Option laedt den Eintrag neu (OptionsFlowWithReload), dabei laeuft das erneut.
+    coordinator.async_nc_start()
 
     # Kein add_update_listener: der Neuladen bei Options-Aenderungen wird von
     # OptionsFlowWithReload (siehe config_flow.py) uebernommen. Beides zusammen

@@ -77,7 +77,9 @@
           "enable_parental_control": "Toegangsprofielen van de ouderlijk toezicht beheren (experimenteel)",
           "check_updates": "Dagelijks op nieuwe versie controleren",
           "enable_dns_settings": "DNS-instellingen van de box wijzigen (experimenteel)",
-          "enable_static_ip": "Statisch IP-adres instellen (experimenteel)"
+          "enable_static_ip": "Statisch IP-adres instellen (experimenteel)",
+          "nc_enabled": "Meldingen naar het Notification Center sturen",
+          "nc_types": "Te verzenden soorten meldingen"
         },
         "data_description": {
           "track_address_source": "Deze waarde staat niet in de hostlijst en kost één extra verzoek per apparaat. Ze verandert zelden en loopt daarom op een eigen, langzamer schema.",
@@ -95,7 +97,9 @@
           "enable_parental_control": "Schakelt services in die toegangsprofielen lezen en aan apparaten toewijzen (bijv. \"Geblokkeerd\" voor een uur). Gebruikt de webinterface van de box, niet TR-064 – niet gedocumenteerd door AVM, afhankelijk van FRITZ!OS. Standaard uit.",
           "check_updates": "Vraagt eenmaal per dag bij GitHub naar de nieuwste gepubliceerde versie en toont in de kaart (Bediening) een melding als er een nieuwere is. Er worden geen gegevens over jou of je box verzonden.",
           "enable_dns_settings": "Staat de service „DNS-instellingen wijzigen” toe om DNS-servers van de FRITZ!Box te schrijven (internet IPv4/IPv6, lokale DNS in het thuisnetwerk). Gebruikt de REST-interface van de webinterface, niet TR-064 – niet gedocumenteerd door AVM, afhankelijk van FRITZ!OS, schrijven niet getest op echte hardware. Lezen en de voorvertoning (dry_run) werken altijd. Standaard uit.",
-          "enable_static_ip": "Staat de service „Statisch IP instellen” toe om een apparaat een vast IPv4-adres te geven (Thuisnetwerk → Netwerk → apparaat bewerken). Gebruikt de webinterface, niet TR-064 – veldnamen zijn aangenomen en op geen enkele box getest. De voorvertoning (dry_run) werkt altijd. Standaard uit."
+          "enable_static_ip": "Staat de service „Statisch IP instellen” toe om een apparaat een vast IPv4-adres te geven (Thuisnetwerk → Netwerk → apparaat bewerken). Gebruikt de webinterface, niet TR-064 – veldnamen zijn aangenomen en op geen enkele box getest. De voorvertoning (dry_run) werkt altijd. Standaard uit.",
+          "nc_enabled": "Optioneel: is het Notification Center geïnstalleerd, dan meldt deze integratie verbroken verbindingen, uitgevallen bewaakte apparaten en nieuwe apparaten daarheen. Zonder Notification Center gebeurt er niets.",
+          "nc_types": "Alleen de aangevinkte soorten meldingen worden verzonden. Bewaakt worden repeaters (optie \"Repeaters als eigen apparaten aanmaken\") en de via het IP-patroon gekozen netwerkapparaten."
         }
       }
     }
@@ -108,6 +112,13 @@
         "2": "Service 2",
         "3": "Service 3",
         "4": "Service 4"
+      }
+    },
+    "nc_types": {
+      "options": {
+        "connection_lost": "Verbinding met FRITZ!Box verbroken (waarschuwing)",
+        "device_offline": "Bewaakt apparaat offline (info)",
+        "device_joined": "Nieuw apparaat in het netwerk (info)"
       }
     }
   },

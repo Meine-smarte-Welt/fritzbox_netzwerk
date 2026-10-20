@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): a9b5eb757be3e2fbff1eb83a1546e346201b7cd176dd4cc819df31a202aaad03
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 29de6f47a5876db4e016aef58e8ce904ed0975747caf885b23d8cee208091848
 """Diagnose-Export fuer fritzbox_netzwerk (Idee 15 aus feature-ideen.md).
 
 Liefert die Angaben, die zur Fehlersuche bei einer GitHub-Issue-Meldung am
@@ -47,6 +47,20 @@ TO_REDACT_HOST_FIELDS = {
 TO_REDACT_CONNECTION_FIELDS = {"external_ip"}
 
 TO_REDACT = TO_REDACT_CONFIG | TO_REDACT_HOST_FIELDS | TO_REDACT_CONNECTION_FIELDS
+
+
+def _nc_diagnostics(coordinator: Any) -> dict[str, Any]:
+    """Schalterstand und Zaehler der gesendeten Meldungen (ohne Inhalte)."""
+    nc = getattr(coordinator, "nc", None)
+    if nc is None:
+        return {}
+    snapshot = nc.snapshot()
+    return {
+        "detected": snapshot["available"],
+        "enabled": snapshot["enabled"],
+        "types": {item["type"]: item["enabled"] for item in snapshot["types"]},
+        "sent": dict(getattr(coordinator, "nc_counts", {}) or {}),
+    }
 
 
 async def async_get_config_entry_diagnostics(
@@ -128,6 +142,9 @@ async def async_get_config_entry_diagnostics(
                 "parental_enabled": getattr(coordinator, "parental_enabled", False),
                 "profile_reverts_active": len(getattr(coordinator, "profile_reverts", {})),
                 "internet_blocks_active": len(getattr(coordinator, "blocked_until", {})),
+                # Notification Center: nur Schalterstand und Zaehler je Meldungsart,
+                # keine Namen, MAC-Adressen oder Texte.
+                "notification_center": _nc_diagnostics(coordinator),
             },
         },
         TO_REDACT,
