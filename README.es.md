@@ -7,7 +7,7 @@
 
 Una integración de Home Assistant que muestra todos los dispositivos de la red doméstica de la FRITZ!Box en tu panel como una tabla ordenable – con dirección IP, dirección MAC, tipo de conexión y el nombre del dispositivo de Home Assistant correspondiente.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b2-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b3-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Esta es la edición en español del README, disponible en cinco idiomas (consulta la barra de idiomas de arriba). El [README.md](README.md) alemán es el archivo principal y contiene la referencia completa de la tarjeta, el capítulo de solución de problemas y el historial completo de versiones. Las secciones marcadas «solo en alemán» aún no están traducidas. La integración y la tarjeta están traducidas al alemán, inglés y neerlandés.
@@ -191,6 +191,8 @@ Opción «Registrar el consumo de datos (experimental)» (desactivada por defect
 - Los totales se guardan en el almacenamiento de Home Assistant (8 días). Si Home Assistant o la consulta se interrumpen un tiempo, ese tiempo falta en los totales (el diagnóstico cuenta los huecos en `traffic.stats`).
 - **Unidad sin verificar:** se suponen bytes por segundo. Si las cifras no cuadran, ajuste «Unidad de los valores del monitor en línea» a bits por segundo en las opciones. El diagnóstico muestra valores crudos en `traffic.shape.sample_values` para compararlos con el monitor en línea de la caja.
 
+**Sensores (desde 2.0.0b3):** La opción crea *Estado del consumo de datos* (diagnóstico; muestra «Datos disponibles», «Esperando mediciones», «Ninguna fuente asignada», «Sin mediciones coincidentes» o «Error de lectura»; la causa está en los atributos), *Consumo de datos 7 días (todos los dispositivos)* y *Mayor consumidor de datos (7 días)* (nombre del dispositivo, ranking de los cinco primeros en los atributos). Cada dispositivo con valores recibe además *<dispositivo> Daten 7 Tage* y *<dispositivo> Daten heute* (unidad byte, visualización en GB; descarga, subida y evolución diaria como atributos). Los sensores de dispositivo solo aparecen cuando hay valores. **Si no ves nada, mira primero el sensor de estado.**
+
 **En la tarjeta:** columna **Datos (7 días)** con barra (un clic en el encabezado ordena por mayor consumidor); la ventana de detalle muestra «Datos (7 días)» con descarga/subida, «Datos hoy» y una evolución diaria. La columna solo aparece si hay valores; ocultar con `show_traffic: false`. La exportación CSV contiene el valor de 7 días en bytes.
 
 ---
@@ -361,6 +363,13 @@ Las pruebas de 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `te
 El repositorio contiene las pruebas de 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); se ejecutan con datos sintéticos, no con hardware real. Las pruebas de 1.8.0 para `dns_settings.py` y `static_ip.py` no están incluidas.
 
 ## Historial de versiones
+
+### 2.0.0b3 – Sensores de consumo de datos, sensor de estado
+
+**Beta (versión preliminar).** Se basa en 2.0.0b2. **No probado en una FRITZ!Box real ni en un Home Assistant en marcha.**
+
+- **Nuevo:** sensores *Estado del consumo de datos*, *Consumo de datos 7 días (todos los dispositivos)*, *Mayor consumidor de datos (7 días)* y, por dispositivo, *Daten 7 Tage* y *Daten heute* (solo con la opción activada).
+- **Mejor:** el sensor de estado indica la causa cuando no aparecen valores. Si ningún contador se asignó a un dispositivo, la siguiente lectura (2 minutos) reintenta en lugar de esperar 15.
 
 ### 2.0.0b2 – Consumo de datos por dispositivo (7 días, experimental)
 

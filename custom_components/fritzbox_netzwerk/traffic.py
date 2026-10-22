@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): aa01014e26aef250399ad1c2f501d74bf474ecefc629065163f596a1fb40964d
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 5236d7bf8990e5f30fd7e81e9f3e68be77673ecdc84e536fa4844580f558f9aa
 """Datenverbrauch je Geraet ueber 7 Tage (EXPERIMENTELL, seit 2.0.0b2).
 
 Quelle ist der Online-Monitor der Weboberflaeche (FRITZ!OS ab 7.90/8.0,
@@ -375,3 +375,33 @@ def apply_traffic(
         host["traffic_today"] = entry["today"]
         host["traffic_days"] = entry["days"]
     return hosts
+
+
+def status_key(
+    enabled: bool,
+    error: str | None,
+    polled: bool,
+    mapped_sources: int,
+    devices_with_data: int,
+    subsets_mapped: int | None,
+) -> str:
+    """Zustand der Erfassung fuer den Status-Sensor.
+
+    ``disabled`` (Option aus), ``error`` (Abruf fehlgeschlagen), ``waiting``
+    (noch kein Abruf bzw. noch keine Messwerte), ``no_mapping`` (keine
+    Datenquelle einem Geraet zugeordnet), ``no_samples`` (Zuordnung da, aber
+    keine passenden Messwerte im Abruf) oder ``ok``.
+    """
+    if not enabled:
+        return "disabled"
+    if error:
+        return "error"
+    if not polled:
+        return "waiting"
+    if mapped_sources <= 0:
+        return "no_mapping"
+    if devices_with_data > 0:
+        return "ok"
+    if subsets_mapped is not None and subsets_mapped <= 0:
+        return "no_samples"
+    return "waiting"

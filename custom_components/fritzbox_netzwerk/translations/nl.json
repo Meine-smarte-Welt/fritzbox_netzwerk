@@ -195,6 +195,23 @@
       },
       "cpu_temperatur": {
         "name": "CPU-temperatuur"
+      },
+      "traffic_status": {
+        "name": "Dataverbruik status",
+        "state": {
+          "ok": "Gegevens beschikbaar",
+          "waiting": "Wacht op metingen",
+          "no_mapping": "Geen gegevensbron gekoppeld",
+          "no_samples": "Geen passende metingen",
+          "error": "Fout bij ophalen",
+          "disabled": "Uit"
+        }
+      },
+      "traffic_total": {
+        "name": "Dataverbruik 7 dagen (alle apparaten)"
+      },
+      "traffic_top": {
+        "name": "Grootste dataverbruiker (7 dagen)"
       }
     },
     "binary_sensor": {

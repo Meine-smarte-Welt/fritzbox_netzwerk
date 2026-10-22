@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 154802cbcadb18b18591900806919c05f0d1b1cab3b4bcd4f8e623782709b1d0
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 1e1ee41516d972c833e270c0e356e70187a7b85c00aff64d6af15d30aec80551
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -135,7 +135,14 @@ from .hosts import (
 )
 from .blueprints_install import install_blueprints
 from .mesh_topology import fetch_mesh
-from .traffic import TrafficLedger, apply_traffic, build_source_map, parse_subsets, traffic_shape
+from .traffic import (
+    TrafficLedger,
+    apply_traffic,
+    build_source_map,
+    parse_subsets,
+    status_key,
+    traffic_shape,
+)
 from .updates import build_version_info, is_prerelease_version, parse_release, parse_release_list
 from .nc_catalog import (
     NC_CATALOG,
@@ -547,6 +554,30 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "shape": dict(self._traffic_shape),
         }
 
+    @property
+    def traffic_status(self) -> tuple[str, dict[str, Any]]:
+        """Zustand der Verbrauchserfassung als (Schluessel, Details) fuer den Status-Sensor.
+
+        Die Schluessel erklaert ``traffic.status_key``.
+        """
+        devices = {mac for macs in self._traffic.days.values() for mac in macs}
+        details: dict[str, Any] = {
+            "fehler": self._traffic_error,
+            "datenquellen": self._traffic_counts.get("sources"),
+            "zugeordnet": len(self._traffic_map),
+            "geraete_mit_daten": len(devices),
+            "letzter_abruf": dict(self._traffic_info),
+        }
+        key = status_key(
+            self.traffic_enabled,
+            self._traffic_error,
+            bool(self._traffic_info) or self._traffic_map_scan is not None,
+            len(self._traffic_map),
+            len(devices),
+            self._traffic_info.get("subsets_mapped") if self._traffic_info else None,
+        )
+        return key, details
+
     def _fetch_traffic(self) -> None:
         """Liest die Datenraten des Online-Monitors und rechnet sie ein (blockierend).
 
@@ -573,7 +604,10 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._traffic_map, self._traffic_counts = build_source_map(
                 found.get("datasets"), found.get("landevices")
             )
-            self._traffic_map_scan = now
+            # Ohne einen einzigen zugeordneten Zaehler beim naechsten Abruf erneut
+            # versuchen (statt 15 Minuten zu warten), z. B. wenn die Geraete-
+            # liste der Box beim ersten Mal noch nicht vollstaendig war.
+            self._traffic_map_scan = now if self._traffic_map else None
         subsets = parse_subsets(found.get("subsets"))
         self._traffic_shape.update(traffic_shape(found.get("datasets"), found.get("subsets")))
         added = self._traffic.ingest(self._traffic_map, subsets)

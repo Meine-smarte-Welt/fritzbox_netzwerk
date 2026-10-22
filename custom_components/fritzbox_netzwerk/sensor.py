@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 166b634b6085ac5b8c7cff8af035c1e57433dfa5754cdf3045e96931fec1ed56
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ae31cf4d384cbee1d48930b2ee19f42bb57f534ae8203015668a4ec784c07eb9
 """Sensoren der Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -11,8 +11,16 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
-from homeassistant.const import PERCENTAGE, CONF_HOST, UnitOfDataRate, UnitOfTemperature
+from homeassistant.const import (
+    PERCENTAGE,
+    CONF_HOST,
+    EntityCategory,
+    UnitOfDataRate,
+    UnitOfInformation,
+    UnitOfTemperature,
+)
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -115,6 +123,40 @@ async def async_setup_entry(
                 ),
             ]
         )
+
+    # Seit 2.0.0b3 (experimentell): Datenverbrauch je Geraet - Status, Summe und
+    # groesster Verbraucher sofort, je Geraet "7 Tage" und "heute" erst, wenn
+    # fuer das Geraet Messwerte vorliegen (siehe traffic.py).
+    if coordinator.traffic_enabled:
+        async_add_entities(
+            [
+                FritzboxNetzwerkTrafficStatusSensor(coordinator, entry),
+                FritzboxNetzwerkTrafficTotalSensor(coordinator, entry),
+                FritzboxNetzwerkTrafficTopSensor(coordinator, entry),
+            ]
+        )
+        traffic_known: set[str] = set()
+
+        @callback
+        def _add_traffic_devices() -> None:
+            new: list[SensorEntity] = []
+            for host in (coordinator.data or {}).get("hosts", []):
+                key = mac_key(host.get("mac"))
+                if (
+                    not key
+                    or key in traffic_known
+                    or host.get("mac_synthetic")
+                    or host.get("traffic_week") is None
+                ):
+                    continue
+                traffic_known.add(key)
+                new.append(FritzboxNetzwerkTrafficDeviceSensor(coordinator, entry, host["mac"], "week"))
+                new.append(FritzboxNetzwerkTrafficDeviceSensor(coordinator, entry, host["mac"], "today"))
+            if new:
+                async_add_entities(new)
+
+        _add_traffic_devices()
+        entry.async_on_unload(coordinator.async_add_listener(_add_traffic_devices))
 
     # Idee 7 aus feature-ideen.md: Zaehler "WLAN 2,4 GHz" / "WLAN 5 GHz" - nur
     # sinnvoll, wenn das Funkband ueberhaupt erfasst wird (siehe
@@ -737,4 +779,189 @@ class FritzboxNetzwerkWeakestLinkSensor(FritzboxNetzwerkBase):
             "mac": weakest.get("mac"),
             "verbindungsrate_mbit": weakest.get("link_mbit"),
             "verbunden_ueber": weakest.get("connected_via"),
+        }
+
+
+class FritzboxNetzwerkTrafficStatusSensor(FritzboxNetzwerkBase):
+    """Zeigt, ob die Verbrauchserfassung Daten liefert - und wenn nicht, warum.
+
+    Zustand: ``ok``, ``waiting``, ``no_mapping``, ``no_samples``, ``error``
+    oder ``disabled`` (Texte aus den Uebersetzungen). Die Attribute nennen den
+    Fehlergrund der Box und die Zaehler der Zuordnung.
+    """
+
+    _attr_translation_key = "traffic_status"
+    _attr_icon = "mdi:chart-bar"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_device_class = SensorDeviceClass.ENUM
+
+    def __init__(self, coordinator, entry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_traffic_status"
+        self._attr_options = ["ok", "waiting", "no_mapping", "no_samples", "error", "disabled"]
+
+    @property
+    def native_value(self) -> str:
+        return self.coordinator.traffic_status[0]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return self.coordinator.traffic_status[1]
+
+
+def _traffic_hosts(coordinator) -> list[dict[str, Any]]:
+    return [
+        host
+        for host in (coordinator.data or {}).get("hosts", [])
+        if host.get("traffic_week") is not None
+    ]
+
+
+class _TrafficSizeMixin:
+    """Gemeinsame Einstellungen der Datenmengen-Sensoren (Byte, Anzeige in GB)."""
+
+    _attr_device_class = SensorDeviceClass.DATA_SIZE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = UnitOfInformation.BYTES
+    _attr_suggested_unit_of_measurement = UnitOfInformation.GIGABYTES
+    _attr_suggested_display_precision = 2
+
+
+class FritzboxNetzwerkTrafficTotalSensor(_TrafficSizeMixin, FritzboxNetzwerkBase):
+    """Summe des Datenverbrauchs aller erfassten Geraete der letzten 7 Tage."""
+
+    _attr_translation_key = "traffic_total"
+    _attr_icon = "mdi:chart-bar"
+
+    def __init__(self, coordinator, entry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_traffic_total"
+
+    @property
+    def available(self) -> bool:
+        return super().available and bool(_traffic_hosts(self.coordinator))
+
+    @property
+    def native_value(self) -> int | None:
+        hosts = _traffic_hosts(self.coordinator)
+        return sum(int(h.get("traffic_week") or 0) for h in hosts) if hosts else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        hosts = _traffic_hosts(self.coordinator)
+        return {
+            "download": sum(int(h.get("traffic_week_down") or 0) for h in hosts),
+            "upload": sum(int(h.get("traffic_week_up") or 0) for h in hosts),
+            "heute": sum(int(h.get("traffic_today") or 0) for h in hosts),
+            "geraete": len(hosts),
+        }
+
+
+class FritzboxNetzwerkTrafficTopSensor(FritzboxNetzwerkBase):
+    """Das Geraet mit dem groessten Verbrauch der letzten 7 Tage.
+
+    Zustand ist der Geraetename; die Attribute nennen die Menge und eine
+    Rangliste der fuenf groessten Verbraucher.
+    """
+
+    _attr_translation_key = "traffic_top"
+    _attr_icon = "mdi:podium-gold"
+
+    def __init__(self, coordinator, entry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_traffic_top"
+
+    def _ranking(self) -> list[dict[str, Any]]:
+        hosts = sorted(
+            _traffic_hosts(self.coordinator),
+            key=lambda h: int(h.get("traffic_week") or 0),
+            reverse=True,
+        )
+        return [
+            {
+                "name": str(h.get("name") or h.get("mac") or ""),
+                "mac": h.get("mac"),
+                "bytes": int(h.get("traffic_week") or 0),
+                "download": int(h.get("traffic_week_down") or 0),
+                "upload": int(h.get("traffic_week_up") or 0),
+            }
+            for h in hosts[:5]
+        ]
+
+    @property
+    def available(self) -> bool:
+        return super().available and bool(_traffic_hosts(self.coordinator))
+
+    @property
+    def native_value(self) -> str | None:
+        ranking = self._ranking()
+        return ranking[0]["name"] if ranking else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        ranking = self._ranking()
+        if not ranking:
+            return {}
+        return {"bytes": ranking[0]["bytes"], "mac": ranking[0]["mac"], "rangliste": ranking}
+
+
+class FritzboxNetzwerkTrafficDeviceSensor(_TrafficSizeMixin, FritzboxNetzwerkBase):
+    """Datenverbrauch eines Geraets: ``week`` (7 Tage) oder ``today`` (heute).
+
+    Haengt per MAC-Adresse am selben Home-Assistant-Geraet wie andere
+    Integrationen (z. B. der Tracker), der Name folgt dem Geraetenamen der Box.
+    """
+
+    _attr_has_entity_name = False
+    _attr_icon = "mdi:chart-bar"
+
+    def __init__(self, coordinator, entry, mac: str, period: str) -> None:
+        super().__init__(coordinator, entry)
+        self._mac = normalize_mac(mac)
+        self._key = mac_key(mac)
+        self._period = period
+        self._attr_unique_id = f"{entry.entry_id}_traffic_{period}_{self._key}"
+        host = self._host() or {}
+        self._attr_device_info = DeviceInfo(
+            connections={(dr.CONNECTION_NETWORK_MAC, self._mac)},
+            name=str(host.get("name") or self._mac),
+            via_device=(DOMAIN, entry.entry_id),
+        )
+
+    def _host(self) -> dict[str, Any] | None:
+        for host in (self.coordinator.data or {}).get("hosts", []):
+            if mac_key(host.get("mac")) == self._key:
+                return host
+        return None
+
+    @property
+    def name(self) -> str:
+        host = self._host()
+        label = str((host or {}).get("name") or self._mac)
+        suffix = "Daten 7 Tage" if self._period == "week" else "Daten heute"
+        return f"{label} {suffix}"
+
+    @property
+    def available(self) -> bool:
+        host = self._host()
+        return super().available and bool(host) and host.get("traffic_week") is not None
+
+    @property
+    def native_value(self) -> int | None:
+        host = self._host()
+        if not host:
+            return None
+        value = host.get("traffic_week" if self._period == "week" else "traffic_today")
+        return int(value) if value is not None else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        host = self._host() or {}
+        if self._period != "week":
+            return {}
+        return {
+            "download": host.get("traffic_week_down"),
+            "upload": host.get("traffic_week_up"),
+            "heute": host.get("traffic_today"),
+            "tage": host.get("traffic_days"),
         }

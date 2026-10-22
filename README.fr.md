@@ -7,7 +7,7 @@
 
 Une intégration Home Assistant qui affiche tous les appareils du réseau domestique FRITZ!Box sur votre tableau de bord sous forme de tableau triable – avec adresse IP, adresse MAC, type de connexion et nom de l'appareil Home Assistant correspondant.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b2-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b3-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Ceci est l'édition française du README, disponible en cinq langues (voir la barre de langues ci-dessus). Le [README.md](README.md) allemand est le fichier principal : il contient la référence complète de la carte, le chapitre de dépannage et l'historique complet des versions. Les sections marquées « en allemand uniquement » ne sont pas encore traduites. L'intégration et la carte elles-mêmes sont traduites en allemand, anglais et néerlandais.
@@ -191,6 +191,8 @@ Option « Enregistrer la consommation de données (expérimental) » (désactiv�
 - Les totaux sont conservés dans le stockage de Home Assistant (8 jours). Si Home Assistant ou l'interrogation est interrompu un moment, ce temps manque dans les totaux (le diagnostic compte les lacunes sous `traffic.stats`).
 - **Unité non vérifiée :** on suppose des octets par seconde. Si les chiffres semblent faux, réglez « Unité des valeurs du moniteur en ligne » sur bits par seconde dans les options. Le diagnostic montre des valeurs brutes sous `traffic.shape.sample_values` pour comparer avec le moniteur en ligne de la box.
 
+**Capteurs (depuis 2.0.0b3) :** L'option crée *Statut de la consommation de données* (diagnostic ; affiche « Données disponibles », « En attente de mesures », « Aucune source associée », « Aucune mesure correspondante » ou « Erreur de lecture » ; la cause est dans les attributs), *Consommation de données 7 jours (tous les appareils)* et *Plus gros consommateur (7 jours)* (nom de l'appareil, classement des cinq premiers dans les attributs). Chaque appareil avec des valeurs reçoit aussi *<appareil> Daten 7 Tage* et *<appareil> Daten heute* (unité octet, affichage en Go ; téléchargement, envoi et évolution quotidienne en attributs). Les capteurs d'appareil n'apparaissent qu'une fois des valeurs disponibles. **Si vous ne voyez rien, regardez d'abord le capteur de statut.**
+
 **Dans la carte :** colonne **Données (7 jours)** avec barre (un clic sur l'en-tête trie par plus gros consommateur) ; la fenêtre détaillée affiche « Données (7 jours) » avec téléchargement/envoi, « Données aujourd'hui » et une évolution quotidienne. La colonne n'apparaît que si des valeurs existent ; masquer avec `show_traffic: false`. L'export CSV contient la valeur sur 7 jours en octets.
 
 ---
@@ -361,6 +363,13 @@ Les tests pour 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `te
 Le dépôt contient les tests pour 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`) ; ils s'exécutent sur des données synthétiques, pas sur du matériel réel. Les tests de 1.8.0 pour `dns_settings.py` et `static_ip.py` ne sont pas versionnés.
 
 ## Historique des versions
+
+### 2.0.0b3 – Capteurs de consommation de données, capteur de statut
+
+**Bêta (préversion).** S'appuie sur 2.0.0b2. **Non testé sur une FRITZ!Box réelle ni dans un Home Assistant en fonctionnement.**
+
+- **Nouveau :** capteurs *Statut de la consommation de données*, *Consommation de données 7 jours (tous les appareils)*, *Plus gros consommateur (7 jours)* et, par appareil, *Daten 7 Tage* et *Daten heute* (uniquement avec l'option activée).
+- **Mieux :** le capteur de statut indique la cause quand aucune valeur n'apparaît. Si aucun compteur n'a été associé à un appareil, la lecture suivante (2 minutes) réessaie au lieu d'attendre 15.
 
 ### 2.0.0b2 – Consommation de données par appareil (7 jours, expérimental)
 

@@ -195,6 +195,23 @@
       },
       "cpu_temperatur": {
         "name": "CPU temperature"
+      },
+      "traffic_status": {
+        "name": "Data usage status",
+        "state": {
+          "ok": "Data available",
+          "waiting": "Waiting for samples",
+          "no_mapping": "No data source mapped",
+          "no_samples": "No matching samples",
+          "error": "Fetch error",
+          "disabled": "Off"
+        }
+      },
+      "traffic_total": {
+        "name": "Data usage 7 days (all devices)"
+      },
+      "traffic_top": {
+        "name": "Biggest data consumer (7 days)"
       }
     },
     "binary_sensor": {

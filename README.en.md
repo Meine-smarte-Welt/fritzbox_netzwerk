@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b2-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b3-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > This is the English edition of the README, which is available in five languages (see the language bar above). The German [README.md](README.md) is the main file and has the full card reference, the troubleshooting chapter and the complete version history. Sections marked “German only” are not translated yet. The integration and the card themselves are translated into German, English and Dutch.
@@ -190,6 +190,8 @@ Option “Record data usage per device (experimental)” (off by default). It an
 - Counting starts when the option is enabled; the box does not provide past values. A full week takes 7 days.
 - Totals are kept in Home Assistant storage (8 days). If Home Assistant or the polling is down for a while, that time is missing from the totals (diagnostics count the gaps under `traffic.stats`).
 - **Unit unverified:** bytes per second are assumed. If the numbers look wrong, set “Unit of the online monitor values” to bits per second in the options. Diagnostics show raw sample values under `traffic.shape.sample_values` for comparison with the box's Online Monitor.
+
+**Sensors (since 2.0.0b3):** The option creates *Data usage status* (diagnostic; shows “Data available”, “Waiting for samples”, “No data source mapped”, “No matching samples” or “Fetch error”, the reason is in the attributes), *Data usage 7 days (all devices)* and *Biggest data consumer (7 days)* (device name, top-five ranking in the attributes). Each device with values also gets *<device> Daten 7 Tage* and *<device> Daten heute* (unit bytes, shown in GB; download, upload and daily trend as attributes). Device sensors only appear once values exist for the device. **If you see nothing, look at the status sensor first.**
 
 **In the card:** column **Data (7 days)** with a bar (click the header to sort by the biggest consumer); the popup shows “Data (7 days)” with download/upload, “Data today” and a daily trend. The column only appears when values exist; hide it with `show_traffic: false`. The CSV export contains the 7-day value in bytes.
 
@@ -378,6 +380,13 @@ The tests for 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `tes
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 2.0.0b3 – Sensors for data usage, status sensor
+
+**Beta (pre-release).** Builds on 2.0.0b2. **Not tested on a real FRITZ!Box or in a running Home Assistant.**
+
+- **New:** sensors *Data usage status*, *Data usage 7 days (all devices)*, *Biggest data consumer (7 days)* and, per device, *Daten 7 Tage* and *Daten heute* (only with the option on).
+- **Better:** the status sensor names the reason when no values appear. If no counter at all was mapped to a device, the next poll (2 minutes) retries instead of waiting 15.
 
 ### 2.0.0b2 – Data usage per device (7 days, experimental)
 

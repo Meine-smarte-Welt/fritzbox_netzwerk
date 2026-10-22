@@ -9,7 +9,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b2-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b3-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -529,6 +529,8 @@ Option „Datenverbrauch je Gerät erfassen (experimentell)“ (standardmäßig 
 - Gezählt wird ab Aktivierung der Option; die Werte der Vergangenheit liefert die Box nicht. Eine volle Woche gibt es erst nach 7 Tagen.
 - Die Summen werden im Home-Assistant-Speicher gehalten (8 Tage). Läuft Home Assistant oder der Abruf zeitweise nicht, fehlt diese Zeit in der Summe (die Diagnose zählt die Lücken unter `traffic.stats`).
 - **Einheit ungeprüft:** Angenommen werden Byte pro Sekunde. Stimmen die Zahlen nicht, in den Optionen „Einheit der Messwerte des Online-Monitors“ auf Bit pro Sekunde stellen. Die Diagnose zeigt unter `traffic.shape.sample_values` rohe Beispielwerte zum Vergleichen mit dem Online-Monitor der Box.
+
+**Sensoren (seit 2.0.0b3):** Mit der Option entstehen *Datenverbrauch Status* (Diagnose; zeigt „Daten vorhanden“, „Wartet auf Messwerte“, „Keine Datenquelle zugeordnet“, „Keine passenden Messwerte“ oder „Fehler beim Abruf“, der Grund steht in den Attributen), *Datenverbrauch 7 Tage (alle Geräte)* und *Größter Datenverbraucher (7 Tage)* (Name des Geräts, Rangliste der fünf größten in den Attributen). Je Gerät mit Messwerten kommen *<Gerät> Daten 7 Tage* und *<Gerät> Daten heute* dazu (Einheit Byte, Anzeige in GB; Download, Upload und Tagesverlauf als Attribute). Die Geräte-Sensoren entstehen erst, sobald für das Gerät Messwerte vorliegen. **Siehst du nichts, schau zuerst auf den Status-Sensor.**
 
 **In der Karte:** Spalte **Daten (7 Tage)** mit Balken (Klick auf die Überschrift sortiert nach dem größten Verbraucher), im Popup die Zeilen „Daten (7 Tage)“ mit Download/Upload, „Daten heute“ und ein Tagesverlauf. Die Spalte erscheint nur, wenn Werte vorliegen; ausblenden mit `show_traffic: false`. Der CSV-Export enthält den 7-Tage-Wert in Byte.
 
@@ -1742,11 +1744,11 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `1c9c42be14806c619e46cefef3cc020a2ec7826ee1ee8a63ac4e0acbb2471c21` |
-| `custom_components/fritzbox_netzwerk/strings.json` | `92a6c1ff8feb17b0ffed737d62a97aa7b24de52ad01a19b395a2f4a913b1f2cd` |
-| `custom_components/fritzbox_netzwerk/translations/de.json` | `b5999d138bbd3af2917c70cae6e9f2fa2ef632bc82b4cb285443dab0b35e58ca` |
-| `custom_components/fritzbox_netzwerk/translations/en.json` | `e9e4021e3cf39ac0cd751bd847dcd76c66108392a005f63e6ad84755dacb311b` |
-| `custom_components/fritzbox_netzwerk/translations/nl.json` | `e70c8bb9ad19149f21196953a8a3dbe5fd9d763d007b4e0580d0d5de73386d61` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `53ce75dfb4af7f46c45f65bb645d3adb77fde098fa485fbd6522935aa2d01219` |
+| `custom_components/fritzbox_netzwerk/strings.json` | `eba3c30deb99cf0b7fdd02db735a87a626ca4783c2c355fcc8203ac7ef1deb49` |
+| `custom_components/fritzbox_netzwerk/translations/de.json` | `c855d21892eef9e2db423dbe075b49f954d5a9199f94201dfbebcaa8336a0699` |
+| `custom_components/fritzbox_netzwerk/translations/en.json` | `b7612495e4bd9251381269008685314e3ec98b577c167a254cca8e3a4e697d6d` |
+| `custom_components/fritzbox_netzwerk/translations/nl.json` | `9ae717b560087e3ac70c4107ee5f08bb96cf89520d31c6d852c24f058c13ed38` |
 
 ## Entwicklung und Tests
 
@@ -1784,6 +1786,13 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.0.0b3 – Sensoren für den Datenverbrauch, Status-Sensor
+
+**Beta (Vorabversion).** Baut auf 2.0.0b2 auf. **Nicht an einer echten FRITZ!Box oder in einem laufenden Home Assistant geprüft.**
+
+- **Neu:** Sensoren *Datenverbrauch Status*, *Datenverbrauch 7 Tage (alle Geräte)*, *Größter Datenverbraucher (7 Tage)* sowie je Gerät *Daten 7 Tage* und *Daten heute* (nur mit aktiver Option).
+- **Besser:** Der Status-Sensor nennt den Grund, wenn keine Werte erscheinen. Wurde beim Abruf kein einziger Zähler einem Gerät zugeordnet, wird beim nächsten Abruf (2 Minuten) erneut versucht statt erst nach 15.
 
 ### 2.0.0b2 – Datenverbrauch je Gerät (7 Tage, experimentell)
 
