@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ae31cf4d384cbee1d48930b2ee19f42bb57f534ae8203015668a4ec784c07eb9
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 305fd1f87523c612b8f5db81de4da06c2e653d6aff77acc4400c51ecd344a6c0
 """Sensoren der Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -325,6 +325,8 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             "trackers": self._trackers_attribute(),
             # Versionsanzeige und Update-Hinweis der Karte (Steuerungsseite).
             "version": data.get("version"),
+            # Online-Monitor-Reiter (Raten, Verbindungsdetails, Zaehler); None ohne Erfassung.
+            "online_monitor": data.get("online_monitor"),
             # Ob die Zugangsprofil-Funktionen freigeschaltet sind (Popup der Karte).
             "parental": self.coordinator.parental_enabled,
             # Ob der Button "Statische IP" im Popup freigeschaltet ist.

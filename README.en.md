@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b6-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b7-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > This is the English edition of the README, which is available in five languages (see the language bar above). The German [README.md](README.md) is the main file and has the full card reference, the troubleshooting chapter and the complete version history. Sections marked “German only” are not translated yet. The integration and the card themselves are translated into German, English and Dutch.
@@ -380,6 +380,15 @@ The tests for 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `tes
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 2.0.0b7 – New tabs: Online monitor and Mesh map, "Settings" with version accordion
+
+**Beta (pre-release).** Builds on 2.0.0b6. **Not tested on a real FRITZ!Box** – only the formats of *connection details* and the *online monitor* were read in the browser on a FRITZ!Box 5690 Pro (FRITZ!OS 8.40); the layout of the *online counter* is unknown and read tolerantly.
+
+- **New – "Online monitor" tab** (`mdi:chart-areaspline`): current download/upload rate with history, load by priority, top consumers, **connection details** (medium, online since, IPv4/IPv6, gateway, DNS, max speed; login name and password are never taken) and **online counter** (today, yesterday, week, month, total). Needs data-usage capture to be enabled.
+- **New – "Mesh" tab** (`mdi:router-network`): map like *Home network → Mesh* of the box: FRITZ!Box, repeaters and the devices connected to each, with link rate. Only appears with at least one repeater.
+- **Changed:** the **"Controls" tab is now "Settings"** (gear `mdi:cog`, always the last tab). The **app version** is an accordion there (open; orange when a newer version exists).
+- **Diagnostics:** the diagnostics download contains `traffic.online_extras` (recognised counters, layout of the counter response – key names only).
 
 ### 2.0.0b6 – Online Monitor for FRITZ!OS 8.x (inspected on a FRITZ!Box 5690 Pro)
 

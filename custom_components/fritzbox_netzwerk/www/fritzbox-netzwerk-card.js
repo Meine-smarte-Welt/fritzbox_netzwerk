@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 4eb6e21cc0baafaaf64b38c5e635fb7f88b0a51480c0ef5f301af5582e9df4bb
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 54242f7dd888e549ebf9cf62d3236429693edf01db52248a98410bfcd1f22f42
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "2.0.0b6";
+const FBN_VERSION = "2.0.0b7";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -73,8 +73,11 @@ const CONFIG_DEFAULTS = {
   show_search: true,
   show_filter: true,
   show_controls: false,
-  // Versionsanzeige samt Update-Hinweis auf der Steuerungsseite (nur sichtbar, wenn die
-  // Steuerungsleiste an ist).
+  // Reiter Online-Monitor (Raten, Verbindungsdetails, Zähler) und Mesh-Karte; je nur mit Daten sichtbar.
+  show_online: true,
+  show_meshmap: true,
+  // Versionsanzeige (Accordion) samt Update-Hinweis in den Einstellungen (nur sichtbar, wenn
+  // die Steuerungsleiste an ist).
   show_version: true,
   // Zugangsprofil (Kindersicherung) im Detail-Popup - erscheint nur, wenn die Funktion in
   // den Integrationsoptionen eingeschaltet ist.
@@ -297,7 +300,7 @@ const I18N = {
     "tracker.unknown": "unbekannt", "tracker.disabled": "Entität deaktiviert",
     "tracker.disabled_hint": "Die Tracker-Entität ist in Home Assistant deaktiviert – hier klicken und im Zahnrad-Dialog aktivieren.",
     "tracker.off": "nicht aktiviert",
-    "tracker.off_hint": "Device Tracker einschalten unter: Einstellungen → Geräte & Dienste → FRITZ!Box Netzwerk → Konfigurieren.", "tab.network": "Netzwerk", "tab.controls": "Steuerung",
+    "tracker.off_hint": "Device Tracker einschalten unter: Einstellungen → Geräte & Dienste → FRITZ!Box Netzwerk → Konfigurieren.", "tab.network": "Netzwerk", "tab.controls": "Einstellungen", "tab.online": "Online-Monitor", "tab.mesh": "Mesh", "ver.accordion": "App-Version", "ver.integration": "Integration", "ver.card": "Karte", "om.monitor": "Online-Monitor", "om.connection": "Verbindungsdetails", "om.counters": "Online-Zähler", "om.categories": "Nach Priorität", "om.top": "Größte Verbraucher (aktuell)", "om.no_rates": "Keine Datenraten verfügbar – ist die Datenverbrauchs-Erfassung in den Optionen an?", "om.no_connection": "Keine Verbindungsdetails gelesen.", "om.no_counters": "Keine Zähler erkannt – der Aufbau der Antwort ist unbekannt. Die Diagnose der Integration zeigt ihn.", "om.experimental": "Experimentell: Werte stammen aus der Weboberfläche der Box und sind nur an wenigen Boxen geprüft.", "om.since": "Online seit", "om.gateway": "Gateway", "om.prefix": "IPv6-Präfix", "om.max_down": "Max. Download", "om.max_up": "Max. Upload", "om.cat.realtime": "Echtzeit", "om.cat.prioritized": "Bevorzugt", "om.cat.normal": "Normal", "om.cat.background": "Hintergrund", "om.cat.guest": "Gast", "om.p.today": "Heute", "om.p.yesterday": "Gestern", "om.p.this_week": "Diese Woche", "om.p.last_week": "Letzte Woche", "om.p.this_month": "Dieser Monat", "om.p.last_month": "Letzter Monat", "om.p.total": "Gesamt", "mm.devices": "{n} Geräte", "mm.slowest": "langsamstes {v} Mbit/s", "mm.loose": "{n} aktive Geräte ohne eindeutige Mesh-Zuordnung (hier der Box zugeordnet).",
     "field.band": "Funkband", "band.24": "2,4 GHz", "band.5": "5 GHz", "band.6": "6 GHz",
     "field.connected_via": "Verbunden über",
     "field.vendor": "Hersteller", "vendor.random": "Zufällige MAC",
@@ -393,7 +396,7 @@ const I18N = {
     "tracker.unknown": "unknown", "tracker.disabled": "entity disabled",
     "tracker.disabled_hint": "The tracker entity is disabled in Home Assistant – click here and enable it in the settings dialog.",
     "tracker.off": "not enabled",
-    "tracker.off_hint": "Enable the device tracker under: Settings → Devices & services → FRITZ!Box Netzwerk → Configure.", "tab.network": "Network", "tab.controls": "Controls",
+    "tracker.off_hint": "Enable the device tracker under: Settings → Devices & services → FRITZ!Box Netzwerk → Configure.", "tab.network": "Network", "tab.controls": "Settings", "tab.online": "Online monitor", "tab.mesh": "Mesh", "ver.accordion": "App version", "ver.integration": "Integration", "ver.card": "Card", "om.monitor": "Online monitor", "om.connection": "Connection details", "om.counters": "Online counter", "om.categories": "By priority", "om.top": "Top consumers (now)", "om.no_rates": "No data rates available – is data-usage capture enabled in the options?", "om.no_connection": "No connection details read.", "om.no_counters": "No counters recognised – the response layout is unknown. The integration diagnostics show it.", "om.experimental": "Experimental: values come from the box web UI and were checked on few boxes only.", "om.since": "Online since", "om.gateway": "gateway", "om.prefix": "IPv6 prefix", "om.max_down": "Max. download", "om.max_up": "Max. upload", "om.cat.realtime": "Real-time", "om.cat.prioritized": "Prioritised", "om.cat.normal": "Normal", "om.cat.background": "Background", "om.cat.guest": "Guest", "om.p.today": "Today", "om.p.yesterday": "Yesterday", "om.p.this_week": "This week", "om.p.last_week": "Last week", "om.p.this_month": "This month", "om.p.last_month": "Last month", "om.p.total": "Total", "mm.devices": "{n} devices", "mm.slowest": "slowest {v} Mbit/s", "mm.loose": "{n} active devices without a clear mesh assignment (shown under the box).",
     "field.band": "Wi-Fi band", "band.24": "2.4 GHz", "band.5": "5 GHz", "band.6": "6 GHz",
     "field.connected_via": "Connected via",
     "field.vendor": "Manufacturer", "vendor.random": "Random MAC",
@@ -489,7 +492,7 @@ const I18N = {
     "tracker.unknown": "onbekend", "tracker.disabled": "entiteit uitgeschakeld",
     "tracker.disabled_hint": "De trackerentiteit is uitgeschakeld in Home Assistant – klik hier en schakel deze in via het instellingenvenster.",
     "tracker.off": "niet ingeschakeld",
-    "tracker.off_hint": "Device tracker inschakelen via: Instellingen → Apparaten & diensten → FRITZ!Box Netzwerk → Configureren.", "tab.network": "Netwerk", "tab.controls": "Bediening",
+    "tracker.off_hint": "Device tracker inschakelen via: Instellingen → Apparaten & diensten → FRITZ!Box Netzwerk → Configureren.", "tab.network": "Netwerk", "tab.controls": "Instellingen", "tab.online": "Online-monitor", "tab.mesh": "Mesh", "ver.accordion": "App-versie", "ver.integration": "Integratie", "ver.card": "Kaart", "om.monitor": "Online-monitor", "om.connection": "Verbindingsdetails", "om.counters": "Online-teller", "om.categories": "Op prioriteit", "om.top": "Grootste verbruikers (nu)", "om.no_rates": "Geen datasnelheden beschikbaar – staat de gegevensverbruik-registratie aan in de opties?", "om.no_connection": "Geen verbindingsdetails gelezen.", "om.no_counters": "Geen tellers herkend – de opbouw van het antwoord is onbekend. De diagnose van de integratie toont die.", "om.experimental": "Experimenteel: waarden komen uit de webinterface van de box en zijn op weinig boxen getest.", "om.since": "Online sinds", "om.gateway": "gateway", "om.prefix": "IPv6-prefix", "om.max_down": "Max. download", "om.max_up": "Max. upload", "om.cat.realtime": "Realtime", "om.cat.prioritized": "Voorrang", "om.cat.normal": "Normaal", "om.cat.background": "Achtergrond", "om.cat.guest": "Gast", "om.p.today": "Vandaag", "om.p.yesterday": "Gisteren", "om.p.this_week": "Deze week", "om.p.last_week": "Vorige week", "om.p.this_month": "Deze maand", "om.p.last_month": "Vorige maand", "om.p.total": "Totaal", "mm.devices": "{n} apparaten", "mm.slowest": "traagste {v} Mbit/s", "mm.loose": "{n} actieve apparaten zonder duidelijke mesh-toewijzing (onder de box getoond).",
     "field.band": "Wifi-band", "band.24": "2,4 GHz", "band.5": "5 GHz", "band.6": "6 GHz",
     "field.connected_via": "Verbonden via",
     "field.vendor": "Fabrikant", "vendor.random": "Willekeurig MAC",
@@ -1441,6 +1444,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // sich unabhaengig von der Geraeteliste - daher bei jedem neuen
     // Zustandsobjekt aktualisieren, ohne die teure Tabelle anzufassen.
     this._renderControls();
+    this._renderOnline();
+    this._renderMeshMap();
     this._renderTabs();
 
     const hosts = this._hosts();
@@ -1538,6 +1543,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
           <div class="fbn-tools"></div>
         </div>
         <div class="fbn-summary" data-tab="network"></div>
+        <div class="fbn-online" data-tab="online" hidden></div>
+        <div class="fbn-meshmap" data-tab="mesh" hidden></div>
         <div class="fbn-controls" data-tab="controls" hidden></div>
         <div class="fbn-scrollwrap" data-tab="network">
           <button class="fbn-arrow fbn-arrow-left" type="button" hidden
@@ -1570,6 +1577,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._buildHead();
     this._renderHead();
     this._renderControls();
+    this._renderOnline();
+    this._renderMeshMap();
     this._renderTabs();
     this._observeWidth();
     this._bindScrollArrows(card.querySelector(".fbn-scrollwrap"));
@@ -2192,14 +2201,293 @@ class FritzboxNetzwerkCard extends HTMLElement {
         </button>`);
     }
     if (mesh) parts.push(this._renderMesh(mesh, controls));
-    if (version) parts.push(this._versionHtml(version));
+    if (version) parts.push(this._versionAccordion(version));
     box.innerHTML = parts.join("");
 
     if (!box.dataset.bound) {
       box.dataset.bound = "1";
       box.addEventListener("click", (event) => this._onControlClick(event));
+      // "toggle" bubbelt nicht - Capture. Nur den Zustand merken, NICHT neu zeichnen.
+      box.addEventListener(
+        "toggle",
+        (event) => {
+          const el = event.target;
+          if (el && el.classList && el.classList.contains("settings-accordion")) {
+            this._acc = this._acc || {};
+            this._acc[el.dataset.k] = el.open;
+          }
+        },
+        true
+      );
     }
     this._applyTabs();
+  }
+
+
+  /** Ausklappbarer Abschnitt (Design-Master: <details class="settings-accordion">). */
+  _accordion(k, icon, title, meta, body, variant = "", openDefault = false) {
+    this._acc = this._acc || {};
+    const open = this._acc[k] === undefined ? openDefault : this._acc[k];
+    return `
+      <details class="settings-accordion${variant ? ` ${variant}` : ""}" data-k="${escapeHtml(k)}"${open ? " open" : ""}>
+        <summary>
+          <ha-icon icon="${escapeHtml(icon)}"></ha-icon>
+          <span class="settings-title">${escapeHtml(title)}</span>
+          <span class="settings-meta">${escapeHtml(meta || "")}</span>
+          <ha-icon class="settings-chevron" icon="mdi:chevron-down"></ha-icon>
+        </summary>
+        <div class="settings-line">${body}</div>
+      </details>`;
+  }
+
+  /** App-Version als Accordion: geoeffnet, orange bei neuerer Version. */
+  _versionAccordion(info) {
+    const update = !!(info.update_available && info.latest);
+    const meta = update
+      ? this._t("ver.update", { version: String(info.latest) })
+      : `v${String(info.installed)}`;
+    const lines = [
+      `<div class="fbn-kv"><span>${escapeHtml(this._t("ver.integration"))}</span><b>v${escapeHtml(String(info.installed))}</b></div>`,
+      `<div class="fbn-kv"><span>${escapeHtml(this._t("ver.card"))}</span><b>v${escapeHtml(FBN_VERSION)}</b></div>`,
+      this._versionHtml(info),
+    ];
+    return this._accordion(
+      "version",
+      update ? "mdi:arrow-up-bold-circle-outline" : "mdi:tag-outline",
+      this._t("ver.accordion"),
+      meta,
+      lines.join(""),
+      update ? "update" : "",
+      true
+    );
+  }
+
+  /* -- Reiter Online-Monitor ----------------------------------------- */
+
+  /** Zeichnet Online-Monitor, Verbindungsdetails und Online-Zaehler (nur bei neuem Inhalt). */
+  _renderOnline() {
+    const box = this.querySelector(".fbn-online");
+    if (!box) return;
+    const state = this._stateObj();
+    const data = (state && state.attributes && state.attributes.online_monitor) || null;
+    this._hasOnline = this._config.show_online !== false && !!data;
+    if (!this._hasOnline) {
+      box.innerHTML = "";
+      this._onlineSig = "";
+      return;
+    }
+    const sig = JSON.stringify(data) + this._lang();
+    if (sig === this._onlineSig) return;
+    this._onlineSig = sig;
+
+    const rate = (bytesPerSecond) => formatRate(bytesPerSecond == null ? null : bytesPerSecond / 1000);
+    const hosts = this._allHosts();
+    const nameOf = (mac) => {
+      const host = hosts.find((h) => String(h.mac || "").toUpperCase() === mac);
+      return (host && (host.label || host.name)) || mac;
+    };
+    const ov = data.overview;
+    let live = `<p class="fbn-om-hint">${escapeHtml(this._t("om.no_rates"))}</p>`;
+    if (ov) {
+      const spark = this._sparkline(ov.series_down || [], ov.series_up || []);
+      const maxCat = Math.max(1, ...(ov.categories || []).map((c) => (c.down || 0) + (c.up || 0)));
+      const cats = (ov.categories || [])
+        .map((c) => {
+          const total = (c.down || 0) + (c.up || 0);
+          const label = this._t(`om.cat.${c.type}`);
+          return `<div class="fbn-om-bar" title="${escapeHtml(rate(c.down))} / ${escapeHtml(rate(c.up))}">
+            <span>${escapeHtml(label === `om.cat.${c.type}` ? c.type : label)}</span>
+            <i><b style="width:${Math.round((total / maxCat) * 100)}%"></b></i>
+            <em>${escapeHtml(rate(total))}</em></div>`;
+        })
+        .join("");
+      const top = (ov.top || [])
+        .map(
+          (d) => `<div class="fbn-kv"><span>${escapeHtml(nameOf(d.mac))}</span>
+            <b>↓ ${escapeHtml(rate(d.down))} · ↑ ${escapeHtml(rate(d.up))}</b></div>`
+        )
+        .join("");
+      live = `
+        <div class="fbn-om-big">
+          <span><ha-icon icon="mdi:download"></ha-icon>${escapeHtml(rate(ov.down))}</span>
+          <span><ha-icon icon="mdi:upload"></ha-icon>${escapeHtml(rate(ov.up))}</span>
+        </div>
+        ${spark}
+        ${cats ? `<h4>${escapeHtml(this._t("om.categories"))}</h4>${cats}` : ""}
+        ${top ? `<h4>${escapeHtml(this._t("om.top"))}</h4>${top}` : ""}`;
+    }
+
+    const mbit = (kbit) => {
+      const n = Number(kbit);
+      return Number.isFinite(n) && n > 0 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(".", ",")} Mbit/s` : "—";
+    };
+    const conns = (data.connections || [])
+      .map((c) => {
+        const row = (label, value) =>
+          value ? `<div class="fbn-kv"><span>${escapeHtml(label)}</span><b>${escapeHtml(String(value))}</b></div>` : "";
+        const since = [c.conn_date, c.conn_time].filter((v) => v && !v.startsWith("--")).join(" ");
+        return `<h4>${escapeHtml(c.name || "")}${c.media_type ? ` · ${escapeHtml(c.media_type)}` : ""}</h4>
+          ${row(this._t("om.since"), since)}
+          ${row("IPv4", c.ip4_masqaddr && c.ip4_masqaddr !== "0.0.0.0" ? c.ip4_masqaddr : "")}
+          ${row("IPv4 " + this._t("om.gateway"), c.ip4_gateway && c.ip4_gateway !== "0.0.0.0" ? c.ip4_gateway : "")}
+          ${row("DNS", [c.ip4_first_dns, c.ip4_second_dns].filter((v) => v && v !== "0.0.0.0").join(", "))}
+          ${row("IPv6", c.ip6_addr)}
+          ${row(this._t("om.prefix"), c.ip6_prefix)}
+          ${row(this._t("om.max_down"), mbit(c.max_speed_down) !== "—" ? mbit(c.max_speed_down) : "")}
+          ${row(this._t("om.max_up"), mbit(c.max_speed_up) !== "—" ? mbit(c.max_speed_up) : "")}`;
+      })
+      .join("");
+
+    const periods = ["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "total"];
+    const counters = data.counters || {};
+    const rows = periods
+      .filter((p) => counters[p])
+      .map((p) => {
+        const c = counters[p];
+        return `<tr><td>${escapeHtml(this._t(`om.p.${p}`))}</td><td>${escapeHtml(formatBytes(c.down))}</td>
+          <td>${escapeHtml(formatBytes(c.up))}</td><td>${escapeHtml(formatBytes((c.down || 0) + (c.up || 0)))}</td></tr>`;
+      })
+      .join("");
+    const counterHtml = rows
+      ? `<table class="fbn-om-table"><thead><tr><th></th><th>↓</th><th>↑</th><th>Σ</th></tr></thead><tbody>${rows}</tbody></table>`
+      : `<p class="fbn-om-hint">${escapeHtml(this._t("om.no_counters"))}</p>`;
+    const errors = (data.errors || []).length
+      ? `<p class="fbn-om-hint fbn-om-err"><ha-icon icon="mdi:alert-outline"></ha-icon>${escapeHtml(
+          (data.errors || []).join(" · ")
+        )}</p>`
+      : "";
+
+    box.innerHTML = `
+      <div class="fbn-om-grid">
+        <section class="fbn-om-card"><h3><ha-icon icon="mdi:speedometer"></ha-icon>${escapeHtml(this._t("om.monitor"))}</h3>${live}</section>
+        <section class="fbn-om-card"><h3><ha-icon icon="mdi:lan-connect"></ha-icon>${escapeHtml(this._t("om.connection"))}</h3>${
+          conns || `<p class="fbn-om-hint">${escapeHtml(this._t("om.no_connection"))}</p>`
+        }</section>
+        <section class="fbn-om-card"><h3><ha-icon icon="mdi:counter"></ha-icon>${escapeHtml(this._t("om.counters"))}</h3>${counterHtml}</section>
+      </div>
+      ${errors}
+      <p class="fbn-om-hint">${escapeHtml(this._t("om.experimental"))}</p>`;
+  }
+
+  /** Kleiner Verlauf (Download/Upload) als SVG. */
+  _sparkline(down, up) {
+    const all = [...down, ...up];
+    if (down.length < 2 || !all.length) return "";
+    const max = Math.max(1, ...all);
+    const line = (values, cls) => {
+      const step = 200 / Math.max(1, values.length - 1);
+      const pts = values.map((v, i) => `${(i * step).toFixed(1)},${(38 - (v / max) * 36).toFixed(1)}`).join(" ");
+      return `<polyline class="${cls}" points="${pts}" fill="none" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`;
+    };
+    return `<svg class="fbn-om-spark" viewBox="0 0 200 40" preserveAspectRatio="none" role="img"
+        aria-label="${escapeHtml(this._t("om.monitor"))}">${line(down, "fbn-sp-down")}${line(up, "fbn-sp-up")}</svg>`;
+  }
+
+  /* -- Reiter Mesh (Karte) --------------------------------------------- */
+
+  /** Zeichnet das Mesh als Karte: FRITZ!Box, Repeater und ihre Geraete (wie Heimnetz -> Mesh). */
+  _renderMeshMap() {
+    const box = this.querySelector(".fbn-meshmap");
+    if (!box) return;
+    const state = this._stateObj();
+    const attributes = (state && state.attributes) || {};
+    const mesh = attributes.mesh && Array.isArray(attributes.mesh.members) ? attributes.mesh : null;
+    this._hasMesh = this._config.show_meshmap !== false && !!mesh && mesh.members.length > 1;
+    if (!this._hasMesh) {
+      box.innerHTML = "";
+      this._meshSig = "";
+      return;
+    }
+    const hosts = this._allHosts();
+    const members = mesh.members;
+    const root = members.find((m) => m.role === "box") || members[0];
+    const hubs = [root, ...members.filter((m) => m !== root)];
+    const byHub = new Map(hubs.map((h) => [h.name, []]));
+    let loose = 0;
+    for (const host of hosts) {
+      if (!host.active || host.is_repeater || host.mac_synthetic) continue;
+      const hub = host.connected_via && byHub.has(host.connected_via) ? host.connected_via : null;
+      if (hub) byHub.get(hub).push(host);
+      else loose += 1;
+    }
+    // Hosts ohne eindeutige Zuordnung haengen an der Box (Anzahl gesondert genannt).
+    const sig = JSON.stringify([hubs.map((h) => [h.name, h.online, h.model]), [...byHub].map(([k, v]) => [k, v.map((x) => [x.mac, x.link_mbit])]), loose, this._lang()]);
+    if (sig === this._meshSig) return;
+    this._meshSig = sig;
+
+    const rowH = 92;
+    const width = 640;
+    const rootX = 96;
+    const clusterX = 524;
+    const repX = 310;
+    let svg = "";
+    const others = hubs.slice(1);
+    const ys = others.map((_, i) => Math.round(55 + i * rowH));
+    const rootY = ys.length ? Math.round((ys[0] + ys[ys.length - 1]) / 2) : 55;
+    const boxClusterY = rootY + 84;
+    const height = Math.max(ys.length ? ys[ys.length - 1] + 60 : 0, boxClusterY + 40);
+    const node = (x, y, icon, title, sub, cls) => `
+      <g class="fbn-mm-node ${cls}" transform="translate(${x - 84} ${y - 26})">
+        <rect width="168" height="52" rx="12"/>
+        <foreignObject x="8" y="14" width="24" height="24"><ha-icon icon="${icon}" xmlns="http://www.w3.org/1999/xhtml"></ha-icon></foreignObject>
+        <text x="38" y="22" class="fbn-mm-t">${escapeHtml(String(title).slice(0, 19))}</text>
+        <text x="38" y="38" class="fbn-mm-s">${escapeHtml(String(sub).slice(0, 26))}</text>
+      </g>`;
+    ys.forEach((y, i) => {
+      svg += `<path class="fbn-mm-edge${others[i].online === false ? " fbn-mm-off" : ""}" d="M${rootX + 84} ${rootY} C ${rootX + 150} ${rootY}, ${repX - 150} ${y}, ${repX - 84} ${y}"/>`;
+    });
+    svg += node(rootX, rootY, "mdi:router-wireless", root.name || "FRITZ!Box", root.model || "FRITZ!Box", root.online === false ? "fbn-mm-off" : "fbn-mm-box");
+    others.forEach((m, i) => {
+      svg += node(repX, ys[i], m.online === false ? "mdi:access-point-network-off" : "mdi:access-point-network", m.name || "Repeater", m.model || "Repeater", m.online === false ? "fbn-mm-off" : "fbn-mm-rep");
+    });
+    const clusters = [[root, rootY, rootX]].concat(others.map((m, i) => [m, ys[i], repX]));
+    clusters.forEach(([hub, y, x], idx) => {
+      const list = byHub.get(hub.name) || [];
+      const extra = idx === 0 ? loose : 0;
+      const n = list.length + extra;
+      if (!n) return;
+      const speeds = list.map((h) => h.link_mbit).filter((v) => typeof v === "number");
+      const slow = speeds.length ? Math.min(...speeds) : null;
+      const cx = idx === 0 ? rootX : clusterX;
+      const cy = idx === 0 ? boxClusterY : y;
+      const label = this._t("mm.devices", { n });
+      const sub = slow != null ? this._t("mm.slowest", { v: String(slow).replace(".", ",") }) : "";
+      svg += idx === 0
+        ? `<path class="fbn-mm-edge fbn-mm-dash" d="M${rootX} ${rootY + 26} L ${cx} ${cy - 26}"/>`
+        : `<path class="fbn-mm-edge fbn-mm-dash" d="M${x + 84} ${y} L ${cx - 84} ${cy}"/>`;
+      svg += node(cx, cy, "mdi:devices", label, sub, "fbn-mm-cl");
+    });
+    const detail = clusters
+      .map(([hub], idx) => {
+        const list = (byHub.get(hub.name) || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        if (!list.length) return "";
+        const body = list
+          .map((h) => `<div class="fbn-kv"><span>${escapeHtml(h.label || h.name || h.mac)}</span>
+              <b>${escapeHtml([h.band, h.link_mbit != null ? `${String(h.link_mbit).replace(".", ",")} Mbit/s` : ""].filter(Boolean).join(" · ") || "—")}</b></div>`)
+          .join("");
+        return this._accordion(`mesh:${hub.name}`, hub.role === "box" ? "mdi:router-wireless" : "mdi:access-point-network", hub.name || "", this._t("mm.devices", { n: list.length }), body, "", idx === 0);
+      })
+      .join("");
+    box.innerHTML = `
+      <div class="fbn-mm-wrap">
+        <svg class="fbn-mm-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(this._t("tab.mesh"))}">${svg}</svg>
+      </div>
+      ${loose ? `<p class="fbn-om-hint">${escapeHtml(this._t("mm.loose", { n: loose }))}</p>` : ""}
+      ${detail}`;
+    if (!box.dataset.bound) {
+      box.dataset.bound = "1";
+      box.addEventListener(
+        "toggle",
+        (event) => {
+          const el = event.target;
+          if (el && el.classList && el.classList.contains("settings-accordion")) {
+            this._acc = this._acc || {};
+            this._acc[el.dataset.k] = el.open;
+          }
+        },
+        true
+      );
+    }
   }
 
   /**
@@ -2245,12 +2533,13 @@ class FritzboxNetzwerkCard extends HTMLElement {
 
   /* -- Tabs (Kategorien) -------------------------------------------- */
 
-  /** Welche Tabs es aktuell gibt: Netzwerk immer, Steuerung wenn vorhanden. */
+  /** Welche Tabs es aktuell gibt: Netzwerk immer, Online-Monitor/Mesh/Einstellungen wenn vorhanden. */
   _tabList() {
     const tabs = [{ key: "network", icon: "mdi:lan" }];
-    if (this._hasControls) {
-      tabs.push({ key: "controls", icon: "mdi:router-wireless-settings" });
-    }
+    if (this._hasOnline) tabs.push({ key: "online", icon: "mdi:chart-areaspline" });
+    if (this._hasMesh) tabs.push({ key: "mesh", icon: "mdi:router-network" });
+    // Einstellungen (frueher "Steuerung") ist immer der letzte Reiter.
+    if (this._hasControls) tabs.push({ key: "controls", icon: "mdi:cog" });
     return tabs;
   }
 
@@ -2330,6 +2619,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
       });
       if (empty) empty.hidden = !this._emptyWanted;
       if (controls) controls.hidden = !this._hasControls;
+      const online0 = root.querySelector(".fbn-online");
+      const mesh0 = root.querySelector(".fbn-meshmap");
+      if (online0) online0.hidden = !this._hasOnline;
+      if (mesh0) mesh0.hidden = !this._hasMesh;
       return;
     }
     // Mit Tabs: ausschliesslich die Sektionen des aktiven Tabs zeigen.
@@ -2344,6 +2637,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
       el.hidden = !belongs;
     });
     if (controls && this._tab === "controls") controls.hidden = !this._hasControls;
+    const online = root.querySelector(".fbn-online");
+    const meshmap = root.querySelector(".fbn-meshmap");
+    if (online && !this._hasOnline) online.hidden = true;
+    if (meshmap && !this._hasMesh) meshmap.hidden = true;
   }
 
   /** Reagiert auf Klicks in der Steuerungsleiste. */
@@ -4131,6 +4428,63 @@ class FritzboxNetzwerkCard extends HTMLElement {
         font-size: 0.85em; color: var(--fbn-header-text);
       }
       .fbn-ctl-rate ha-icon { --mdc-icon-size: 16px; width: 16px; height: 16px; }
+      .fbn-controls .settings-accordion { flex: 1 1 100%; }
+      .settings-accordion {
+        border: 1px solid var(--divider-color, rgba(127,127,127,.3)); border-radius: 12px;
+        margin: 6px 16px; overflow: hidden;
+      }
+      .fbn-controls .settings-accordion { margin: 0; }
+      .settings-accordion > summary {
+        display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: pointer;
+        list-style: none; font-size: 0.92em;
+      }
+      .settings-accordion > summary::-webkit-details-marker { display: none; }
+      .settings-accordion > summary ha-icon { --mdc-icon-size: 20px; width: 20px; height: 20px; color: var(--fbn-accent); }
+      .settings-title { font-weight: 600; }
+      .settings-meta { margin-left: auto; font-size: 0.85em; color: var(--fbn-header-text); }
+      .settings-accordion .settings-chevron { color: var(--fbn-header-text); transition: transform .15s; }
+      .settings-accordion[open] .settings-chevron { transform: rotate(180deg); }
+      .settings-accordion > summary:focus-visible { outline: 2px solid var(--fbn-accent); outline-offset: -2px; }
+      .settings-line { padding: 4px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+      .settings-accordion.update { border-color: var(--warning-color, #ff9800); }
+      .settings-accordion.update > summary ha-icon:first-child, .settings-accordion.update .settings-meta {
+        color: var(--warning-color, #ff9800); font-weight: 600;
+      }
+      .fbn-kv { display: flex; justify-content: space-between; gap: 12px; font-size: 0.88em; }
+      .fbn-kv span { color: var(--fbn-header-text); }
+      .fbn-kv b { font-weight: 500; text-align: right; word-break: break-word; }
+      .fbn-online, .fbn-meshmap { padding: 4px 0 10px; }
+      .fbn-om-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; padding: 0 16px; }
+      .fbn-om-card { border: 1px solid var(--divider-color, rgba(127,127,127,.3)); border-radius: 12px; padding: 10px 12px; }
+      .fbn-om-card h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 0.95em; }
+      .fbn-om-card h3 ha-icon { --mdc-icon-size: 20px; width: 20px; height: 20px; color: var(--fbn-accent); }
+      .fbn-om-card h4 { margin: 10px 0 4px; font-size: 0.82em; color: var(--fbn-header-text); font-weight: 600; }
+      .fbn-om-big { display: flex; gap: 16px; font-size: 1.25em; font-weight: 600; }
+      .fbn-om-big ha-icon { --mdc-icon-size: 18px; width: 18px; height: 18px; margin-right: 4px; color: var(--fbn-accent); }
+      .fbn-om-spark { width: 100%; height: 44px; margin-top: 6px; }
+      .fbn-sp-down { stroke: var(--fbn-accent); } .fbn-sp-up { stroke: var(--fbn-active, #43a047); }
+      .fbn-om-bar { display: grid; grid-template-columns: 90px 1fr auto; align-items: center; gap: 8px; font-size: 0.85em; margin: 3px 0; }
+      .fbn-om-bar i { height: 8px; border-radius: 4px; background: rgba(127,127,127,.2); overflow: hidden; display: block; }
+      .fbn-om-bar b { display: block; height: 100%; background: var(--fbn-accent); }
+      .fbn-om-bar em { font-style: normal; color: var(--fbn-header-text); }
+      .fbn-om-table { width: 100%; border-collapse: collapse; font-size: 0.88em; }
+      .fbn-om-table th, .fbn-om-table td { text-align: right; padding: 3px 4px; }
+      .fbn-om-table th:first-child, .fbn-om-table td:first-child { text-align: left; }
+      .fbn-om-hint { margin: 8px 16px 0; font-size: 0.8em; color: var(--fbn-header-text); }
+      .fbn-om-card .fbn-om-hint { margin: 0; }
+      .fbn-om-err { color: var(--error-color, #db4437); display: flex; gap: 4px; align-items: center; }
+      .fbn-mm-wrap { padding: 0 16px; overflow-x: auto; }
+      .fbn-mm-svg { width: 100%; max-width: 680px; height: auto; display: block; margin: 0 auto; }
+      .fbn-mm-node rect { fill: var(--card-background-color, #fff); stroke: var(--fbn-accent); stroke-width: 1.5; }
+      .fbn-mm-node.fbn-mm-cl rect { stroke: var(--divider-color, #999); stroke-dasharray: 4 3; }
+      .fbn-mm-node.fbn-mm-off rect { stroke: var(--fbn-blocked, #db4437); opacity: .6; }
+      .fbn-mm-node ha-icon { --mdc-icon-size: 24px; width: 24px; height: 24px; color: var(--fbn-accent); }
+      .fbn-mm-t { font-size: 12px; font-weight: 600; fill: var(--primary-text-color, #222); }
+      .fbn-mm-s { font-size: 10px; fill: var(--fbn-header-text, #777); }
+      .fbn-mm-edge { fill: none; stroke: var(--fbn-accent); stroke-width: 2; }
+      .fbn-mm-dash { stroke: var(--divider-color, #999); stroke-dasharray: 4 3; stroke-width: 1.5; }
+      .fbn-mm-off.fbn-mm-edge { stroke: var(--fbn-blocked, #db4437); opacity: .5; }
+      .fbn-meshmap .settings-accordion { margin: 8px 16px 0; }
       .fbn-ctl-verbox {
         display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto;
       }
@@ -4502,6 +4856,8 @@ const EDITOR_SCHEMA = [
       { name: "show_parental", selector: { boolean: {} } },
       { name: "show_static_ip", selector: { boolean: {} } },
       { name: "show_tabs", selector: { boolean: {} } },
+      { name: "show_online", selector: { boolean: {} } },
+      { name: "show_meshmap", selector: { boolean: {} } },
       {
         name: "group_by",
         selector: {
@@ -4635,11 +4991,13 @@ const EDITOR_LABELS = {
   show_summary: "Zusammenfassung anzeigen",
   show_search: "Suchfeld anzeigen",
   show_filter: "Filterleiste anzeigen",
-  show_controls: "Steuerungsleiste anzeigen",
-  show_version: "Version und Update-Hinweis anzeigen",
+  show_controls: "Einstellungen (Steuerungsleiste) anzeigen",
+  show_version: "Version (Accordion) und Update-Hinweis anzeigen",
   show_parental: "Zugangsprofil (Kindersicherung) im Popup anzeigen",
   show_static_ip: "Statische IP (experimentell) im Popup anzeigen",
   show_tabs: "Kategorien als Tabs anzeigen",
+  show_online: "Reiter Online-Monitor anzeigen",
+  show_meshmap: "Reiter Mesh (Karte) anzeigen",
   filter_alle: "Button „Alle“",
   filter_aktiv: "Button „Aktiv“",
   filter_inaktiv: "Button „Inaktiv“",
@@ -4667,9 +5025,9 @@ const EDITOR_LABELS = {
 };
 
 const EDITOR_HELPERS = {
-  show_tabs: "Zeigt oben Reiter für die Kategorien Netzwerk und Steuerung. Jeder Reiter zeigt ausschließlich seine eigenen Elemente: Netzwerk die Filter, die Suche und die Geräteliste, Steuerung die Down/Up-Anzeige, die WLAN-Schalter und Neuverbinden/Neustart. Der Steuerungs-Reiter erscheint nur, wenn die Steuerungsleiste aktiviert ist. Ohne Reiter erscheinen beide Bereiche wie bisher untereinander.",
+  show_tabs: "Zeigt oben Reiter für die Kategorien Netzwerk, Online-Monitor, Mesh und Einstellungen. Jeder Reiter zeigt ausschließlich seine eigenen Elemente: Netzwerk die Filter, die Suche und die Geräteliste, Online-Monitor die Raten, Verbindungsdetails und Online-Zähler, Mesh die Karte, Einstellungen die Down/Up-Anzeige, die WLAN-Schalter, Neuverbinden/Neustart und die App-Version. Online-Monitor und Mesh erscheinen nur, wenn Daten da sind (Online-Monitor: Datenverbrauchs-Erfassung in den Integrationsoptionen an; Mesh: mindestens ein Repeater), Einstellungen nur, wenn die Steuerungsleiste aktiviert ist. Ohne Reiter erscheinen beide Bereiche wie bisher untereinander.",
   show_controls: "Zeigt in der Karte eine Leiste mit Live-Down/Up sowie – wenn die FRITZ!Box-Steuerung in den Integrationseinstellungen aktiviert ist – WLAN-Schaltern, MAC-Filter/Pairing und den Buttons Neuverbinden/Neustart. Gibt es Repeater, erscheint zusätzlich die Mesh-Gruppe (FRITZ!Box + Repeater) mit „Alle neu starten“.",
-  show_version: "Zeigt auf der Steuerungsseite die Version der Integration. Gibt es eine neuere Version, wird sie farblich hervorgehoben.",
+  show_version: "Zeigt in den Einstellungen die Version der Integration als ausklappbaren Bereich. Gibt es eine neuere Version, wird sie farblich hervorgehoben.",
   show_static_ip: "Zeigt im Geräte-Popup die Zeile „Statische IP“ (feste IPv4-Adresse zuweisen, mit Prüfung gegen doppelte Adressen). Schreiben nur mit eingeschalteter Integrationsoption.",
   show_parental: "Zeigt im Geräte-Popup die Auswahl des Zugangsprofils (Kindersicherung). Erscheint nur, wenn die Funktion in den Integrationsoptionen eingeschaltet ist.",
   hide_inactive: "Blendet Geräte aus, die gerade nicht verbunden sind. Die Ansichten „Inaktiv“ und „Lange offline“ zeigen sie trotzdem. Fehlen Offline-Geräte in der Liste, zuerst prüfen, ob dieser Schalter an ist und welcher Filter („Aktiv“, „Alle“) beim Laden gewählt wird.",
@@ -4742,14 +5100,18 @@ const EDITOR_TX = {
     help_mac_click_copies: "A click on the MAC address in the table copies it to the clipboard instead of opening the detail popup. Without HTTPS the card uses a fallback method; if that fails too, a notice appears. The popup keeps its copy button.",
     show_summary: "Show summary", show_search: "Show search field",
     show_filter: "Show filter bar",
-    show_controls: "Show controls bar",
+    show_controls: "Show settings (controls bar)",
     show_version: "Show version and update notice",
     show_parental: "Show access profile (parental control) in the popup",
     show_static_ip: "Show static IP (experimental) in the popup",
     show_tabs: "Show categories as tabs",
-    help_show_tabs: "Shows tabs for the Network and Controls categories at the top. Each tab shows only its own elements: Network the filters, search and device list, Controls the download/upload display, Wi-Fi switches and reconnect/reboot. The Controls tab only appears when the controls bar is enabled. Without tabs, both areas appear below each other as before.",
+    show_online: "Show Online monitor tab",
+    help_show_online: "Shows the Online monitor tab (rates, connection details, online counter). Needs data-usage capture to be enabled in the integration options.",
+    show_meshmap: "Show Mesh (map) tab",
+    help_show_meshmap: "Shows the mesh network as a map, like Home network → Mesh in the FRITZ!Box. Only appears if at least one repeater exists.",
+    help_show_tabs: "Shows tabs for the Network, Online monitor, Mesh and Settings categories at the top. Each tab shows only its own elements: Network the filters, search and device list, Online monitor rates, connection details and counters, Mesh the map, Settings the download/upload display, Wi-Fi switches, reconnect/reboot and the app version. Online monitor and Mesh only appear when data exists; Settings only when the controls bar is enabled. Without tabs, both areas appear below each other as before.",
     help_show_controls: "Shows a bar with live download/upload and \u2013 if FRITZ!Box controls are enabled in the integration settings \u2013 Wi-Fi switches, MAC filter/pairing and reconnect/reboot buttons. If there are repeaters, a mesh group (FRITZ!Box + repeaters) with \u201cRestart all\u201d is shown as well.",
-    help_show_version: "Shows the integration version on the controls page. If a newer version exists it is highlighted in colour.",
+    help_show_version: "Shows the integration version as an accordion in the settings. If a newer version exists it is highlighted in colour.",
     help_show_static_ip: "Shows the “Static IP” row in the device popup (assign a fixed IPv4 address, checked against duplicates). Writing only with the integration option enabled.",
     help_show_parental: "Shows the access profile selection (parental control) in the device popup. Only appears if the feature is enabled in the integration options.",
     filter_alle: '"All" button', filter_aktiv: '"Active" button',
@@ -4829,14 +5191,18 @@ const EDITOR_TX = {
     help_mac_click_copies: "Een klik op het MAC-adres in de tabel kopieert het naar het klembord in plaats van het detailvenster te openen. Zonder HTTPS gebruikt de kaart een terugvalmethode; lukt die ook niet, dan verschijnt een melding. Het detailvenster houdt zijn kopieerknop.",
     show_summary: "Samenvatting tonen", show_search: "Zoekveld tonen",
     show_filter: "Filterbalk tonen",
-    show_controls: "Bedieningsbalk tonen",
+    show_controls: "Instellingen (bedieningsbalk) tonen",
     show_version: "Versie en updatemelding tonen",
     show_parental: "Toegangsprofiel (ouderlijk toezicht) in de popup tonen",
     show_static_ip: "Statisch IP (experimenteel) in de popup tonen",
     show_tabs: "Categorieën als tabs tonen",
-    help_show_tabs: "Toont bovenaan tabs voor de categorieën Netwerk en Bediening. Elke tab toont uitsluitend de eigen elementen: Netwerk de filters, het zoekveld en de apparatenlijst, Bediening de download/upload-weergave, de wifi-schakelaars en opnieuw verbinden/herstarten. De tab Bediening verschijnt alleen als de bedieningsbalk is ingeschakeld. Zonder tabs verschijnen beide gebieden onder elkaar zoals voorheen.",
+    show_online: "Tab Online-monitor tonen",
+    help_show_online: "Toont de tab Online-monitor (snelheden, verbindingsdetails, online-teller). Vereist ingeschakelde gegevensverbruik-registratie in de integratie-opties.",
+    show_meshmap: "Tab Mesh (kaart) tonen",
+    help_show_meshmap: "Toont het mesh-netwerk als kaart, zoals Thuisnetwerk → Mesh in de FRITZ!Box. Verschijnt alleen als er minstens één repeater is.",
+    help_show_tabs: "Toont bovenaan tabs voor de categorieën Netwerk, Online-monitor, Mesh en Instellingen. Elke tab toont uitsluitend de eigen elementen: Netwerk de filters, het zoekveld en de apparatenlijst, Online-monitor snelheden, verbindingsdetails en tellers, Mesh de kaart, Instellingen de download/upload-weergave, de wifi-schakelaars, opnieuw verbinden/herstarten en de app-versie. Online-monitor en Mesh verschijnen alleen met gegevens; Instellingen alleen als de bedieningsbalk is ingeschakeld. Zonder tabs verschijnen beide gebieden onder elkaar zoals voorheen.",
     help_show_controls: "Toont een balk met live download/upload en \u2013 als de FRITZ!Box-bediening in de integratie-instellingen is ingeschakeld \u2013 wifi-schakelaars, MAC-filter/koppelen en knoppen voor opnieuw verbinden/herstarten. Als er repeaters zijn, verschijnt ook de meshgroep (FRITZ!Box + repeaters) met \u201cAlles herstarten\u201d.",
-    help_show_version: "Toont op de bedieningspagina de versie van de integratie. Is er een nieuwere versie, dan wordt die gekleurd gemarkeerd.",
+    help_show_version: "Toont in de instellingen de versie van de integratie als uitklapbaar onderdeel. Is er een nieuwere versie, dan wordt die gekleurd gemarkeerd.",
     help_show_static_ip: "Toont in de apparaat-popup de rij „Statisch IP” (vast IPv4-adres toewijzen, gecontroleerd op dubbele adressen). Schrijven alleen met ingeschakelde integratie-optie.",
     help_show_parental: "Toont in de apparaat-popup de keuze van het toegangsprofiel (ouderlijk toezicht). Verschijnt alleen als de functie in de integratie-opties is ingeschakeld.",
     filter_alle: 'Knop "Alle"', filter_aktiv: 'Knop "Actief"',

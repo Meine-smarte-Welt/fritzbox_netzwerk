@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 0b1eac6df3b9f08e3f7a238c7eee31c0f0c4514bf4e9d22f048c5cea96d1a9a3
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 3af8a250cdea16f378a72609288d1b5623b421c249cf576752a8aa814f9ab4e4
 """Inoffizieller Zugriff auf die FRITZ!Box-Weboberfläche (nur lesend).
 
 ACHTUNG - EXPERIMENTELL: Dieses Modul spricht NICHT TR-064, sondern die
@@ -623,3 +623,18 @@ def assign_profile(
     finally:
         logout(session, base, sid)
     return {"previous": previous, "profile": target["id"], "name": target["name"]}
+
+
+def fetch_online_extras(session: Any, base: str, user: str, password: str) -> dict[str, Any]:
+    """Liest Verbindungsdetails und Online-Zaehler (je Teil unabhaengig; Fehler stehen in ``errors``)."""
+    sid = login(session, base, user, password)
+    result: dict[str, Any] = {"connections": None, "inetstat": None, "errors": []}
+    try:
+        for key, path in (("connections", "api/v0/generic/connections"), ("inetstat", "api/v0/generic/inetstat")):
+            try:
+                result[key] = monitor_get(session, base, sid, path)
+            except ValueError as err:
+                result["errors"].append(str(err))
+    finally:
+        logout(session, base, sid)
+    return result

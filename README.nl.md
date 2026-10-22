@@ -7,7 +7,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b6-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b7-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Dit is de Nederlandse uitgave. De Duitse [README.md](README.md) is het hoofdbestand en bevat de volledige kaartreferentie, het hoofdstuk probleemoplossing en de complete versiegeschiedenis. Onderdelen met „alleen Duits” zijn nog niet vertaald.
@@ -383,6 +383,15 @@ De tests voor 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `tes
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 2.0.0b7 – Nieuwe tabs: Online-monitor en Mesh-kaart, „Instellingen” met versie-accordeon
+
+**Bèta (voorversie).** Bouwt voort op 2.0.0b6. **Niet getest op een echte FRITZ!Box** – alleen de formaten van *verbindingsdetails* en *online-monitor* zijn in de browser gelezen op een FRITZ!Box 5690 Pro (FRITZ!OS 8.40); de opbouw van de *online-teller* is onbekend en wordt soepel gelezen.
+
+- **Nieuw – tab „Online-monitor”** (`mdi:chart-areaspline`): actuele download-/uploadsnelheid met verloop, belasting per prioriteit, grootste verbruikers, **verbindingsdetails** (medium, online sinds, IPv4/IPv6, gateway, DNS, maximale snelheid; inlognaam en wachtwoord worden nooit overgenomen) en **online-teller** (vandaag, gisteren, week, maand, totaal). Vereist ingeschakelde gegevensverbruik-registratie.
+- **Nieuw – tab „Mesh”** (`mdi:router-network`): kaart zoals *Thuisnetwerk → Mesh* van de box: FRITZ!Box, repeaters en de aangesloten apparaten met verbindingssnelheid. Alleen met minstens één repeater.
+- **Gewijzigd:** de tab **„Bediening” heet nu „Instellingen”** (tandwiel `mdi:cog`, altijd de laatste tab). De **app-versie** staat daar als uitklapbaar onderdeel (open; oranje bij een nieuwe versie).
+- **Diagnose:** de diagnose-download bevat `traffic.online_extras`.
 
 ### 2.0.0b6 – Online Monitor voor FRITZ!OS 8.x (bekeken op een FRITZ!Box 5690 Pro)
 

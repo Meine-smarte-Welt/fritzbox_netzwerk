@@ -9,7 +9,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b6-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b7-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -108,7 +108,7 @@ passenden Home-Assistant-Gerätenamen.
   für ein paar Minuten ins WLAN lassen, danach schaltet sich der Filter selbst wieder ein
 - **Kindersicherung** (seit 1.7.0, experimentell): Zugangsprofile der FRITZ!Box im Geräte-Popup
   der Karte oder per Dienst wechseln – auch **zeitweise** („Tablet 60 Minuten auf Gesperrt“)
-- **Version und Update-Hinweis** auf der Steuerungsseite der Karte: Eine neue Version wird
+- **Version und Update-Hinweis** in den Einstellungen der Karte: Eine neue Version wird
   farblich hervorgehoben, mit Link zu den Release-Notizen
 - **Etikett, Notiz und „reserviert“-Markierung** je Gerät, **Gruppieren**, **CSV-Export** und
   **gemerkte Ansicht** in der Karte
@@ -935,16 +935,11 @@ Reiterleiste im Stil von *FRITZ!Box Anrufe*:
 | Reiter | Was darin erscheint |
 | --- | --- |
 | **Netzwerk** (`mdi:lan`) | Filterleiste, Suchfeld, Zusammenfassung, Geräteliste |
-| **Steuerung** (`mdi:router-wireless-settings`) | Download/Upload, WLAN-Schalter, MAC-Filter, Pairing, Neuverbinden, Neustart, Mesh-Gruppe |
+| **Online-Monitor** (`mdi:chart-areaspline`) | Aktuelle Down-/Upload-Rate mit Verlauf, Auslastung nach Priorität, größte Verbraucher, Verbindungsdetails, Online-Zähler (heute/gestern/Woche/Monat/gesamt). Nur mit eingeschalteter Datenverbrauchs-Erfassung (Editor: *Reiter Online-Monitor anzeigen*) |
+| **Mesh** (`mdi:router-network`) | Karte wie *Heimnetz → Mesh* der Box: FRITZ!Box, Repeater und die verbundenen Geräte mit Verbindungsrate. Nur mit mindestens einem Repeater (Editor: *Reiter Mesh (Karte) anzeigen*) |
+| **Einstellungen** (`mdi:cog`, früher „Steuerung“) | Download/Upload, WLAN-Schalter, MAC-Filter, Pairing, Neuverbinden, Neustart, Mesh-Gruppe und die **App-Version als aufklappbarer Bereich** (offen, orange bei neuer Version) |
 
-Die Trennung ist strikt: Im Reiter *Netzwerk* erscheinen keine Steuerungselemente, im Reiter
-*Steuerung* keine Filter, kein Suchfeld und keine Geräteliste. Es wird nichts doppelt
-angezeigt.
-
-Der Reiter *Steuerung* wird nur angelegt, wenn es tatsächlich etwas zu steuern gibt – also
-wenn die Steuerungsleiste eingeschaltet ist und die FRITZ!Box entsprechende Werte liefert.
-Gibt es nur eine Kategorie, verschwindet die Reiterleiste ganz, statt einen toten Reiter zu
-zeigen.
+Die Trennung ist strikt: Jeder Reiter zeigt nur seine eigenen Elemente, nichts erscheint doppelt. Reiter ohne Daten werden nicht angelegt; gibt es nur eine Kategorie, verschwindet die Reiterleiste ganz. Der Reiter *Einstellungen* ist immer der letzte.
 
 Sind die Tabs ausgeschaltet (Standard), verhält sich die Karte wie bisher: Filter, Suche,
 Liste und – falls aktiviert – die Steuerungsleiste erscheinen gemeinsam untereinander in
@@ -974,7 +969,7 @@ Button nicht.
 
 ### Version und Update-Hinweis
 
-Auf der Steuerungsseite (Steuerungsleiste, bei Tabs der Tab „Steuerung“) zeigt die Karte die
+In den Einstellungen (Steuerungsleiste, bei Tabs der Tab „Einstellungen“) zeigt die Karte die
 **installierte Version der Integration** (`v1.9.0`). Gibt es bei GitHub eine neuere veröffentlichte
 Version, erscheint **direkt daneben ein farbig hervorgehobener Hinweis** („Update 1.8.1“, Farbe =
 Warnfarbe des Themes) mit Link zu den Release-Notizen. Die Prüfung läuft einmal täglich und lässt
@@ -1744,7 +1739,7 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `99de00dbf0a1338584d66513f49b736961d30537e7312f690c02e12461022d40` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `828e98cec6c86477f6a93abcd72ba727fc5f2a90b0aaee6b051e8d96d372120a` |
 | `custom_components/fritzbox_netzwerk/strings.json` | `eba3c30deb99cf0b7fdd02db735a87a626ca4783c2c355fcc8203ac7ef1deb49` |
 | `custom_components/fritzbox_netzwerk/translations/de.json` | `c855d21892eef9e2db423dbe075b49f954d5a9199f94201dfbebcaa8336a0699` |
 | `custom_components/fritzbox_netzwerk/translations/en.json` | `b7612495e4bd9251381269008685314e3ec98b577c167a254cca8e3a4e697d6d` |
@@ -1786,6 +1781,16 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.0.0b7 – Neue Reiter: Online-Monitor und Mesh-Karte, „Einstellungen“ mit Versions-Accordion
+
+**Beta (Vorabversion).** Baut auf 2.0.0b6 auf. **Nicht an einer echten FRITZ!Box geprüft** – nur die Datenformate von *Verbindungsdetails* und *Online-Monitor* wurden an einer FRITZ!Box 5690 Pro (FRITZ!OS 8.40) im Browser gelesen; der Aufbau der *Online-Zähler* ist unbekannt und wird daher tolerant gelesen.
+
+- **Neu – Reiter „Online-Monitor“** (`mdi:chart-areaspline`, Editor: *Reiter Online-Monitor anzeigen*): aktuelle Down-/Upload-Rate mit Verlauf, Auslastung nach Priorität, größte Verbraucher, **Verbindungsdetails** (Medium, online seit, IPv4/IPv6, Gateway, DNS, Maximaltempo; Zugangsname und Passwort werden nie übernommen) und **Online-Zähler** (heute, gestern, Woche, Monat, gesamt). Erscheint nur mit eingeschalteter Datenverbrauchs-Erfassung.
+- **Neu – Reiter „Mesh“** (`mdi:router-network`, Editor: *Reiter Mesh (Karte) anzeigen*): Karte wie *Heimnetz → Mesh* der Box: FRITZ!Box, Repeater und je Knoten die verbundenen Geräte mit Verbindungsrate. Erscheint nur mit mindestens einem Repeater.
+- **Geändert:** Der Reiter **„Steuerung“ heißt jetzt „Einstellungen“** (Zahnrad `mdi:cog`, immer letzter Reiter). Die **App-Version** steht dort als aufklappbarer Bereich (offen; orange bei neuer Version).
+- **Diagnose:** Der Diagnose-Download enthält unter `traffic.online_extras` die erkannten Zähler und den Aufbau der Zähler-Antwort (nur Schlüsselnamen).
+- **Bekannt:** Ob die Online-Zähler auf deiner Box erkannt werden, zeigt sich erst im Test; falls nicht, hilft die Diagnose.
 
 ### 2.0.0b6 – Online-Monitor für FRITZ!OS 8.x (an einer FRITZ!Box 5690 Pro betrachtet)
 

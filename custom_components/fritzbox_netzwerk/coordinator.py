@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 335001f3407df6e1ee90644f9b7c814b7f441fec2282349a5de1d393d8079166
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 35caf1896b7fb9226a9045ccb73ead46e2b82bd743d95f34df0ae6d4f830f02b
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -135,6 +135,7 @@ from .hosts import (
 )
 from .blueprints_install import install_blueprints
 from .mesh_topology import fetch_mesh
+from .online_monitor import inetstat_shape, parse_connections, parse_inetstat, parse_overview
 from .traffic import (
     TrafficLedger,
     apply_traffic,
@@ -167,6 +168,7 @@ from .webui import (
     assign_profile,
     base_url,
     fetch_monitor,
+    fetch_online_extras,
     fetch_reservations,
     fetch_system_stats,
     get_device_profile,
@@ -261,6 +263,11 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._traffic_info: dict[str, Any] = {}
         self._traffic_shape: dict[str, Any] = {}
         self._traffic_base: str | None = None
+        # Online-Monitor-Reiter der Karte (seit 2.0.0b7): Raten, Verbindungsdetails, Zaehler.
+        self._online_overview: dict[str, Any] | None = None
+        self._online_extras: dict[str, Any] = {}
+        self._online_extras_scan: float | None = None
+        self._online_extras_errors: list[str] = []
         self._address_source_scan: datetime | None = None
         self._address_source_failed = False
         # DHCP-Bereich der Box (erste, letzte Adresse als Zahl): dient der
@@ -557,6 +564,12 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "clock_resets": stats.get("resets"),
             "last_sample_end": stats.get("last_end"),
             "shape": dict(self._traffic_shape),
+            "online_extras": {
+                "errors": list(self._online_extras_errors),
+                "counters_found": sorted((self._online_extras.get("counters") or {}).keys()),
+                "counters_shape": self._online_extras.get("counters_shape"),
+                "connections": len(self._online_extras.get("connections") or []),
+            },
         }
 
     def _fritzos(self) -> str | None:
@@ -593,6 +606,36 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         return key, details
 
+    def _fetch_online_extras(self) -> None:
+        """Verbindungsdetails und Online-Zaehler der Box lesen (alle 5 Minuten, blockierend)."""
+        now = time.monotonic()
+        if self._online_extras_scan is not None and now - self._online_extras_scan < 300:
+            return
+        self._online_extras_scan = now
+        try:
+            found = self._run_web(fetch_online_extras)
+        except (ValueError, RequestException) as err:
+            self._online_extras_errors = [str(err)]
+            return
+        self._online_extras_errors = list(found.get("errors") or [])
+        self._online_extras = {
+            "connections": parse_connections(found.get("connections")),
+            "counters": parse_inetstat(found.get("inetstat")),
+            "counters_shape": inetstat_shape(found.get("inetstat")) if found.get("inetstat") is not None else None,
+        }
+
+    @property
+    def online_monitor(self) -> dict[str, Any] | None:
+        """Daten fuer den Reiter "Online-Monitor" der Karte (``None`` ohne Erfassung)."""
+        if not self.traffic_enabled:
+            return None
+        return {
+            "overview": self._online_overview,
+            "connections": self._online_extras.get("connections") or [],
+            "counters": self._online_extras.get("counters") or {},
+            "errors": (self._online_extras_errors + ([self._traffic_error] if self._traffic_error else []))[:4],
+        }
+
     def _fetch_traffic(self) -> None:
         """Liest die Datenraten des Online-Monitors und rechnet sie ein (blockierend).
 
@@ -625,6 +668,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             self._traffic_map_scan = now
             self._traffic_shape.update(online_shape(found.get("online"), found.get("interval")))
+            self._online_overview = parse_overview(found.get("online"), self._traffic._factor)
         else:
             if refresh:
                 self._traffic_map, self._traffic_counts = build_source_map(
@@ -695,6 +739,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             refreshed = True
         if self.traffic_enabled:
             self._fetch_traffic()
+            self._fetch_online_extras()
         if self._dhcp_pool_due():
             self._dhcp_pool = self._fetch_dhcp_pool()
             self._dhcp_pool_scan = dt_util.utcnow()
@@ -1814,6 +1859,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "track_address_source": self.track_address_source,
             "system": self._system_stats,
             "version": self.version_info,
+            "online_monitor": self.online_monitor,
         }
 
     # -- Hersteller (OUI) -------------------------------------------------

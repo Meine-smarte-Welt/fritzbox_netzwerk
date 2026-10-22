@@ -7,7 +7,7 @@
 
 Une intégration Home Assistant qui affiche tous les appareils du réseau domestique FRITZ!Box sur votre tableau de bord sous forme de tableau triable – avec adresse IP, adresse MAC, type de connexion et nom de l'appareil Home Assistant correspondant.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b6-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b7-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Ceci est l'édition française du README, disponible en cinq langues (voir la barre de langues ci-dessus). Le [README.md](README.md) allemand est le fichier principal : il contient la référence complète de la carte, le chapitre de dépannage et l'historique complet des versions. Les sections marquées « en allemand uniquement » ne sont pas encore traduites. L'intégration et la carte elles-mêmes sont traduites en allemand, anglais et néerlandais.
@@ -363,6 +363,15 @@ Les tests pour 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `te
 Le dépôt contient les tests pour 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`) ; ils s'exécutent sur des données synthétiques, pas sur du matériel réel. Les tests de 1.8.0 pour `dns_settings.py` et `static_ip.py` ne sont pas versionnés.
 
 ## Historique des versions
+
+### 2.0.0b7 – Nouveaux onglets : Moniteur en ligne et carte Mesh, « Paramètres » avec accordéon de version
+
+**Bêta (préversion).** Repose sur 2.0.0b6. **Non testé sur une vraie FRITZ!Box** – seuls les formats des *détails de connexion* et du *moniteur en ligne* ont été lus dans le navigateur sur une FRITZ!Box 5690 Pro (FRITZ!OS 8.40) ; la structure du *compteur en ligne* est inconnue et lue avec tolérance.
+
+- **Nouveau – onglet « Moniteur en ligne »** (`mdi:chart-areaspline`) : débit descendant/montant actuel avec historique, charge par priorité, plus gros consommateurs, **détails de connexion** (média, en ligne depuis, IPv4/IPv6, passerelle, DNS, débit max. ; identifiant et mot de passe ne sont jamais repris) et **compteur en ligne** (aujourd'hui, hier, semaine, mois, total). Nécessite la saisie de la consommation de données activée.
+- **Nouveau – onglet « Mesh »** (`mdi:router-network`) : carte comme *Réseau domestique → Mesh* de la box : FRITZ!Box, répéteurs et appareils connectés avec débit de liaison. Uniquement avec au moins un répéteur.
+- **Modifié :** l'onglet **« Commandes » devient « Paramètres »** (engrenage `mdi:cog`, toujours le dernier onglet). La **version de l'application** s'y trouve sous forme d'accordéon (ouvert ; orange si une version plus récente existe).
+- **Diagnostic :** le téléchargement de diagnostic contient `traffic.online_extras`.
 
 ### 2.0.0b6 – Moniteur en ligne pour FRITZ!OS 8.x (observé sur une FRITZ!Box 5690 Pro)
 

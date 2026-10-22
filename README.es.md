@@ -7,7 +7,7 @@
 
 Una integración de Home Assistant que muestra todos los dispositivos de la red doméstica de la FRITZ!Box en tu panel como una tabla ordenable – con dirección IP, dirección MAC, tipo de conexión y el nombre del dispositivo de Home Assistant correspondiente.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b6-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b7-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Esta es la edición en español del README, disponible en cinco idiomas (consulta la barra de idiomas de arriba). El [README.md](README.md) alemán es el archivo principal y contiene la referencia completa de la tarjeta, el capítulo de solución de problemas y el historial completo de versiones. Las secciones marcadas «solo en alemán» aún no están traducidas. La integración y la tarjeta están traducidas al alemán, inglés y neerlandés.
@@ -363,6 +363,15 @@ Las pruebas de 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `te
 El repositorio contiene las pruebas de 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); se ejecutan con datos sintéticos, no con hardware real. Las pruebas de 1.8.0 para `dns_settings.py` y `static_ip.py` no están incluidas.
 
 ## Historial de versiones
+
+### 2.0.0b7 – Nuevas pestañas: Monitor en línea y mapa Mesh, «Ajustes» con acordeón de versión
+
+**Beta (versión previa).** Se basa en 2.0.0b6. **No probado en una FRITZ!Box real** – solo se leyeron en el navegador los formatos de *detalles de conexión* y *monitor en línea* en una FRITZ!Box 5690 Pro (FRITZ!OS 8.40); la estructura del *contador en línea* es desconocida y se lee con tolerancia.
+
+- **Nuevo – pestaña «Monitor en línea»** (`mdi:chart-areaspline`): velocidad actual de descarga/subida con historial, carga por prioridad, mayores consumidores, **detalles de conexión** (medio, en línea desde, IPv4/IPv6, puerta de enlace, DNS, velocidad máx.; el nombre de acceso y la contraseña nunca se toman) y **contador en línea** (hoy, ayer, semana, mes, total). Requiere el registro de consumo de datos activado.
+- **Nuevo – pestaña «Mesh»** (`mdi:router-network`): mapa como *Red doméstica → Mesh* de la box: FRITZ!Box, repetidores y los dispositivos conectados con su velocidad de enlace. Solo con al menos un repetidor.
+- **Cambiado:** la pestaña **«Control» pasa a llamarse «Ajustes»** (engranaje `mdi:cog`, siempre la última). La **versión de la aplicación** aparece allí como acordeón (abierto; naranja si hay una versión más reciente).
+- **Diagnóstico:** la descarga de diagnóstico contiene `traffic.online_extras`.
 
 ### 2.0.0b6 – Monitor en línea para FRITZ!OS 8.x (observado en una FRITZ!Box 5690 Pro)
 
