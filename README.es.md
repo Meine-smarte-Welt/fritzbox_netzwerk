@@ -7,8 +7,10 @@
 
 Una integración de Home Assistant que muestra todos los dispositivos de la red doméstica de la FRITZ!Box en tu panel como una tabla ordenable – con dirección IP, dirección MAC, tipo de conexión y el nombre del dispositivo de Home Assistant correspondiente.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b7-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
+
+📺 **Vídeo y guía de la tarjeta de red (en alemán):** [meinesmartewelt.de – FRITZ!Box Netzwerk para Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
 
 > Esta es la edición en español del README, disponible en cinco idiomas (consulta la barra de idiomas de arriba). El [README.md](README.md) alemán es el archivo principal y contiene la referencia completa de la tarjeta, el capítulo de solución de problemas y el historial completo de versiones. Las secciones marcadas «solo en alemán» aún no están traducidas. La integración y la tarjeta están traducidas al alemán, inglés y neerlandés.
 
@@ -16,6 +18,7 @@ Una integración de Home Assistant que muestra todos los dispositivos de la red 
 
 ## Contenido
 
+- [Capturas de pantalla](#capturas-de-pantalla)
 - [Funciones](#funciones)
 - [Requisitos](#requisitos)
 - [Instalación](#instalación)
@@ -42,6 +45,30 @@ Una integración de Home Assistant que muestra todos los dispositivos de la red 
 - [Desarrollo y pruebas](#desarrollo-y-pruebas)
 - [Historial de versiones](#historial-de-versiones)
 - [Licencia](#licencia)
+
+---
+
+## Capturas de pantalla
+
+<p align="center"><img src="docs/images/banner.png" alt="FRITZ!Box Netzwerk" width="360"></p>
+
+**Pestaña «Red»** – todos los dispositivos en una tabla ordenable con barra de filtros (Activo, Inactivo, Invitado, Bloqueado, Actualización, IP fija, VPN, Nuevo, Sin conexión desde hace tiempo), direcciones IP y MAC, fabricante, conexión, enlace al dispositivo de Home Assistant, etiqueta y nota.
+
+![Pestaña Red: lista de dispositivos con barra de filtros](docs/images/netzwerk.png)
+
+**Pestaña «Monitor en línea»** – velocidad actual de descarga y subida con historial, carga por prioridad y mayores consumidores. Tocar un consumidor abre la ventana del dispositivo.
+
+![Pestaña Monitor en línea](docs/images/online-monitor.png)
+
+**Ventana de detalles** – aquí para la FRITZ!Box: nombre, direcciones IP y MAC, estado, tipo de IP, acceso a Internet, perfil de filtro, actualización de firmware, características y última conexión, con los botones *Abrir la interfaz web* y *Bloquear Internet*.
+
+<img src="docs/images/geraete-popup.png" alt="Ventana de detalles de un dispositivo" width="320">
+
+**Pestaña «Ajustes»** – interruptores Wi-Fi, código QR, filtro MAC, reconectar, reiniciar, grupo mesh con contador en línea y secciones desplegables (versión de la app, FRITZ!Box con temperatura, conexión a Internet, red doméstica).
+
+![Pestaña Ajustes](docs/images/einstellungen.png)
+
+Más en el vídeo y la guía (en alemán): [meinesmartewelt.de – FRITZ!Box Netzwerk para Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
 ---
 
@@ -133,8 +160,8 @@ Mediante *Configurar* en la integración:
 | Establecer dirección IP estática (experimental) | desactivado | Permite que `set_static_ip` y el botón de la tarjeta escriban; la vista previa (`dry_run`) siempre funciona |
 | Leer CPU y RAM de la caja (experimental) | desactivado | Tres sensores de la interfaz web de la caja |
 | Crear dispositivos de red como dispositivos propios | desactivado | Un dispositivo HA por dispositivo seleccionado, elegido por patrón |
-| Enviar mensajes al centro de notificaciones (desde 1.9.2b1) | activado | Interruptor principal de la conexión opcional, véase [Centro de notificaciones](#centro-de-notificaciones-opcional) |
-| Tipos de mensaje a enviar (desde 1.9.2b1) | todos | Qué tipos de mensaje van al centro de notificaciones (conexión perdida, dispositivo vigilado sin conexión, dispositivo nuevo) |
+| Enviar mensajes al centro de notificaciones (desde 2.0.0) | activado | Interruptor principal de la conexión opcional, véase [Centro de notificaciones](#centro-de-notificaciones-opcional) |
+| Tipos de mensaje a enviar (desde 2.0.0) | todos | Qué tipos de mensaje van al centro de notificaciones (conexión perdida, dispositivo vigilado sin conexión, dispositivo nuevo) |
 | Duración del emparejamiento | 5 min | Cuánto tiempo permanece desactivado el filtro MAC durante el emparejamiento (1–120 min) |
 
 ---
@@ -177,9 +204,11 @@ La integración **cambia entre perfiles de acceso existentes** (Internet → Fil
 
 La opción «Leer CPU y RAM de la caja (experimental)» (desactivada por defecto) crea tres sensores: carga de CPU, carga de RAM, temperatura de la CPU. Proceden de la página `ecoStat` de la interfaz web, no de TR-064; sin verificar en ninguna caja – compáralos con Sistema → Monitor de energía.
 
+Los valores – también la **temperatura** – aparecen además en la tarjeta, en la pestaña *Ajustes*, dentro de la sección desplegable *FRITZ!Box*. Con la opción desactivada se muestra allí una indicación en lugar de los valores.
+
 ---
 
-## Consumo de datos por dispositivo (experimental, desde 2.0.0b2)
+## Consumo de datos por dispositivo (experimental)
 
 Opción «Registrar el consumo de datos (experimental)» (desactivada por defecto). Responde a **qué dispositivo transfirió cuántos datos durante la última semana**, para encontrar dispositivos que hablan demasiado con Internet o saturan el Wi-Fi (petición de #26).
 
@@ -191,7 +220,7 @@ Opción «Registrar el consumo de datos (experimental)» (desactivada por defect
 - Los totales se guardan en el almacenamiento de Home Assistant (8 días). Si Home Assistant o la consulta se interrumpen un tiempo, ese tiempo falta en los totales (el diagnóstico cuenta los huecos en `traffic.stats`).
 - **Unidad solo verificada en plausibilidad:** bytes por segundo; en una FRITZ!Box 5690 Pro (FRITZ!OS 8.40) el orden de magnitud encaja con los contadores de la caja, falta una comparación exacta. Si las cifras no cuadran, ajuste «Unidad de los valores del monitor en línea» a bits por segundo en las opciones. El diagnóstico muestra valores crudos en `traffic.shape.sample_values` para compararlos con el monitor en línea de la caja.
 
-**Sensores (desde 2.0.0b3):** La opción crea *Estado del consumo de datos* (diagnóstico; muestra «Datos disponibles», «Esperando mediciones», «Ninguna fuente asignada», «Sin mediciones coincidentes» o «Error de lectura»; la causa está en los atributos), *Consumo de datos 7 días (todos los dispositivos)* y *Mayor consumidor de datos (7 días)* (nombre del dispositivo, ranking de los cinco primeros en los atributos). Cada dispositivo con valores recibe además *<dispositivo> Daten 7 Tage* y *<dispositivo> Daten heute* (unidad byte, visualización en GB; descarga, subida y evolución diaria como atributos). Los sensores de dispositivo solo aparecen cuando hay valores. **Si no ves nada, mira primero el sensor de estado.**
+**Sensores:** La opción crea *Estado del consumo de datos* (diagnóstico; muestra «Datos disponibles», «Esperando mediciones», «Ninguna fuente asignada», «Sin mediciones coincidentes» o «Error de lectura»; la causa está en los atributos), *Consumo de datos 7 días (todos los dispositivos)* y *Mayor consumidor de datos (7 días)* (nombre del dispositivo, ranking de los cinco primeros en los atributos). Cada dispositivo con valores recibe además *<dispositivo> Daten 7 Tage* y *<dispositivo> Daten heute* (unidad byte, visualización en GB; descarga, subida y evolución diaria como atributos). Los sensores de dispositivo solo aparecen cuando hay valores. **Si no ves nada, mira primero el sensor de estado.**
 
 **En la tarjeta:** columna **Datos (7 días)** con barra (un clic en el encabezado ordena por mayor consumidor); la ventana de detalle muestra «Datos (7 días)» con descarga/subida, «Datos hoy» y una evolución diaria. La columna solo aparece si hay valores; ocultar con `show_traffic: false`. La exportación CSV contiene el valor de 7 días en bytes.
 
@@ -233,7 +262,7 @@ Desde 1.8.0 la integración puede asignar una dirección IPv4 fija a un disposit
 
 ## Centro de notificaciones (opcional)
 
-Desde **1.9.2b1** (beta) la integración puede enviar mensajes al **centro de notificaciones** – una integración «Meine smarte Welt» aparte, también opcional, que recoge, ordena y entrega mensajes. **Sin el centro de notificaciones instalado no ocurre nada:** ni errores, ni entradas de registro adicionales, ni solicitudes adicionales a la FRITZ!Box.
+La integración puede enviar mensajes al **centro de notificaciones** – una integración «Meine smarte Welt» aparte, también opcional, que recoge, ordena y entrega mensajes. **Sin el centro de notificaciones instalado no ocurre nada:** ni errores, ni entradas de registro adicionales, ni solicitudes adicionales a la FRITZ!Box.
 
 Informa a través del bus de eventos de Home Assistant (sin MQTT, sin broker). Los textos se envían una sola vez, al registrarse, en cinco idiomas (de, en, nl, fr, es); el centro de notificaciones elige el idioma de visualización. Al arrancar solo se notifica el **estado inicial** (visible, sin push) y después solo los cambios de estado – sin repeticiones.
 
@@ -254,13 +283,15 @@ Informa a través del bus de eventos de Home Assistant (sin MQTT, sin broker). L
 - Deliberadamente **no hay retardo propio** ni umbral nuevo: si la caja notifica un dispositivo vigilado como inactivo en una consulta, el mensaje aparece y se cierra en la siguiente consulta en la que esté activo. Si resulta demasiado ruidoso, desactiva el tipo de mensaje «Dispositivo vigilado sin conexión».
 - «Dispositivo nuevo» notifica un dispositivo que apareció mientras Home Assistant estaba apagado como estado inicial tras el arranque (visible, sin push). Justo después de la configuración no notifica nada – igual que la entidad de evento.
 - Si el inicio de sesión falla repetidamente y Home Assistant pide una nueva autenticación, eso no es un mensaje de «conexión perdida»; Home Assistant muestra para ello su propio aviso.
-- **Estado de las pruebas:** comprobado solo contra un bus de eventos **simulado** (puente y disparadores, 44 pruebas). **No** contra un centro de notificaciones real, ni en una FRITZ!Box real o en un Home Assistant en marcha. Beta: se agradecen mucho los comentarios.
+- **Estado de las pruebas:** comprobado solo contra un bus de eventos **simulado** (puente y disparadores, 44 pruebas). **No** contra un centro de notificaciones real, ni en una FRITZ!Box real o en un Home Assistant en marcha. Se agradecen mucho los comentarios.
 
 ---
 
 ## La tarjeta del panel
 
 La tarjeta se entrega con la integración (`custom:fritzbox-netzwerk-card`). Tiene un editor gráfico; cada columna, filtro, la barra de control y las filas de la ventana de detalles pueden activarse o desactivarse por separado, los colores son libres, tres idiomas. La referencia completa (columnas, ordenación, filtro IP, pestañas, agrupación, exportación CSV, código QR del Wi-Fi de invitados, deslizamiento en el móvil, colores) está en el README alemán.
+
+**Pestañas (opcional):** con *Mostrar categorías como pestañas* la tarjeta recibe una barra de pestañas. **Red** contiene la tabla de dispositivos. **Monitor en línea** muestra la velocidad actual, la carga por prioridad, los detalles de conexión y los contadores en línea; toca un gran consumidor para abrir la ventana de ese dispositivo. **Mesh** dibuja la FRITZ!Box, los repetidores y sus dispositivos: toca la caja o un repetidor para abrir su ventana, toca «N dispositivos» para desplegar la lista de dispositivos del nodo y toca un dispositivo para su ventana. **Ajustes** (siempre la última pestaña) contiene los interruptores y las secciones desplegables *Versión de la app*, *FRITZ!Box* (modelo, FRITZ!OS, dirección IP, tiempo de actividad, más temperatura, CPU y RAM con la opción «Leer CPU y RAM de la caja»), *Conexión a Internet* y *Red doméstica*. Vídeo y guía (en alemán): [meinesmartewelt.de](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
 ```yaml
 type: custom:fritzbox-netzwerk-card
@@ -331,7 +362,7 @@ Las acciones de escritura requieren derechos de administrador; las entradas se v
 ## Limitaciones conocidas
 
 - **Falta «Eliminar todas las conexiones no utilizadas»** – TR-064 no tiene una acción para ello.
-- **Centro de notificaciones (desde 1.9.2b1, beta)** solo está probado contra un bus de eventos simulado, no contra un centro de notificaciones real ni hardware real; los interruptores existen solo en el diálogo Configurar, no en la tarjeta, véase [Centro de notificaciones](#centro-de-notificaciones-opcional).
+- **Centro de notificaciones (desde 2.0.0)** solo está probado contra un bus de eventos simulado, no contra un centro de notificaciones real ni hardware real; los interruptores existen solo en el diálogo Configurar, no en la tarjeta, véase [Centro de notificaciones](#centro-de-notificaciones-opcional).
 - **La IP estática y la escritura de DNS son experimentales** y usan la interfaz web no documentada de la caja. La escritura no está verificada en ninguna caja real; la ruta REST de la IP estática sigue la descripción de un proyecto de terceros para FRITZ!OS 8.25. Pueden dejar de funcionar con cualquier actualización de FRITZ!OS.
 - **Reservas DHCP reconocidas solo en parte.** La caja no notifica por TR-064 las reservas *dentro* del rango DHCP. Desde 2.0.0 la integración las lee además de la interfaz web (mismo ciclo que el tipo de IP, `query.lua`, si no `netDev`); que tu FRITZ!OS entregue el indicador no está probado. Si no, esos dispositivos siguen apareciendo como «dinámicos» – la descarga de diagnóstico (`reservations`) indica qué vía funcionó. Como alternativa, márcalos a mano o en bloque (`mark_devices_reserved`).
 - **Mesh solo en parte:** sin intensidad de señal en dBm.
@@ -358,78 +389,46 @@ node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fri
 
 Las pruebas de 2.0.0 (`test_issue30_dns.py`, `test_static_ip.py`, `test_vpn_and_reservations.py`, con un `conftest.py` que carga los módulos sin Home Assistant) también se entregan como paquete aparte, no en el repositorio. Se ejecutan contra una FRITZ!Box simulada.
 
-Las pruebas de 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, con su propio `conftest.py` que sustituye Home Assistant por dobles) se entregan con la versión como paquete aparte, no en el repositorio.
+Las pruebas del centro de notificaciones en 2.0.0 (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, con su propio `conftest.py` que sustituye Home Assistant por dobles) se entregan con la versión como paquete aparte, no en el repositorio.
 
 El repositorio contiene las pruebas de 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); se ejecutan con datos sintéticos, no con hardware real. Las pruebas de 1.8.0 para `dns_settings.py` y `static_ip.py` no están incluidas.
 
 ## Historial de versiones
 
-### 2.0.0b7 – Nuevas pestañas: Monitor en línea y mapa Mesh, «Ajustes» con acordeón de versión
+### 2.0.0 – Monitor en línea y mapa Mesh, información de la FRITZ!Box con temperatura, centro de notificaciones, consumo de datos por dispositivo, IP estática mediante REST
 
-**Beta (versión previa).** Se basa en 2.0.0b6. **No probado en una FRITZ!Box real** – solo se leyeron en el navegador los formatos de *detalles de conexión* y *monitor en línea* en una FRITZ!Box 5690 Pro (FRITZ!OS 8.40); la estructura del *contador en línea* es desconocida y se lee con tolerancia.
+Primera versión estable de la serie 2.0. Se basa en 1.9.1 y contiene todo lo de las versiones previas (betas) anteriores, que ya no se publican. **No probado en una FRITZ!Box real ni en un Home Assistant en marcha** – solo contra una caja simulada, datos sintéticos y la tarjeta en un navegador sin interfaz. Los formatos de *detalles de conexión* y *monitor en línea* se leyeron en el navegador en una FRITZ!Box 5690 Pro (FRITZ!OS 8.40), solo lectura; la estructura de los *contadores en línea* es desconocida y se lee con tolerancia.
 
-- **Nuevo – pestaña «Monitor en línea»** (`mdi:chart-areaspline`): velocidad actual de descarga/subida con historial, carga por prioridad, mayores consumidores, **detalles de conexión** (medio, en línea desde, IPv4/IPv6, puerta de enlace, DNS, velocidad máx.; el nombre de acceso y la contraseña nunca se toman) y **contador en línea** (hoy, ayer, semana, mes, total). Requiere el registro de consumo de datos activado.
-- **Nuevo – pestaña «Mesh»** (`mdi:router-network`): mapa como *Red doméstica → Mesh* de la box: FRITZ!Box, repetidores y los dispositivos conectados con su velocidad de enlace. Solo con al menos un repetidor.
-- **Cambiado:** la pestaña **«Control» pasa a llamarse «Ajustes»** (engranaje `mdi:cog`, siempre la última). La **versión de la aplicación** aparece allí como acordeón (abierto; naranja si hay una versión más reciente).
-- **Diagnóstico:** la descarga de diagnóstico contiene `traffic.online_extras`.
+**Tarjeta**
 
-### 2.0.0b6 – Monitor en línea para FRITZ!OS 8.x (observado en una FRITZ!Box 5690 Pro)
+- **Nuevo – Monitor en línea:** los **mayores consumidores** se pueden tocar y abren la ventana del dispositivo.
+- **Nuevo – Mesh:** tocar la FRITZ!Box o un repetidor abre su ventana. «N dispositivos» despliega la lista de dispositivos del nodo y cada dispositivo de la lista abre su ventana. Las listas largas se desplazan dentro de la sección y la vista sigue siendo clara.
+- **Nuevo – Ajustes:** secciones desplegables **FRITZ!Box** (modelo, FRITZ!OS, dirección IP, tiempo de actividad, **temperatura**, carga de CPU y RAM), **Conexión a Internet** (estado, IP externa, tiempo en línea, velocidades, velocidad máxima) y **Red doméstica** (número de dispositivos, estado del mesh). Temperatura, CPU y RAM solo aparecen con la opción «Leer CPU y RAM de la caja (experimental)»; si no, se muestra una indicación. El tiempo de actividad se lee mediante TR-064 (`DeviceInfo`); no probado en una caja real.
+- **Nuevo – pestaña «Monitor en línea»** (`mdi:chart-areaspline`): velocidad actual de descarga/subida con historial, carga por prioridad, mayores consumidores, **detalles de conexión** (nombre de usuario y contraseña nunca se toman) y **contadores en línea**. Solo aparece con el registro del consumo de datos activado.
+- **Nuevo – pestaña «Mesh»** (`mdi:router-network`): mapa como *Red doméstica → Mesh* de la caja con FRITZ!Box, repetidores y los dispositivos conectados, incluida la velocidad de enlace. Solo aparece con al menos un repetidor.
+- **Cambiado:** la pestaña «Control» se llama ahora **«Ajustes»** (rueda dentada, siempre la última pestaña); la versión de la app está allí como sección desplegable.
+- **Nuevo:** botón de filtro **VPN** (dispositivos que la caja marca como VPN y entradas guardadas como `VPN:<IP>`; ocultar con `filter_vpn: false`, color de icono `color_cat_vpn`).
+- **Nuevo:** columna «Datos (7 días)», filas de la ventana con evolución diaria, exportación CSV en bytes (`show_traffic`).
 
-**Beta (versión preliminar).** Se basa en 2.0.0b5. La interfaz se observó en el navegador en una FRITZ!Box 5690 Pro con FRITZ!OS 8.40 (solo lectura); **la integración en sí aún no se ejecutó allí**.
+**Integración**
 
-- **Corregido:** los datos del monitor en línea están allí en `api/v0/monitor/online/0` (mediciones cada 5 segundos, por dispositivo con dirección MAC). La integración lee ahora esa ruta primero; las antiguas quedan como alternativa. La petición de asignación adicional ya no hace falta.
-- **Nota:** la caja guarda solo unas 24 horas por dispositivo (las series de 14 y 60 días no contienen dispositivos individuales). El total de 7 días se sigue formando sumando desde la activación.
-- **Unidad:** bytes por segundo encaja con el orden de magnitud de los contadores de la caja.
+- **Nuevo – consumo de datos por dispositivo (experimental, #26 en parte):** opciones «Registrar el consumo de datos por dispositivo» y «Unidad de los valores del monitor en línea». La integración lee las velocidades por dispositivo del monitor en línea (`api/v0/monitor/online/0`, otras rutas como alternativa), las acumula en totales diarios y de 7 días y las guarda de forma permanente. Sensores: *Estado del consumo de datos* (indica el motivo si faltan valores), *Consumo de datos 7 días (todos los dispositivos)*, *Mayor consumidor de datos (7 días)* y, por dispositivo, *Datos 7 días* y *Datos hoy*. Los valores son estimaciones; unidad, longitud de ventana y asignación no están probadas. Diagnóstico: `traffic`, `traffic.online_extras`.
+- **Nuevo – centro de notificaciones (opcional):** mensajes *Conexión con la FRITZ!Box perdida*, *Dispositivo vigilado sin conexión* y *Dispositivo nuevo en la red* mediante el bus de eventos, textos en cinco idiomas, dos interruptores en *Configurar*. Sin centro de notificaciones no cambia nada. Véase [Centro de notificaciones](#centro-de-notificaciones-opcional).
+- **Mejorado:** con una beta o release candidate instalada, la comprobación de actualizaciones también tiene en cuenta las versiones preliminares; con una versión final instalada sigues viendo solo versiones finales.
+- **Nuevo – documentación:** el README existe en cinco idiomas (de, en, nl, fr, es) con barra de idiomas y capturas de pantalla.
 
-### 2.0.0b5 – Monitor en línea: rutas de interfaz alternativas
+**Corregido**
 
-**Beta (versión preliminar).** Se basa en 2.0.0b4. **No probado en una FRITZ!Box real.**
+- **Mapa Mesh:** los repetidores aparecían en la lista de dispositivos de su nodo como dispositivos normales, porque la tarjeta no conocía el indicador `repeater` de la integración. Los repetidores ahora solo cuentan como nodos.
+- **Cambiar la dirección IP:** `set_static_ip` y la fila «IP estática» de la tarjeta no funcionaban, porque los campos de formulario de `data.lua` solo se habían supuesto. La integración escribe ahora mediante la ruta REST que describe un proyecto de terceros para FRITZ!OS 8.25 (`PUT /api/v0/generic/landevice/landevice/<UID>`), vuelve a leer el resultado, informa de un cambio descartado como error y restablece la asignación anterior. El campo `ip` de la petición no está probado ni siquiera en el proyecto de terceros.
+- **#30:** `set_dns_settings` revertía el valor IPv4 en una FRITZ!Box 6591 Cable, porque una dirección IPv6 se comparaba como cadena (la caja abrevia `:0:` a `::`). Las direcciones IP se comparan ahora como direcciones.
+- **#31:** los dispositivos con «asignar siempre la misma dirección IPv4» dentro del rango DHCP faltaban en el filtro «IP fija». La integración lee ahora también las reservas de la interfaz web; que tu FRITZ!OS entregue el indicador no está probado (diagnóstico: `reservations`).
+- **#29 (causa probable):** las entradas sin dirección MAC (p. ej. pares WireGuard) se descartaban. Los pares marcados como VPN con dirección IP se conservan ahora como `VPN:<IP>`.
+- **#24 (una posible causa):** «Ocultar dispositivos desconectados» vaciaba también las vistas «Inactivo» y «Sin conexión desde hace tiempo». El ajuste solo se aplica ya a las vistas mixtas.
 
-- **Corregido (intento):** una caja real respondió «bad path» a `api/v0/monitor/datasets`. La integración prueba ahora `api/v0/monitor/…` y `api/v0/generic/monitor/…` por turno, recuerda la que funciona y lista todos los errores si falla. El diagnóstico y el sensor de estado muestran `schnittstelle` y la versión de FRITZ!OS. Que alguna variante exista en tu caja no está verificado.
+**Actualización:** actualizar mediante HACS, reiniciar Home Assistant, vaciar la caché del navegador (Ctrl+F5).
 
-### 2.0.0b4 – Petición del monitor en línea: cabeceras y texto de error
-
-**Beta (versión preliminar).** Se basa en 2.0.0b3. **No probado en una FRITZ!Box real.**
-
-- **Corregido (intento):** la petición `api/v0/monitor/datasets` fallaba con HTTP 400 en una caja real. Ahora envía las mismas cabeceras que el script comunitario en el que se basa la interfaz (`Content-Type`, `Accept`, `Referer`). Que fuera la causa no está verificado.
-- **Mejor:** ante un error HTTP, el inicio de la respuesta de la caja aparece en el sensor de estado y en el registro.
-
-### 2.0.0b3 – Sensores de consumo de datos, sensor de estado
-
-**Beta (versión preliminar).** Se basa en 2.0.0b2. **No probado en una FRITZ!Box real ni en un Home Assistant en marcha.**
-
-- **Nuevo:** sensores *Estado del consumo de datos*, *Consumo de datos 7 días (todos los dispositivos)*, *Mayor consumidor de datos (7 días)* y, por dispositivo, *Daten 7 Tage* y *Daten heute* (solo con la opción activada).
-- **Mejor:** el sensor de estado indica la causa cuando no aparecen valores. Si ningún contador se asignó a un dispositivo, la siguiente lectura (2 minutos) reintenta en lugar de esperar 15.
-
-### 2.0.0b2 – Consumo de datos por dispositivo (7 días, experimental)
-
-**Beta (versión preliminar).** Se basa en 2.0.0b1. **No probado en una FRITZ!Box real ni en un Home Assistant en marcha** – solo contra una caja simulada.
-
-- **Nuevo (#26, en parte):** opciones «Registrar el consumo de datos» y «Unidad de los valores del monitor en línea». La integración lee las tasas de datos por dispositivo del monitor en línea, las integra en totales diarios/de 7 días (descarga, subida, hoy) y las guarda de forma permanente. Requisito: «Guardar velocidades de datos de Internet» por dispositivo en la caja. Los valores son estimaciones; unidad, longitud de ventana y asignación sin verificar. Diagnóstico: `traffic`.
-- **Nuevo (tarjeta):** columna «Datos (7 días)» (ordenable, visible solo con datos, `show_traffic`), filas en la ventana de detalle con evolución diaria, exportación CSV en bytes.
-
-### 2.0.0b1 – IP estática mediante REST, reservas y dispositivos VPN, README en cinco idiomas
-
-**Beta (versión preliminar).** Se basa en 1.9.2b1. **Nada de esto se probó en una FRITZ!Box real ni en un Home Assistant en marcha** – solo contra una caja simulada y datos sintéticos.
-
-- **Corregido (cambiar la dirección IP):** `set_static_ip` y la fila «IP estática» de la tarjeta no funcionaban. Causa: los campos de formulario de `data.lua` eran solo supuestos y la caja nunca los aceptó. La integración escribe ahora por la ruta REST que un proyecto de terceros documenta para FRITZ!OS 8.25 (`PUT /api/v0/generic/landevice/landevice/<UID>`), relee el resultado (`query.lua`, si no REST o `edit_device`), notifica como error un cambio ausente o descartado en silencio (con una indicación sobre la confirmación en dos pasos) y restablece una asignación anterior. La vía antigua se mantiene como alternativa. El campo `ip` de la solicitud no está probado ni siquiera en el proyecto de terceros.
-- **Corregido (#30):** `set_dns_settings` seguía revirtiendo el valor IPv4 en una FRITZ!Box 6591 Cable tras 1.9.1. Causa: el valor releído se comparaba como cadena sin procesar, y la caja abrevia un único grupo de ceros de una dirección IPv6 a `::` mientras que la integración conservaba `:0:`. Las direcciones IP se comparan ahora como direcciones, tanto en la comprobación tras un error HTTP como en la comprobación final. Reproducido y corregido contra una caja simulada.
-- **Corregido (#31):** los dispositivos con «Asignar dirección IPv4 permanente» dentro del rango DHCP aparecían como «dinámicos» y faltaban en el filtro «IP fija» (la caja no lo notifica por TR-064). La integración lee ahora también las reservas de la interfaz web (`query.lua`, si no `netDev`, en el ciclo de la recogida del tipo de IP) y las cuenta como fijas. **Sin probar en una caja:** los nombres de campo proceden de descripciones de proyectos de terceros; si la caja no entrega el indicador, no cambia nada. La descarga de diagnóstico muestra en `reservations` qué vía funcionó.
-- **Corregido (#29, causa probable):** las entradas sin dirección MAC se descartaban como obsoletas – los pares WireGuard no tienen. Los pares marcados como VPN que tienen dirección IP se conservan ahora con el identificador `VPN:<IP>` y se muestran como activos; no tienen entidades ni acciones que dependan de la MAC. **No está probado que la caja notifique los pares WireGuard en su lista de hosts**; `box_hosts.without_mac_samples` en el diagnóstico muestra cómo los marca.
-- **Corregido (#24, una causa posible):** el ajuste «Ocultar dispositivos desconectados» también vaciaba las vistas «Inactivos» y «Sin conexión desde hace tiempo». Estas vistas muestran ahora los dispositivos sin conexión; el ajuste solo se aplica a las vistas mixtas (texto de ayuda añadido). La causa no está confirmada en todos los casos notificados.
-- **Nuevo:** botón de filtro **VPN** en la barra de filtros de la tarjeta (junto a «IP fija»): muestra los dispositivos que la caja marca como VPN y las entradas conservadas como `VPN:<IP>`. Se oculta con `filter_vpn: false`, es posible `default_filter: vpn`, color del icono `color_cat_vpn`. Solo comprobado con una verificación de sintaxis de la tarjeta, no en un navegador.
-- **Documentación:** el README está ahora disponible en **cinco idiomas** (de, en, nl, fr, es) con una barra de idiomas al principio de cada archivo. La integración y la tarjeta siguen traducidas a de, en y nl.
-- **No resuelto:** #26 (volumen de datos por dispositivo) – TR-064 no lo ofrece, el issue sigue abierto. #20 se resolvió en 1.9.1 y lo confirmó quien lo notificó; #28 es una cuestión de HACS.
-
-### 1.9.2b1 – Centro de notificaciones (opcional), aviso de actualización para versiones preliminares
-
-**Beta (versión preliminar).** Se basa en 1.9.1. **Nada de esto se probó contra un centro de notificaciones real, en una FRITZ!Box real ni en un Home Assistant en marcha** – el puente y los disparadores solo se ejecutan contra un bus de eventos simulado.
-
-- **Nuevo:** conexión opcional con el **centro de notificaciones** (esquema de interfaz 1, bus de eventos, sin MQTT). Tipos de mensaje: *Conexión con la FRITZ!Box perdida* (advertencia), *Dispositivo vigilado sin conexión* (info; repetidores y dispositivos elegidos por patrón de IP) y *Dispositivo nuevo en la red* (info). Textos en cinco idiomas; al arrancar solo el estado inicial sin push. Sin el centro de notificaciones no cambia nada. Véase [Centro de notificaciones](#centro-de-notificaciones-opcional).
-- **Nuevo:** dos ajustes en *Configurar*: interruptor principal y selección de los tipos de mensaje a enviar (traducciones de/en/nl). La descarga de diagnóstico lista el estado de los interruptores y un contador por tipo de mensaje, sin contenidos.
-- **Mejorado:** con una beta o release candidate instalada, la comprobación de actualizaciones también tiene en cuenta las versiones preliminares (lista de versiones en lugar de `releases/latest`, que nunca devuelve versiones preliminares). Con una versión final instalada sigues viendo solo versiones finales.
-- **Nota:** HACS solo muestra versiones preliminares con «Mostrar versiones beta» activado.
-- **No implementado:** una sección «Centro de notificaciones» en la tarjeta del panel (engranaje). La tarjeta todavía no tiene página de ajustes ni interfaz de escritura; los interruptores están en el diálogo Configurar.
+**Conocido:** si los contadores en línea se reconocen en tu caja solo se ve al probar; si no, ayuda la descarga de diagnóstico. #26 (volumen de datos por dispositivo) sigue siendo una estimación, TR-064 no lo ofrece.
 
 ### 1.9.1 – Servicio Wi-Fi de invitados seleccionable, DNS IPv6 con HTTP 400, diagnóstico ampliado
 

@@ -1,5 +1,5 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): fdbb707e982f29c6c2d29599c7ebbf7c5703c0a583d86aa54ee73c1480c2041b
-"""Aufbereitung der Online-Monitor-Daten fuer die Karte (seit 2.0.0b7).
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): aa3059c0463148588630bcfe40d813ad2c3aa3ebff97b337ca40bc6d92d6acb9
+"""Aufbereitung der Online-Monitor-Daten fuer die Karte (seit 2.0.0).
 
 Drei Ansichten, jeweils aus einer Antwort der Weboberflaeche der Box:
 

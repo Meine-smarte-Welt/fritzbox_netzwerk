@@ -9,13 +9,16 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b7-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
+
+📺 **Video und Anleitung zur Netzwerkkarte:** [meinesmartewelt.de – FRITZ!Box Netzwerk für Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
 
 ---
 
 ## Inhalt
 
+- [Screenshots](#screenshots)
 - [Was die Integration kann](#was-die-integration-kann)
 - [Voraussetzungen](#voraussetzungen)
 - [Installation](#installation)
@@ -57,6 +60,30 @@ passenden Home-Assistant-Gerätenamen.
 - [Datei-Integrität](#datei-integrität)
 - [Entwicklung und Tests](#entwicklung-und-tests)
 - [Versionshistorie](#versionshistorie)
+
+---
+
+## Screenshots
+
+<p align="center"><img src="docs/images/banner.png" alt="FRITZ!Box Netzwerk" width="360"></p>
+
+**Reiter „Netzwerk“** – alle Geräte als sortierbare Tabelle mit Filterleiste (Aktiv, Inaktiv, Gast, Gesperrt, Update, Feste IP, VPN, Neu, Lange offline), IP- und MAC-Adresse, Hersteller, Verbindung, Verlinkung zum Home-Assistant-Gerät, Etikett und Notiz.
+
+![Reiter Netzwerk: Geräteliste mit Filterleiste](docs/images/netzwerk.png)
+
+**Reiter „Online-Monitor“** – aktuelle Down- und Upload-Rate mit Verlauf, Auslastung nach Priorität und die größten Verbraucher. Ein Tipp auf einen Verbraucher öffnet das Popup des Geräts.
+
+![Reiter Online-Monitor](docs/images/online-monitor.png)
+
+**Detail-Popup** – hier für die FRITZ!Box: Name, IP- und MAC-Adresse, Status, IP-Typ, Internetzugang, Filterprofil, Firmware-Update, Merkmale und zuletzt online, dazu die Buttons *Weboberfläche öffnen* und *Internet sperren*.
+
+<img src="docs/images/geraete-popup.png" alt="Detail-Popup eines Geräts" width="320">
+
+**Reiter „Einstellungen“** – WLAN-Schalter, QR-Code, MAC-Filter, Neu verbinden, Neustart, Mesh-Gruppe mit Online-Zähler und aufklappbare Bereiche (App-Version, FRITZ!Box mit Temperatur, Internetverbindung, Heimnetz).
+
+![Reiter Einstellungen](docs/images/einstellungen.png)
+
+Mehr dazu in Video und Anleitung: [meinesmartewelt.de – FRITZ!Box Netzwerk für Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
 ---
 
@@ -206,8 +233,8 @@ Nicht alle lokalen Funktionen sind dadurch aus der Ferne erreichbar: Insbesonder
 | Statische IP-Adresse setzen (experimentell) | aus | Erlaubt dem Dienst `set_static_ip` und dem Karten-Button das Schreiben; die Vorschau (`dry_run`) geht immer, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell) |
 | CPU und RAM der Box lesen (experimentell) | aus | Drei Sensoren aus der Weboberfläche der Box, siehe [CPU und RAM](#cpu-und-ram-der-box-experimentell) |
 | Netzwerkgeräte als eigene Geräte anlegen | aus | Je ausgewähltem Gerät ein HA-Gerät, Auswahl per Muster, siehe [Netzwerkgeräte als HA-Geräte](#netzwerkgeräte-als-eigene-home-assistant-geräte) |
-| Meldungen an das Notification Center senden (seit 1.9.2b1) | an | Hauptschalter für die optionale Anbindung, siehe [Notification Center](#notification-center-optional) |
-| Gesendete Meldungsarten (seit 1.9.2b1) | alle | Welche Meldungsarten ans Notification Center gehen (Verbindung verloren, überwachtes Gerät offline, neues Gerät) |
+| Meldungen an das Notification Center senden (seit 2.0.0) | an | Hauptschalter für die optionale Anbindung, siehe [Notification Center](#notification-center-optional) |
+| Gesendete Meldungsarten (seit 2.0.0) | alle | Welche Meldungsarten ans Notification Center gehen (Verbindung verloren, überwachtes Gerät offline, neues Gerät) |
 | Pairing-Dauer | 5 min | Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt (1–120 min), siehe [MAC-Filter und Pairing](#mac-filter-und-pairing) |
 
 **Warum zwei Intervalle?** Die komplette Geräteliste kommt mit einem einzigen Aufruf von
@@ -516,9 +543,11 @@ beruht auf Beobachtungen aus der Community und ist an keiner Box geprüft – bi
 System → Energiemonitor vergleichen. Abruf alle 5 Minuten; schlägt er fehl, fehlen nur diese Werte
 (eine Warnung im Protokoll, der Grund steht im Diagnose-Export).
 
+Die Werte – auch die **Temperatur** – erscheinen zusätzlich in der Karte im Reiter *Einstellungen* im aufklappbaren Bereich *FRITZ!Box*. Ist die Option aus, steht dort ein Hinweis statt der Werte.
+
 ---
 
-## Datenverbrauch je Gerät (experimentell, seit 2.0.0b2)
+## Datenverbrauch je Gerät (experimentell)
 
 Option „Datenverbrauch je Gerät erfassen (experimentell)“ (standardmäßig aus). Sie beantwortet die Frage, **welches Gerät in der letzten Woche wie viel Daten übertragen hat** – um Geräte zu finden, die zu viel mit dem Internet reden oder das WLAN auslasten (Wunsch aus #26).
 
@@ -530,7 +559,7 @@ Option „Datenverbrauch je Gerät erfassen (experimentell)“ (standardmäßig 
 - Die Summen werden im Home-Assistant-Speicher gehalten (8 Tage). Läuft Home Assistant oder der Abruf zeitweise nicht, fehlt diese Zeit in der Summe (die Diagnose zählt die Lücken unter `traffic.stats`).
 - **Einheit nur plausibel geprüft:** Byte pro Sekunde; an einer FRITZ!Box 5690 Pro (FRITZ!OS 8.40) passt die Größenordnung zu den Zählern der Box, ein genauer Abgleich steht aus. Stimmen die Zahlen nicht, in den Optionen „Einheit der Messwerte des Online-Monitors“ auf Bit pro Sekunde stellen. Die Diagnose zeigt unter `traffic.shape.sample_values` rohe Beispielwerte zum Vergleichen mit dem Online-Monitor der Box.
 
-**Sensoren (seit 2.0.0b3):** Mit der Option entstehen *Datenverbrauch Status* (Diagnose; zeigt „Daten vorhanden“, „Wartet auf Messwerte“, „Keine Datenquelle zugeordnet“, „Keine passenden Messwerte“ oder „Fehler beim Abruf“, der Grund steht in den Attributen), *Datenverbrauch 7 Tage (alle Geräte)* und *Größter Datenverbraucher (7 Tage)* (Name des Geräts, Rangliste der fünf größten in den Attributen). Je Gerät mit Messwerten kommen *<Gerät> Daten 7 Tage* und *<Gerät> Daten heute* dazu (Einheit Byte, Anzeige in GB; Download, Upload und Tagesverlauf als Attribute). Die Geräte-Sensoren entstehen erst, sobald für das Gerät Messwerte vorliegen. **Siehst du nichts, schau zuerst auf den Status-Sensor.**
+**Sensoren:** Mit der Option entstehen *Datenverbrauch Status* (Diagnose; zeigt „Daten vorhanden“, „Wartet auf Messwerte“, „Keine Datenquelle zugeordnet“, „Keine passenden Messwerte“ oder „Fehler beim Abruf“, der Grund steht in den Attributen), *Datenverbrauch 7 Tage (alle Geräte)* und *Größter Datenverbraucher (7 Tage)* (Name des Geräts, Rangliste der fünf größten in den Attributen). Je Gerät mit Messwerten kommen *<Gerät> Daten 7 Tage* und *<Gerät> Daten heute* dazu (Einheit Byte, Anzeige in GB; Download, Upload und Tagesverlauf als Attribute). Die Geräte-Sensoren entstehen erst, sobald für das Gerät Messwerte vorliegen. **Siehst du nichts, schau zuerst auf den Status-Sensor.**
 
 **In der Karte:** Spalte **Daten (7 Tage)** mit Balken (Klick auf die Überschrift sortiert nach dem größten Verbraucher), im Popup die Zeilen „Daten (7 Tage)“ mit Download/Upload, „Daten heute“ und ein Tagesverlauf. Die Spalte erscheint nur, wenn Werte vorliegen; ausblenden mit `show_traffic: false`. Der CSV-Export enthält den 7-Tage-Wert in Byte.
 
@@ -637,7 +666,7 @@ Nicht mehr ausgewählte Geräte werden beim nächsten Start der Integration wied
 
 ## Notification Center (optional)
 
-Seit **1.9.2b1** (Beta) kann die Integration Meldungen an das **Notification Center** senden – eine eigene, ebenfalls
+Die Integration kann Meldungen an das **Notification Center** senden – eine eigene, ebenfalls
 optionale Integration von „Meine smarte Welt“, die Meldungen sammelt, nach Dringlichkeit sortiert und zustellt. **Ohne
 installiertes Notification Center passiert nichts:** kein Fehler, kein zusätzlicher Eintrag im Protokoll, keine
 zusätzliche Abfrage bei der FRITZ!Box.
@@ -678,15 +707,15 @@ seit dem Start gesendet wurden.
 - Fällt die Anmeldung wiederholt aus und fordert Home Assistant deshalb eine Neu-Anmeldung an, ist das keine
   Meldung „Verbindung verloren“; dafür gibt es den Hinweis in Home Assistant selbst.
 - **Teststand:** geprüft nur gegen einen **simulierten** Ereignisbus (Brücke und Auslöser, 44 Tests). **Nicht** gegen ein
-  echtes Notification Center und nicht an einer echten FRITZ!Box oder in einem laufenden Home Assistant. Beta:
-  Feedback ausdrücklich erwünscht.
+  echtes Notification Center und nicht an einer echten FRITZ!Box oder in einem laufenden Home Assistant. Feedback
+  ausdrücklich erwünscht.
 
 ---
 
 ## Dashboard-Karte
 
 Karte hinzufügen → **FRITZ!Box Netzwerk** → Sensor auswählen. Alles Weitere lässt sich im
-grafischen Editor einstellen.
+grafischen Editor einstellen. Video und Anleitung zur Netzwerkkarte: [meinesmartewelt.de](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
 ### Spalten
 
@@ -935,9 +964,9 @@ Reiterleiste im Stil von *FRITZ!Box Anrufe*:
 | Reiter | Was darin erscheint |
 | --- | --- |
 | **Netzwerk** (`mdi:lan`) | Filterleiste, Suchfeld, Zusammenfassung, Geräteliste |
-| **Online-Monitor** (`mdi:chart-areaspline`) | Aktuelle Down-/Upload-Rate mit Verlauf, Auslastung nach Priorität, größte Verbraucher, Verbindungsdetails, Online-Zähler (heute/gestern/Woche/Monat/gesamt). Nur mit eingeschalteter Datenverbrauchs-Erfassung (Editor: *Reiter Online-Monitor anzeigen*) |
-| **Mesh** (`mdi:router-network`) | Karte wie *Heimnetz → Mesh* der Box: FRITZ!Box, Repeater und die verbundenen Geräte mit Verbindungsrate. Nur mit mindestens einem Repeater (Editor: *Reiter Mesh (Karte) anzeigen*) |
-| **Einstellungen** (`mdi:cog`, früher „Steuerung“) | Download/Upload, WLAN-Schalter, MAC-Filter, Pairing, Neuverbinden, Neustart, Mesh-Gruppe und die **App-Version als aufklappbarer Bereich** (offen, orange bei neuer Version) |
+| **Online-Monitor** (`mdi:chart-areaspline`) | Aktuelle Down-/Upload-Rate mit Verlauf, Auslastung nach Priorität, größte Verbraucher, Verbindungsdetails, Online-Zähler (heute/gestern/Woche/Monat/gesamt). Die **größten Verbraucher** sind antippbar und öffnen das Popup des Geräts. Nur mit eingeschalteter Datenverbrauchs-Erfassung (Editor: *Reiter Online-Monitor anzeigen*) |
+| **Mesh** (`mdi:router-network`) | Karte wie *Heimnetz → Mesh* der Box: FRITZ!Box, Repeater und die verbundenen Geräte mit Verbindungsrate. Antippen der FRITZ!Box oder eines Repeaters öffnet dessen Popup; „N Geräte“ klappt die Geräteliste des Knotens auf, jedes Gerät darin öffnet sein Popup. Nur mit mindestens einem Repeater (Editor: *Reiter Mesh (Karte) anzeigen*) |
+| **Einstellungen** (`mdi:cog`, früher „Steuerung“) | Download/Upload, WLAN-Schalter, MAC-Filter, Pairing, Neuverbinden, Neustart, Mesh-Gruppe und aufklappbare Bereiche: **App-Version** (offen, orange bei neuer Version), **FRITZ!Box** (Modell, FRITZ!OS, IP-Adresse, Laufzeit sowie Temperatur, CPU und RAM mit der Option „CPU und RAM der Box lesen“), **Internetverbindung** und **Heimnetz** |
 
 Die Trennung ist strikt: Jeder Reiter zeigt nur seine eigenen Elemente, nichts erscheint doppelt. Reiter ohne Daten werden nicht angelegt; gibt es nur eine Kategorie, verschwindet die Reiterleiste ganz. Der Reiter *Einstellungen* ist immer der letzte.
 
@@ -1726,8 +1755,8 @@ language: nl   # "" = automatisch, sonst de | en | nl
   Ausweichweg); an keiner Box geprüft, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell).
 - **Reservierungen innerhalb des DHCP-Bereichs** liest die Integration seit 2.0.0 zusätzlich aus der Weboberfläche;
   ob dein FRITZ!OS das Kennzeichen liefert, ist ungeprüft (Diagnose: `reservations`).
-- **Datenverbrauch je Gerät** liefert die Box nicht über TR-064. Seit 2.0.0b2 schätzt die Integration ihn aus den Datenraten des Online-Monitors (nur Geräte mit „Internet-Datenraten speichern“, Einheit und Zuordnung ungeprüft), siehe [Datenverbrauch je Gerät](#datenverbrauch-je-gerät-experimentell-seit-200b2).
-- **Notification Center (seit 1.9.2b1, Beta)** ist nur gegen einen simulierten Ereignisbus geprüft, nicht gegen ein echtes Notification Center und nicht an echter Hardware; die Schalter gibt es nur im Konfigurieren-Dialog, nicht in der Karte, siehe [Notification Center](#notification-center-optional).
+- **Datenverbrauch je Gerät** liefert die Box nicht über TR-064. Seit 2.0.0 schätzt die Integration ihn aus den Datenraten des Online-Monitors (nur Geräte mit „Internet-Datenraten speichern“, Einheit und Zuordnung ungeprüft), siehe [Datenverbrauch je Gerät](#datenverbrauch-je-gerät-experimentell).
+- **Notification Center (seit 2.0.0)** ist nur gegen einen simulierten Ereignisbus geprüft, nicht gegen ein echtes Notification Center und nicht an echter Hardware; die Schalter gibt es nur im Konfigurieren-Dialog, nicht in der Karte, siehe [Notification Center](#notification-center-optional).
 - Die Zuordnung zu Home-Assistant-Geräten erfolgt ausschließlich über die MAC-Adresse.
   Es wird bewusst nicht über Namensähnlichkeit geraten.
 
@@ -1739,7 +1768,7 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `828e98cec6c86477f6a93abcd72ba727fc5f2a90b0aaee6b051e8d96d372120a` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `72d06929fa346146a55ab8179aa958c2a79f69fc2e8f0ca29cc1d9d7327a6944` |
 | `custom_components/fritzbox_netzwerk/strings.json` | `eba3c30deb99cf0b7fdd02db735a87a626ca4783c2c355fcc8203ac7ef1deb49` |
 | `custom_components/fritzbox_netzwerk/translations/de.json` | `c855d21892eef9e2db423dbe075b49f954d5a9199f94201dfbebcaa8336a0699` |
 | `custom_components/fritzbox_netzwerk/translations/en.json` | `b7612495e4bd9251381269008685314e3ec98b577c167a254cca8e3a4e697d6d` |
@@ -1761,7 +1790,7 @@ node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fri
 
 **Tests zu 2.0.0** (`test_issue30_dns.py`, `test_static_ip.py`, `test_vpn_and_reservations.py`, mit eigener `conftest.py`, die die Module ohne Home Assistant lädt) liegen dem Release als eigenes Paket bei, nicht im Repository; sie laufen gegen eine simulierte FRITZ!Box.
 
-**Tests zu 1.9.2b1** (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, mit eigener `conftest.py`, die Home Assistant durch Attrappen ersetzt) liegen dem Release als eigenes Paket bei, nicht im Repository.
+**Tests zum Notification Center in 2.0.0** (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, mit eigener `conftest.py`, die Home Assistant durch Attrappen ersetzt) liegen dem Release als eigenes Paket bei, nicht im Repository.
 
 **Hinweis zum Stand des Repositorys:** Im Repository liegen nur die Tests zu 1.9.0 (`tests/test_issues_1_9_0.py`
 mit `conftest.py`, die Module ohne Home Assistant lädt, und `tests/test_card_editor_title.js`). Die Tests für
@@ -1782,103 +1811,40 @@ erfüllt.
 
 ## Versionshistorie
 
-### 2.0.0b7 – Neue Reiter: Online-Monitor und Mesh-Karte, „Einstellungen“ mit Versions-Accordion
+### 2.0.0 – Online-Monitor und Mesh-Karte, FRITZ!Box-Infos mit Temperatur, Notification Center, Datenverbrauch je Gerät, statische IP über REST
 
-**Beta (Vorabversion).** Baut auf 2.0.0b6 auf. **Nicht an einer echten FRITZ!Box geprüft** – nur die Datenformate von *Verbindungsdetails* und *Online-Monitor* wurden an einer FRITZ!Box 5690 Pro (FRITZ!OS 8.40) im Browser gelesen; der Aufbau der *Online-Zähler* ist unbekannt und wird daher tolerant gelesen.
+Erste stabile Version der 2.0er-Reihe. Baut auf 1.9.1 auf und enthält alles aus den vorangegangenen Vorabversionen (Betas), die nicht mehr veröffentlicht sind. **Nicht an einer echten FRITZ!Box oder in einem laufenden Home Assistant geprüft** – nur gegen eine simulierte Box, synthetische Daten und die Karte im Headless-Browser. Die Datenformate von *Verbindungsdetails* und *Online-Monitor* wurden an einer FRITZ!Box 5690 Pro (FRITZ!OS 8.40) im Browser gelesen (nur lesend); der Aufbau der *Online-Zähler* ist unbekannt und wird tolerant gelesen.
 
-- **Neu – Reiter „Online-Monitor“** (`mdi:chart-areaspline`, Editor: *Reiter Online-Monitor anzeigen*): aktuelle Down-/Upload-Rate mit Verlauf, Auslastung nach Priorität, größte Verbraucher, **Verbindungsdetails** (Medium, online seit, IPv4/IPv6, Gateway, DNS, Maximaltempo; Zugangsname und Passwort werden nie übernommen) und **Online-Zähler** (heute, gestern, Woche, Monat, gesamt). Erscheint nur mit eingeschalteter Datenverbrauchs-Erfassung.
-- **Neu – Reiter „Mesh“** (`mdi:router-network`, Editor: *Reiter Mesh (Karte) anzeigen*): Karte wie *Heimnetz → Mesh* der Box: FRITZ!Box, Repeater und je Knoten die verbundenen Geräte mit Verbindungsrate. Erscheint nur mit mindestens einem Repeater.
-- **Geändert:** Der Reiter **„Steuerung“ heißt jetzt „Einstellungen“** (Zahnrad `mdi:cog`, immer letzter Reiter). Die **App-Version** steht dort als aufklappbarer Bereich (offen; orange bei neuer Version).
-- **Diagnose:** Der Diagnose-Download enthält unter `traffic.online_extras` die erkannten Zähler und den Aufbau der Zähler-Antwort (nur Schlüsselnamen).
-- **Bekannt:** Ob die Online-Zähler auf deiner Box erkannt werden, zeigt sich erst im Test; falls nicht, hilft die Diagnose.
+**Karte**
 
-### 2.0.0b6 – Online-Monitor für FRITZ!OS 8.x (an einer FRITZ!Box 5690 Pro betrachtet)
+- **Neu – Online-Monitor:** Die **größten Verbraucher** sind antippbar und öffnen das Popup des Geräts.
+- **Neu – Mesh:** Antippen der FRITZ!Box oder eines Repeaters öffnet dessen Popup. „N Geräte“ klappt die Geräteliste des Knotens auf, jedes Gerät darin öffnet sein Popup. Lange Listen scrollen im Bereich, die Ansicht bleibt übersichtlich.
+- **Neu – Einstellungen:** aufklappbare Bereiche **FRITZ!Box** (Modell, FRITZ!OS, IP-Adresse, Laufzeit, **Temperatur**, CPU- und RAM-Auslastung), **Internetverbindung** (Status, externe IP, Online-Dauer, Raten, Maximaltempo) und **Heimnetz** (Gerätezahlen, Mesh-Stand). Temperatur, CPU und RAM erscheinen nur mit der Option „CPU und RAM der Box lesen (experimentell)“; sonst steht dort ein Hinweis. Die Laufzeit liest die Integration per TR-064 (`DeviceInfo`); an einer echten Box ungeprüft.
+- **Neu – Reiter „Online-Monitor“** (`mdi:chart-areaspline`): aktuelle Down-/Upload-Rate mit Verlauf, Auslastung nach Priorität, größte Verbraucher, **Verbindungsdetails** (Zugangsname und Passwort werden nie übernommen) und **Online-Zähler**. Erscheint nur mit eingeschalteter Datenverbrauchs-Erfassung.
+- **Neu – Reiter „Mesh“** (`mdi:router-network`): Karte wie *Heimnetz → Mesh* der Box mit FRITZ!Box, Repeatern und den verbundenen Geräten samt Verbindungsrate. Erscheint nur mit mindestens einem Repeater.
+- **Geändert:** Der Reiter „Steuerung“ heißt jetzt **„Einstellungen“** (Zahnrad, immer letzter Reiter); die App-Version steht dort als aufklappbarer Bereich.
+- **Neu:** Filterknopf **VPN** (Geräte, die die Box als VPN kennzeichnet, und Einträge `VPN:<IP>`; ausblenden mit `filter_vpn: false`, Symbolfarbe `color_cat_vpn`).
+- **Neu:** Spalte „Daten (7 Tage)“, Popup-Zeilen mit Tagesverlauf, CSV-Export in Byte (`show_traffic`).
 
-**Beta (Vorabversion).** Baut auf 2.0.0b5 auf. Die Schnittstelle wurde an einer FRITZ!Box 5690 Pro mit FRITZ!OS 8.40 im Browser betrachtet (nur lesend); **die Integration selbst lief dort noch nicht**.
+**Integration**
 
-- **Behoben:** Die Online-Monitor-Daten liegen dort unter `api/v0/monitor/online/0` (Messwerte im 5-Sekunden-Abstand, je Gerät mit MAC-Adresse). Die Integration liest jetzt diesen Weg zuerst; die alten Pfade bleiben als Ausweichweg. Eine zusätzliche Zuordnungsabfrage entfällt.
-- **Hinweis:** Die Box hält je Gerät nur rund 24 Stunden vor (die 14- und 60-Tage-Reihen enthalten keine Einzelgeräte). Die 7-Tage-Summe entsteht also weiterhin durch Aufsummieren ab Aktivierung.
-- **Einheit:** Byte pro Sekunde passt zur Größenordnung der Zähler der Box.
+- **Neu – Datenverbrauch je Gerät (experimentell, #26 teilweise):** Optionen „Datenverbrauch je Gerät erfassen“ und „Einheit der Messwerte des Online-Monitors“. Die Integration liest die Geräte-Datenraten des Online-Monitors (`api/v0/monitor/online/0`, ersatzweise weitere Pfade), rechnet sie zu Tages- und 7-Tage-Summen auf und speichert sie dauerhaft. Sensoren: *Datenverbrauch Status* (nennt den Grund, wenn Werte fehlen), *Datenverbrauch 7 Tage (alle Geräte)*, *Größter Datenverbraucher (7 Tage)* sowie je Gerät *Daten 7 Tage* und *Daten heute*. Werte sind Schätzungen; Einheit, Fensterlänge und Zuordnung sind ungeprüft. Diagnose: `traffic`, `traffic.online_extras`.
+- **Neu – Notification Center (optional):** Meldungen *Verbindung zur FRITZ!Box verloren*, *Überwachtes Gerät offline* und *Neues Gerät im Netz* über den Ereignisbus, Texte in fünf Sprachen, zwei Schalter unter *Konfigurieren*. Ohne Notification Center bleibt alles unverändert. Siehe [Notification Center](#notification-center-optional).
+- **Verbessert:** Die Update-Prüfung berücksichtigt bei einer installierten Beta oder einem Release Candidate auch Vorabversionen; wer eine fertige Version installiert hat, sieht weiterhin nur fertige Versionen.
+- **Neu – Dokumentation:** Die README gibt es in fünf Sprachen (de, en, nl, fr, es) mit Sprachleiste und Screenshots.
 
-### 2.0.0b5 – Online-Monitor: alternative Schnittstellenpfade
+**Behoben**
 
-**Beta (Vorabversion).** Baut auf 2.0.0b4 auf. **Nicht an einer echten FRITZ!Box geprüft.**
+- **Mesh-Karte:** Repeater erschienen in der Geräteliste ihres Knotens als normale Geräte, weil die Karte das Kennzeichen `repeater` der Integration nicht kannte. Repeater zählen jetzt nur als Knoten.
+- **IP-Adresse ändern:** `set_static_ip` und die Zeile „Statische IP“ in der Karte funktionierten nicht, weil die Formularfelder von `data.lua` nur angenommen waren. Die Integration schreibt jetzt über die REST-Route aus einem Drittprojekt für FRITZ!OS 8.25 (`PUT /api/v0/generic/landevice/landevice/<UID>`), liest das Ergebnis zurück, meldet eine verworfene Änderung als Fehler und stellt die frühere Zuweisung wieder her. Das Feld `ip` der Anfrage ist selbst im Drittprojekt ungeprüft.
+- **#30:** `set_dns_settings` machte an einer FRITZ!Box 6591 Cable den IPv4-Wert rückgängig, weil eine IPv6-Adresse als Zeichenkette verglichen wurde (die Box kürzt `:0:` zu `::`). IP-Adressen werden jetzt als Adressen verglichen.
+- **#31:** Geräte mit „immer die gleiche IPv4-Adresse zuweisen“ innerhalb des DHCP-Bereichs fehlten im Filter „Feste IP“. Die Integration liest die Reservierungen zusätzlich aus der Weboberfläche; ob dein FRITZ!OS das Kennzeichen liefert, ist ungeprüft (Diagnose: `reservations`).
+- **#29 (wahrscheinliche Ursache):** Einträge ohne MAC-Adresse (z. B. WireGuard-Gegenstellen) wurden verworfen. Als VPN gekennzeichnete Gegenstellen mit IP-Adresse bleiben jetzt als `VPN:<IP>` erhalten.
+- **#24 (eine mögliche Ursache):** „Getrennte Geräte ausblenden“ leerte auch die Ansichten „Inaktiv“ und „Lange offline“. Die Einstellung gilt nur noch für die gemischten Ansichten.
 
-- **Behoben (Versuch):** Eine echte Box antwortete auf `api/v0/monitor/datasets` mit „bad path“. Die Integration probiert jetzt nacheinander `api/v0/monitor/…` und `api/v0/generic/monitor/…`, merkt sich den funktionierenden Pfad und nennt bei Misserfolg alle Fehlermeldungen. Diagnose und Status-Sensor zeigen `schnittstelle` und die FRITZ!OS-Version. Ob eine der Varianten bei deiner Box existiert, ist ungeprüft.
+**Hinweise zum Update:** Über HACS aktualisieren, Home Assistant neu starten, Browser-Cache leeren (Strg+F5).
 
-### 2.0.0b4 – Online-Monitor-Abruf: Kopfzeilen und Fehlertext
-
-**Beta (Vorabversion).** Baut auf 2.0.0b3 auf. **Nicht an einer echten FRITZ!Box geprüft.**
-
-- **Behoben (Versuch):** Der Abruf `api/v0/monitor/datasets` scheiterte an einer echten Box mit HTTP 400. Die Anfrage sendet jetzt dieselben Kopfzeilen wie das Community-Skript, auf das sich die Schnittstelle stützt (`Content-Type`, `Accept`, `Referer`). Ob das die Ursache war, ist ungeprüft.
-- **Besser:** Bei einem HTTP-Fehler steht der Anfang der Antwort der Box im Status-Sensor und im Protokoll.
-
-### 2.0.0b3 – Sensoren für den Datenverbrauch, Status-Sensor
-
-**Beta (Vorabversion).** Baut auf 2.0.0b2 auf. **Nicht an einer echten FRITZ!Box oder in einem laufenden Home Assistant geprüft.**
-
-- **Neu:** Sensoren *Datenverbrauch Status*, *Datenverbrauch 7 Tage (alle Geräte)*, *Größter Datenverbraucher (7 Tage)* sowie je Gerät *Daten 7 Tage* und *Daten heute* (nur mit aktiver Option).
-- **Besser:** Der Status-Sensor nennt den Grund, wenn keine Werte erscheinen. Wurde beim Abruf kein einziger Zähler einem Gerät zugeordnet, wird beim nächsten Abruf (2 Minuten) erneut versucht statt erst nach 15.
-
-### 2.0.0b2 – Datenverbrauch je Gerät (7 Tage, experimentell)
-
-**Beta (Vorabversion).** Baut auf 2.0.0b1 auf. **Nicht an einer echten FRITZ!Box oder in einem laufenden Home Assistant geprüft** – nur gegen eine simulierte Box.
-
-- **Neu (#26, teilweise):** Option „Datenverbrauch je Gerät erfassen“ und „Einheit der Messwerte des Online-Monitors“. Die Integration liest die Geräte-Datenraten des Online-Monitors, rechnet sie zu Tages-/7-Tage-Summen (Download, Upload, heute) auf und speichert sie dauerhaft. Voraussetzung: je Gerät „Internet-Datenraten speichern“ in der Box. Werte sind Schätzungen; Einheit, Fensterlänge und Zuordnung sind ungeprüft. Diagnose: `traffic`.
-- **Neu (Karte):** Spalte „Daten (7 Tage)“ (sortierbar, nur sichtbar mit Daten, `show_traffic`), Popup-Zeilen mit Tagesverlauf, CSV-Export in Byte.
-
-### 2.0.0b1 – Statische IP über REST, Reservierungen und VPN-Geräte, README in fünf Sprachen
-
-**Beta (Vorabversion).** Baut auf 1.9.2b1 auf. **Nichts davon wurde an einer echten FRITZ!Box oder in einem laufenden Home Assistant geprüft** –
-nur gegen eine simulierte Box und synthetische Daten.
-
-- **Behoben (IP-Adresse ändern):** `set_static_ip` und die Zeile „Statische IP“ in der Karte funktionierten nicht.
-  Ursache: Die Formularfelder von `data.lua` waren nur angenommen, die Box nahm sie nie an. Die Integration schreibt jetzt
-  über die REST-Route, die ein Drittprojekt für FRITZ!OS 8.25 beschreibt (`PUT /api/v0/generic/landevice/landevice/<UID>`),
-  liest das Ergebnis zurück (`query.lua`, sonst REST bzw. `edit_device`), meldet eine fehlende oder kommentarlos verworfene
-  Änderung als Fehler (mit Hinweis auf die Zwei-Faktor-Bestätigung) und stellt eine frühere Zuweisung wieder her. Der alte
-  Weg bleibt als Ausweichweg. Das Feld `ip` der Anfrage ist selbst im Drittprojekt ungeprüft.
-- **Behoben (#30):** `set_dns_settings` machte an einer FRITZ!Box 6591 Cable auch nach 1.9.1 den IPv4-Wert rückgängig.
-  Ursache: Der zurückgelesene Wert wurde als Zeichenkette verglichen, die Box kürzt eine einzelne Null-Gruppe einer
-  IPv6-Adresse zu `::`, die Integration behielt `:0:`. IP-Adressen werden jetzt als Adressen verglichen, sowohl bei der
-  Prüfung nach einem HTTP-Fehler als auch bei der Schlussprüfung. Gegen eine simulierte Box nachgestellt und behoben.
-- **Behoben (#31):** Geräte mit „Diesem Netzwerkgerät immer die gleiche IPv4-Adresse zuweisen“ innerhalb des DHCP-Bereichs
-  galten als „dynamisch“ und fehlten im Filter „Feste IP“ (die Box meldet das nicht über TR-064). Die Integration liest die
-  Reservierungen jetzt zusätzlich aus der Weboberfläche (`query.lua`, sonst `netDev`, im Takt der IP-Typ-Erfassung) und zählt
-  sie als fest. **An keiner Box geprüft:** Die Feldnamen stammen aus Beschreibungen von Drittprojekten; liefert die Box das
-  Kennzeichen nicht, ändert sich nichts. Der Diagnose-Download zeigt unter `reservations`, welcher Weg klappte.
-- **Behoben (#29, wahrscheinliche Ursache):** Einträge ohne MAC-Adresse wurden als Karteileichen verworfen – WireGuard-
-  Gegenstellen haben keine. Als VPN gekennzeichnete Gegenstellen mit IP-Adresse bleiben jetzt mit der Kennung `VPN:<IP>`
-  erhalten und erscheinen als aktiv; sie bekommen keine Entitäten und keine Aktionen, die eine MAC-Adresse brauchen.
-  **Ob die Box WireGuard-Gegenstellen in ihrer Geräteliste meldet, ist ungeprüft**; `box_hosts.without_mac_samples` in der
-  Diagnose zeigt, wie sie sie kennzeichnet.
-- **Behoben (#24, eine mögliche Ursache):** Die Einstellung „Getrennte Geräte ausblenden“ leerte auch die Ansichten
-  „Inaktiv“ und „Lange offline“. Diese Ansichten zeigen jetzt Offline-Geräte; die Einstellung gilt nur noch für die
-  gemischten Ansichten (Hilfetext ergänzt). Nicht bei jedem Melder ist die Ursache bestätigt.
-- **Neu:** Filterknopf **VPN** in der Filterleiste der Karte (neben „Feste IP“): zeigt Geräte, die die Box als VPN kennzeichnet, und Einträge, die als `VPN:<IP>` geführt werden. Ausblenden mit `filter_vpn: false`, `default_filter: vpn` ist möglich, Symbolfarbe `color_cat_vpn`. Nur per Syntaxprüfung der Karte geprüft, nicht im Browser.
-- **Dokumentation:** Die README gibt es jetzt in **fünf Sprachen** (de, en, nl, fr, es) mit Sprachleiste ganz oben in jeder
-  Datei. Integration und Karte sind weiterhin in de, en und nl übersetzt.
-- **Nicht gelöst:** #26 (Datenvolumen je Gerät) – TR-064 liefert es nicht, das Issue bleibt offen. #20 wurde in 1.9.1 gelöst
-  und vom Melder bestätigt; #28 ist eine HACS-Angelegenheit.
-
-### 1.9.2b1 – Notification Center (optional), Update-Hinweis für Vorabversionen
-
-**Beta (Vorabversion).** Baut auf 1.9.1 auf. **Nichts davon wurde gegen ein echtes Notification Center, an einer
-echten FRITZ!Box oder in einer laufenden Home-Assistant-Instanz geprüft** – Brücke und Auslöser laufen nur gegen einen
-simulierten Ereignisbus.
-
-- **Neu:** Optionale Anbindung an das **Notification Center** (Schnittstelle Schema 1, Ereignisbus, kein MQTT). Meldungsarten:
-  *Verbindung zur FRITZ!Box verloren* (Warnung), *Überwachtes Gerät offline* (Info; Repeater und per IP-Muster
-  ausgewählte Geräte) und *Neues Gerät im Netz* (Info). Texte in fünf Sprachen; beim Start nur der Ausgangszustand ohne
-  Push. Ohne Notification Center bleibt alles unverändert. Siehe [Notification Center](#notification-center-optional).
-- **Neu:** Zwei Einstellungen unter *Konfigurieren*: Hauptschalter und Auswahl der gesendeten Meldungsarten
-  (Übersetzungen de/en/nl). Der Diagnose-Download nennt Schalterstand und Zähler je Meldungsart, keine Inhalte.
-- **Verbessert:** Die Update-Prüfung berücksichtigt bei einer installierten Beta oder einem Release Candidate auch
-  Vorabversionen (Release-Liste statt `releases/latest`, das Vorabversionen nie liefert). Wer eine fertige Version
-  installiert hat, sieht weiterhin nur fertige Versionen.
-- **Hinweis:** HACS zeigt Vorabversionen nur mit der Einstellung „Beta-Versionen anzeigen“.
-- **Nicht umgesetzt:** Ein Bereich „Notification Center“ in der Dashboard-Karte (Zahnrad). Die Karte hat bisher keine
-  Einstellungsseite und keine eigene Schnittstelle zum Schreiben; die Schalter gibt es im Konfigurieren-Dialog.
+**Bekannt:** Ob die Online-Zähler auf deiner Box erkannt werden, zeigt sich erst im Test; falls nicht, hilft der Diagnose-Download. #26 (Datenvolumen je Gerät) bleibt eine Schätzung, TR-064 liefert es nicht.
 
 ### 1.9.1 – Gast-WLAN-Dienst wählbar, IPv6-DNS mit HTTP 400, erweiterte Diagnose
 

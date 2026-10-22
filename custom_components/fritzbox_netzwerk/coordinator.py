@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 35caf1896b7fb9226a9045ccb73ead46e2b82bd743d95f34df0ae6d4f830f02b
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 6713040a93e1047217e080974cf1815a43a4fdeec8a0c86c6fa5810cbb1958ba
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -263,7 +263,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._traffic_info: dict[str, Any] = {}
         self._traffic_shape: dict[str, Any] = {}
         self._traffic_base: str | None = None
-        # Online-Monitor-Reiter der Karte (seit 2.0.0b7): Raten, Verbindungsdetails, Zaehler.
+        # Online-Monitor-Reiter der Karte (seit 2.0.0): Raten, Verbindungsdetails, Zaehler.
         self._online_overview: dict[str, Any] | None = None
         self._online_extras: dict[str, Any] = {}
         self._online_extras_scan: float | None = None
@@ -313,6 +313,10 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._system_stats: dict[str, float | None] | None = None
         self._system_stats_scan: datetime | None = None
         self._system_stats_error: str | None = None
+
+        # FRITZ!Box-Infos fuer den Einstellungen-Reiter (TR-064 DeviceInfo, alle 5 Minuten).
+        self._box_info: dict[str, Any] | None = None
+        self._box_info_at: datetime | None = None
 
         # Internetsperre mit Frist (Idee 22): MAC-Schluessel -> Ende (ISO-UTC),
         # dauerhaft gespeichert, damit ein Neustart die Sperre nicht "vergisst".
@@ -760,6 +764,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self.system_stats_enabled and self._system_stats_due():
             self._system_stats = self._fetch_system_stats()
             self._system_stats_scan = dt_util.utcnow()
+        if self._slow_due("box_info"):
+            self._fetch_box_info()
         return raw_hosts, refreshed, connection, wlan, bands, mesh_links
 
     def _slow_due(self, key: str) -> bool:
@@ -818,6 +824,57 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 str(self.entry.data.get(CONF_PASSWORD) or ""),
                 *args,
             )
+
+    def _fetch_box_info(self) -> None:
+        """Liest Laufzeit und Softwarestand der Box (TR-064 ``DeviceInfo``, blockierend).
+
+        Jeder Fehler ist harmlos: die Angaben fehlen dann bzw. bleiben die
+        letzten stehen, die Geraeteliste laeuft unberuehrt weiter.
+        """
+        try:
+            result = self.fritz_hosts.fc.call_action("DeviceInfo1", "GetInfo")
+        except (FritzConnectionException, RequestException, KeyError, ValueError) as err:
+            _LOGGER.debug("Geraeteinformationen der Box momentan nicht abrufbar: %s", err)
+            return
+        if not isinstance(result, dict):
+            return
+        try:
+            uptime = int(result.get("NewUpTime"))
+        except (TypeError, ValueError):
+            uptime = None
+        software = str(result.get("NewSoftwareVersion") or "").strip()
+        self._box_info = {
+            "software": software or None,
+            "uptime": uptime if uptime is not None and uptime >= 0 else None,
+        }
+        self._box_info_at = dt_util.utcnow()
+
+    @property
+    def box_summary(self) -> dict[str, Any]:
+        """Angaben zur FRITZ!Box fuer das Akkordeon im Reiter "Einstellungen".
+
+        ``temperature``, ``cpu`` und ``ram`` kommen nur mit der Option "CPU und
+        RAM der Box lesen" (``system_enabled``); ``boot_time`` ist der
+        berechnete Startzeitpunkt (ISO-UTC), damit die Karte die Laufzeit
+        selbst fortschreiben kann.
+        """
+        info = self._box_info or {}
+        boot_time = None
+        uptime = info.get("uptime")
+        if isinstance(uptime, int) and self._box_info_at is not None:
+            boot_time = (self._box_info_at - timedelta(seconds=uptime)).isoformat()
+        stats = self._system_stats or {}
+        return {
+            "model": self.box_model or None,
+            "ip": str(self.entry.data.get(CONF_HOST, "")) or None,
+            "os": self._fritzos() or info.get("software"),
+            "boot_time": boot_time,
+            "system_enabled": self.system_stats_enabled,
+            "system_error": self._system_stats_error is not None,
+            "temperature": stats.get("temperature"),
+            "cpu": stats.get("cpu"),
+            "ram": stats.get("ram"),
+        }
 
     def _system_stats_due(self) -> bool:
         if self._system_stats_scan is None:
@@ -1860,6 +1917,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "system": self._system_stats,
             "version": self.version_info,
             "online_monitor": self.online_monitor,
+            "box": self.box_summary,
         }
 
     # -- Hersteller (OUI) -------------------------------------------------

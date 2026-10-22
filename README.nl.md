@@ -7,8 +7,10 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b7-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
+
+📺 **Video en handleiding voor de netwerkkaart (Duits):** [meinesmartewelt.de – FRITZ!Box Netzwerk voor Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
 
 > Dit is de Nederlandse uitgave. De Duitse [README.md](README.md) is het hoofdbestand en bevat de volledige kaartreferentie, het hoofdstuk probleemoplossing en de complete versiegeschiedenis. Onderdelen met „alleen Duits” zijn nog niet vertaald.
 
@@ -16,6 +18,7 @@ Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk a
 
 ## Inhoud
 
+- [Screenshots](#screenshots)
 - [Functies](#functies)
 - [Vereisten](#vereisten)
 - [Installatie](#installatie)
@@ -42,6 +45,30 @@ Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk a
 - [Ontwikkeling en tests](#ontwikkeling-en-tests)
 - [Versiegeschiedenis](#versiegeschiedenis)
 - [Licentie](#licentie)
+
+---
+
+## Screenshots
+
+<p align="center"><img src="docs/images/banner.png" alt="FRITZ!Box Netzwerk" width="360"></p>
+
+**Tab „Netwerk”** – alle apparaten als sorteerbare tabel met filterbalk (Actief, Inactief, Gast, Geblokkeerd, Update, Vast IP, VPN, Nieuw, Lang offline), IP- en MAC-adres, fabrikant, verbinding, koppeling naar het Home Assistant-apparaat, label en notitie.
+
+![Tab Netwerk: apparatenlijst met filterbalk](docs/images/netzwerk.png)
+
+**Tab „Online-monitor”** – actuele download- en uploadsnelheid met verloop, belasting per prioriteit en de grootste verbruikers. Tikken op een verbruiker opent de popup van het apparaat.
+
+![Tab Online-monitor](docs/images/online-monitor.png)
+
+**Detail-popup** – hier voor de FRITZ!Box: naam, IP- en MAC-adres, status, IP-type, internettoegang, filterprofiel, firmware-update, kenmerken en laatst online, plus de knoppen *Webinterface openen* en *Internet blokkeren*.
+
+<img src="docs/images/geraete-popup.png" alt="Detail-popup van een apparaat" width="320">
+
+**Tab „Instellingen”** – wifi-schakelaars, QR-code, MAC-filter, opnieuw verbinden, herstart, mesh-groep met online-teller en uitklapbare onderdelen (app-versie, FRITZ!Box met temperatuur, internetverbinding, thuisnetwerk).
+
+![Tab Instellingen](docs/images/einstellungen.png)
+
+Meer in de video en handleiding (Duits): [meinesmartewelt.de – FRITZ!Box Netzwerk voor Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
 ---
 
@@ -134,8 +161,8 @@ Via *Configureren* bij de integratie:
 | Statisch IP-adres instellen (experimenteel) | uit | Staat `set_static_ip` en de kaartknop toe te schrijven; de voorvertoning (`dry_run`) werkt altijd |
 | CPU en RAM van de box lezen (experimenteel) | uit | Drie sensoren uit de webinterface van de box |
 | Netwerkapparaten als eigen apparaten aanmaken | uit | Eén HA-apparaat per geselecteerd apparaat, selectie via patroon |
-| Meldingen naar het Notification Center sturen (sinds 1.9.2b1) | aan | Hoofdschakelaar voor de optionele koppeling, zie [Notification Center](#notification-center-optioneel) |
-| Te verzenden soorten meldingen (sinds 1.9.2b1) | alle | Welke soorten meldingen naar het Notification Center gaan (verbinding verbroken, bewaakt apparaat offline, nieuw apparaat) |
+| Meldingen naar het Notification Center sturen (sinds 2.0.0) | aan | Hoofdschakelaar voor de optionele koppeling, zie [Notification Center](#notification-center-optioneel) |
+| Te verzenden soorten meldingen (sinds 2.0.0) | alle | Welke soorten meldingen naar het Notification Center gaan (verbinding verbroken, bewaakt apparaat offline, nieuw apparaat) |
 | Pairingduur | 5 min | Hoe lang het MAC-filter bij pairing uit blijft (1–120 min) |
 
 ---
@@ -178,9 +205,11 @@ De integratie **wisselt tussen bestaande toegangsprofielen** (Internet → Filte
 
 De optie „CPU en RAM van de box lezen (experimenteel)” (standaard uit) maakt drie sensoren aan: CPU-belasting, RAM-belasting, CPU-temperatuur. Ze komen uit de webinterfacepagina `ecoStat`, niet uit TR-064; op geen enkele box getest – vergelijk met Systeem → Energiemonitor.
 
+De waarden – ook de **temperatuur** – verschijnen bovendien in de kaart op de tab *Instellingen* in het uitklapbare onderdeel *FRITZ!Box*. Staat de optie uit, dan staat daar een hint in plaats van de waarden.
+
 ---
 
-## Dataverbruik per apparaat (experimenteel, sinds 2.0.0b2)
+## Dataverbruik per apparaat (experimenteel)
 
 Optie “Dataverbruik per apparaat vastleggen (experimenteel)” (standaard uit). Ze beantwoordt **welk apparaat de afgelopen week hoeveel data heeft overgedragen**, om apparaten te vinden die te veel met internet praten of het wifi overbelasten (verzoek uit #26).
 
@@ -192,7 +221,7 @@ Optie “Dataverbruik per apparaat vastleggen (experimenteel)” (standaard uit)
 - De totalen staan in de opslag van Home Assistant (8 dagen). Als Home Assistant of het ophalen tijdelijk uitvalt, ontbreekt die tijd in de totalen (diagnose telt de gaten onder `traffic.stats`).
 - **Eenheid alleen op plausibiliteit gecontroleerd:** byte per seconde; op een FRITZ!Box 5690 Pro (FRITZ!OS 8.40) past de ordegrootte bij de tellers van de box, een exacte vergelijking ontbreekt nog. Kloppen de cijfers niet, zet dan “Eenheid van de waarden van de online-monitor” op bit per seconde. De diagnose toont onder `traffic.shape.sample_values` ruwe voorbeeldwaarden om met de Online Monitor van de box te vergelijken.
 
-**Sensoren (sinds 2.0.0b3):** De optie maakt *Dataverbruik status* (diagnose; toont „Gegevens beschikbaar”, „Wacht op metingen”, „Geen gegevensbron gekoppeld”, „Geen passende metingen” of „Fout bij ophalen”, de reden staat in de attributen), *Dataverbruik 7 dagen (alle apparaten)* en *Grootste dataverbruiker (7 dagen)* (apparaatnaam, top-vijf in de attributen). Elk apparaat met waarden krijgt ook *<apparaat> Daten 7 Tage* en *<apparaat> Daten heute* (eenheid byte, weergave in GB; download, upload en dagverloop als attributen). Apparaatsensoren verschijnen pas zodra er waarden zijn. **Zie je niets, kijk dan eerst naar de statussensor.**
+**Sensoren:** De optie maakt *Dataverbruik status* (diagnose; toont „Gegevens beschikbaar”, „Wacht op metingen”, „Geen gegevensbron gekoppeld”, „Geen passende metingen” of „Fout bij ophalen”, de reden staat in de attributen), *Dataverbruik 7 dagen (alle apparaten)* en *Grootste dataverbruiker (7 dagen)* (apparaatnaam, top-vijf in de attributen). Elk apparaat met waarden krijgt ook *<apparaat> Daten 7 Tage* en *<apparaat> Daten heute* (eenheid byte, weergave in GB; download, upload en dagverloop als attributen). Apparaatsensoren verschijnen pas zodra er waarden zijn. **Zie je niets, kijk dan eerst naar de statussensor.**
 
 **In de kaart:** kolom **Data (7 dagen)** met balk (klik op de kop om op de grootste verbruiker te sorteren); de popup toont “Data (7 dagen)” met download/upload, “Data vandaag” en een dagverloop. De kolom verschijnt alleen als er waarden zijn; verbergen met `show_traffic: false`. De CSV-export bevat de 7-dagenwaarde in byte.
 
@@ -234,7 +263,7 @@ Sinds 1.8.0 kan de integratie een apparaat een vast IPv4-adres toewijzen – dit
 
 ## Notification Center (optioneel)
 
-Sinds **1.9.2b1** (bèta) kan de integratie meldingen naar het **Notification Center** sturen – een aparte, eveneens
+De integratie kan meldingen naar het **Notification Center** sturen – een aparte, eveneens
 optionele „Meine smarte Welt”-integratie die meldingen verzamelt, op urgentie sorteert en aflevert. **Zonder geïnstalleerd
 Notification Center gebeurt er niets:** geen fout, geen extra logregel, geen extra aanvraag bij de FRITZ!Box.
 
@@ -273,7 +302,7 @@ start zijn verzonden.
 - Mislukt het inloggen herhaaldelijk en vraagt Home Assistant daarom om opnieuw in te loggen, dan is dat geen melding
   „verbinding verbroken”; daarvoor toont Home Assistant zelf een melding.
 - **Teststatus:** alleen getest tegen een **gesimuleerde** gebeurtenisbus (koppeling en triggers, 44 tests). **Niet** tegen
-  een echt Notification Center en niet op een echte FRITZ!Box of in een draaiende Home Assistant. Bèta: feedback
+  een echt Notification Center en niet op een echte FRITZ!Box of in een draaiende Home Assistant. Feedback
   uitdrukkelijk gewenst.
 
 ---
@@ -281,6 +310,8 @@ start zijn verzonden.
 ## De dashboardkaart
 
 De kaart wordt met de integratie meegeleverd (`custom:fritzbox-netzwerk-card`). Hij heeft een grafische editor; elke kolom, elk filter, de besturingsbalk en de rijen van het detailvenster zijn afzonderlijk aan of uit te zetten, kleuren zijn vrij te kiezen, drie talen. De volledige referentie (kolommen, sorteren, IP-filter, tabs, groeperen, CSV-export, gast-wifi-QR-code, vegen op telefoons, kleuren) staat in de Duitse README.
+
+**Tabs (optioneel):** met *Categorieën als tabs tonen* krijgt de kaart een tabbalk. **Netwerk** bevat de apparatentabel. **Online-monitor** toont de actuele snelheid, belasting per prioriteit, verbindingsdetails en online-tellers; tik op een grootste verbruiker om de popup van dat apparaat te openen. **Mesh** tekent de FRITZ!Box, repeaters en hun apparaten: tik op de box of een repeater om de popup te openen, tik op „N apparaten” om de apparatenlijst van het knooppunt uit te klappen en tik op een apparaat daarin voor de popup. **Instellingen** (altijd de laatste tab) bevat de schakelaars en de uitklapbare onderdelen *App-versie*, *FRITZ!Box* (model, FRITZ!OS, IP-adres, looptijd, plus temperatuur, CPU en RAM met de optie „CPU en RAM van de box lezen”), *Internetverbinding* en *Thuisnetwerk*. Video en handleiding (Duits): [meinesmartewelt.de](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
 ```yaml
 type: custom:fritzbox-netzwerk-card
@@ -350,7 +381,7 @@ Schrijfacties vereisen beheerdersrechten; invoer wordt in de backend gecontrolee
 
 ## Bekende beperkingen
 
-- **Notification Center (sinds 1.9.2b1, bèta)** is alleen getest tegen een gesimuleerde gebeurtenisbus, niet tegen een echt Notification Center of echte hardware; de schakelaars bestaan alleen in het dialoogvenster Configureren, niet in de kaart, zie [Notification Center](#notification-center-optioneel).
+- **Notification Center (sinds 2.0.0)** is alleen getest tegen een gesimuleerde gebeurtenisbus, niet tegen een echt Notification Center of echte hardware; de schakelaars bestaan alleen in het dialoogvenster Configureren, niet in de kaart, zie [Notification Center](#notification-center-optioneel).
 - **„Alle ongebruikte verbindingen verwijderen” ontbreekt** – TR-064 heeft daarvoor geen actie.
 - **Statisch IP en DNS schrijven zijn experimenteel** en gebruiken de ongedocumenteerde webinterface van de box. Schrijven is op geen enkele echte box getest; de REST-route voor het statische IP volgt de beschrijving van een extern project voor FRITZ!OS 8.25. Ze kunnen met elke FRITZ!OS-update breken.
 - **DHCP-reserveringen maar deels herkend.** De box meldt reserveringen *binnen* het DHCP-bereik niet via TR-064. Sinds 2.0.0 leest de integratie ze extra uit de webinterface (`query.lua`, anders `netDev`); of jouw FRITZ!OS de markering levert, is ongetest. Zo niet, dan blijven zulke apparaten „dynamisch” – de diagnose-download (`reservations`) toont welke weg werkte. Alternatief: handmatig of in bulk markeren (`mark_devices_reserved`).
@@ -378,78 +409,46 @@ node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fri
 
 De tests voor 2.0.0 (`test_issue30_dns.py`, `test_static_ip.py`, `test_vpn_and_reservations.py`, met een eigen `conftest.py` die de modules zonder Home Assistant laadt) worden eveneens als apart pakket geleverd, niet in de repository. Ze draaien tegen een gesimuleerde FRITZ!Box.
 
-De tests voor 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, met een eigen `conftest.py` die Home Assistant door attrappen vervangt) worden als apart pakket bij de release geleverd, niet in de repository.
+De tests voor het Notification Center in 2.0.0 (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, met een eigen `conftest.py` die Home Assistant door attrappen vervangt) worden als apart pakket bij de release geleverd, niet in de repository.
 
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
 
-### 2.0.0b7 – Nieuwe tabs: Online-monitor en Mesh-kaart, „Instellingen” met versie-accordeon
+### 2.0.0 – Online-monitor en Mesh-kaart, FRITZ!Box-info met temperatuur, Notification Center, dataverbruik per apparaat, statisch IP via REST
 
-**Bèta (voorversie).** Bouwt voort op 2.0.0b6. **Niet getest op een echte FRITZ!Box** – alleen de formaten van *verbindingsdetails* en *online-monitor* zijn in de browser gelezen op een FRITZ!Box 5690 Pro (FRITZ!OS 8.40); de opbouw van de *online-teller* is onbekend en wordt soepel gelezen.
+Eerste stabiele versie van de 2.0-reeks. Bouwt voort op 1.9.1 en bevat alles uit de voorafgaande voorlopige versies (bèta's), die niet meer worden aangeboden. **Niet getest op een echte FRITZ!Box of in een draaiende Home Assistant** – alleen tegen een gesimuleerde box, synthetische gegevens en de kaart in een headless browser. De formaten van *verbindingsdetails* en *online-monitor* zijn in de browser gelezen op een FRITZ!Box 5690 Pro (FRITZ!OS 8.40), alleen lezen; de opbouw van de *online-tellers* is onbekend en wordt tolerant gelezen.
 
-- **Nieuw – tab „Online-monitor”** (`mdi:chart-areaspline`): actuele download-/uploadsnelheid met verloop, belasting per prioriteit, grootste verbruikers, **verbindingsdetails** (medium, online sinds, IPv4/IPv6, gateway, DNS, maximale snelheid; inlognaam en wachtwoord worden nooit overgenomen) en **online-teller** (vandaag, gisteren, week, maand, totaal). Vereist ingeschakelde gegevensverbruik-registratie.
-- **Nieuw – tab „Mesh”** (`mdi:router-network`): kaart zoals *Thuisnetwerk → Mesh* van de box: FRITZ!Box, repeaters en de aangesloten apparaten met verbindingssnelheid. Alleen met minstens één repeater.
-- **Gewijzigd:** de tab **„Bediening” heet nu „Instellingen”** (tandwiel `mdi:cog`, altijd de laatste tab). De **app-versie** staat daar als uitklapbaar onderdeel (open; oranje bij een nieuwe versie).
-- **Diagnose:** de diagnose-download bevat `traffic.online_extras`.
+**Kaart**
 
-### 2.0.0b6 – Online Monitor voor FRITZ!OS 8.x (bekeken op een FRITZ!Box 5690 Pro)
+- **Nieuw – Online-monitor:** de **grootste verbruikers** zijn aan te tikken en openen de popup van het apparaat.
+- **Nieuw – Mesh:** tikken op de FRITZ!Box of een repeater opent de popup. „N apparaten” klapt de apparatenlijst van het knooppunt uit en elk apparaat daarin opent zijn popup. Lange lijsten scrollen binnen het onderdeel, zodat het overzichtelijk blijft.
+- **Nieuw – Instellingen:** uitklapbare onderdelen **FRITZ!Box** (model, FRITZ!OS, IP-adres, looptijd, **temperatuur**, CPU- en RAM-belasting), **Internetverbinding** (status, extern IP, online-duur, snelheden, maximaal tempo) en **Thuisnetwerk** (aantallen apparaten, mesh-stand). Temperatuur, CPU en RAM verschijnen alleen met de optie „CPU en RAM van de box lezen (experimenteel)”; anders staat er een hint. De looptijd wordt via TR-064 (`DeviceInfo`) gelezen; niet getest op een echte box.
+- **Nieuw – tab „Online-monitor”** (`mdi:chart-areaspline`): actuele down-/uploadsnelheid met verloop, belasting per prioriteit, grootste verbruikers, **verbindingsdetails** (gebruikersnaam en wachtwoord worden nooit overgenomen) en **online-tellers**. Verschijnt alleen met ingeschakelde dataverbruikregistratie.
+- **Nieuw – tab „Mesh”** (`mdi:router-network`): kaart zoals *Thuisnetwerk → Mesh* van de box met FRITZ!Box, repeaters en de verbonden apparaten inclusief verbindingssnelheid. Verschijnt alleen met minstens één repeater.
+- **Gewijzigd:** de tab „Besturing” heet nu **„Instellingen”** (tandwiel, altijd de laatste tab); de app-versie staat daar als uitklapbaar onderdeel.
+- **Nieuw:** filterknop **VPN** (apparaten die de box als VPN markeert en items die als `VPN:<IP>` worden bewaard; verbergen met `filter_vpn: false`, pictogramkleur `color_cat_vpn`).
+- **Nieuw:** kolom „Data (7 dagen)”, popuprijen met dagverloop, CSV-export in bytes (`show_traffic`).
 
-**Bèta (voorlopige versie).** Bouwt voort op 2.0.0b5. De interface is in de browser bekeken op een FRITZ!Box 5690 Pro met FRITZ!OS 8.40 (alleen lezen); **de integratie zelf draaide daar nog niet**.
+**Integratie**
 
-- **Opgelost:** de Online Monitor-gegevens staan daar onder `api/v0/monitor/online/0` (metingen om de 5 seconden, per apparaat met MAC-adres). De integratie leest nu eerst dit pad; de oude paden blijven als terugvaloptie. Het extra koppelverzoek vervalt.
-- **Let op:** de box bewaart per apparaat slechts ongeveer 24 uur (de reeksen van 14 en 60 dagen bevatten geen afzonderlijke apparaten). Het 7-dagentotaal ontstaat dus nog steeds door op te tellen vanaf de activering.
-- **Eenheid:** byte per seconde past bij de ordegrootte van de tellers van de box.
+- **Nieuw – dataverbruik per apparaat (experimenteel, #26 gedeeltelijk):** opties „Dataverbruik per apparaat registreren” en „Eenheid van de meetwaarden van de online-monitor”. De integratie leest de datasnelheden per apparaat uit de online-monitor (`api/v0/monitor/online/0`, andere paden als terugval), rekent ze om naar dag- en 7-dagentotalen en bewaart ze blijvend. Sensoren: *Dataverbruik status* (noemt de reden als waarden ontbreken), *Dataverbruik 7 dagen (alle apparaten)*, *Grootste dataverbruiker (7 dagen)* en per apparaat *Data 7 dagen* en *Data vandaag*. Waarden zijn schattingen; eenheid, vensterlengte en toewijzing zijn niet getest. Diagnose: `traffic`, `traffic.online_extras`.
+- **Nieuw – Notification Center (optioneel):** meldingen *Verbinding met FRITZ!Box verbroken*, *Bewaakt apparaat offline* en *Nieuw apparaat op het netwerk* via de gebeurtenisbus, teksten in vijf talen, twee schakelaars onder *Configureren*. Zonder Notification Center verandert er niets. Zie [Notification Center](#notification-center-optioneel).
+- **Verbeterd:** bij een geïnstalleerde bèta of release candidate houdt de updatecontrole ook rekening met voorlopige versies; met een definitieve versie zie je nog steeds alleen definitieve versies.
+- **Nieuw – documentatie:** de README is er in vijf talen (de, en, nl, fr, es) met taalbalk en screenshots.
 
-### 2.0.0b5 – Online Monitor: alternatieve interfacepaden
+**Opgelost**
 
-**Bèta (voorlopige versie).** Bouwt voort op 2.0.0b4. **Niet getest op een echte FRITZ!Box.**
+- **Mesh-kaart:** repeaters verschenen in de apparatenlijst van hun knooppunt als gewone apparaten, omdat de kaart de vlag `repeater` van de integratie niet kende. Repeaters tellen nu alleen als knooppunt.
+- **IP-adres wijzigen:** `set_static_ip` en de rij „Statisch IP” in de kaart werkten niet, omdat de formuliervelden van `data.lua` alleen aangenomen waren. De integratie schrijft nu via de REST-route die een externe project voor FRITZ!OS 8.25 beschrijft (`PUT /api/v0/generic/landevice/landevice/<UID>`), leest het resultaat terug, meldt een genegeerde wijziging als fout en herstelt de eerdere toewijzing. Het veld `ip` van het verzoek is zelfs in dat externe project niet getest.
+- **#30:** `set_dns_settings` draaide op een FRITZ!Box 6591 Cable de IPv4-waarde terug, omdat een IPv6-adres als tekenreeks werd vergeleken (de box verkort `:0:` tot `::`). IP-adressen worden nu als adressen vergeleken.
+- **#31:** apparaten met „altijd hetzelfde IPv4-adres toewijzen” binnen het DHCP-bereik ontbraken in het filter „Vast IP”. De integratie leest de reserveringen nu ook uit de webinterface; of jouw FRITZ!OS de vlag levert, is niet getest (diagnose: `reservations`).
+- **#29 (waarschijnlijke oorzaak):** items zonder MAC-adres (bijv. WireGuard-peers) werden weggegooid. Als VPN gemarkeerde peers met een IP-adres blijven nu bewaard als `VPN:<IP>`.
+- **#24 (één mogelijke oorzaak):** „Verbroken apparaten verbergen” maakte ook de weergaven „Inactief” en „Lang offline” leeg. De instelling geldt nu alleen nog voor de gemengde weergaven.
 
-- **Opgelost (poging):** een echte box antwoordde op `api/v0/monitor/datasets` met „bad path”. De integratie probeert nu achtereenvolgens `api/v0/monitor/…` en `api/v0/generic/monitor/…`, onthoudt het werkende pad en toont bij mislukken alle foutmeldingen. Diagnose en statussensor tonen `schnittstelle` en de FRITZ!OS-versie. Of een variant op jouw box bestaat, is ongetest.
+**Update-instructies:** bijwerken via HACS, Home Assistant herstarten, browsercache legen (Ctrl+F5).
 
-### 2.0.0b4 – Online Monitor-verzoek: headers en foutmelding
-
-**Bèta (voorlopige versie).** Bouwt voort op 2.0.0b3. **Niet getest op een echte FRITZ!Box.**
-
-- **Opgelost (poging):** het verzoek `api/v0/monitor/datasets` mislukte op een echte box met HTTP 400. Het stuurt nu dezelfde headers als het community-script waarop de interface is gebaseerd (`Content-Type`, `Accept`, `Referer`). Of dat de oorzaak was, is ongetest.
-- **Beter:** bij een HTTP-fout staat het begin van het antwoord van de box in de statussensor en het logboek.
-
-### 2.0.0b3 – Sensoren voor dataverbruik, statussensor
-
-**Bèta (voorlopige versie).** Bouwt voort op 2.0.0b2. **Niet getest op een echte FRITZ!Box of in een draaiende Home Assistant.**
-
-- **Nieuw:** sensoren *Dataverbruik status*, *Dataverbruik 7 dagen (alle apparaten)*, *Grootste dataverbruiker (7 dagen)* en per apparaat *Daten 7 Tage* en *Daten heute* (alleen met de optie aan).
-- **Beter:** de statussensor noemt de reden als er geen waarden verschijnen. Is geen enkele teller aan een apparaat gekoppeld, dan probeert de volgende poging (2 minuten) opnieuw in plaats van pas na 15.
-
-### 2.0.0b2 – Dataverbruik per apparaat (7 dagen, experimenteel)
-
-**Bèta (voorlopige versie).** Bouwt voort op 2.0.0b1. **Niet getest op een echte FRITZ!Box of in een draaiende Home Assistant** – alleen tegen een gesimuleerde box.
-
-- **Nieuw (#26, gedeeltelijk):** opties “Dataverbruik per apparaat vastleggen” en “Eenheid van de waarden van de online-monitor”. De integratie leest de datasnelheden per apparaat van de Online Monitor, telt ze op tot dag-/7-dagentotalen (download, upload, vandaag) en slaat ze permanent op. Voorwaarde: “Internetdatasnelheden opslaan” per apparaat in de box. Waarden zijn schattingen; eenheid, vensterlengte en toewijzing zijn ongecontroleerd. Diagnose: `traffic`.
-- **Nieuw (kaart):** kolom “Data (7 dagen)” (sorteerbaar, alleen zichtbaar met data, `show_traffic`), popup-regels met dagverloop, CSV-export in byte.
-
-### 2.0.0b1 – Statisch IP via REST, reserveringen en VPN-apparaten, README in vijf talen
-
-**Bèta (voorlopige versie).** Bouwt voort op 1.9.2b1. **Niets hiervan is getest op een echte FRITZ!Box of in een draaiende Home Assistant** – alleen tegen een gesimuleerde box en synthetische gegevens.
-
-- **Opgelost (IP-adres wijzigen):** `set_static_ip` en de rij „Statisch IP” in de kaart werkten niet. Oorzaak: de formuliervelden van `data.lua` waren slechts aangenomen en de box accepteerde ze nooit. De integratie schrijft nu via de REST-route die een extern project voor FRITZ!OS 8.25 beschrijft (`PUT /api/v0/generic/landevice/landevice/<UID>`), leest het resultaat terug (`query.lua`, anders REST of `edit_device`), meldt een ontbrekende of zonder melding genegeerde wijziging als fout (met verwijzing naar de tweefactorbevestiging) en herstelt een eerdere toewijzing. De oude weg blijft als terugvaloptie. Het veld `ip` van het verzoek is zelfs in het externe project ongetest.
-- **Opgelost (#30):** `set_dns_settings` draaide op een FRITZ!Box 6591 Cable ook na 1.9.1 de IPv4-waarde terug. Oorzaak: de teruggelezen waarde werd als tekenreeks vergeleken; de box kort één nulgroep van een IPv6-adres in tot `::`, de integratie hield `:0:`. IP-adressen worden nu als adressen vergeleken, zowel bij de controle na een HTTP-fout als bij de eindcontrole. Nagebootst en opgelost tegen een gesimuleerde box.
-- **Opgelost (#31):** apparaten met „altijd hetzelfde IPv4-adres geven” binnen het DHCP-bereik golden als „dynamisch” en ontbraken in het filter „Vast IP” (de box meldt dit niet via TR-064). De integratie leest de reserveringen nu extra uit de webinterface (`query.lua`, anders `netDev`, in het ritme van de IP-typebepaling) en telt ze als vast. **Op geen enkele box getest:** de veldnamen komen uit beschrijvingen van externe projecten; levert de box de markering niet, dan verandert er niets. De diagnose-download toont onder `reservations` welke weg werkte.
-- **Opgelost (#29, waarschijnlijke oorzaak):** vermeldingen zonder MAC-adres werden als verlopen weggegooid – WireGuard-gesprekspartners hebben er geen. Als VPN gemarkeerde gesprekspartners met IP-adres blijven nu behouden met de id `VPN:<IP>` en verschijnen als actief; ze krijgen geen entiteiten en geen acties die een MAC-adres vereisen. **Of de box WireGuard-gesprekspartners in zijn apparatenlijst meldt, is ongetest**; `box_hosts.without_mac_samples` in de diagnose toont hoe hij ze markeert.
-- **Opgelost (#24, één mogelijke oorzaak):** de instelling „Verbroken apparaten verbergen” maakte ook de weergaven „Inactief” en „Lang offline” leeg. Die weergaven tonen nu offline-apparaten; de instelling geldt nog alleen voor de gemengde weergaven (helptekst toegevoegd). Niet bij elke melder is de oorzaak bevestigd.
-- **Nieuw:** filterknop **VPN** in de filterbalk van de kaart (naast „Vast IP”): toont apparaten die de box als VPN markeert en vermeldingen die als `VPN:<IP>` zijn bewaard. Te verbergen met `filter_vpn: false`, `default_filter: vpn` mogelijk, pictogramkleur `color_cat_vpn`. Alleen gecontroleerd met een syntaxcontrole van de kaart, niet in een browser.
-- **Documentatie:** de README is nu beschikbaar in **vijf talen** (de, en, nl, fr, es) met een taalbalk bovenaan elk bestand. Integratie en kaart blijven vertaald in de, en, nl.
-- **Niet opgelost:** #26 (dataverbruik per apparaat) – TR-064 levert het niet, het issue blijft open. #20 was opgelost in 1.9.1 en door de melder bevestigd; #28 is een HACS-kwestie.
-
-### 1.9.2b1 – Notification Center (optioneel), updatemelding voor voorlopige versies
-
-**Bèta (voorlopige versie).** Bouwt voort op 1.9.1. **Niets hiervan is getest tegen een echt Notification Center, op een echte FRITZ!Box of in een draaiende Home Assistant** – koppeling en triggers draaien alleen tegen een gesimuleerde gebeurtenisbus.
-
-- **Nieuw:** optionele koppeling met het **Notification Center** (interface schema 1, gebeurtenisbus, geen MQTT). Soorten meldingen: *Verbinding met FRITZ!Box verbroken* (waarschuwing), *Bewaakt apparaat offline* (info; repeaters en via IP-patroon gekozen apparaten) en *Nieuw apparaat in het netwerk* (info). Teksten in vijf talen; bij het opstarten alleen de beginsituatie zonder push. Zonder Notification Center verandert er niets. Zie [Notification Center](#notification-center-optioneel).
-- **Nieuw:** twee instellingen onder *Configureren*: hoofdschakelaar en keuze van de te verzenden soorten meldingen (vertalingen de/en/nl). De diagnose-download toont de schakelaarstand en een teller per soort melding, geen inhoud.
-- **Verbeterd:** bij een geïnstalleerde bèta of release candidate houdt de updatecontrole ook rekening met voorlopige versies (releaselijst in plaats van `releases/latest`, dat nooit voorlopige versies levert). Met een definitieve versie zie je nog steeds alleen definitieve versies.
-- **Opmerking:** HACS toont voorlopige versies alleen met de instelling „Bètaversies tonen”.
-- **Niet uitgevoerd:** een onderdeel „Notification Center” in de dashboardkaart (tandwiel). De kaart heeft nog geen instellingenpagina en geen interface om te schrijven; de schakelaars staan in het dialoogvenster Configureren.
+**Bekend:** of de online-tellers op jouw box worden herkend, blijkt pas bij testen; zo niet, dan helpt de diagnose-download. #26 (datavolume per apparaat) blijft een schatting, TR-064 levert het niet.
 
 ### 1.9.1 – Kiesbare gast-wifi-service, IPv6-DNS met HTTP 400, uitgebreide diagnose
 

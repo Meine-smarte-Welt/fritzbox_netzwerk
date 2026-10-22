@@ -7,8 +7,10 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b7-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
+
+📺 **Video and guide for the network card (German):** [meinesmartewelt.de – FRITZ!Box Netzwerk for Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
 
 > This is the English edition of the README, which is available in five languages (see the language bar above). The German [README.md](README.md) is the main file and has the full card reference, the troubleshooting chapter and the complete version history. Sections marked “German only” are not translated yet. The integration and the card themselves are translated into German, English and Dutch.
 
@@ -16,6 +18,7 @@ A Home Assistant integration that puts every device in the FRITZ!Box home networ
 
 ## Contents
 
+- [Screenshots](#screenshots)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
@@ -42,6 +45,30 @@ A Home Assistant integration that puts every device in the FRITZ!Box home networ
 - [Development and tests](#development-and-tests)
 - [Version history](#version-history)
 - [License](#license)
+
+---
+
+## Screenshots
+
+<p align="center"><img src="docs/images/banner.png" alt="FRITZ!Box Netzwerk" width="360"></p>
+
+**“Network” tab** – all devices as a sortable table with a filter bar (Active, Inactive, Guest, Blocked, Update, Fixed IP, VPN, New, Long offline), IP and MAC address, manufacturer, connection, link to the Home Assistant device, label and note.
+
+![Network tab: device list with filter bar](docs/images/netzwerk.png)
+
+**“Online monitor” tab** – current download and upload rate with history, load by priority and the top consumers. Tapping a consumer opens the device popup.
+
+![Online monitor tab](docs/images/online-monitor.png)
+
+**Detail popup** – here for the FRITZ!Box: name, IP and MAC address, status, IP type, internet access, filter profile, firmware update, features and last seen, plus the buttons *Open web interface* and *Block internet*.
+
+<img src="docs/images/geraete-popup.png" alt="Device detail popup" width="320">
+
+**“Settings” tab** – Wi-Fi switches, QR code, MAC filter, reconnect, restart, mesh group with online counter and expandable sections (app version, FRITZ!Box with temperature, internet connection, home network).
+
+![Settings tab](docs/images/einstellungen.png)
+
+More in the video and guide (German): [meinesmartewelt.de – FRITZ!Box Netzwerk for Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
 ---
 
@@ -133,8 +160,8 @@ Via *Configure* on the integration:
 | Set static IP address (experimental) | off | Allows `set_static_ip` and the card button to write; the preview (`dry_run`) always works |
 | Read CPU and RAM of the box (experimental) | off | Three sensors from the box web interface |
 | Create network devices as own devices | off | One HA device per selected device, selected by pattern |
-| Send messages to the Notification Center (since 1.9.2b1) | on | Master switch for the optional connection, see [Notification Center](#notification-center-optional) |
-| Message types to send (since 1.9.2b1) | all | Which message types go to the Notification Center (connection lost, monitored device offline, new device) |
+| Send messages to the Notification Center (since 2.0.0) | on | Master switch for the optional connection, see [Notification Center](#notification-center-optional) |
+| Message types to send (since 2.0.0) | all | Which message types go to the Notification Center (connection lost, monitored device offline, new device) |
 | Pairing duration | 5 min | How long the MAC filter stays off during pairing (1–120 min) |
 
 ---
@@ -177,9 +204,11 @@ The integration **switches between existing access profiles** (Internet → Filt
 
 The option “Read CPU and RAM of the box (experimental)” (off by default) creates three sensors: CPU load, RAM load, CPU temperature. They come from the web interface page `ecoStat`, not TR-064; not verified on any box – compare with System → Energy monitor.
 
+The values – including the **temperature** – also appear in the card on the *Settings* tab in the expandable *FRITZ!Box* section. With the option off, a hint is shown there instead of the values.
+
 ---
 
-## Data usage per device (experimental, since 2.0.0b2)
+## Data usage per device (experimental)
 
 Option “Record data usage per device (experimental)” (off by default). It answers **which device transferred how much data over the last week**, to find devices that talk to the internet too much or overload the Wi-Fi (request from #26).
 
@@ -191,7 +220,7 @@ Option “Record data usage per device (experimental)” (off by default). It an
 - Totals are kept in Home Assistant storage (8 days). If Home Assistant or the polling is down for a while, that time is missing from the totals (diagnostics count the gaps under `traffic.stats`).
 - **Unit only plausibility-checked:** bytes per second; on a FRITZ!Box 5690 Pro (FRITZ!OS 8.40) the magnitude fits the box's counters, an exact comparison is still missing. If the numbers look wrong, set “Unit of the online monitor values” to bits per second in the options. Diagnostics show raw sample values under `traffic.shape.sample_values` for comparison with the box's Online Monitor.
 
-**Sensors (since 2.0.0b3):** The option creates *Data usage status* (diagnostic; shows “Data available”, “Waiting for samples”, “No data source mapped”, “No matching samples” or “Fetch error”, the reason is in the attributes), *Data usage 7 days (all devices)* and *Biggest data consumer (7 days)* (device name, top-five ranking in the attributes). Each device with values also gets *<device> Daten 7 Tage* and *<device> Daten heute* (unit bytes, shown in GB; download, upload and daily trend as attributes). Device sensors only appear once values exist for the device. **If you see nothing, look at the status sensor first.**
+**Sensors:** The option creates *Data usage status* (diagnostic; shows “Data available”, “Waiting for samples”, “No data source mapped”, “No matching samples” or “Fetch error”, the reason is in the attributes), *Data usage 7 days (all devices)* and *Biggest data consumer (7 days)* (device name, top-five ranking in the attributes). Each device with values also gets *<device> Daten 7 Tage* and *<device> Daten heute* (unit bytes, shown in GB; download, upload and daily trend as attributes). Device sensors only appear once values exist for the device. **If you see nothing, look at the status sensor first.**
 
 **In the card:** column **Data (7 days)** with a bar (click the header to sort by the biggest consumer); the popup shows “Data (7 days)” with download/upload, “Data today” and a daily trend. The column only appears when values exist; hide it with `show_traffic: false`. The CSV export contains the 7-day value in bytes.
 
@@ -233,7 +262,7 @@ Since 1.8.0 the integration can assign a fixed IPv4 address to a device – this
 
 ## Notification Center (optional)
 
-Since **1.9.2b1** (beta) the integration can send messages to the **Notification Center** – a separate, also optional
+The integration can send messages to the **Notification Center** – a separate, also optional
 “Meine smarte Welt” integration that collects, sorts and delivers messages. **Without the Notification Center installed
 nothing happens:** no error, no extra log entry, no extra request to the FRITZ!Box.
 
@@ -271,13 +300,15 @@ download only lists the switch state and how many messages per type were sent si
 - If the login fails repeatedly and Home Assistant asks for re-authentication, that is not a “connection lost” message;
   Home Assistant shows its own notice for that.
 - **Test status:** checked only against a **simulated** event bus (bridge and triggers, 44 tests). **Not** against a real
-  Notification Center, and not on a real FRITZ!Box or in a running Home Assistant. Beta: feedback explicitly welcome.
+  Notification Center, and not on a real FRITZ!Box or in a running Home Assistant. Feedback explicitly welcome.
 
 ---
 
 ## The dashboard card
 
 The card is shipped with the integration (`custom:fritzbox-netzwerk-card`). It has a graphical editor; every column, filter, the control bar and the popup rows can be switched on or off individually, colors are free to choose, three languages. The full reference (columns, sorting, IP filter, tabs, grouping, CSV export, guest Wi-Fi QR code, swiping on phones, colors) is in the German README.
+
+**Tabs (optional):** with *Show categories as tabs* the card gets a tab bar. **Network** holds the device table. **Online monitor** shows the current rate, load by priority, connection details and online counters; tap a top consumer to open that device's popup. **Mesh** draws the FRITZ!Box, repeaters and their devices: tap the box or a repeater to open its popup, tap “N devices” to expand the node's device list, and tap a device in it for its popup. **Settings** (always the last tab) holds the switches and the expandable sections *App version*, *FRITZ!Box* (model, FRITZ!OS, IP address, uptime, plus temperature, CPU and RAM with the option “Read CPU and RAM of the box”), *Internet connection* and *Home network*. Video and guide (German): [meinesmartewelt.de](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
 ```yaml
 type: custom:fritzbox-netzwerk-card
@@ -348,7 +379,7 @@ Write actions need administrator rights; inputs are validated in the backend; te
 ## Known limitations
 
 - **“Remove all unused connections” is missing** – TR-064 has no action for it.
-- **Notification Center (since 1.9.2b1, beta)** is only tested against a simulated event bus, not a real Notification Center or real hardware; the switches exist only in the Configure dialog, not in the card, see [Notification Center](#notification-center-optional).
+- **Notification Center (since 2.0.0)** is only tested against a simulated event bus, not a real Notification Center or real hardware; the switches exist only in the Configure dialog, not in the card, see [Notification Center](#notification-center-optional).
 - **Static IP and DNS write access are experimental** and use the undocumented web interface of the box. Writing is not verified on any real box; the REST route for the static IP follows a third-party description for FRITZ!OS 8.25. They may break with any FRITZ!OS update.
 - **DHCP reservations only partly recognised.** The box does not report reservations *inside* the DHCP range via TR-064. Since 2.0.0 the integration additionally reads them from the web interface (same cycle as the IP type, `query.lua`, otherwise `netDev`); whether your FRITZ!OS delivers the flag is untested. If not, such devices still show as “dynamic” – the diagnostics download (`reservations`) says which way worked. Alternatively mark devices by hand or in bulk (`mark_devices_reserved`).
 - **Mesh only in parts:** no signal strength in dBm.
@@ -375,78 +406,46 @@ node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fri
 
 The tests for 2.0.0 (`test_issue30_dns.py`, `test_static_ip.py`, `test_vpn_and_reservations.py`, with a `conftest.py` that loads the modules without Home Assistant) also come as a separate package, not in the repository. They run against a simulated FRITZ!Box.
 
-The tests for 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, with their own `conftest.py` that replaces Home Assistant with stubs) come with the release as a separate package, not in the repository.
+The tests for the Notification Center in 2.0.0 (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, with their own `conftest.py` that replaces Home Assistant with stubs) come with the release as a separate package, not in the repository.
 
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
 
-### 2.0.0b7 – New tabs: Online monitor and Mesh map, "Settings" with version accordion
+### 2.0.0 – Online monitor and Mesh map, FRITZ!Box info with temperature, Notification Center, data usage per device, static IP via REST
 
-**Beta (pre-release).** Builds on 2.0.0b6. **Not tested on a real FRITZ!Box** – only the formats of *connection details* and the *online monitor* were read in the browser on a FRITZ!Box 5690 Pro (FRITZ!OS 8.40); the layout of the *online counter* is unknown and read tolerantly.
+First stable version of the 2.0 series. Builds on 1.9.1 and contains everything from the preceding pre-releases (betas), which are no longer published. **Not tested on a real FRITZ!Box or in a running Home Assistant** – only against a simulated box, synthetic data and the card in a headless browser. The formats of *connection details* and the *online monitor* were read in the browser on a FRITZ!Box 5690 Pro (FRITZ!OS 8.40), read-only; the layout of the *online counters* is unknown and read tolerantly.
 
-- **New – "Online monitor" tab** (`mdi:chart-areaspline`): current download/upload rate with history, load by priority, top consumers, **connection details** (medium, online since, IPv4/IPv6, gateway, DNS, max speed; login name and password are never taken) and **online counter** (today, yesterday, week, month, total). Needs data-usage capture to be enabled.
-- **New – "Mesh" tab** (`mdi:router-network`): map like *Home network → Mesh* of the box: FRITZ!Box, repeaters and the devices connected to each, with link rate. Only appears with at least one repeater.
-- **Changed:** the **"Controls" tab is now "Settings"** (gear `mdi:cog`, always the last tab). The **app version** is an accordion there (open; orange when a newer version exists).
-- **Diagnostics:** the diagnostics download contains `traffic.online_extras` (recognised counters, layout of the counter response – key names only).
+**Card**
 
-### 2.0.0b6 – Online Monitor for FRITZ!OS 8.x (inspected on a FRITZ!Box 5690 Pro)
+- **New – Online monitor:** the **top consumers** can be tapped and open the device popup.
+- **New – Mesh:** tapping the FRITZ!Box or a repeater opens its popup. “N devices” expands the node's device list, and every device in it opens its popup. Long lists scroll inside the section so the view stays tidy.
+- **New – Settings:** expandable sections **FRITZ!Box** (model, FRITZ!OS, IP address, uptime, **temperature**, CPU and RAM load), **Internet connection** (status, external IP, online time, rates, maximum speed) and **Home network** (device counts, mesh state). Temperature, CPU and RAM only appear with the option “Read CPU and RAM of the box (experimental)”; otherwise a hint is shown. The uptime is read via TR-064 (`DeviceInfo`); untested on a real box.
+- **New – “Online monitor” tab** (`mdi:chart-areaspline`): current download/upload rate with history, load by priority, top consumers, **connection details** (user name and password are never taken over) and **online counters**. Only shown with data usage capture enabled.
+- **New – “Mesh” tab** (`mdi:router-network`): map like *Home network → Mesh* of the box with FRITZ!Box, repeaters and the connected devices including link rate. Only shown with at least one repeater.
+- **Changed:** the “Controls” tab is now **“Settings”** (gear, always the last tab); the app version is an expandable section there.
+- **New:** filter button **VPN** (devices the box marks as VPN and entries kept as `VPN:<IP>`; hide with `filter_vpn: false`, icon color `color_cat_vpn`).
+- **New:** column “Data (7 days)”, popup rows with a daily trend, CSV export in bytes (`show_traffic`).
 
-**Beta (pre-release).** Builds on 2.0.0b5. The interface was inspected in the browser on a FRITZ!Box 5690 Pro running FRITZ!OS 8.40 (read-only); **the integration itself has not run there yet**.
+**Integration**
 
-- **Fixed:** the Online Monitor data lives under `api/v0/monitor/online/0` there (samples 5 seconds apart, per device with MAC address). The integration now reads that path first; the old paths remain as a fallback. The extra mapping request is no longer needed.
-- **Note:** the box keeps only about 24 hours per device (the 14- and 60-day series contain no individual devices). The 7-day total is therefore still built by summing up from activation.
-- **Unit:** bytes per second fits the magnitude of the box's counters.
+- **New – data usage per device (experimental, #26 partly):** options “Record data usage per device” and “Unit of the online monitor values”. The integration reads the per-device data rates of the online monitor (`api/v0/monitor/online/0`, other paths as fallback), integrates them into daily and 7-day totals and stores them permanently. Sensors: *Data usage status* (names the reason when values are missing), *Data usage 7 days (all devices)*, *Biggest data consumer (7 days)* and per device *Data 7 days* and *Data today*. Values are estimates; unit, window length and mapping are untested. Diagnostics: `traffic`, `traffic.online_extras`.
+- **New – Notification Center (optional):** messages *Connection to FRITZ!Box lost*, *Monitored device offline* and *New device on the network* over the event bus, texts in five languages, two switches under *Configure*. Without a Notification Center nothing changes. See [Notification Center](#notification-center-optional).
+- **Improved:** with a beta or release candidate installed, the update check also considers pre-releases; with a final version installed you still only see final versions.
+- **New – documentation:** the README is available in five languages (de, en, nl, fr, es) with a language bar and screenshots.
 
-### 2.0.0b5 – Online Monitor: alternative interface paths
+**Fixed**
 
-**Beta (pre-release).** Builds on 2.0.0b4. **Not tested on a real FRITZ!Box.**
+- **Mesh map:** repeaters showed up in their node's device list as ordinary devices because the card did not know the integration's `repeater` flag. Repeaters now only count as nodes.
+- **Changing the IP address:** `set_static_ip` and the “Static IP” row in the card did not work because the `data.lua` form fields were only assumed. The integration now writes via the REST route a third-party project describes for FRITZ!OS 8.25 (`PUT /api/v0/generic/landevice/landevice/<UID>`), reads the result back, reports a dropped change as an error and restores the previous assignment. The `ip` field of the request is untested even in the third-party project.
+- **#30:** `set_dns_settings` reverted the IPv4 value on a FRITZ!Box 6591 Cable because an IPv6 address was compared as a string (the box shortens `:0:` to `::`). IP addresses are now compared as addresses.
+- **#31:** devices with “always assign the same IPv4 address” inside the DHCP range were missing from the “Fixed IP” filter. The integration now also reads the reservations from the web interface; whether your FRITZ!OS delivers the flag is untested (diagnostics: `reservations`).
+- **#29 (likely cause):** entries without a MAC address (e.g. WireGuard peers) were discarded. Peers marked as VPN that have an IP address are now kept as `VPN:<IP>`.
+- **#24 (one possible cause):** “Hide disconnected devices” also emptied the “Inactive” and “Long offline” views. The setting now only applies to the mixed views.
 
-- **Fixed (attempt):** a real box answered `api/v0/monitor/datasets` with “bad path”. The integration now tries `api/v0/monitor/…` and `api/v0/generic/monitor/…` in turn, remembers the working one and lists all error messages on failure. Diagnostics and the status sensor show `schnittstelle` (interface) and the FRITZ!OS version. Whether either variant exists on your box is unverified.
+**Update notes:** update via HACS, restart Home Assistant, clear the browser cache (Ctrl+F5).
 
-### 2.0.0b4 – Online Monitor request: headers and error text
-
-**Beta (pre-release).** Builds on 2.0.0b3. **Not tested on a real FRITZ!Box.**
-
-- **Fixed (attempt):** the request `api/v0/monitor/datasets` failed with HTTP 400 on a real box. It now sends the same headers as the community script the interface is based on (`Content-Type`, `Accept`, `Referer`). Whether that was the cause is unverified.
-- **Better:** on an HTTP error the start of the box's response appears in the status sensor and the log.
-
-### 2.0.0b3 – Sensors for data usage, status sensor
-
-**Beta (pre-release).** Builds on 2.0.0b2. **Not tested on a real FRITZ!Box or in a running Home Assistant.**
-
-- **New:** sensors *Data usage status*, *Data usage 7 days (all devices)*, *Biggest data consumer (7 days)* and, per device, *Daten 7 Tage* and *Daten heute* (only with the option on).
-- **Better:** the status sensor names the reason when no values appear. If no counter at all was mapped to a device, the next poll (2 minutes) retries instead of waiting 15.
-
-### 2.0.0b2 – Data usage per device (7 days, experimental)
-
-**Beta (pre-release).** Builds on 2.0.0b1. **Not tested on a real FRITZ!Box or in a running Home Assistant** – only against a simulated box.
-
-- **New (#26, partly):** options “Record data usage per device” and “Unit of the online monitor values”. The integration reads the Online Monitor's per-device data rates, integrates them into daily/7-day totals (download, upload, today) and stores them permanently. Prerequisite: “Save internet data rates” per device in the box. Values are estimates; unit, window length and mapping are unverified. Diagnostics: `traffic`.
-- **New (card):** column “Data (7 days)” (sortable, only visible with data, `show_traffic`), popup rows with daily trend, CSV export in bytes.
-
-### 2.0.0b1 – Static IP via REST, reservations and VPN devices, README in five languages
-
-**Beta (pre-release).** Builds on 1.9.2b1. **None of it was tested on a real FRITZ!Box or in a running Home Assistant** – only against a simulated box and synthetic data.
-
-- **Fixed (changing the IP address):** `set_static_ip` and the “Static IP” row in the card did not work. Cause: the form fields of `data.lua` were only assumed and the box never accepted them. The integration now writes through the REST route that a third-party project documents for FRITZ!OS 8.25 (`PUT /api/v0/generic/landevice/landevice/<UID>`), reads the result back (`query.lua`, otherwise REST or `edit_device`), reports a missing or silently discarded change as an error (with a hint on the two-factor confirmation) and restores a previous assignment. The old path remains as a fallback. The `ip` field of the request is untested even in the third-party project.
-- **Fixed (#30):** `set_dns_settings` still rolled back the IPv4 value on a FRITZ!Box 6591 Cable after 1.9.1. Cause: the value read back was compared as a raw string, and the box shortens a single zero group of an IPv6 address to `::` while the integration kept `:0:`. IP addresses are now compared as addresses, both in the check after an HTTP error and in the final check. Reproduced and fixed against a simulated box.
-- **Fixed (#31):** devices with “Assign permanent IPv4 address” inside the DHCP range showed as “dynamic” and were missing from the “Fixed IP” filter (the box does not report this via TR-064). The integration now also reads the reservations from the web interface (`query.lua`, otherwise `netDev`, in the cycle of the IP type collection) and counts them as fixed. **Untested on a box:** the field names are taken from third-party descriptions; if the box does not deliver the flag, nothing changes. The diagnostics download shows under `reservations` which way worked.
-- **Fixed (#29, probable cause):** entries without a MAC address were dropped as stale – WireGuard peers have none. Peers marked as VPN that have an IP address are now kept with the identifier `VPN:<IP>` and shown as active; they get no entities and no MAC-dependent actions. **Whether the box reports WireGuard peers in its host list is untested**; `box_hosts.without_mac_samples` in the diagnostics shows how it marks them.
-- **Fixed (#24, one possible cause):** the setting “Hide disconnected devices” also emptied the “Inactive” and “Long offline” views. These views now show offline devices; the setting only applies to the mixed views (help text added). Not every reporter's cause is confirmed.
-- **New:** filter button **VPN** in the filter bar of the card (next to “Fixed IP”): shows devices the box flags as VPN and entries kept as `VPN:<IP>`. Hide with `filter_vpn: false`, `default_filter: vpn` possible, icon colour `color_cat_vpn`. Only checked with a syntax check of the card, not in a browser.
-- **Documentation:** the README is now available in **five languages** (de, en, nl, fr, es) with a language bar at the top of each file. The integration and the card are still translated into de, en and nl.
-- **Not solved:** #26 (data volume per device) – TR-064 provides none, the issue stays open. #20 was solved in 1.9.1 and confirmed by the reporter; #28 is a HACS matter.
-
-### 1.9.2b1 – Notification Center (optional), update notice for pre-releases
-
-**Beta (pre-release).** Builds on 1.9.1. **None of it was tested against a real Notification Center, on a real FRITZ!Box or in a running Home Assistant** – the bridge and triggers only run against a simulated event bus.
-
-- **New:** optional connection to the **Notification Center** (interface schema 1, event bus, no MQTT). Message types: *Connection to FRITZ!Box lost* (warning), *Monitored device offline* (info; repeaters and devices selected by IP pattern) and *New device on the network* (info). Texts in five languages; only the initial state without push at startup. Without the Notification Center nothing changes. See [Notification Center](#notification-center-optional).
-- **New:** two settings under *Configure*: master switch and selection of the message types to send (translations de/en/nl). The diagnostics download lists the switch state and a counter per message type, no contents.
-- **Improved:** with a beta or release candidate installed, the update check also considers pre-releases (release list instead of `releases/latest`, which never returns pre-releases). With a final version installed you still only see final versions.
-- **Note:** HACS only shows pre-releases with “Show beta versions” enabled.
-- **Not implemented:** a “Notification Center” section in the dashboard card (cog). The card has no settings page and no interface for writing yet; the switches are in the Configure dialog.
+**Known:** whether the online counters are recognised on your box only shows in testing; if not, the diagnostics download helps. #26 (data volume per device) stays an estimate, TR-064 does not provide it.
 
 ### 1.9.1 – Selectable guest Wi-Fi service, IPv6 DNS with HTTP 400, extended diagnostics
 

@@ -7,8 +7,10 @@
 
 Une intégration Home Assistant qui affiche tous les appareils du réseau domestique FRITZ!Box sur votre tableau de bord sous forme de tableau triable – avec adresse IP, adresse MAC, type de connexion et nom de l'appareil Home Assistant correspondant.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b7-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
+
+📺 **Vidéo et guide de la carte réseau (en allemand) :** [meinesmartewelt.de – FRITZ!Box Netzwerk pour Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
 
 > Ceci est l'édition française du README, disponible en cinq langues (voir la barre de langues ci-dessus). Le [README.md](README.md) allemand est le fichier principal : il contient la référence complète de la carte, le chapitre de dépannage et l'historique complet des versions. Les sections marquées « en allemand uniquement » ne sont pas encore traduites. L'intégration et la carte elles-mêmes sont traduites en allemand, anglais et néerlandais.
 
@@ -16,6 +18,7 @@ Une intégration Home Assistant qui affiche tous les appareils du réseau domest
 
 ## Sommaire
 
+- [Captures d'écran](#captures-décran)
 - [Fonctionnalités](#fonctionnalités)
 - [Prérequis](#prérequis)
 - [Installation](#installation)
@@ -42,6 +45,30 @@ Une intégration Home Assistant qui affiche tous les appareils du réseau domest
 - [Développement et tests](#développement-et-tests)
 - [Historique des versions](#historique-des-versions)
 - [Licence](#licence)
+
+---
+
+## Captures d'écran
+
+<p align="center"><img src="docs/images/banner.png" alt="FRITZ!Box Netzwerk" width="360"></p>
+
+**Onglet « Réseau »** – tous les appareils dans un tableau triable avec barre de filtres (Actif, Inactif, Invité, Bloqué, Mise à jour, IP fixe, VPN, Nouveau, Hors ligne depuis longtemps), adresses IP et MAC, fabricant, connexion, lien vers l'appareil Home Assistant, étiquette et note.
+
+![Onglet Réseau : liste des appareils avec barre de filtres](docs/images/netzwerk.png)
+
+**Onglet « Moniteur en ligne »** – débit actuel en téléchargement et en envoi avec historique, charge par priorité et plus gros consommateurs. Toucher un consommateur ouvre la fenêtre de l'appareil.
+
+![Onglet Moniteur en ligne](docs/images/online-monitor.png)
+
+**Fenêtre de détails** – ici pour la FRITZ!Box : nom, adresses IP et MAC, état, type d'IP, accès à Internet, profil de filtre, mise à jour du firmware, caractéristiques et dernière connexion, avec les boutons *Ouvrir l'interface web* et *Bloquer Internet*.
+
+<img src="docs/images/geraete-popup.png" alt="Fenêtre de détails d'un appareil" width="320">
+
+**Onglet « Paramètres »** – interrupteurs Wi-Fi, code QR, filtre MAC, reconnexion, redémarrage, groupe mesh avec compteur en ligne et sections dépliables (version de l'app, FRITZ!Box avec température, connexion Internet, réseau domestique).
+
+![Onglet Paramètres](docs/images/einstellungen.png)
+
+Plus de détails dans la vidéo et le guide (en allemand) : [meinesmartewelt.de – FRITZ!Box Netzwerk pour Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
 ---
 
@@ -133,8 +160,8 @@ Via *Configurer* sur l'intégration :
 | Définir l'adresse IP statique (expérimental) | désactivé | Autorise `set_static_ip` et le bouton de la carte à écrire ; l'aperçu (`dry_run`) fonctionne toujours |
 | Lire le CPU et la RAM de la box (expérimental) | désactivé | Trois capteurs issus de l'interface web de la box |
 | Créer des appareils réseau comme appareils distincts | désactivé | Un appareil HA par appareil sélectionné, choisi par motif |
-| Envoyer des messages au centre de notifications (depuis 1.9.2b1) | activé | Interrupteur principal de la liaison facultative, voir [Centre de notifications](#centre-de-notifications-facultatif) |
-| Types de messages à envoyer (depuis 1.9.2b1) | tous | Quels types de messages vont au centre de notifications (connexion perdue, appareil surveillé hors ligne, nouvel appareil) |
+| Envoyer des messages au centre de notifications (depuis 2.0.0) | activé | Interrupteur principal de la liaison facultative, voir [Centre de notifications](#centre-de-notifications-facultatif) |
+| Types de messages à envoyer (depuis 2.0.0) | tous | Quels types de messages vont au centre de notifications (connexion perdue, appareil surveillé hors ligne, nouvel appareil) |
 | Durée d'appairage | 5 min | Durée pendant laquelle le filtre MAC reste désactivé lors de l'appairage (1–120 min) |
 
 ---
@@ -177,9 +204,11 @@ L'intégration **bascule entre des profils d'accès existants** (Internet → Fi
 
 L'option « Lire le CPU et la RAM de la box (expérimental) » (désactivée par défaut) crée trois capteurs : charge CPU, charge RAM, température du CPU. Ils proviennent de la page `ecoStat` de l'interface web, pas de TR-064 ; non vérifié sur une box – comparer avec Système → Suivi énergétique.
 
+Les valeurs – y compris la **température** – apparaissent aussi dans la carte, onglet *Paramètres*, dans la section dépliable *FRITZ!Box*. Si l'option est désactivée, une indication s'y affiche à la place des valeurs.
+
 ---
 
-## Consommation de données par appareil (expérimental, depuis 2.0.0b2)
+## Consommation de données par appareil (expérimental)
 
 Option « Enregistrer la consommation de données (expérimental) » (désactivée par défaut). Elle indique **quel appareil a transféré combien de données au cours de la dernière semaine**, afin de repérer les appareils qui communiquent trop avec Internet ou saturent le Wi-Fi (demande issue de #26).
 
@@ -191,7 +220,7 @@ Option « Enregistrer la consommation de données (expérimental) » (désactiv�
 - Les totaux sont conservés dans le stockage de Home Assistant (8 jours). Si Home Assistant ou l'interrogation est interrompu un moment, ce temps manque dans les totaux (le diagnostic compte les lacunes sous `traffic.stats`).
 - **Unité vérifiée seulement pour la plausibilité :** octets par seconde ; sur une FRITZ!Box 5690 Pro (FRITZ!OS 8.40) l'ordre de grandeur correspond aux compteurs de la box, une comparaison exacte manque encore. Si les chiffres semblent faux, réglez « Unité des valeurs du moniteur en ligne » sur bits par seconde dans les options. Le diagnostic montre des valeurs brutes sous `traffic.shape.sample_values` pour comparer avec le moniteur en ligne de la box.
 
-**Capteurs (depuis 2.0.0b3) :** L'option crée *Statut de la consommation de données* (diagnostic ; affiche « Données disponibles », « En attente de mesures », « Aucune source associée », « Aucune mesure correspondante » ou « Erreur de lecture » ; la cause est dans les attributs), *Consommation de données 7 jours (tous les appareils)* et *Plus gros consommateur (7 jours)* (nom de l'appareil, classement des cinq premiers dans les attributs). Chaque appareil avec des valeurs reçoit aussi *<appareil> Daten 7 Tage* et *<appareil> Daten heute* (unité octet, affichage en Go ; téléchargement, envoi et évolution quotidienne en attributs). Les capteurs d'appareil n'apparaissent qu'une fois des valeurs disponibles. **Si vous ne voyez rien, regardez d'abord le capteur de statut.**
+**Capteurs :** L'option crée *Statut de la consommation de données* (diagnostic ; affiche « Données disponibles », « En attente de mesures », « Aucune source associée », « Aucune mesure correspondante » ou « Erreur de lecture » ; la cause est dans les attributs), *Consommation de données 7 jours (tous les appareils)* et *Plus gros consommateur (7 jours)* (nom de l'appareil, classement des cinq premiers dans les attributs). Chaque appareil avec des valeurs reçoit aussi *<appareil> Daten 7 Tage* et *<appareil> Daten heute* (unité octet, affichage en Go ; téléchargement, envoi et évolution quotidienne en attributs). Les capteurs d'appareil n'apparaissent qu'une fois des valeurs disponibles. **Si vous ne voyez rien, regardez d'abord le capteur de statut.**
 
 **Dans la carte :** colonne **Données (7 jours)** avec barre (un clic sur l'en-tête trie par plus gros consommateur) ; la fenêtre détaillée affiche « Données (7 jours) » avec téléchargement/envoi, « Données aujourd'hui » et une évolution quotidienne. La colonne n'apparaît que si des valeurs existent ; masquer avec `show_traffic: false`. L'export CSV contient la valeur sur 7 jours en octets.
 
@@ -233,7 +262,7 @@ Depuis 1.8.0, l'intégration peut attribuer une adresse IPv4 fixe à un appareil
 
 ## Centre de notifications (facultatif)
 
-Depuis **1.9.2b1** (bêta), l'intégration peut envoyer des messages au **centre de notifications** – une intégration « Meine smarte Welt » distincte, elle aussi facultative, qui collecte, trie et distribue les messages. **Sans centre de notifications installé, il ne se passe rien :** pas d'erreur, pas d'entrée de journal supplémentaire, pas de requête supplémentaire vers la FRITZ!Box.
+L'intégration peut envoyer des messages au **centre de notifications** – une intégration « Meine smarte Welt » distincte, elle aussi facultative, qui collecte, trie et distribue les messages. **Sans centre de notifications installé, il ne se passe rien :** pas d'erreur, pas d'entrée de journal supplémentaire, pas de requête supplémentaire vers la FRITZ!Box.
 
 Elle communique via le bus d'événements de Home Assistant (pas de MQTT, pas de broker). Les textes sont envoyés une seule fois, à l'enregistrement, en cinq langues (de, en, nl, fr, es) ; le centre de notifications choisit la langue d'affichage. Au démarrage, seul l'**état initial** est signalé (visible, sans notification push), ensuite uniquement les changements d'état – sans répétitions.
 
@@ -254,13 +283,15 @@ Elle communique via le bus d'événements de Home Assistant (pas de MQTT, pas de
 - Il n'y a volontairement **aucun délai propre** et aucun nouveau seuil : si la box signale un appareil surveillé comme inactif lors d'une interrogation, le message apparaît et se ferme à l'interrogation suivante où il est actif. Si c'est trop bruyant, désactivez le type de message « Appareil surveillé hors ligne ».
 - « Nouvel appareil » signale un appareil apparu pendant que Home Assistant était éteint comme un état initial après le démarrage (visible, sans push). Juste après la configuration, il ne signale rien – comme l'entité d'événement.
 - Si la connexion échoue à répétition et que Home Assistant demande une nouvelle authentification, ce n'est pas un message « connexion perdue » ; Home Assistant affiche pour cela son propre avis.
-- **État des tests :** vérifié uniquement contre un bus d'événements **simulé** (pont et déclencheurs, 44 tests). **Pas** contre un vrai centre de notifications, ni sur une FRITZ!Box réelle ou dans un Home Assistant en fonctionnement. Bêta : retours vivement souhaités.
+- **État des tests :** vérifié uniquement contre un bus d'événements **simulé** (pont et déclencheurs, 44 tests). **Pas** contre un vrai centre de notifications, ni sur une FRITZ!Box réelle ou dans un Home Assistant en fonctionnement. Retours vivement souhaités.
 
 ---
 
 ## La carte du tableau de bord
 
 La carte est fournie avec l'intégration (`custom:fritzbox-netzwerk-card`). Elle dispose d'un éditeur graphique ; chaque colonne, filtre, la barre de commande et les lignes de la fenêtre de détails peuvent être activés ou désactivés individuellement, les couleurs sont libres, trois langues. La référence complète (colonnes, tri, filtre IP, onglets, regroupement, export CSV, code QR du Wi-Fi invité, balayage sur téléphone, couleurs) se trouve dans le README allemand.
+
+**Onglets (facultatif) :** avec *Afficher les catégories en onglets*, la carte reçoit une barre d'onglets. **Réseau** contient le tableau des appareils. **Moniteur en ligne** montre le débit actuel, la charge par priorité, les détails de connexion et les compteurs en ligne ; touchez un gros consommateur pour ouvrir la fenêtre de cet appareil. **Mesh** dessine la FRITZ!Box, les répéteurs et leurs appareils : touchez la box ou un répéteur pour ouvrir sa fenêtre, touchez « N appareils » pour déplier la liste des appareils du nœud, puis un appareil pour sa fenêtre. **Paramètres** (toujours le dernier onglet) contient les interrupteurs et les sections dépliables *Version de l'app*, *FRITZ!Box* (modèle, FRITZ!OS, adresse IP, durée de fonctionnement, plus température, CPU et RAM avec l'option « Lire CPU et RAM de la box »), *Connexion Internet* et *Réseau domestique*. Vidéo et guide (en allemand) : [meinesmartewelt.de](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
 ```yaml
 type: custom:fritzbox-netzwerk-card
@@ -331,7 +362,7 @@ Les actions d'écriture exigent des droits d'administrateur ; les saisies sont v
 ## Limites connues
 
 - **« Supprimer toutes les connexions inutilisées » est absent** – TR-064 n'a pas d'action pour cela.
-- **Centre de notifications (depuis 1.9.2b1, bêta)** n'est testé que contre un bus d'événements simulé, pas contre un vrai centre de notifications ni du matériel réel ; les interrupteurs n'existent que dans la boîte de dialogue Configurer, pas dans la carte, voir [Centre de notifications](#centre-de-notifications-facultatif).
+- **Centre de notifications (depuis 2.0.0)** n'est testé que contre un bus d'événements simulé, pas contre un vrai centre de notifications ni du matériel réel ; les interrupteurs n'existent que dans la boîte de dialogue Configurer, pas dans la carte, voir [Centre de notifications](#centre-de-notifications-facultatif).
 - **L'IP statique et l'écriture DNS sont expérimentales** et utilisent l'interface web non documentée de la box. L'écriture n'est vérifiée sur aucune box réelle ; la route REST pour l'IP statique suit la description d'un projet tiers pour FRITZ!OS 8.25. Elles peuvent cesser de fonctionner à chaque mise à jour de FRITZ!OS.
 - **Réservations DHCP reconnues seulement en partie.** La box ne signale pas via TR-064 les réservations *à l'intérieur* de la plage DHCP. Depuis 2.0.0, l'intégration les lit en plus depuis l'interface web (même cycle que le type d'IP, `query.lua`, sinon `netDev`) ; que votre FRITZ!OS fournisse l'indicateur n'est pas testé. Sinon, ces appareils restent affichés comme « dynamiques » – le téléchargement des diagnostics (`reservations`) indique quelle voie a fonctionné. Vous pouvez aussi les marquer à la main ou en masse (`mark_devices_reserved`).
 - **Mesh seulement en partie :** pas de puissance du signal en dBm.
@@ -358,78 +389,46 @@ node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fri
 
 Les tests pour 2.0.0 (`test_issue30_dns.py`, `test_static_ip.py`, `test_vpn_and_reservations.py`, avec un `conftest.py` qui charge les modules sans Home Assistant) sont également fournis comme paquet séparé, pas dans le dépôt. Ils s'exécutent contre une FRITZ!Box simulée.
 
-Les tests pour 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, avec leur propre `conftest.py` qui remplace Home Assistant par des doublures) sont fournis avec la version comme paquet séparé, pas dans le dépôt.
+Les tests du centre de notifications dans 2.0.0 (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, avec leur propre `conftest.py` qui remplace Home Assistant par des doublures) sont fournis avec la version comme paquet séparé, pas dans le dépôt.
 
 Le dépôt contient les tests pour 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`) ; ils s'exécutent sur des données synthétiques, pas sur du matériel réel. Les tests de 1.8.0 pour `dns_settings.py` et `static_ip.py` ne sont pas versionnés.
 
 ## Historique des versions
 
-### 2.0.0b7 – Nouveaux onglets : Moniteur en ligne et carte Mesh, « Paramètres » avec accordéon de version
+### 2.0.0 – Moniteur en ligne et carte Mesh, infos FRITZ!Box avec température, centre de notifications, consommation de données par appareil, IP statique via REST
 
-**Bêta (préversion).** Repose sur 2.0.0b6. **Non testé sur une vraie FRITZ!Box** – seuls les formats des *détails de connexion* et du *moniteur en ligne* ont été lus dans le navigateur sur une FRITZ!Box 5690 Pro (FRITZ!OS 8.40) ; la structure du *compteur en ligne* est inconnue et lue avec tolérance.
+Première version stable de la série 2.0. S'appuie sur 1.9.1 et contient tout ce que contenaient les préversions (bêtas) précédentes, qui ne sont plus publiées. **Non testé sur une FRITZ!Box réelle ni dans un Home Assistant en fonctionnement** – uniquement contre une box simulée, des données synthétiques et la carte dans un navigateur sans interface. Les formats des *détails de connexion* et du *moniteur en ligne* ont été lus dans le navigateur sur une FRITZ!Box 5690 Pro (FRITZ!OS 8.40), en lecture seule ; la structure des *compteurs en ligne* est inconnue et lue de façon tolérante.
 
-- **Nouveau – onglet « Moniteur en ligne »** (`mdi:chart-areaspline`) : débit descendant/montant actuel avec historique, charge par priorité, plus gros consommateurs, **détails de connexion** (média, en ligne depuis, IPv4/IPv6, passerelle, DNS, débit max. ; identifiant et mot de passe ne sont jamais repris) et **compteur en ligne** (aujourd'hui, hier, semaine, mois, total). Nécessite la saisie de la consommation de données activée.
-- **Nouveau – onglet « Mesh »** (`mdi:router-network`) : carte comme *Réseau domestique → Mesh* de la box : FRITZ!Box, répéteurs et appareils connectés avec débit de liaison. Uniquement avec au moins un répéteur.
-- **Modifié :** l'onglet **« Commandes » devient « Paramètres »** (engrenage `mdi:cog`, toujours le dernier onglet). La **version de l'application** s'y trouve sous forme d'accordéon (ouvert ; orange si une version plus récente existe).
-- **Diagnostic :** le téléchargement de diagnostic contient `traffic.online_extras`.
+**Carte**
 
-### 2.0.0b6 – Moniteur en ligne pour FRITZ!OS 8.x (observé sur une FRITZ!Box 5690 Pro)
+- **Nouveau – Moniteur en ligne :** les **plus gros consommateurs** sont cliquables et ouvrent la fenêtre de l'appareil.
+- **Nouveau – Mesh :** toucher la FRITZ!Box ou un répéteur ouvre sa fenêtre. « N appareils » déplie la liste des appareils du nœud, et chaque appareil de la liste ouvre sa fenêtre. Les longues listes défilent dans la section, la vue reste claire.
+- **Nouveau – Paramètres :** sections dépliables **FRITZ!Box** (modèle, FRITZ!OS, adresse IP, durée de fonctionnement, **température**, charge CPU et RAM), **Connexion Internet** (état, IP externe, durée en ligne, débits, débit maximal) et **Réseau domestique** (nombre d'appareils, état du mesh). Température, CPU et RAM n'apparaissent qu'avec l'option « Lire CPU et RAM de la box (expérimental) » ; sinon une indication s'affiche. La durée de fonctionnement est lue via TR-064 (`DeviceInfo`) ; non testé sur une box réelle.
+- **Nouveau – onglet « Moniteur en ligne »** (`mdi:chart-areaspline`) : débit actuel en téléchargement/envoi avec historique, charge par priorité, plus gros consommateurs, **détails de connexion** (nom d'utilisateur et mot de passe ne sont jamais repris) et **compteurs en ligne**. N'apparaît qu'avec la saisie de la consommation de données activée.
+- **Nouveau – onglet « Mesh »** (`mdi:router-network`) : carte comme *Réseau domestique → Mesh* de la box avec FRITZ!Box, répéteurs et appareils connectés, débit de liaison inclus. N'apparaît qu'avec au moins un répéteur.
+- **Modifié :** l'onglet « Commande » s'appelle désormais **« Paramètres »** (roue dentée, toujours le dernier onglet) ; la version de l'app y figure comme section dépliable.
+- **Nouveau :** bouton de filtre **VPN** (appareils que la box marque comme VPN et entrées conservées sous `VPN:<IP>` ; masquer avec `filter_vpn: false`, couleur d'icône `color_cat_vpn`).
+- **Nouveau :** colonne « Données (7 jours) », lignes de la fenêtre avec évolution quotidienne, export CSV en octets (`show_traffic`).
 
-**Bêta (préversion).** S'appuie sur 2.0.0b5. L'interface a été observée dans le navigateur sur une FRITZ!Box 5690 Pro sous FRITZ!OS 8.40 (lecture seule) ; **l'intégration elle-même n'y a pas encore tourné**.
+**Intégration**
 
-- **Corrigé :** les données du moniteur en ligne s'y trouvent sous `api/v0/monitor/online/0` (mesures toutes les 5 secondes, par appareil avec adresse MAC). L'intégration lit maintenant ce chemin en premier ; les anciens restent en secours. La requête d'association supplémentaire disparaît.
-- **Remarque :** la box ne conserve qu'environ 24 heures par appareil (les séries de 14 et 60 jours ne contiennent pas d'appareils individuels). Le total sur 7 jours reste donc construit par addition depuis l'activation.
-- **Unité :** octets par seconde correspond à l'ordre de grandeur des compteurs de la box.
+- **Nouveau – consommation de données par appareil (expérimental, #26 en partie) :** options « Enregistrer la consommation de données par appareil » et « Unité des valeurs du moniteur en ligne ». L'intégration lit les débits par appareil du moniteur en ligne (`api/v0/monitor/online/0`, autres chemins en repli), les cumule en totaux journaliers et sur 7 jours et les conserve durablement. Capteurs : *Statut de la consommation de données* (indique la raison si des valeurs manquent), *Consommation de données 7 jours (tous les appareils)*, *Plus gros consommateur de données (7 jours)* et, par appareil, *Données 7 jours* et *Données aujourd'hui*. Les valeurs sont des estimations ; unité, longueur de fenêtre et association ne sont pas testées. Diagnostic : `traffic`, `traffic.online_extras`.
+- **Nouveau – centre de notifications (facultatif) :** messages *Connexion à la FRITZ!Box perdue*, *Appareil surveillé hors ligne* et *Nouvel appareil sur le réseau* via le bus d'événements, textes en cinq langues, deux interrupteurs sous *Configurer*. Sans centre de notifications, rien ne change. Voir [Centre de notifications](#centre-de-notifications-facultatif).
+- **Amélioré :** avec une bêta ou une release candidate installée, la vérification des mises à jour tient aussi compte des préversions ; avec une version finale installée, vous ne voyez toujours que des versions finales.
+- **Nouveau – documentation :** le README existe en cinq langues (de, en, nl, fr, es) avec barre de langues et captures d'écran.
 
-### 2.0.0b5 – Moniteur en ligne : chemins d'interface alternatifs
+**Corrigé**
 
-**Bêta (préversion).** S'appuie sur 2.0.0b4. **Non testé sur une FRITZ!Box réelle.**
+- **Carte Mesh :** les répéteurs apparaissaient dans la liste des appareils de leur nœud comme des appareils ordinaires, car la carte ne connaissait pas l'indicateur `repeater` de l'intégration. Les répéteurs ne comptent plus que comme nœuds.
+- **Modifier l'adresse IP :** `set_static_ip` et la ligne « IP statique » de la carte ne fonctionnaient pas, car les champs de formulaire de `data.lua` n'étaient que supposés. L'intégration écrit désormais via la route REST qu'un projet tiers décrit pour FRITZ!OS 8.25 (`PUT /api/v0/generic/landevice/landevice/<UID>`), relit le résultat, signale une modification ignorée comme une erreur et rétablit l'attribution précédente. Le champ `ip` de la requête n'est pas testé, même dans le projet tiers.
+- **#30 :** `set_dns_settings` annulait la valeur IPv4 sur une FRITZ!Box 6591 Cable, car une adresse IPv6 était comparée comme chaîne (la box abrège `:0:` en `::`). Les adresses IP sont désormais comparées comme adresses.
+- **#31 :** les appareils avec « toujours attribuer la même adresse IPv4 » dans la plage DHCP manquaient dans le filtre « IP fixe ». L'intégration lit désormais aussi les réservations depuis l'interface web ; que votre FRITZ!OS fournisse l'indicateur n'est pas testé (diagnostic : `reservations`).
+- **#29 (cause probable) :** les entrées sans adresse MAC (p. ex. pairs WireGuard) étaient rejetées. Les pairs marqués VPN avec une adresse IP sont désormais conservés sous `VPN:<IP>`.
+- **#24 (une cause possible) :** « Masquer les appareils déconnectés » vidait aussi les vues « Inactif » et « Hors ligne depuis longtemps ». Le réglage ne s'applique plus qu'aux vues mixtes.
 
-- **Corrigé (tentative) :** une box réelle répondait « bad path » à `api/v0/monitor/datasets`. L'intégration essaie maintenant `api/v0/monitor/…` puis `api/v0/generic/monitor/…`, mémorise le chemin qui fonctionne et liste toutes les erreurs en cas d'échec. Le diagnostic et le capteur de statut affichent `schnittstelle` et la version de FRITZ!OS. L'existence d'une variante sur votre box n'est pas vérifiée.
+**Mise à jour :** mettre à jour via HACS, redémarrer Home Assistant, vider le cache du navigateur (Ctrl+F5).
 
-### 2.0.0b4 – Requête du moniteur en ligne : en-têtes et texte d'erreur
-
-**Bêta (préversion).** S'appuie sur 2.0.0b3. **Non testé sur une FRITZ!Box réelle.**
-
-- **Corrigé (tentative) :** la requête `api/v0/monitor/datasets` échouait avec HTTP 400 sur une box réelle. Elle envoie maintenant les mêmes en-têtes que le script communautaire sur lequel repose l'interface (`Content-Type`, `Accept`, `Referer`). Que ce soit la cause n'est pas vérifié.
-- **Mieux :** en cas d'erreur HTTP, le début de la réponse de la box apparaît dans le capteur de statut et le journal.
-
-### 2.0.0b3 – Capteurs de consommation de données, capteur de statut
-
-**Bêta (préversion).** S'appuie sur 2.0.0b2. **Non testé sur une FRITZ!Box réelle ni dans un Home Assistant en fonctionnement.**
-
-- **Nouveau :** capteurs *Statut de la consommation de données*, *Consommation de données 7 jours (tous les appareils)*, *Plus gros consommateur (7 jours)* et, par appareil, *Daten 7 Tage* et *Daten heute* (uniquement avec l'option activée).
-- **Mieux :** le capteur de statut indique la cause quand aucune valeur n'apparaît. Si aucun compteur n'a été associé à un appareil, la lecture suivante (2 minutes) réessaie au lieu d'attendre 15.
-
-### 2.0.0b2 – Consommation de données par appareil (7 jours, expérimental)
-
-**Bêta (préversion).** S'appuie sur 2.0.0b1. **Non testé sur une FRITZ!Box réelle ni dans un Home Assistant en fonctionnement** – uniquement contre une box simulée.
-
-- **Nouveau (#26, en partie) :** options « Enregistrer la consommation de données » et « Unité des valeurs du moniteur en ligne ». L'intégration lit les débits par appareil du moniteur en ligne, les intègre en totaux journaliers/7 jours (téléchargement, envoi, aujourd'hui) et les enregistre durablement. Condition : « Enregistrer les débits Internet » par appareil dans la box. Les valeurs sont des estimations ; unité, durée de fenêtre et correspondance non vérifiées. Diagnostic : `traffic`.
-- **Nouveau (carte) :** colonne « Données (7 jours) » (triable, visible seulement avec des données, `show_traffic`), lignes dans la fenêtre détaillée avec évolution quotidienne, export CSV en octets.
-
-### 2.0.0b1 – IP statique via REST, réservations et appareils VPN, README en cinq langues
-
-**Bêta (préversion).** S'appuie sur 1.9.2b1. **Rien de tout cela n'a été testé sur une FRITZ!Box réelle ni dans un Home Assistant en fonctionnement** – uniquement contre une box simulée et des données synthétiques.
-
-- **Corrigé (modification de l'adresse IP) :** `set_static_ip` et la ligne « IP statique » de la carte ne fonctionnaient pas. Cause : les champs de formulaire de `data.lua` n'étaient que supposés et la box ne les a jamais acceptés. L'intégration écrit désormais via la route REST qu'un projet tiers documente pour FRITZ!OS 8.25 (`PUT /api/v0/generic/landevice/landevice/<UID>`), relit le résultat (`query.lua`, sinon REST ou `edit_device`), signale comme erreur une modification absente ou rejetée en silence (avec une indication sur la confirmation à deux facteurs) et rétablit une attribution antérieure. L'ancien chemin reste en solution de repli. Le champ `ip` de la requête n'est pas testé, même dans le projet tiers.
-- **Corrigé (#30) :** `set_dns_settings` annulait encore la valeur IPv4 sur une FRITZ!Box 6591 Cable après 1.9.1. Cause : la valeur relue était comparée comme chaîne brute, et la box abrège un groupe de zéros unique d'une adresse IPv6 en `::` alors que l'intégration conservait `:0:`. Les adresses IP sont désormais comparées en tant qu'adresses, aussi bien lors de la vérification après une erreur HTTP que lors de la vérification finale. Reproduit et corrigé contre une box simulée.
-- **Corrigé (#31) :** les appareils avec « Attribuer une adresse IPv4 permanente » à l'intérieur de la plage DHCP apparaissaient comme « dynamiques » et manquaient dans le filtre « IP fixe » (la box ne le signale pas via TR-064). L'intégration lit désormais aussi les réservations depuis l'interface web (`query.lua`, sinon `netDev`, dans le cycle de collecte du type d'IP) et les compte comme fixes. **Non testé sur une box :** les noms de champs proviennent de descriptions de projets tiers ; si la box ne fournit pas l'indicateur, rien ne change. Le téléchargement des diagnostics indique sous `reservations` quelle voie a fonctionné.
-- **Corrigé (#29, cause probable) :** les entrées sans adresse MAC étaient écartées comme périmées – les pairs WireGuard n'en ont pas. Les pairs marqués VPN qui ont une adresse IP sont désormais conservés avec l'identifiant `VPN:<IP>` et affichés comme actifs ; ils n'ont pas d'entités ni d'actions dépendant de la MAC. **Que la box signale les pairs WireGuard dans sa liste d'hôtes n'est pas testé** ; `box_hosts.without_mac_samples` dans les diagnostics montre comment elle les marque.
-- **Corrigé (#24, une cause possible) :** le paramètre « Masquer les appareils déconnectés » vidait aussi les vues « Inactifs » et « Hors ligne depuis longtemps ». Ces vues affichent désormais les appareils hors ligne ; le paramètre ne s'applique plus qu'aux vues mixtes (texte d'aide ajouté). La cause n'est pas confirmée pour chaque personne ayant signalé le problème.
-- **Nouveau :** bouton de filtre **VPN** dans la barre de filtres de la carte (à côté de « IP fixe ») : affiche les appareils que la box marque comme VPN et les entrées conservées sous `VPN:<IP>`. Masquable avec `filter_vpn: false`, `default_filter: vpn` possible, couleur de l'icône `color_cat_vpn`. Vérifié uniquement par un contrôle de syntaxe de la carte, pas dans un navigateur.
-- **Documentation :** le README est désormais disponible en **cinq langues** (de, en, nl, fr, es) avec une barre de langues en haut de chaque fichier. L'intégration et la carte restent traduites en de, en et nl.
-- **Non résolu :** #26 (volume de données par appareil) – TR-064 n'en fournit pas, le ticket reste ouvert. #20 a été résolu en 1.9.1 et confirmé par la personne qui l'avait signalé ; #28 relève de HACS.
-
-### 1.9.2b1 – Centre de notifications (facultatif), avis de mise à jour pour les préversions
-
-**Bêta (préversion).** S'appuie sur 1.9.1. **Rien de tout cela n'a été testé contre un vrai centre de notifications, sur une FRITZ!Box réelle ni dans un Home Assistant en fonctionnement** – le pont et les déclencheurs ne tournent que contre un bus d'événements simulé.
-
-- **Nouveau :** liaison facultative avec le **centre de notifications** (schéma d'interface 1, bus d'événements, pas de MQTT). Types de messages : *Connexion à la FRITZ!Box perdue* (avertissement), *Appareil surveillé hors ligne* (info ; répéteurs et appareils choisis par motif d'IP) et *Nouvel appareil sur le réseau* (info). Textes en cinq langues ; au démarrage, seulement l'état initial sans push. Sans centre de notifications, rien ne change. Voir [Centre de notifications](#centre-de-notifications-facultatif).
-- **Nouveau :** deux paramètres sous *Configurer* : interrupteur principal et choix des types de messages à envoyer (traductions de/en/nl). Le téléchargement des diagnostics liste l'état des interrupteurs et un compteur par type de message, sans contenus.
-- **Amélioré :** avec une bêta ou une release candidate installée, la vérification des mises à jour prend aussi en compte les préversions (liste des versions au lieu de `releases/latest`, qui ne renvoie jamais de préversions). Avec une version finale installée, vous ne voyez toujours que des versions finales.
-- **Remarque :** HACS n'affiche les préversions que si « Afficher les versions bêta » est activé.
-- **Non implémenté :** une section « Centre de notifications » dans la carte du tableau de bord (engrenage). La carte n'a pas encore de page de paramètres ni d'interface d'écriture ; les interrupteurs se trouvent dans la boîte de dialogue Configurer.
+**Connu :** que les compteurs en ligne soient reconnus sur votre box ne se vérifie qu'à l'essai ; sinon, le téléchargement de diagnostic aide. #26 (volume de données par appareil) reste une estimation, TR-064 ne le fournit pas.
 
 ### 1.9.1 – Service Wi-Fi invité au choix, DNS IPv6 avec HTTP 400, diagnostics étendus
 

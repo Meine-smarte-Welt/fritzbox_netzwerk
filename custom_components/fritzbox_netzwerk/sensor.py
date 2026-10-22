@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 305fd1f87523c612b8f5db81de4da06c2e653d6aff77acc4400c51ecd344a6c0
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 78d05728143b97080210f4fbc3518552dcabf6adfd4d069022b21b43ddb7cf39
 """Sensoren der Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -283,7 +283,7 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
     # Ohne die naechste Zeile schriebe der Recorder die komplette Geraeteliste bei
     # jeder Zustandsaenderung in die Datenbank - bei 60 Geraeten sind das
     # schnell 15-20 kB pro Eintrag.
-    _unrecorded_attributes = frozenset({ATTR_HOSTS})
+    _unrecorded_attributes = frozenset({ATTR_HOSTS, "box"})
 
     def __init__(self, coordinator, entry) -> None:
         """Initialisiert den Sammelsensor."""
@@ -327,6 +327,8 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             "version": data.get("version"),
             # Online-Monitor-Reiter (Raten, Verbindungsdetails, Zaehler); None ohne Erfassung.
             "online_monitor": data.get("online_monitor"),
+            # FRITZ!Box-Angaben (Modell, FRITZ!OS, Laufzeit, Temperatur) fuer den Reiter "Einstellungen".
+            "box": data.get("box"),
             # Ob die Zugangsprofil-Funktionen freigeschaltet sind (Popup der Karte).
             "parental": self.coordinator.parental_enabled,
             # Ob der Button "Statische IP" im Popup freigeschaltet ist.

@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 54242f7dd888e549ebf9cf62d3236429693edf01db52248a98410bfcd1f22f42
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): b0bc459fbd12bbc15f164993dec6b6440e3bd20ff9d0574bea175c63b0a21ddb
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "2.0.0b7";
+const FBN_VERSION = "2.0.0";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -307,6 +307,18 @@ const I18N = {
     "vendor.random_tip": "Zufällige (private) MAC-Adresse – meist die „Private WLAN-Adresse“ eines Smartphones oder Tablets. Einen Hersteller kann man daraus nicht ablesen.",
     "tip.copy": "Klicken zum Kopieren", "copy.done": "{value} kopiert",
     "copy.failed": "Kopieren nicht möglich – bitte den Wert markieren und mit Strg+C kopieren.",
+    "popup.open_tip": "Gerätedetails öffnen", "mm.hint": "Tippe auf ein Gerät oder einen Repeater, um die Details zu öffnen. „Geräte“ klappt die Liste auf.",
+    "mm.show_devices": "Geräteliste öffnen", "mm.open_tip": "Details von {name} öffnen",
+    "box.accordion": "FRITZ!Box", "box.model": "Modell", "box.os": "FRITZ!OS", "box.ip": "IP-Adresse", "box.uptime": "Laufzeit",
+    "box.temperature": "Temperatur", "box.cpu": "CPU-Auslastung", "box.ram": "RAM-Auslastung",
+    "box.system_off": "Temperatur, CPU und RAM erscheinen, wenn du unter „Konfigurieren“ die Option „CPU und RAM der Box lesen (experimentell)“ einschaltest.",
+    "box.system_error": "Temperatur, CPU und RAM konnten nicht gelesen werden (Details im Protokoll von Home Assistant).",
+    "box.system_wait": "Temperatur, CPU und RAM sind noch nicht gelesen worden.",
+    "net.accordion": "Internetverbindung", "net.state": "Status", "net.online": "Online", "net.offline": "Offline",
+    "net.external_ip": "Externe IP", "net.online_for": "Online seit", "net.down": "Download", "net.up": "Upload",
+    "net.max_down": "Max. Download", "net.max_up": "Max. Upload",
+    "home.accordion": "Heimnetz", "home.total": "Geräte gesamt", "home.active": "Aktiv", "home.inactive": "Inaktiv",
+    "home.guests": "Gastnetz", "home.blocked": "Gesperrt", "home.mesh": "Mesh", "home.mesh_value": "{online} von {total} online",
   },
   en: {
     "col.name": "Device", "col.ip": "IP address", "col.mac": "MAC address",
@@ -403,6 +415,18 @@ const I18N = {
     "vendor.random_tip": "Random (private) MAC address \u2013 usually the \u201cPrivate Wi-Fi address\u201d of a smartphone or tablet. No manufacturer can be derived from it.",
     "tip.copy": "Click to copy", "copy.done": "{value} copied",
     "copy.failed": "Copying is not possible \u2013 please select the value and copy it with Ctrl+C.",
+    "popup.open_tip": "Open device details", "mm.hint": "Tap a device or a repeater to open its details. \"Devices\" expands the list.",
+    "mm.show_devices": "Open device list", "mm.open_tip": "Open details of {name}",
+    "box.accordion": "FRITZ!Box", "box.model": "Model", "box.os": "FRITZ!OS", "box.ip": "IP address", "box.uptime": "Uptime",
+    "box.temperature": "Temperature", "box.cpu": "CPU load", "box.ram": "RAM usage",
+    "box.system_off": "Temperature, CPU and RAM appear once you enable \"Read CPU and RAM of the box (experimental)\" under \"Configure\".",
+    "box.system_error": "Temperature, CPU and RAM could not be read (details in the Home Assistant log).",
+    "box.system_wait": "Temperature, CPU and RAM have not been read yet.",
+    "net.accordion": "Internet connection", "net.state": "Status", "net.online": "Online", "net.offline": "Offline",
+    "net.external_ip": "External IP", "net.online_for": "Online for", "net.down": "Download", "net.up": "Upload",
+    "net.max_down": "Max. download", "net.max_up": "Max. upload",
+    "home.accordion": "Home network", "home.total": "Devices in total", "home.active": "Active", "home.inactive": "Inactive",
+    "home.guests": "Guest network", "home.blocked": "Blocked", "home.mesh": "Mesh", "home.mesh_value": "{online} of {total} online",
   },
   nl: {
     "col.name": "Apparaat", "col.ip": "IP-adres", "col.mac": "MAC-adres",
@@ -499,6 +523,18 @@ const I18N = {
     "vendor.random_tip": "Willekeurig (privé) MAC-adres \u2013 meestal het \u201cPrivé wifi-adres\u201d van een smartphone of tablet. Er is geen fabrikant uit af te leiden.",
     "tip.copy": "Klik om te kopiëren", "copy.done": "{value} gekopieerd",
     "copy.failed": "Kopiëren niet mogelijk \u2013 selecteer de waarde en kopieer met Ctrl+C.",
+    "popup.open_tip": "Apparaatdetails openen", "mm.hint": "Tik op een apparaat of repeater om de details te openen. „Apparaten” klapt de lijst open.",
+    "mm.show_devices": "Apparatenlijst openen", "mm.open_tip": "Details van {name} openen",
+    "box.accordion": "FRITZ!Box", "box.model": "Model", "box.os": "FRITZ!OS", "box.ip": "IP-adres", "box.uptime": "Looptijd",
+    "box.temperature": "Temperatuur", "box.cpu": "CPU-belasting", "box.ram": "RAM-gebruik",
+    "box.system_off": "Temperatuur, CPU en RAM verschijnen zodra je onder „Configureren” de optie „CPU en RAM van de box lezen (experimenteel)” inschakelt.",
+    "box.system_error": "Temperatuur, CPU en RAM konden niet worden gelezen (details in het logboek van Home Assistant).",
+    "box.system_wait": "Temperatuur, CPU en RAM zijn nog niet gelezen.",
+    "net.accordion": "Internetverbinding", "net.state": "Status", "net.online": "Online", "net.offline": "Offline",
+    "net.external_ip": "Extern IP", "net.online_for": "Online sinds", "net.down": "Download", "net.up": "Upload",
+    "net.max_down": "Max. download", "net.max_up": "Max. upload",
+    "home.accordion": "Thuisnetwerk", "home.total": "Apparaten totaal", "home.active": "Actief", "home.inactive": "Inactief",
+    "home.guests": "Gastnetwerk", "home.blocked": "Geblokkeerd", "home.mesh": "Mesh", "home.mesh_value": "{online} van {total} online",
   },
 };
 
@@ -804,6 +840,18 @@ function formatRate(kbytes) {
   if (!Number.isFinite(value) || value < 0) return "—";
   if (value >= 1000) return `${(value / 1000).toFixed(1).replace(".", ",")} MB/s`;
   return `${Math.round(value)} kB/s`;
+}
+
+/** Dauer in Sekunden lesbar und sprachneutral: "3 d 4 h", "5 h 12 min", "7 min". */
+function formatDuration(seconds) {
+  const value = Math.floor(Number(seconds));
+  if (seconds === null || seconds === undefined || seconds === "" || !Number.isFinite(value) || value < 0) return "—";
+  const d = Math.floor(value / 86400);
+  const h = Math.floor((value % 86400) / 3600);
+  const m = Math.floor((value % 3600) / 60);
+  if (d > 0) return `${d} d ${h} h`;
+  if (h > 0) return `${h} h ${m} min`;
+  return `${m} min`;
 }
 
 /** Restlaufzeit der DHCP-Zuweisung in lesbarer Form. */
@@ -1236,6 +1284,68 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (!state || !state.attributes) return [];
     const hosts = state.attributes.hosts;
     return Array.isArray(hosts) ? hosts : [];
+  }
+
+  /** Gerät anhand der MAC-Adresse (Schreibweise egal); ``null`` bei unbekannter oder leerer MAC. */
+  _hostByMac(mac) {
+    const key = String(mac || "").replace(/[^0-9a-f]/gi, "").toUpperCase();
+    if (key.length !== 12 || /^0+$/.test(key)) return null;
+    return (
+      this._allHosts().find((h) => String(h.mac || "").replace(/[^0-9a-f]/gi, "").toUpperCase() === key) || null
+    );
+  }
+
+  /** Gerät anhand der IP-Adresse (nur echte Geräte, keine VPN-Platzhalter). */
+  _hostByIp(ip) {
+    if (!ip) return null;
+    return this._allHosts().find((h) => h.ip === ip && !h.mac_synthetic) || null;
+  }
+
+  /**
+   * Klick oder Enter/Leertaste auf ein Element mit ``data-open-mac`` bzw.
+   * ``data-open-ip`` öffnet das Detail-Popup des Geräts (Online-Monitor, Mesh).
+   * Mit ``data-mesh-open`` wird stattdessen die Geräteliste des Mesh-Knotens aufgeklappt.
+   */
+  _onLinkActivate(event) {
+    if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") return;
+    const target = event.target && event.target.closest ? event.target : null;
+    if (!target) return;
+    const open = target.closest("[data-mesh-open]");
+    if (open) {
+      event.preventDefault();
+      this._openMeshList(open.getAttribute("data-mesh-open"));
+      return;
+    }
+    const link = target.closest("[data-open-mac], [data-open-ip]");
+    if (!link) return;
+    event.preventDefault();
+    const host = link.hasAttribute("data-open-mac")
+      ? this._hostByMac(link.getAttribute("data-open-mac"))
+      : this._hostByIp(link.getAttribute("data-open-ip"));
+    if (host) this._openPopup(host, link);
+  }
+
+  /** Verdrahtet Klick und Tastatur für klickbare Zeilen einmalig. */
+  _bindLinks(box) {
+    if (!box || box.dataset.linkBound) return;
+    box.dataset.linkBound = "1";
+    box.addEventListener("click", (event) => this._onLinkActivate(event));
+    box.addEventListener("keydown", (event) => this._onLinkActivate(event));
+  }
+
+  /** Klappt die Geräteliste eines Mesh-Knotens auf und blendet sie ein. */
+  _openMeshList(name) {
+    const box = this.querySelector(".fbn-meshmap");
+    if (!box) return;
+    const key = `mesh:${name}`;
+    const details = Array.from(box.querySelectorAll("details.settings-accordion")).find((d) => d.dataset.k === key);
+    if (!details) return;
+    details.open = true;
+    this._acc = this._acc || {};
+    this._acc[key] = true;
+    if (details.scrollIntoView) details.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const summary = details.querySelector("summary");
+    if (summary && summary.focus) summary.focus({ preventScroll: true });
   }
 
   /**
@@ -2120,9 +2230,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
       this._config.show_version !== false && attributes.version && attributes.version.installed
         ? attributes.version
         : null;
+    const boxInfo = attributes.box && typeof attributes.box === "object" ? attributes.box : null;
 
     // Ohne Schalter (Einstellung aus) und ohne Verbindungsdaten: leeren.
-    if (!this._config.show_controls || (!connection && !controls && !mesh && !version)) {
+    if (!this._config.show_controls || (!connection && !controls && !mesh && !version && !boxInfo)) {
       box.innerHTML = "";
       this._hasControls = false;
       this._applyTabs();
@@ -2202,6 +2313,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
     }
     if (mesh) parts.push(this._renderMesh(mesh, controls));
     if (version) parts.push(this._versionAccordion(version));
+    if (boxInfo) parts.push(this._boxAccordion(boxInfo));
+    if (connection) parts.push(this._internetAccordion(connection));
+    parts.push(this._homeAccordion(attributes, mesh));
     box.innerHTML = parts.join("");
 
     if (!box.dataset.bound) {
@@ -2262,6 +2376,73 @@ class FritzboxNetzwerkCard extends HTMLElement {
     );
   }
 
+  /** Eine Zeile "Bezeichnung: Wert" im Akkordeon; leere Werte entfallen. */
+  _kvLine(label, value) {
+    if (value === null || value === undefined || value === "" || value === "—") return "";
+    return `<div class="fbn-kv"><span>${escapeHtml(label)}</span><b>${escapeHtml(String(value))}</b></div>`;
+  }
+
+  /** Zahl lokalisiert mit hoechstens einer Nachkommastelle, sonst "". */
+  _num(value, unit) {
+    const n = Number(value);
+    if (value === null || value === undefined || value === "" || !Number.isFinite(n)) return "";
+    return `${n.toLocaleString(this._lang(), { maximumFractionDigits: 1 })}${unit ? ` ${unit}` : ""}`;
+  }
+
+  /** FRITZ!Box als Akkordeon: Modell, FRITZ!OS, IP, Laufzeit und - mit der Option - Temperatur, CPU, RAM. */
+  _boxAccordion(info) {
+    const bootMs = info.boot_time ? Date.parse(info.boot_time) : NaN;
+    const uptime = Number.isFinite(bootMs) ? formatDuration((Date.now() - bootMs) / 1000) : "";
+    const temperature = this._num(info.temperature, "°C");
+    const cpu = this._num(info.cpu, "%");
+    const ram = this._num(info.ram, "%");
+    let hint = "";
+    if (!info.system_enabled) hint = this._t("box.system_off");
+    else if (!temperature && !cpu && !ram) hint = this._t(info.system_error ? "box.system_error" : "box.system_wait");
+    const lines = [
+      this._kvLine(this._t("box.model"), info.model),
+      this._kvLine(this._t("box.os"), info.os),
+      this._kvLine(this._t("box.ip"), info.ip),
+      this._kvLine(this._t("box.uptime"), uptime),
+      this._kvLine(this._t("box.temperature"), temperature),
+      this._kvLine(this._t("box.cpu"), cpu),
+      this._kvLine(this._t("box.ram"), ram),
+      hint ? `<p class="fbn-om-hint fbn-box-hint">${escapeHtml(hint)}</p>` : "",
+    ];
+    return this._accordion("box", "mdi:router-wireless", this._t("box.accordion"), temperature || info.model || "", lines.join(""), "", true);
+  }
+
+  /** Internetverbindung als Akkordeon: Status, externe IP, Online-Dauer, Raten und Maximaltempo. */
+  _internetAccordion(connection) {
+    const state = connection.online === true ? this._t("net.online") : connection.online === false ? this._t("net.offline") : "";
+    const mbit = (v) => this._num(v, "Mbit/s");
+    const lines = [
+      this._kvLine(this._t("net.state"), state),
+      this._kvLine(this._t("net.external_ip"), connection.external_ip),
+      this._kvLine(this._t("net.online_for"), connection.uptime != null ? formatDuration(connection.uptime) : ""),
+      this._kvLine(this._t("net.down"), connection.down_rate != null ? formatRate(connection.down_rate) : ""),
+      this._kvLine(this._t("net.up"), connection.up_rate != null ? formatRate(connection.up_rate) : ""),
+      this._kvLine(this._t("net.max_down"), mbit(connection.down_max)),
+      this._kvLine(this._t("net.max_up"), mbit(connection.up_max)),
+    ];
+    return this._accordion("internet", "mdi:web", this._t("net.accordion"), state, lines.join(""));
+  }
+
+  /** Heimnetz als Akkordeon: Geraetezahlen und Mesh-Stand. */
+  _homeAccordion(attributes, mesh) {
+    const count = (key) => (attributes[key] === null || attributes[key] === undefined ? "" : String(attributes[key]));
+    const lines = [
+      this._kvLine(this._t("home.total"), count("gesamt")),
+      this._kvLine(this._t("home.active"), count("aktiv")),
+      this._kvLine(this._t("home.inactive"), count("inaktiv")),
+      this._kvLine(this._t("home.guests"), count("gastnetz")),
+      this._kvLine(this._t("home.blocked"), count("gesperrt")),
+      mesh ? this._kvLine(this._t("home.mesh"), this._t("home.mesh_value", { online: mesh.online, total: mesh.total })) : "",
+    ];
+    const meta = count("aktiv") && count("gesamt") ? `${count("aktiv")} / ${count("gesamt")}` : "";
+    return this._accordion("home", "mdi:lan", this._t("home.accordion"), meta, lines.join(""));
+  }
+
   /* -- Reiter Online-Monitor ----------------------------------------- */
 
   /** Zeichnet Online-Monitor, Verbindungsdetails und Online-Zaehler (nur bei neuem Inhalt). */
@@ -2276,16 +2457,21 @@ class FritzboxNetzwerkCard extends HTMLElement {
       this._onlineSig = "";
       return;
     }
-    const sig = JSON.stringify(data) + this._lang();
-    if (sig === this._onlineSig) return;
-    this._onlineSig = sig;
-
-    const rate = (bytesPerSecond) => formatRate(bytesPerSecond == null ? null : bytesPerSecond / 1000);
-    const hosts = this._allHosts();
     const nameOf = (mac) => {
-      const host = hosts.find((h) => String(h.mac || "").toUpperCase() === mac);
+      const host = this._hostByMac(mac);
       return (host && (host.label || host.name)) || mac;
     };
+    // Namen und Klickbarkeit der Verbraucher gehoeren zur Signatur: tauchen Geraete spaeter auf
+    // oder werden umbenannt, soll die Liste neu gezeichnet werden.
+    const topSig = ((data.overview && data.overview.top) || [])
+      .map((d) => `${nameOf(d.mac)}|${this._hostByMac(d.mac) ? 1 : 0}`)
+      .join(",");
+    const sig = JSON.stringify(data) + this._lang() + topSig;
+    if (sig === this._onlineSig) return;
+    this._onlineSig = sig;
+    this._bindLinks(box);
+
+    const rate = (bytesPerSecond) => formatRate(bytesPerSecond == null ? null : bytesPerSecond / 1000);
     const ov = data.overview;
     let live = `<p class="fbn-om-hint">${escapeHtml(this._t("om.no_rates"))}</p>`;
     if (ov) {
@@ -2301,11 +2487,17 @@ class FritzboxNetzwerkCard extends HTMLElement {
             <em>${escapeHtml(rate(total))}</em></div>`;
         })
         .join("");
+      // Bekannte Geraete sind klickbar und oeffnen das Detail-Popup; unbekannte Eintraege
+      // (z. B. die MAC 00:00:… der Box selbst) bleiben reiner Text.
       const top = (ov.top || [])
-        .map(
-          (d) => `<div class="fbn-kv"><span>${escapeHtml(nameOf(d.mac))}</span>
-            <b>↓ ${escapeHtml(rate(d.down))} · ↑ ${escapeHtml(rate(d.up))}</b></div>`
-        )
+        .map((d) => {
+          const host = this._hostByMac(d.mac);
+          const values = `<b>↓ ${escapeHtml(rate(d.down))} · ↑ ${escapeHtml(rate(d.up))}</b>`;
+          if (!host) return `<div class="fbn-kv"><span>${escapeHtml(nameOf(d.mac))}</span>${values}</div>`;
+          return `<div class="fbn-kv fbn-link" role="button" tabindex="0" data-open-mac="${escapeHtml(host.mac)}"
+              title="${escapeHtml(this._t("popup.open_tip"))}">
+            <span>${escapeHtml(nameOf(d.mac))}</span>${values}<ha-icon icon="mdi:chevron-right"></ha-icon></div>`;
+        })
         .join("");
       live = `
         <div class="fbn-om-big">
@@ -2403,17 +2595,23 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const root = members.find((m) => m.role === "box") || members[0];
     const hubs = [root, ...members.filter((m) => m !== root)];
     const byHub = new Map(hubs.map((h) => [h.name, []]));
-    let loose = 0;
+    const looseHosts = [];
     for (const host of hosts) {
-      if (!host.active || host.is_repeater || host.mac_synthetic) continue;
+      if (!host.active || host.repeater || host.is_repeater || host.mac_synthetic) continue;
       const hub = host.connected_via && byHub.has(host.connected_via) ? host.connected_via : null;
       if (hub) byHub.get(hub).push(host);
-      else loose += 1;
+      else looseHosts.push(host);
     }
-    // Hosts ohne eindeutige Zuordnung haengen an der Box (Anzahl gesondert genannt).
-    const sig = JSON.stringify([hubs.map((h) => [h.name, h.online, h.model]), [...byHub].map(([k, v]) => [k, v.map((x) => [x.mac, x.link_mbit])]), loose, this._lang()]);
+    // Hosts ohne eindeutige Zuordnung haengen an der Box (Anzahl gesondert genannt) und stehen
+    // in deren Geraeteliste, damit jedes Geraet erreichbar bleibt.
+    const loose = looseHosts.length;
+    byHub.set(root.name, byHub.get(root.name).concat(looseHosts));
+    // Das Popup einer Mesh-Station: Repeater ueber die MAC, die Box ueber ihre IP-Adresse.
+    const hubTarget = (m) => (m.role === "box" ? this._hostByIp(m.ip) : this._hostByMac(m.mac));
+    const sig = JSON.stringify([hubs.map((h) => [h.name, h.online, h.model, h.mac, h.ip, hubTarget(h) ? 1 : 0]), [...byHub].map(([k, v]) => [k, v.map((x) => [x.mac, x.link_mbit, x.label || x.name, x.band])]), loose, this._lang()]);
     if (sig === this._meshSig) return;
     this._meshSig = sig;
+    this._bindLinks(box);
 
     const rowH = 92;
     const width = 640;
@@ -2426,8 +2624,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const rootY = ys.length ? Math.round((ys[0] + ys[ys.length - 1]) / 2) : 55;
     const boxClusterY = rootY + 84;
     const height = Math.max(ys.length ? ys[ys.length - 1] + 60 : 0, boxClusterY + 40);
-    const node = (x, y, icon, title, sub, cls) => `
-      <g class="fbn-mm-node ${cls}" transform="translate(${x - 84} ${y - 26})">
+    // ``attrs``: Klickziel - Popup des Geraets (data-open-*) oder Geraeteliste (data-mesh-open).
+    const node = (x, y, icon, title, sub, cls, attrs = "", label = "") => `
+      <g class="fbn-mm-node ${cls}${attrs ? " fbn-mm-link" : ""}" transform="translate(${x - 84} ${y - 26})"${
+        attrs ? ` role="button" tabindex="0" ${attrs} aria-label="${escapeHtml(label)}"` : ""
+      }>
         <rect width="168" height="52" rx="12"/>
         <foreignObject x="8" y="14" width="24" height="24"><ha-icon icon="${icon}" xmlns="http://www.w3.org/1999/xhtml"></ha-icon></foreignObject>
         <text x="38" y="22" class="fbn-mm-t">${escapeHtml(String(title).slice(0, 19))}</text>
@@ -2436,15 +2637,20 @@ class FritzboxNetzwerkCard extends HTMLElement {
     ys.forEach((y, i) => {
       svg += `<path class="fbn-mm-edge${others[i].online === false ? " fbn-mm-off" : ""}" d="M${rootX + 84} ${rootY} C ${rootX + 150} ${rootY}, ${repX - 150} ${y}, ${repX - 84} ${y}"/>`;
     });
-    svg += node(rootX, rootY, "mdi:router-wireless", root.name || "FRITZ!Box", root.model || "FRITZ!Box", root.online === false ? "fbn-mm-off" : "fbn-mm-box");
+    // Klickbar nur, wenn es zur Station ein Geraet in der Liste gibt (sonst gaebe das Popup nichts her).
+    const targetAttrs = (m) => {
+      const host = hubTarget(m);
+      if (!host) return "";
+      return m.role === "box" ? `data-open-ip="${escapeHtml(m.ip)}"` : `data-open-mac="${escapeHtml(host.mac)}"`;
+    };
+    svg += node(rootX, rootY, "mdi:router-wireless", root.name || "FRITZ!Box", root.model || "FRITZ!Box", root.online === false ? "fbn-mm-off" : "fbn-mm-box", targetAttrs(root), this._t("mm.open_tip", { name: root.name || "FRITZ!Box" }));
     others.forEach((m, i) => {
-      svg += node(repX, ys[i], m.online === false ? "mdi:access-point-network-off" : "mdi:access-point-network", m.name || "Repeater", m.model || "Repeater", m.online === false ? "fbn-mm-off" : "fbn-mm-rep");
+      svg += node(repX, ys[i], m.online === false ? "mdi:access-point-network-off" : "mdi:access-point-network", m.name || "Repeater", m.model || "Repeater", m.online === false ? "fbn-mm-off" : "fbn-mm-rep", targetAttrs(m), this._t("mm.open_tip", { name: m.name || "Repeater" }));
     });
     const clusters = [[root, rootY, rootX]].concat(others.map((m, i) => [m, ys[i], repX]));
     clusters.forEach(([hub, y, x], idx) => {
       const list = byHub.get(hub.name) || [];
-      const extra = idx === 0 ? loose : 0;
-      const n = list.length + extra;
+      const n = list.length;
       if (!n) return;
       const speeds = list.map((h) => h.link_mbit).filter((v) => typeof v === "number");
       const slow = speeds.length ? Math.min(...speeds) : null;
@@ -2455,16 +2661,17 @@ class FritzboxNetzwerkCard extends HTMLElement {
       svg += idx === 0
         ? `<path class="fbn-mm-edge fbn-mm-dash" d="M${rootX} ${rootY + 26} L ${cx} ${cy - 26}"/>`
         : `<path class="fbn-mm-edge fbn-mm-dash" d="M${x + 84} ${y} L ${cx - 84} ${cy}"/>`;
-      svg += node(cx, cy, "mdi:devices", label, sub, "fbn-mm-cl");
+      svg += node(cx, cy, "mdi:devices", label, sub, "fbn-mm-cl", `data-mesh-open="${escapeHtml(hub.name || "")}"`, `${this._t("mm.show_devices")}: ${hub.name || ""}`);
     });
     const detail = clusters
       .map(([hub], idx) => {
         const list = (byHub.get(hub.name) || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
         if (!list.length) return "";
-        const body = list
-          .map((h) => `<div class="fbn-kv"><span>${escapeHtml(h.label || h.name || h.mac)}</span>
-              <b>${escapeHtml([h.band, h.link_mbit != null ? `${String(h.link_mbit).replace(".", ",")} Mbit/s` : ""].filter(Boolean).join(" · ") || "—")}</b></div>`)
-          .join("");
+        const body = `<div class="fbn-mm-list">${list
+          .map((h) => `<div class="fbn-kv fbn-link" role="button" tabindex="0" data-open-mac="${escapeHtml(h.mac)}"
+              title="${escapeHtml(this._t("popup.open_tip"))}"><span>${escapeHtml(h.label || h.name || h.mac)}</span>
+              <b>${escapeHtml([h.band, h.link_mbit != null ? `${String(h.link_mbit).replace(".", ",")} Mbit/s` : ""].filter(Boolean).join(" · ") || "—")}</b><ha-icon icon="mdi:chevron-right"></ha-icon></div>`)
+          .join("")}</div>`;
         return this._accordion(`mesh:${hub.name}`, hub.role === "box" ? "mdi:router-wireless" : "mdi:access-point-network", hub.name || "", this._t("mm.devices", { n: list.length }), body, "", idx === 0);
       })
       .join("");
@@ -2472,6 +2679,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
       <div class="fbn-mm-wrap">
         <svg class="fbn-mm-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(this._t("tab.mesh"))}">${svg}</svg>
       </div>
+      <p class="fbn-om-hint">${escapeHtml(this._t("mm.hint"))}</p>
       ${loose ? `<p class="fbn-om-hint">${escapeHtml(this._t("mm.loose", { n: loose }))}</p>` : ""}
       ${detail}`;
     if (!box.dataset.bound) {
@@ -3173,12 +3381,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
         // verwerfen (auch wenn der Fokus auf Speichern/Abbrechen steht,
         // nicht im Eingabefeld selbst) - nicht das ganze Popup schliessen.
         if (this._popupEditingName) {
-          const host = this._hosts().find((item) => item.mac === this._popupMac);
+          const host = this._popupHost();
           if (host) this._cancelNameEdit(host);
           return;
         }
         if (this._popupEditingNote) {
-          const host = this._hosts().find((item) => item.mac === this._popupMac);
+          const host = this._popupHost();
           if (host) this._cancelNoteEdit(host);
           return;
         }
@@ -3197,11 +3405,16 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (close && close.focus) close.focus();
   }
 
+  /** Gerät des offenen Popups: erst im Kartenbereich, sonst unter allen Geräten (Online-Monitor, Mesh). */
+  _popupHost() {
+    const find = (list) => list.find((item) => item.mac === this._popupMac) || null;
+    return find(this._hosts()) || find(this._allHosts());
+  }
+
   /** Baut den Inhalt des Popups aus den jeweils aktuellen Daten neu auf. */
   _refreshPopup() {
     if (!this._popup) return;
-    const host =
-      this._hosts().find((item) => item.mac === this._popupMac) || null;
+    const host = this._popupHost();
     if (!host) {
       // Geraet ist aus der Liste verschwunden - Popup mit Hinweis lassen,
       // aber nicht abrupt schliessen.
@@ -4453,6 +4666,15 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-kv { display: flex; justify-content: space-between; gap: 12px; font-size: 0.88em; }
       .fbn-kv span { color: var(--fbn-header-text); }
       .fbn-kv b { font-weight: 500; text-align: right; word-break: break-word; }
+      .fbn-kv.fbn-link {
+        align-items: center; cursor: pointer; border-radius: 6px; padding: 3px 6px; margin: 0 -6px;
+      }
+      .fbn-kv.fbn-link span { flex: 1 1 auto; color: var(--primary-text-color); }
+      .fbn-kv.fbn-link ha-icon { --mdc-icon-size: 18px; width: 18px; height: 18px; color: var(--fbn-header-text); flex: 0 0 auto; margin-left: -6px; }
+      .fbn-kv.fbn-link:hover, .fbn-kv.fbn-link:focus-visible { background: rgba(127,127,127,.12); outline: none; }
+      .fbn-kv.fbn-link:focus-visible { box-shadow: inset 0 0 0 2px var(--fbn-accent); }
+      .fbn-mm-list { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; }
+      .fbn-box-hint { margin: 6px 0 0 !important; }
       .fbn-online, .fbn-meshmap { padding: 4px 0 10px; }
       .fbn-om-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; padding: 0 16px; }
       .fbn-om-card { border: 1px solid var(--divider-color, rgba(127,127,127,.3)); border-radius: 12px; padding: 10px 12px; }
@@ -4478,6 +4700,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-mm-node rect { fill: var(--card-background-color, #fff); stroke: var(--fbn-accent); stroke-width: 1.5; }
       .fbn-mm-node.fbn-mm-cl rect { stroke: var(--divider-color, #999); stroke-dasharray: 4 3; }
       .fbn-mm-node.fbn-mm-off rect { stroke: var(--fbn-blocked, #db4437); opacity: .6; }
+      .fbn-mm-node.fbn-mm-link { cursor: pointer; }
+      .fbn-mm-node.fbn-mm-link:hover rect, .fbn-mm-node.fbn-mm-link:focus-visible rect { stroke-width: 3; }
+      .fbn-mm-node.fbn-mm-link:focus-visible { outline: none; }
       .fbn-mm-node ha-icon { --mdc-icon-size: 24px; width: 24px; height: 24px; color: var(--fbn-accent); }
       .fbn-mm-t { font-size: 12px; font-weight: 600; fill: var(--primary-text-color, #222); }
       .fbn-mm-s { font-size: 10px; fill: var(--fbn-header-text, #777); }
