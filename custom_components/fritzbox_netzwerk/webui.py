@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): e098b435d98c69c435c02a252af1d1656ebc5ee78e18c048e96e2ceff76e3b3a
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 474fb6aed6a08af955ae09a7b861d82c9cde3a09ec3fc6aeaaad1ad5fd933712
 """Inoffizieller Zugriff auf die FRITZ!Box-Weboberfläche (nur lesend).
 
 ACHTUNG - EXPERIMENTELL: Dieses Modul spricht NICHT TR-064, sondern die
@@ -375,13 +375,23 @@ MONITOR_SUBSET = "api/v0/monitor/macaddrs/subset0000"
 
 def monitor_get(session: Any, base: str, sid: str, path: str) -> Any:
     """GET auf einen REST-Pfad der Weboberflaeche (``ValueError`` bei HTTP-Fehler/ohne JSON)."""
+    # Kopfzeilen wie im Community-Skript, das diese Schnittstelle nutzt (ioBroker-
+    # Forum): ohne Content-Type/Referer antwortet die Box moeglicherweise mit 400.
     response = session.get(
         f"{base}/{path}",
-        headers={"AUTHORIZATION": f"AVM-SID {sid}"},
+        headers={
+            "AUTHORIZATION": f"AVM-SID {sid}",
+            "Content-Type": "application/json",
+            "Accept": "*/*",
+            "Referer": f"{base}/",
+        },
         timeout=TIMEOUT,
     )
     if not response.ok:
-        raise ValueError(f"{path}: HTTP {response.status_code}")
+        # Ein Stueck der Antwort mitgeben: bei HTTP 400 steht dort oft der Grund.
+        snippet = " ".join(str(getattr(response, "text", "") or "").split())[:200]
+        suffix = f" - {snippet}" if snippet else ""
+        raise ValueError(f"{path}: HTTP {response.status_code}{suffix}")
     try:
         return response.json()
     except ValueError as err:

@@ -7,7 +7,7 @@
 
 Une intégration Home Assistant qui affiche tous les appareils du réseau domestique FRITZ!Box sur votre tableau de bord sous forme de tableau triable – avec adresse IP, adresse MAC, type de connexion et nom de l'appareil Home Assistant correspondant.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b3-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b4-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Ceci est l'édition française du README, disponible en cinq langues (voir la barre de langues ci-dessus). Le [README.md](README.md) allemand est le fichier principal : il contient la référence complète de la carte, le chapitre de dépannage et l'historique complet des versions. Les sections marquées « en allemand uniquement » ne sont pas encore traduites. L'intégration et la carte elles-mêmes sont traduites en allemand, anglais et néerlandais.
@@ -363,6 +363,13 @@ Les tests pour 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `te
 Le dépôt contient les tests pour 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`) ; ils s'exécutent sur des données synthétiques, pas sur du matériel réel. Les tests de 1.8.0 pour `dns_settings.py` et `static_ip.py` ne sont pas versionnés.
 
 ## Historique des versions
+
+### 2.0.0b4 – Requête du moniteur en ligne : en-têtes et texte d'erreur
+
+**Bêta (préversion).** S'appuie sur 2.0.0b3. **Non testé sur une FRITZ!Box réelle.**
+
+- **Corrigé (tentative) :** la requête `api/v0/monitor/datasets` échouait avec HTTP 400 sur une box réelle. Elle envoie maintenant les mêmes en-têtes que le script communautaire sur lequel repose l'interface (`Content-Type`, `Accept`, `Referer`). Que ce soit la cause n'est pas vérifié.
+- **Mieux :** en cas d'erreur HTTP, le début de la réponse de la box apparaît dans le capteur de statut et le journal.
 
 ### 2.0.0b3 – Capteurs de consommation de données, capteur de statut
 

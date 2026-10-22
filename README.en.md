@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b3-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b4-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > This is the English edition of the README, which is available in five languages (see the language bar above). The German [README.md](README.md) is the main file and has the full card reference, the troubleshooting chapter and the complete version history. Sections marked “German only” are not translated yet. The integration and the card themselves are translated into German, English and Dutch.
@@ -380,6 +380,13 @@ The tests for 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `tes
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 2.0.0b4 – Online Monitor request: headers and error text
+
+**Beta (pre-release).** Builds on 2.0.0b3. **Not tested on a real FRITZ!Box.**
+
+- **Fixed (attempt):** the request `api/v0/monitor/datasets` failed with HTTP 400 on a real box. It now sends the same headers as the community script the interface is based on (`Content-Type`, `Accept`, `Referer`). Whether that was the cause is unverified.
+- **Better:** on an HTTP error the start of the box's response appears in the status sensor and the log.
 
 ### 2.0.0b3 – Sensors for data usage, status sensor
 

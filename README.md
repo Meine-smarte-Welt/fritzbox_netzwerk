@@ -9,7 +9,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b3-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b4-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -1744,7 +1744,7 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `53ce75dfb4af7f46c45f65bb645d3adb77fde098fa485fbd6522935aa2d01219` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `e01780d7457a4f2988969829f6c30fa115ab12ed338f9417a00569dd72515a73` |
 | `custom_components/fritzbox_netzwerk/strings.json` | `eba3c30deb99cf0b7fdd02db735a87a626ca4783c2c355fcc8203ac7ef1deb49` |
 | `custom_components/fritzbox_netzwerk/translations/de.json` | `c855d21892eef9e2db423dbe075b49f954d5a9199f94201dfbebcaa8336a0699` |
 | `custom_components/fritzbox_netzwerk/translations/en.json` | `b7612495e4bd9251381269008685314e3ec98b577c167a254cca8e3a4e697d6d` |
@@ -1786,6 +1786,13 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.0.0b4 – Online-Monitor-Abruf: Kopfzeilen und Fehlertext
+
+**Beta (Vorabversion).** Baut auf 2.0.0b3 auf. **Nicht an einer echten FRITZ!Box geprüft.**
+
+- **Behoben (Versuch):** Der Abruf `api/v0/monitor/datasets` scheiterte an einer echten Box mit HTTP 400. Die Anfrage sendet jetzt dieselben Kopfzeilen wie das Community-Skript, auf das sich die Schnittstelle stützt (`Content-Type`, `Accept`, `Referer`). Ob das die Ursache war, ist ungeprüft.
+- **Besser:** Bei einem HTTP-Fehler steht der Anfang der Antwort der Box im Status-Sensor und im Protokoll.
 
 ### 2.0.0b3 – Sensoren für den Datenverbrauch, Status-Sensor
 

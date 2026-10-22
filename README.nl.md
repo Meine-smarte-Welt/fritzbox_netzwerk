@@ -7,7 +7,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b3-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b4-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Dit is de Nederlandse uitgave. De Duitse [README.md](README.md) is het hoofdbestand en bevat de volledige kaartreferentie, het hoofdstuk probleemoplossing en de complete versiegeschiedenis. Onderdelen met „alleen Duits” zijn nog niet vertaald.
@@ -383,6 +383,13 @@ De tests voor 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `tes
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 2.0.0b4 – Online Monitor-verzoek: headers en foutmelding
+
+**Bèta (voorlopige versie).** Bouwt voort op 2.0.0b3. **Niet getest op een echte FRITZ!Box.**
+
+- **Opgelost (poging):** het verzoek `api/v0/monitor/datasets` mislukte op een echte box met HTTP 400. Het stuurt nu dezelfde headers als het community-script waarop de interface is gebaseerd (`Content-Type`, `Accept`, `Referer`). Of dat de oorzaak was, is ongetest.
+- **Beter:** bij een HTTP-fout staat het begin van het antwoord van de box in de statussensor en het logboek.
 
 ### 2.0.0b3 – Sensoren voor dataverbruik, statussensor
 

@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 92055dac55cd2299e020cbd2cfe757f558842515c1a10e4c362a24d0e74ba4a7
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 1c0f1948c417d7416747d4cdaefacebeb1a4ee094ec37c135da22d07b0d3046b
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "2.0.0b3";
+const FBN_VERSION = "2.0.0b4";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
