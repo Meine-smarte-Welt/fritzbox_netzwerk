@@ -7,7 +7,7 @@
 
 Una integración de Home Assistant que muestra todos los dispositivos de la red doméstica de la FRITZ!Box en tu panel como una tabla ordenable – con dirección IP, dirección MAC, tipo de conexión y el nombre del dispositivo de Home Assistant correspondiente.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Esta es la edición en español del README, disponible en cinco idiomas (consulta la barra de idiomas de arriba). El [README.md](README.md) alemán es el archivo principal y contiene la referencia completa de la tarjeta, el capítulo de solución de problemas y el historial completo de versiones. Las secciones marcadas «solo en alemán» aún no están traducidas. La integración y la tarjeta están traducidas al alemán, inglés y neerlandés.
@@ -179,6 +179,22 @@ La opción «Leer CPU y RAM de la caja (experimental)» (desactivada por defecto
 
 ---
 
+## Consumo de datos por dispositivo (experimental, desde 2.0.0b2)
+
+Opción «Registrar el consumo de datos (experimental)» (desactivada por defecto). Responde a **qué dispositivo transfirió cuántos datos durante la última semana**, para encontrar dispositivos que hablan demasiado con Internet o saturan el Wi-Fi (petición de #26).
+
+**Cómo funciona:** TR-064 no ofrece cifras de consumo por dispositivo. Por eso la integración lee el **monitor en línea** de la caja (interfaz web, API REST no documentada `api/v0/monitor/…`), que da una **tasa de datos** por dispositivo, y la integra en el tiempo en totales diarios y de 7 días (descarga y subida por separado). Los valores son **estimaciones**, no contadores de la caja.
+
+**Requisitos y límites:**
+- En la FRITZ!Box debe estar activado **«Guardar velocidades de datos de Internet»** por dispositivo (Red doméstica → Red → dispositivo → detalles; «Dispositivos individuales» en el monitor en línea, FRITZ!OS 7.90/8.0 o posterior). Los dispositivos sin este ajuste no aparecen.
+- El recuento empieza al activar la opción; la caja no entrega valores pasados. Una semana completa requiere 7 días.
+- Los totales se guardan en el almacenamiento de Home Assistant (8 días). Si Home Assistant o la consulta se interrumpen un tiempo, ese tiempo falta en los totales (el diagnóstico cuenta los huecos en `traffic.stats`).
+- **Unidad sin verificar:** se suponen bytes por segundo. Si las cifras no cuadran, ajuste «Unidad de los valores del monitor en línea» a bits por segundo en las opciones. El diagnóstico muestra valores crudos en `traffic.shape.sample_values` para compararlos con el monitor en línea de la caja.
+
+**En la tarjeta:** columna **Datos (7 días)** con barra (un clic en el encabezado ordena por mayor consumidor); la ventana de detalle muestra «Datos (7 días)» con descarga/subida, «Datos hoy» y una evolución diaria. La columna solo aparece si hay valores; ocultar con `show_traffic: false`. La exportación CSV contiene el valor de 7 días en bytes.
+
+---
+
 ## Ajustes DNS (experimental)
 
 Desde 1.8.0 la integración lee los ajustes DNS de la FRITZ!Box y – solo después de activar la opción – puede modificarlos.
@@ -345,6 +361,13 @@ Las pruebas de 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `te
 El repositorio contiene las pruebas de 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); se ejecutan con datos sintéticos, no con hardware real. Las pruebas de 1.8.0 para `dns_settings.py` y `static_ip.py` no están incluidas.
 
 ## Historial de versiones
+
+### 2.0.0b2 – Consumo de datos por dispositivo (7 días, experimental)
+
+**Beta (versión preliminar).** Se basa en 2.0.0b1. **No probado en una FRITZ!Box real ni en un Home Assistant en marcha** – solo contra una caja simulada.
+
+- **Nuevo (#26, en parte):** opciones «Registrar el consumo de datos» y «Unidad de los valores del monitor en línea». La integración lee las tasas de datos por dispositivo del monitor en línea, las integra en totales diarios/de 7 días (descarga, subida, hoy) y las guarda de forma permanente. Requisito: «Guardar velocidades de datos de Internet» por dispositivo en la caja. Los valores son estimaciones; unidad, longitud de ventana y asignación sin verificar. Diagnóstico: `traffic`.
+- **Nuevo (tarjeta):** columna «Datos (7 días)» (ordenable, visible solo con datos, `show_traffic`), filas en la ventana de detalle con evolución diaria, exportación CSV en bytes.
 
 ### 2.0.0b1 – IP estática mediante REST, reservas y dispositivos VPN, README en cinco idiomas
 

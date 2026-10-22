@@ -9,7 +9,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -515,6 +515,22 @@ nicht dokumentiert und kann sich mit jedem FRITZ!OS ändern; wie die Messreihen 
 beruht auf Beobachtungen aus der Community und ist an keiner Box geprüft – bitte die Werte mit
 System → Energiemonitor vergleichen. Abruf alle 5 Minuten; schlägt er fehl, fehlen nur diese Werte
 (eine Warnung im Protokoll, der Grund steht im Diagnose-Export).
+
+---
+
+## Datenverbrauch je Gerät (experimentell, seit 2.0.0b2)
+
+Option „Datenverbrauch je Gerät erfassen (experimentell)“ (standardmäßig aus). Sie beantwortet die Frage, **welches Gerät in der letzten Woche wie viel Daten übertragen hat** – um Geräte zu finden, die zu viel mit dem Internet reden oder das WLAN auslasten (Wunsch aus #26).
+
+**So funktioniert es:** TR-064 liefert keine Verbrauchszahlen je Gerät. Die Integration liest deshalb den **Online-Monitor** der Box (Weboberfläche, undokumentierte REST-Schnittstelle `api/v0/monitor/…`), der je Gerät die **Datenrate** liefert, und rechnet sie über die Zeit zu Tages- und 7-Tage-Summen auf (Download und Upload getrennt). Die Werte sind daher **Schätzungen**, keine Zählerstände der Box.
+
+**Voraussetzungen und Grenzen:**
+- In der FRITZ!Box muss je Gerät **„Internet-Datenraten speichern“** aktiv sein (Heimnetz → Netzwerk → Gerät → Details; „Einzelne Geräte“ im Online-Monitor, FRITZ!OS 7.90/8.0 und neuer). Geräte ohne diese Einstellung erscheinen nicht.
+- Gezählt wird ab Aktivierung der Option; die Werte der Vergangenheit liefert die Box nicht. Eine volle Woche gibt es erst nach 7 Tagen.
+- Die Summen werden im Home-Assistant-Speicher gehalten (8 Tage). Läuft Home Assistant oder der Abruf zeitweise nicht, fehlt diese Zeit in der Summe (die Diagnose zählt die Lücken unter `traffic.stats`).
+- **Einheit ungeprüft:** Angenommen werden Byte pro Sekunde. Stimmen die Zahlen nicht, in den Optionen „Einheit der Messwerte des Online-Monitors“ auf Bit pro Sekunde stellen. Die Diagnose zeigt unter `traffic.shape.sample_values` rohe Beispielwerte zum Vergleichen mit dem Online-Monitor der Box.
+
+**In der Karte:** Spalte **Daten (7 Tage)** mit Balken (Klick auf die Überschrift sortiert nach dem größten Verbraucher), im Popup die Zeilen „Daten (7 Tage)“ mit Download/Upload, „Daten heute“ und ein Tagesverlauf. Die Spalte erscheint nur, wenn Werte vorliegen; ausblenden mit `show_traffic: false`. Der CSV-Export enthält den 7-Tage-Wert in Byte.
 
 ---
 
@@ -1713,7 +1729,7 @@ language: nl   # "" = automatisch, sonst de | en | nl
   Ausweichweg); an keiner Box geprüft, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell).
 - **Reservierungen innerhalb des DHCP-Bereichs** liest die Integration seit 2.0.0 zusätzlich aus der Weboberfläche;
   ob dein FRITZ!OS das Kennzeichen liefert, ist ungeprüft (Diagnose: `reservations`).
-- **Datenverbrauch je Gerät** liefert die Box nicht über TR-064.
+- **Datenverbrauch je Gerät** liefert die Box nicht über TR-064. Seit 2.0.0b2 schätzt die Integration ihn aus den Datenraten des Online-Monitors (nur Geräte mit „Internet-Datenraten speichern“, Einheit und Zuordnung ungeprüft), siehe [Datenverbrauch je Gerät](#datenverbrauch-je-gerät-experimentell-seit-200b2).
 - **Notification Center (seit 1.9.2b1, Beta)** ist nur gegen einen simulierten Ereignisbus geprüft, nicht gegen ein echtes Notification Center und nicht an echter Hardware; die Schalter gibt es nur im Konfigurieren-Dialog, nicht in der Karte, siehe [Notification Center](#notification-center-optional).
 - Die Zuordnung zu Home-Assistant-Geräten erfolgt ausschließlich über die MAC-Adresse.
   Es wird bewusst nicht über Namensähnlichkeit geraten.
@@ -1726,11 +1742,11 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `a636167dfbdf079d62da87251bdc932d826eb1a14f01d1fd84ef1b42f8f13d7f` |
-| `custom_components/fritzbox_netzwerk/strings.json` | `6c28ceef405af4b1b9351a85adcb7f44c2d301f9cba374cd4b7a010ef12a2024` |
-| `custom_components/fritzbox_netzwerk/translations/de.json` | `96029f05383347f00be71630d36cf494b4b783cdaaf53745eb4bc73d3a9a01eb` |
-| `custom_components/fritzbox_netzwerk/translations/en.json` | `570e74e76f9b422316141732b8ce702b00b59e9abc4e9a2442d4cf25d5ab5f1e` |
-| `custom_components/fritzbox_netzwerk/translations/nl.json` | `3aaa82620137b35fa5b16cfba1f8b56d99b39415a7f5090343ddacedfd7ca385` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `1c9c42be14806c619e46cefef3cc020a2ec7826ee1ee8a63ac4e0acbb2471c21` |
+| `custom_components/fritzbox_netzwerk/strings.json` | `92a6c1ff8feb17b0ffed737d62a97aa7b24de52ad01a19b395a2f4a913b1f2cd` |
+| `custom_components/fritzbox_netzwerk/translations/de.json` | `b5999d138bbd3af2917c70cae6e9f2fa2ef632bc82b4cb285443dab0b35e58ca` |
+| `custom_components/fritzbox_netzwerk/translations/en.json` | `e9e4021e3cf39ac0cd751bd847dcd76c66108392a005f63e6ad84755dacb311b` |
+| `custom_components/fritzbox_netzwerk/translations/nl.json` | `e70c8bb9ad19149f21196953a8a3dbe5fd9d763d007b4e0580d0d5de73386d61` |
 
 ## Entwicklung und Tests
 
@@ -1768,6 +1784,13 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.0.0b2 – Datenverbrauch je Gerät (7 Tage, experimentell)
+
+**Beta (Vorabversion).** Baut auf 2.0.0b1 auf. **Nicht an einer echten FRITZ!Box oder in einem laufenden Home Assistant geprüft** – nur gegen eine simulierte Box.
+
+- **Neu (#26, teilweise):** Option „Datenverbrauch je Gerät erfassen“ und „Einheit der Messwerte des Online-Monitors“. Die Integration liest die Geräte-Datenraten des Online-Monitors, rechnet sie zu Tages-/7-Tage-Summen (Download, Upload, heute) auf und speichert sie dauerhaft. Voraussetzung: je Gerät „Internet-Datenraten speichern“ in der Box. Werte sind Schätzungen; Einheit, Fensterlänge und Zuordnung sind ungeprüft. Diagnose: `traffic`.
+- **Neu (Karte):** Spalte „Daten (7 Tage)“ (sortierbar, nur sichtbar mit Daten, `show_traffic`), Popup-Zeilen mit Tagesverlauf, CSV-Export in Byte.
 
 ### 2.0.0b1 – Statische IP über REST, Reservierungen und VPN-Geräte, README in fünf Sprachen
 

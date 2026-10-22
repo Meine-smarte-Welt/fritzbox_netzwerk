@@ -74,6 +74,8 @@
           "enable_host_devices": "Create network devices as devices",
           "host_device_filter": "Device selection (IP pattern)",
           "enable_system_stats": "Read CPU and RAM of the box (experimental)",
+          "enable_traffic": "Record data usage per device (experimental)",
+          "traffic_unit": "Unit of the online monitor values",
           "enable_parental_control": "Control parental-control access profiles (experimental)",
           "check_updates": "Check for a new version daily",
           "enable_dns_settings": "Change DNS settings of the box (experimental)",
@@ -94,6 +96,8 @@
           "enable_host_devices": "Creates a Home Assistant device for each selected network device, with the manufacturer (from the MAC address) and a connected status. Off by default – every device creates a device and an entity.",
           "host_device_filter": "Which devices get their own device: same notation as the card filter \"IP filter\" (e.g. \"192.168.2.*\", separate several patterns with commas, \"!\" excludes; \"*\" selects all). Empty = none. At most 150 devices.",
           "enable_system_stats": "Reads CPU load, RAM usage and temperature through the box web interface (not TR-064, undocumented by AVM, FRITZ!OS dependent). Off by default; if the request fails only these values are missing.",
+          "enable_traffic": "Reads the data rates from the box's Online Monitor (“Internet → Online Monitor → Individual devices”, FRITZ!OS 7.90/8.0 and newer), converts them to data volume and shows each device's usage over the last 7 days in the card. Requirement: “Save internet data rates” must be switched on per device in the box (Home Network → Network → edit device). Uses the web interface, not TR-064 – undocumented by AVM, not verified on any box. These are estimates from samples, not counter readings of the box. Off by default.",
+          "traffic_unit": "Which unit the box delivers the data rates in. “Bytes per second” is an assumption taken from third-party projects. If the card's values are off by a factor of 8 compared with the box's Online Monitor, choose “Bits per second”. The diagnostics download shows a few raw values under traffic.shape.sample_values for comparison.",
           "enable_parental_control": "Enables services that read access profiles and assign them to devices (e.g. \"Blocked\" for one hour). Uses the box web interface, not TR-064 – undocumented by AVM, FRITZ!OS dependent. Off by default.",
           "check_updates": "Asks GitHub once a day for the latest published version and shows a notice in the card (Controls) when a newer one is available. No data about you or your box is transmitted.",
           "enable_dns_settings": "Allows the “Change DNS settings” service to write DNS servers of the FRITZ!Box (internet IPv4/IPv6, local DNS in the home network). Uses the web interface REST API, not TR-064 – undocumented by AVM, FRITZ!OS dependent, writing not tested on real hardware. Reading and the preview (dry_run) always work. Off by default.",
@@ -112,6 +116,12 @@
         "2": "Service 2",
         "3": "Service 3",
         "4": "Service 4"
+      }
+    },
+    "traffic_unit": {
+      "options": {
+        "bytes": "Bytes per second (assumed)",
+        "bits": "Bits per second"
       }
     },
     "nc_types": {

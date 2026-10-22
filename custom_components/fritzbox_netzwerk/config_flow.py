@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 779436a6ff643e3cc91423125d82af8b70da75a66305e1deaf3a053f12d06023
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 6632e4825daf89d32c0fa2a7ee4a4474587880b0769440120b5a7aa4190dec3f
 """Einrichtungsdialog fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -42,6 +42,10 @@ from .const import (
     CONF_ENABLE_PARENTAL,
     DEFAULT_CHECK_UPDATES,
     CONF_ENABLE_SYSTEM_STATS,
+    CONF_ENABLE_TRAFFIC,
+    CONF_TRAFFIC_UNIT,
+    DEFAULT_ENABLE_TRAFFIC,
+    DEFAULT_TRAFFIC_UNIT,
     DEFAULT_ENABLE_DNS_SETTINGS,
     DEFAULT_ENABLE_STATIC_IP,
     DEFAULT_ENABLE_PARENTAL,
@@ -444,6 +448,21 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                         CONF_ENABLE_SYSTEM_STATS, DEFAULT_ENABLE_SYSTEM_STATS
                     ),
                 ): bool,
+                # Seit 2.0.0b2: Datenverbrauch je Geraet (Online-Monitor der Box).
+                vol.Optional(
+                    CONF_ENABLE_TRAFFIC,
+                    default=options.get(CONF_ENABLE_TRAFFIC, DEFAULT_ENABLE_TRAFFIC),
+                ): bool,
+                vol.Optional(
+                    CONF_TRAFFIC_UNIT,
+                    default=str(options.get(CONF_TRAFFIC_UNIT, DEFAULT_TRAFFIC_UNIT)),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=["bytes", "bits"],
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                        translation_key="traffic_unit",
+                    )
+                ),
                 vol.Optional(
                     CONF_CHECK_UPDATES,
                     default=options.get(CONF_CHECK_UPDATES, DEFAULT_CHECK_UPDATES),

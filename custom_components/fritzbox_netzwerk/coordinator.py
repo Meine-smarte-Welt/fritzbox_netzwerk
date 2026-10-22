@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 091e4a477d5915345aed7e558404ebf7f1c1b7f48179d8f45130066d3bfee0c6
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 154802cbcadb18b18591900806919c05f0d1b1cab3b4bcd4f8e623782709b1d0
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -52,6 +52,13 @@ from .const import (
     UPDATE_CHECK_HOURS,
     VERSION,
     CONF_ENABLE_SYSTEM_STATS,
+    CONF_ENABLE_TRAFFIC,
+    CONF_TRAFFIC_UNIT,
+    DEFAULT_ENABLE_TRAFFIC,
+    DEFAULT_TRAFFIC_UNIT,
+    TRAFFIC_INTERVAL_SECONDS,
+    TRAFFIC_SOURCES_INTERVAL_SECONDS,
+    TRAFFIC_STORAGE_VERSION,
     DEFAULT_ENABLE_DNS_SETTINGS,
     DEFAULT_ENABLE_STATIC_IP,
     DEFAULT_ENABLE_PARENTAL,
@@ -128,6 +135,7 @@ from .hosts import (
 )
 from .blueprints_install import install_blueprints
 from .mesh_topology import fetch_mesh
+from .traffic import TrafficLedger, apply_traffic, build_source_map, parse_subsets, traffic_shape
 from .updates import build_version_info, is_prerelease_version, parse_release, parse_release_list
 from .nc_catalog import (
     NC_CATALOG,
@@ -149,6 +157,7 @@ from .static_ip import NEEDS_RESTART, StaticIpError, plan_static_ip, set_static_
 from .webui import (
     assign_profile,
     base_url,
+    fetch_monitor,
     fetch_reservations,
     fetch_system_stats,
     get_device_profile,
@@ -226,6 +235,22 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._reservations: dict[str, bool] = {}
         self._reservation_info: dict[str, Any] = {"source": None, "devices": 0, "reserved": 0}
         self._reservation_error: str | None = None
+        # Datenverbrauch je Geraet (seit 2.0.0b2, experimentell, siehe traffic.py).
+        self._traffic = TrafficLedger(
+            unit=str(entry.options.get(CONF_TRAFFIC_UNIT, DEFAULT_TRAFFIC_UNIT)),
+            day_of=self._local_day,
+        )
+        self._traffic_store: Store[dict[str, Any]] = Store(
+            hass, TRAFFIC_STORAGE_VERSION, f"{DOMAIN}.traffic.{entry.entry_id}"
+        )
+        self._traffic_map: dict[str, dict[str, str]] = {}
+        self._traffic_counts: dict[str, int] = {}
+        self._traffic_scan: float | None = None
+        self._traffic_map_scan: float | None = None
+        self._traffic_error: str | None = None
+        self._traffic_dirty = False
+        self._traffic_info: dict[str, Any] = {}
+        self._traffic_shape: dict[str, Any] = {}
         self._address_source_scan: datetime | None = None
         self._address_source_failed = False
         # DHCP-Bereich der Box (erste, letzte Adresse als Zahl): dient der
@@ -490,6 +515,77 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         }
         _LOGGER.debug("Reservierungen der Box: %s", self._reservation_info)
 
+    @staticmethod
+    def _local_day(ts: float) -> str:
+        """Kalendertag (Ortszeit von Home Assistant) eines Zeitstempels, ``JJJJ-MM-TT``."""
+        return dt_util.as_local(dt_util.utc_from_timestamp(ts)).date().isoformat()
+
+    @property
+    def traffic_enabled(self) -> bool:
+        """Ob der Datenverbrauch je Geraet erfasst werden soll (experimentell)."""
+        return bool(self.entry.options.get(CONF_ENABLE_TRAFFIC, DEFAULT_ENABLE_TRAFFIC))
+
+    @property
+    def traffic_diagnostics(self) -> dict[str, Any]:
+        """Stand der Verbrauchserfassung fuer den Diagnose-Download (ohne Namen/Adressen)."""
+        stats = self._traffic.stats
+        return {
+            "enabled": self.traffic_enabled,
+            "unit": self._traffic.unit,
+            "error": self._traffic_error,
+            "sources": dict(self._traffic_counts),
+            "mapped_sources": len(self._traffic_map),
+            "last_poll": dict(self._traffic_info),
+            "days_stored": len(self._traffic.days),
+            "devices_with_data": len(
+                {mac for macs in self._traffic.days.values() for mac in macs}
+            ),
+            "window_seconds": stats.get("window_seconds"),
+            "gap_seconds_total": stats.get("gap_seconds_total"),
+            "clock_resets": stats.get("resets"),
+            "last_sample_end": stats.get("last_end"),
+            "shape": dict(self._traffic_shape),
+        }
+
+    def _fetch_traffic(self) -> None:
+        """Liest die Datenraten des Online-Monitors und rechnet sie ein (blockierend).
+
+        Eigener Takt (``TRAFFIC_INTERVAL_SECONDS``); jeder Fehler ist harmlos:
+        es fehlen dann nur die Verbrauchswerte, die Geraeteliste laeuft weiter.
+        """
+        now = time.monotonic()
+        if self._traffic_scan is not None and now - self._traffic_scan < TRAFFIC_INTERVAL_SECONDS:
+            return
+        self._traffic_scan = now
+        refresh = (
+            self._traffic_map_scan is None
+            or now - self._traffic_map_scan >= TRAFFIC_SOURCES_INTERVAL_SECONDS
+        )
+        try:
+            found = self._run_web(fetch_monitor, refresh)
+        except (ValueError, RequestException) as err:
+            if self._traffic_error != str(err):
+                _LOGGER.warning("Datenverbrauch der Box nicht lesbar (experimentell): %s", err)
+            self._traffic_error = str(err)
+            return
+        self._traffic_error = None
+        if refresh:
+            self._traffic_map, self._traffic_counts = build_source_map(
+                found.get("datasets"), found.get("landevices")
+            )
+            self._traffic_map_scan = now
+        subsets = parse_subsets(found.get("subsets"))
+        self._traffic_shape.update(traffic_shape(found.get("datasets"), found.get("subsets")))
+        added = self._traffic.ingest(self._traffic_map, subsets)
+        self._traffic_info = {
+            "subsets": len(subsets),
+            "subsets_mapped": sum(1 for s in subsets if s["name"] in self._traffic_map),
+            "new_samples": added,
+        }
+        if added:
+            self._traffic_dirty = True
+        _LOGGER.debug("Datenverbrauch: %s", self._traffic_info)
+
     def _dhcp_pool_due(self) -> bool:
         """Ob der DHCP-Bereich neu abgefragt werden soll.
 
@@ -537,6 +633,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._fetch_address_sources(macs)
             self._fetch_reservations()
             refreshed = True
+        if self.traffic_enabled:
+            self._fetch_traffic()
         if self._dhcp_pool_due():
             self._dhcp_pool = self._fetch_dhcp_pool()
             self._dhcp_pool_scan = dt_util.utcnow()
@@ -1613,6 +1711,14 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._host_stats.get("raw_active"),
             self._host_stats.get("raw_without_mac"),
         )
+        # Datenverbrauch der letzten 7 Tage (nur wenn die Option an ist).
+        if self.traffic_enabled:
+            today = self._local_day(time.time())
+            self._traffic.prune(today)
+            apply_traffic(hosts, self._traffic.summary(today))
+            if self._traffic_dirty:
+                self._traffic_dirty = False
+                self._traffic_store.async_delay_save(self._traffic.to_dict, 60)
         # Repeater, die die Mesh-Topologie kennt, deren Modellname aber nicht
         # danach aussieht (Issue #16).
         apply_mesh_repeaters(
@@ -2275,6 +2381,12 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Feature. Der erste Abruf merkt sich dann nur die Ausgangslage,
         # statt das gesamte vorhandene Heimnetz als "neues Geraet" zu melden.
         self._new_device_baseline_pending = not self._last_seen
+
+    async def async_load_traffic(self) -> None:
+        """Laedt den gespeicherten Datenverbrauch (nur bei eingeschalteter Option)."""
+        if not self.traffic_enabled:
+            return
+        self._traffic.load(await self._traffic_store.async_load())
 
     async def async_load_first_seen(self) -> None:
         """Laedt die gespeicherten 'zum ersten Mal gesehen'-Zeitstempel beim Start."""

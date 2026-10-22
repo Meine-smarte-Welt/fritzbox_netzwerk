@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > This is the English edition of the README, which is available in five languages (see the language bar above). The German [README.md](README.md) is the main file and has the full card reference, the troubleshooting chapter and the complete version history. Sections marked “German only” are not translated yet. The integration and the card themselves are translated into German, English and Dutch.
@@ -176,6 +176,22 @@ The integration **switches between existing access profiles** (Internet → Filt
 ## CPU and RAM of the box (experimental)
 
 The option “Read CPU and RAM of the box (experimental)” (off by default) creates three sensors: CPU load, RAM load, CPU temperature. They come from the web interface page `ecoStat`, not TR-064; not verified on any box – compare with System → Energy monitor.
+
+---
+
+## Data usage per device (experimental, since 2.0.0b2)
+
+Option “Record data usage per device (experimental)” (off by default). It answers **which device transferred how much data over the last week**, to find devices that talk to the internet too much or overload the Wi-Fi (request from #26).
+
+**How it works:** TR-064 provides no per-device usage figures. The integration therefore reads the box's **Online Monitor** (web interface, undocumented REST API `api/v0/monitor/…`), which provides a **data rate** per device, and integrates it over time into daily and 7-day totals (download and upload separately). The values are **estimates**, not counters from the box.
+
+**Prerequisites and limits:**
+- In the FRITZ!Box, **“Save internet data rates”** must be enabled per device (Home network → Network → device → details; “Individual devices” in the Online Monitor, FRITZ!OS 7.90/8.0 or newer). Devices without it do not appear.
+- Counting starts when the option is enabled; the box does not provide past values. A full week takes 7 days.
+- Totals are kept in Home Assistant storage (8 days). If Home Assistant or the polling is down for a while, that time is missing from the totals (diagnostics count the gaps under `traffic.stats`).
+- **Unit unverified:** bytes per second are assumed. If the numbers look wrong, set “Unit of the online monitor values” to bits per second in the options. Diagnostics show raw sample values under `traffic.shape.sample_values` for comparison with the box's Online Monitor.
+
+**In the card:** column **Data (7 days)** with a bar (click the header to sort by the biggest consumer); the popup shows “Data (7 days)” with download/upload, “Data today” and a daily trend. The column only appears when values exist; hide it with `show_traffic: false`. The CSV export contains the 7-day value in bytes.
 
 ---
 
@@ -362,6 +378,13 @@ The tests for 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `tes
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 2.0.0b2 – Data usage per device (7 days, experimental)
+
+**Beta (pre-release).** Builds on 2.0.0b1. **Not tested on a real FRITZ!Box or in a running Home Assistant** – only against a simulated box.
+
+- **New (#26, partly):** options “Record data usage per device” and “Unit of the online monitor values”. The integration reads the Online Monitor's per-device data rates, integrates them into daily/7-day totals (download, upload, today) and stores them permanently. Prerequisite: “Save internet data rates” per device in the box. Values are estimates; unit, window length and mapping are unverified. Diagnostics: `traffic`.
+- **New (card):** column “Data (7 days)” (sortable, only visible with data, `show_traffic`), popup rows with daily trend, CSV export in bytes.
 
 ### 2.0.0b1 – Static IP via REST, reservations and VPN devices, README in five languages
 

@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): d52158aa37201502d2faceafbaf1ce6fa1c508cbbc5ffcade6c9a5bf2019f664
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 4c359ac68880cbd4ddeea0e4b89d26cbcb6e3aeaf13240190facde321a7b2023
 """Konstanten der Integration fritzbox_netzwerk."""
 
 from typing import Final
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "2.0.0b1"
+VERSION: Final = "2.0.0b2"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -48,6 +48,10 @@ CONF_IP_RANGES: Final = "ip_ranges"
 CONF_ENABLE_HOST_DEVICES: Final = "enable_host_devices"
 CONF_ENABLE_SYSTEM_STATS: Final = "enable_system_stats"
 CONF_ENABLE_PARENTAL: Final = "enable_parental_control"
+# Datenverbrauch je Geraet ueber 7 Tage (seit 2.0.0b2, experimentell): liest die
+# Datenraten des Online-Monitors der Weboberflaeche, siehe traffic.py.
+CONF_ENABLE_TRAFFIC: Final = "enable_traffic"
+CONF_TRAFFIC_UNIT: Final = "traffic_unit"
 CONF_CHECK_UPDATES: Final = "check_updates"
 CONF_HOST_DEVICE_FILTER: Final = "host_device_filter"
 # DNS-Einstellungen der Box aendern (experimentell, REST-Schnittstelle der
@@ -74,6 +78,9 @@ DEFAULT_IP_RANGES: Final = ""
 DEFAULT_ENABLE_HOST_DEVICES: Final = False
 # Idee 21 (experimentell, inoffizielle Weboberflaeche - siehe webui.py)
 DEFAULT_ENABLE_SYSTEM_STATS: Final = False
+DEFAULT_ENABLE_TRAFFIC: Final = False
+# Einheit der Rohwerte des Online-Monitors: "bytes" (Byte/s, Annahme) oder "bits".
+DEFAULT_TRAFFIC_UNIT: Final = "bytes"
 # Idee 22 (experimentell): Zugangsprofile der Kindersicherung ueber die Weboberflaeche
 DEFAULT_ENABLE_PARENTAL: Final = False
 DEFAULT_CHECK_UPDATES: Final = True
@@ -94,6 +101,10 @@ ATTR_OVERWRITE: Final = "overwrite"
 BLUEPRINTS_DIRNAME: Final = "blueprints"
 PROFILE_REVERT_STORAGE_VERSION: Final = 1
 SYSTEM_STATS_INTERVAL_MINUTES: Final = 5
+TRAFFIC_STORAGE_VERSION: Final = 1
+# Abstand der Abrufe des Online-Monitors und der Zuordnung Datenquelle -> Geraet.
+TRAFFIC_INTERVAL_SECONDS: Final = 120
+TRAFFIC_SOURCES_INTERVAL_SECONDS: Final = 900
 INTERNET_BLOCK_STORAGE_VERSION: Final = 1
 DEFAULT_HOST_DEVICE_FILTER: Final = ""
 

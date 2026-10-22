@@ -74,6 +74,8 @@
           "enable_host_devices": "Netzwerkgeräte als eigene Geräte anlegen",
           "host_device_filter": "Auswahl der Geräte (IP-Muster)",
           "enable_system_stats": "CPU und RAM der Box lesen (experimentell)",
+          "enable_traffic": "Datenverbrauch je Gerät erfassen (experimentell)",
+          "traffic_unit": "Einheit der Messwerte des Online-Monitors",
           "enable_parental_control": "Zugangsprofile der Kindersicherung steuern (experimentell)",
           "check_updates": "Täglich auf neue Version prüfen",
           "enable_dns_settings": "DNS-Einstellungen der Box ändern (experimentell)",
@@ -94,6 +96,8 @@
           "enable_host_devices": "Legt für die ausgewählten Netzwerkgeräte je ein eigenes Home-Assistant-Gerät mit Hersteller (aus der MAC-Adresse) und einem Verbunden-Status an. Standardmäßig aus – jedes Gerät erzeugt ein Gerät und eine Entität.",
           "host_device_filter": "Welche Geräte ein eigenes Gerät bekommen: dieselbe Schreibweise wie der Karten-Filter „IP-Filter“ (z. B. „192.168.2.*“, mehrere Muster mit Komma, „!“ schließt aus; „*“ wählt alle). Leer = keines. Höchstens 150 Geräte.",
           "enable_system_stats": "Liest CPU-Auslastung, RAM-Auslastung und Temperatur über die Weboberfläche der Box (nicht über TR-064, von AVM nicht dokumentiert, FRITZ!OS-abhängig). Standardmäßig aus; schlägt der Abruf fehl, fehlen nur diese Werte.",
+          "enable_traffic": "Liest die Datenraten aus dem Online-Monitor der Box („Internet → Online-Monitor → Einzelne Geräte“, FRITZ!OS ab 7.90/8.0), rechnet sie zu Datenvolumen um und zeigt in der Karte den Verbrauch der letzten 7 Tage je Gerät. Voraussetzung: In der Box muss pro Gerät „Internet-Datenraten speichern“ eingeschaltet sein (Heimnetz → Netzwerk → Gerät bearbeiten). Nutzt die Weboberfläche, nicht TR-064 – von AVM nicht dokumentiert, an keiner Box geprüft. Es sind Näherungswerte aus Abtastwerten, keine Zählerstände der Box. Standardmäßig aus.",
+          "traffic_unit": "In welcher Einheit die Box die Datenraten liefert. „Byte pro Sekunde“ ist eine Annahme aus Fremdprojekten. Stimmen die Werte der Karte um den Faktor 8 nicht mit dem Online-Monitor der Box überein, hier „Bit pro Sekunde“ wählen. Der Diagnose-Download zeigt unter traffic.shape.sample_values ein paar Rohwerte zum Vergleich.",
           "enable_parental_control": "Erlaubt Dienste, die Zugangsprofile lesen und Geräten zuweisen (z. B. „Gesperrt“ für eine Stunde). Nutzt die Weboberfläche der Box, nicht TR-064 – von AVM nicht dokumentiert, FRITZ!OS-abhängig. Standardmäßig aus.",
           "check_updates": "Fragt einmal am Tag bei GitHub nach der neuesten veröffentlichten Version und zeigt in der Karte (Steuerung) einen Hinweis, wenn eine neuere verfügbar ist. Es werden keine Daten über dich oder deine Box übertragen.",
           "enable_dns_settings": "Erlaubt dem Dienst „DNS-Einstellungen ändern“, DNS-Server der FRITZ!Box zu schreiben (Internet IPv4/IPv6, lokaler DNS im Heimnetz). Nutzt die REST-Schnittstelle der Weboberfläche, nicht TR-064 – von AVM nicht dokumentiert, FRITZ!OS-abhängig, ohne Test an echter Hardware beim Schreiben. Lesen und die Vorschau (dry_run) gehen immer. Standardmäßig aus.",
@@ -112,6 +116,12 @@
         "2": "Dienst 2",
         "3": "Dienst 3",
         "4": "Dienst 4"
+      }
+    },
+    "traffic_unit": {
+      "options": {
+        "bytes": "Byte pro Sekunde (Annahme)",
+        "bits": "Bit pro Sekunde"
       }
     },
     "nc_types": {

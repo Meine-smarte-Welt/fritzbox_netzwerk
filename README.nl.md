@@ -7,7 +7,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Dit is de Nederlandse uitgave. De Duitse [README.md](README.md) is het hoofdbestand en bevat de volledige kaartreferentie, het hoofdstuk probleemoplossing en de complete versiegeschiedenis. Onderdelen met „alleen Duits” zijn nog niet vertaald.
@@ -177,6 +177,22 @@ De integratie **wisselt tussen bestaande toegangsprofielen** (Internet → Filte
 ## CPU en RAM van de box (experimenteel)
 
 De optie „CPU en RAM van de box lezen (experimenteel)” (standaard uit) maakt drie sensoren aan: CPU-belasting, RAM-belasting, CPU-temperatuur. Ze komen uit de webinterfacepagina `ecoStat`, niet uit TR-064; op geen enkele box getest – vergelijk met Systeem → Energiemonitor.
+
+---
+
+## Dataverbruik per apparaat (experimenteel, sinds 2.0.0b2)
+
+Optie “Dataverbruik per apparaat vastleggen (experimenteel)” (standaard uit). Ze beantwoordt **welk apparaat de afgelopen week hoeveel data heeft overgedragen**, om apparaten te vinden die te veel met internet praten of het wifi overbelasten (verzoek uit #26).
+
+**Werking:** TR-064 levert geen verbruikscijfers per apparaat. De integratie leest daarom de **Online Monitor** van de box (webinterface, ongedocumenteerde REST-API `api/v0/monitor/…`), die per apparaat een **datasnelheid** levert, en telt die in de tijd op tot dag- en 7-dagentotalen (download en upload apart). De waarden zijn **schattingen**, geen tellerstanden van de box.
+
+**Voorwaarden en grenzen:**
+- In de FRITZ!Box moet per apparaat **“Internetdatasnelheden opslaan”** aan staan (Thuisnetwerk → Netwerk → apparaat → details; “Afzonderlijke apparaten” in de Online Monitor, FRITZ!OS 7.90/8.0 of nieuwer). Apparaten zonder deze instelling verschijnen niet.
+- Tellen begint zodra de optie aan staat; de box levert geen waarden uit het verleden. Een volledige week duurt 7 dagen.
+- De totalen staan in de opslag van Home Assistant (8 dagen). Als Home Assistant of het ophalen tijdelijk uitvalt, ontbreekt die tijd in de totalen (diagnose telt de gaten onder `traffic.stats`).
+- **Eenheid ongecontroleerd:** aangenomen wordt byte per seconde. Kloppen de cijfers niet, zet dan “Eenheid van de waarden van de online-monitor” op bit per seconde. De diagnose toont onder `traffic.shape.sample_values` ruwe voorbeeldwaarden om met de Online Monitor van de box te vergelijken.
+
+**In de kaart:** kolom **Data (7 dagen)** met balk (klik op de kop om op de grootste verbruiker te sorteren); de popup toont “Data (7 dagen)” met download/upload, “Data vandaag” en een dagverloop. De kolom verschijnt alleen als er waarden zijn; verbergen met `show_traffic: false`. De CSV-export bevat de 7-dagenwaarde in byte.
 
 ---
 
@@ -365,6 +381,13 @@ De tests voor 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `tes
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 2.0.0b2 – Dataverbruik per apparaat (7 dagen, experimenteel)
+
+**Bèta (voorlopige versie).** Bouwt voort op 2.0.0b1. **Niet getest op een echte FRITZ!Box of in een draaiende Home Assistant** – alleen tegen een gesimuleerde box.
+
+- **Nieuw (#26, gedeeltelijk):** opties “Dataverbruik per apparaat vastleggen” en “Eenheid van de waarden van de online-monitor”. De integratie leest de datasnelheden per apparaat van de Online Monitor, telt ze op tot dag-/7-dagentotalen (download, upload, vandaag) en slaat ze permanent op. Voorwaarde: “Internetdatasnelheden opslaan” per apparaat in de box. Waarden zijn schattingen; eenheid, vensterlengte en toewijzing zijn ongecontroleerd. Diagnose: `traffic`.
+- **Nieuw (kaart):** kolom “Data (7 dagen)” (sorteerbaar, alleen zichtbaar met data, `show_traffic`), popup-regels met dagverloop, CSV-export in byte.
 
 ### 2.0.0b1 – Statisch IP via REST, reserveringen en VPN-apparaten, README in vijf talen
 

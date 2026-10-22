@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): b58d1c93dfb25aa04b0d0437d128b3fa9991f68af661f445616d2a6bf47f554d
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 1b6377e6b9b6b88a06abbdd7b2679577035ae8c9ec94ae781e0dd990dea54543
 """Die Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -240,6 +240,7 @@ async def async_setup_entry(
     coordinator = FritzboxNetzwerkCoordinator(hass, entry, fritz_hosts, guard)
     await coordinator.async_load_last_seen()
     await coordinator.async_load_first_seen()
+    await coordinator.async_load_traffic()
     await coordinator.async_load_notes()
     await coordinator.async_load_blocks()
     await coordinator.async_load_profile_reverts()

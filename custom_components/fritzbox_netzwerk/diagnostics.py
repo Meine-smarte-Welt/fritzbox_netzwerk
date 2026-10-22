@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ed69bfa197837e7f5c72e6e1970acb7f7492dd5d2d591b399ce6caecfa5bc42d
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f47068550997c87cabe2b82d12d76b954fbf8f7980864e691de2c869ab49fcf7
 """Diagnose-Export fuer fritzbox_netzwerk (Idee 15 aus feature-ideen.md).
 
 Liefert die Angaben, die zur Fehlersuche bei einer GitHub-Issue-Meldung am
@@ -143,6 +143,7 @@ async def async_get_config_entry_diagnostics(
                     1 for host in hosts if host.get("label") or host.get("note") or host.get("reserved")
                 ),
                 "oui_entries": getattr(coordinator, "oui_stats", {}),
+                "traffic": getattr(coordinator, "traffic_diagnostics", {}),
                 "system_stats_enabled": getattr(coordinator, "system_stats_enabled", False),
                 "system_stats_error": getattr(coordinator, "system_stats_error", None),
                 "parental_enabled": getattr(coordinator, "parental_enabled", False),

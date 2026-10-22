@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 863d123fce5e96c4464ae2f16c4152ee5e5940a4c70d2cff3e47134ed6f27a44
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 9325b6320a962352234b0487c37eb74e358837732d5cfbb63ab3f931a561f9f3
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "2.0.0b1";
+const FBN_VERSION = "2.0.0b2";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -44,6 +44,8 @@ const CONFIG_DEFAULTS = {
   show_model: false,
   show_type: false,
   show_last_seen: false,
+  // Datenverbrauch der letzten 7 Tage (nur sichtbar, wenn die Integration Werte liefert).
+  show_traffic: true,
   // Hersteller zur MAC-Adresse (aus der mitgelieferten OUI-Tabelle).
   show_vendor: false,
   // Funkband (2,4 / 5 / 6 GHz), in dem ein WLAN-Gerät gerade verbunden ist.
@@ -177,6 +179,7 @@ const COLUMNS = [
   { key: "model", cfg: "show_model", label: "Modell", prio: 3, sortable: true },
   { key: "type", cfg: "show_type", label: "Gerätetyp", prio: 3, sortable: true },
   { key: "last_seen", cfg: "show_last_seen", label: "Zuletzt online", prio: 3, sortable: true },
+  { key: "traffic", cfg: "show_traffic", label: "Daten (7 Tage)", prio: 3, sortable: true, align: "right" },
 ];
 
 // Entspricht NEW_DEVICE_FILTER_DAYS in const.py - duplizieren statt teilen,
@@ -211,7 +214,7 @@ const I18N = {
     "col.connection": "Verbindung", "col.ha_name": "Home Assistant",
     "col.ip_type": "IP-Typ", "col.wan": "Internet", "col.update": "Update",
     "col.speed": "Tempo", "col.model": "Modell", "col.type": "Gerätetyp",
-    "col.last_seen": "Zuletzt online", "col.status": "Status", "col.vendor": "Hersteller", "col.band": "Funkband",
+    "col.last_seen": "Zuletzt online", "col.traffic": "Daten (7 Tage)", "col.status": "Status", "col.vendor": "Hersteller", "col.band": "Funkband",
     "col.connected_via": "Verbunden über",
     "col.label": "Etikett",
     "col.note": "Notiz",
@@ -266,6 +269,7 @@ const I18N = {
     "field.model": "Modell", "field.type": "Gerätetyp", "field.hostname": "Hostname",
     "field.features": "Merkmale", "field.ha": "Home Assistant",
     "field.last_seen": "Zuletzt online",
+    "field.traffic": "Daten (7 Tage)", "field.traffic_today": "Daten heute", "field.traffic_days": "Verlauf (7 Tage)",
     "btn.web": "Weboberfläche öffnen", "btn.ha": "In Home Assistant öffnen",
     "btn.block": "Internet sperren", "btn.unblock": "Internet freigeben",
     "btn.wol": "Aufwecken (WoL)", "btn.close": "Schließen",
@@ -280,6 +284,8 @@ const I18N = {
     "tip.web": "Weboberfläche öffnen ({url})", "tip.ha": "Zum Home-Assistant-Gerät",
     "tip.blocked": "Internetzugang gesperrt", "tip.update": "Firmware-Update verfügbar",
     "tip.online": "Gerät ist gerade online",
+    "tip.traffic": "Geschätzt aus den Online-Monitor-Raten der Box. Download {down}, Upload {up}, heute {today}",
+    "tip.traffic_day": "vor {n} Tagen: {v}",
     "tip.ls_unknown": "Seit Installation der Integration nicht als online erfasst",
     "tip.ls_last": "Zuletzt online: {ts}", "tip.sort": "Nach {label} sortieren",
     "arrow.left": "Nach links blättern", "arrow.right": "Nach rechts blättern",
@@ -304,7 +310,7 @@ const I18N = {
     "col.connection": "Connection", "col.ha_name": "Home Assistant",
     "col.ip_type": "IP type", "col.wan": "Internet", "col.update": "Update",
     "col.speed": "Speed", "col.model": "Model", "col.type": "Device type",
-    "col.last_seen": "Last seen", "col.status": "Status", "col.vendor": "Manufacturer", "col.band": "Wi-Fi band",
+    "col.last_seen": "Last seen", "col.traffic": "Data (7 days)", "col.status": "Status", "col.vendor": "Manufacturer", "col.band": "Wi-Fi band",
     "col.connected_via": "Connected via",
     "col.label": "Label",
     "col.note": "Note",
@@ -359,6 +365,7 @@ const I18N = {
     "field.model": "Model", "field.type": "Device type", "field.hostname": "Hostname",
     "field.features": "Features", "field.ha": "Home Assistant",
     "field.last_seen": "Last seen",
+    "field.traffic": "Data (7 days)", "field.traffic_today": "Data today", "field.traffic_days": "Trend (7 days)",
     "btn.web": "Open web interface", "btn.ha": "Open in Home Assistant",
     "btn.block": "Block internet", "btn.unblock": "Allow internet",
     "btn.wol": "Wake (WoL)", "btn.close": "Close",
@@ -373,6 +380,8 @@ const I18N = {
     "tip.web": "Open web interface ({url})", "tip.ha": "Go to Home Assistant device",
     "tip.blocked": "Internet access blocked", "tip.update": "Firmware update available",
     "tip.online": "Device is currently online",
+    "tip.traffic": "Estimated from the box's Online Monitor rates. Download {down}, upload {up}, today {today}",
+    "tip.traffic_day": "{n} days ago: {v}",
     "tip.ls_unknown": "Not seen online since the integration was installed",
     "tip.ls_last": "Last seen: {ts}", "tip.sort": "Sort by {label}",
     "arrow.left": "Scroll left", "arrow.right": "Scroll right",
@@ -397,7 +406,7 @@ const I18N = {
     "col.connection": "Verbinding", "col.ha_name": "Home Assistant",
     "col.ip_type": "IP-type", "col.wan": "Internet", "col.update": "Update",
     "col.speed": "Snelheid", "col.model": "Model", "col.type": "Apparaattype",
-    "col.last_seen": "Laatst online", "col.status": "Status", "col.vendor": "Fabrikant", "col.band": "Wifi-band",
+    "col.last_seen": "Laatst online", "col.traffic": "Data (7 dagen)", "col.status": "Status", "col.vendor": "Fabrikant", "col.band": "Wifi-band",
     "col.connected_via": "Verbonden via",
     "col.label": "Label",
     "col.note": "Notitie",
@@ -452,6 +461,7 @@ const I18N = {
     "field.model": "Model", "field.type": "Apparaattype", "field.hostname": "Hostnaam",
     "field.features": "Kenmerken", "field.ha": "Home Assistant",
     "field.last_seen": "Laatst online",
+    "field.traffic": "Data (7 dagen)", "field.traffic_today": "Data vandaag", "field.traffic_days": "Verloop (7 dagen)",
     "btn.web": "Webinterface openen", "btn.ha": "In Home Assistant openen",
     "btn.block": "Internet blokkeren", "btn.unblock": "Internet toestaan",
     "btn.wol": "Wekken (WoL)", "btn.close": "Sluiten",
@@ -466,6 +476,8 @@ const I18N = {
     "tip.web": "Webinterface openen ({url})", "tip.ha": "Naar Home Assistant-apparaat",
     "tip.blocked": "Internettoegang geblokkeerd", "tip.update": "Firmware-update beschikbaar",
     "tip.online": "Apparaat is nu online",
+    "tip.traffic": "Geschat uit de Online Monitor-snelheden van de box. Download {down}, upload {up}, vandaag {today}",
+    "tip.traffic_day": "{n} dagen geleden: {v}",
     "tip.ls_unknown": "Sinds installatie van de integratie niet online gezien",
     "tip.ls_last": "Laatst online: {ts}", "tip.sort": "Sorteren op {label}",
     "arrow.left": "Naar links bladeren", "arrow.right": "Naar rechts bladeren",
@@ -767,6 +779,21 @@ function formatSpeedCompact(speed) {
   return `${value} M`;
 }
 
+/** Datenmenge in Byte lesbar (Dezimalpraefixe wie bei Providern): "850 MB", "12,3 GB". */
+function formatBytes(bytes) {
+  const value = Number(bytes);
+  if (bytes === null || bytes === undefined || bytes === "" || !Number.isFinite(value) || value < 0) return "—";
+  const units = ["B", "kB", "MB", "GB", "TB"];
+  let n = value;
+  let i = 0;
+  while (n >= 1000 && i < units.length - 1) {
+    n /= 1000;
+    i += 1;
+  }
+  const text = i <= 1 ? String(Math.round(n)) : n.toFixed(n >= 100 ? 0 : 1).replace(".", ",");
+  return `${text} ${units[i]}`;
+}
+
 /** Datenrate (kByte/s) lesbar: ab 1000 kB/s in MB/s. */
 function formatRate(kbytes) {
   if (kbytes === null || kbytes === undefined || kbytes === "") return "—";
@@ -895,6 +922,12 @@ function sortValue(host, key) {
       // unten. Negiert, damit "aufsteigend" = "zuletzt online zuerst".
       const ts = Date.parse(host.last_seen || "");
       return Number.isNaN(ts) ? Number.POSITIVE_INFINITY : -ts;
+    }
+    case "traffic": {
+      // Groesster Verbrauch zuerst (aufsteigend = absteigend nach Daten);
+      // Geraete ohne Messwert ganz unten.
+      const value = Number(host.traffic_week);
+      return Number.isFinite(value) ? -value : Number.POSITIVE_INFINITY;
     }
     default:
       return "";
@@ -1245,6 +1278,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
           host.note,
           host.reserved ? 1 : 0,
           host.ip_class,
+          Math.round(Number(host.traffic_week) / 1e7), // 10-MB-Schritte, kein Neuzeichnen bei jedem Messwert
         ].join("|")
       )
       .join("~");
@@ -1257,7 +1291,27 @@ class FritzboxNetzwerkCard extends HTMLElement {
   }
 
   _visibleColumns() {
-    return COLUMNS.filter((column) => this._config[column.cfg]);
+    const hasTraffic = this._hasTraffic();
+    return COLUMNS.filter(
+      (column) => this._config[column.cfg] && (column.key !== "traffic" || hasTraffic)
+    );
+  }
+
+  /** Groesster 7-Tage-Wert aller Geraete (0 = die Integration liefert keine Daten). Pro Host-Liste gemerkt. */
+  _trafficMax() {
+    const hosts = this._hosts();
+    if (this._trafficMaxCache && this._trafficMaxCache.hosts === hosts) return this._trafficMaxCache.max;
+    let max = 0;
+    for (const host of hosts) {
+      const value = Number(host.traffic_week);
+      if (Number.isFinite(value) && value > max) max = value;
+    }
+    this._trafficMaxCache = { hosts, max };
+    return max;
+  }
+
+  _hasTraffic() {
+    return this._trafficMax() > 0;
   }
 
   _filteredHosts(options) {
@@ -1806,6 +1860,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
         return host.device_class_user || host.device_class || "";
       case "vendor":
         return host.vendor || (host.mac_random ? this._t("vendor.random") : "");
+      case "traffic":
+        // Rohwert in Byte (7 Tage), damit Excel sortieren und rechnen kann.
+        return Number.isFinite(Number(host.traffic_week)) && host.traffic_week !== null
+          ? host.traffic_week
+          : "";
       default:
         return host[key] === undefined || host[key] === null ? "" : host[key];
     }
@@ -2725,6 +2784,21 @@ class FritzboxNetzwerkCard extends HTMLElement {
       case "type":
         return escapeHtml(host.device_class_user || host.device_class || "—");
 
+      case "traffic": {
+        const total = Number(host.traffic_week);
+        if (host.traffic_week === undefined || host.traffic_week === null || !Number.isFinite(total)) {
+          return '<span class="fbn-dim">—</span>';
+        }
+        const max = this._trafficMax();
+        const pct = max > 0 ? Math.max(total > 0 ? 3 : 0, Math.round((total / max) * 100)) : 0;
+        const title = this._t("tip.traffic", {
+          down: formatBytes(host.traffic_week_down),
+          up: formatBytes(host.traffic_week_up),
+          today: formatBytes(host.traffic_today),
+        });
+        return `<span class="fbn-traffic" title="${escapeHtml(title)}"><span class="fbn-traffic-val">${escapeHtml(formatBytes(total))}</span><span class="fbn-traffic-bar"><i style="width:${pct}%"></i></span></span>`;
+      }
+
       case "last_seen": {
         if (host.active) {
           return `<span class="fbn-ls-now" title="${escapeHtml(this._t("tip.online"))}">${escapeHtml(this._t("state.online_now"))}</span>`;
@@ -3541,6 +3615,25 @@ class FritzboxNetzwerkCard extends HTMLElement {
       host.active ? this._t("state.now_online") : escapeHtml(formatLastSeen(host.last_seen, this._lang()))
     );
 
+    if (host.traffic_week !== undefined && host.traffic_week !== null) {
+      add(
+        this._t("field.traffic"),
+        `${escapeHtml(formatBytes(host.traffic_week))} (↓ ${escapeHtml(formatBytes(host.traffic_week_down))} · ↑ ${escapeHtml(formatBytes(host.traffic_week_up))})`
+      );
+      add(this._t("field.traffic_today"), escapeHtml(formatBytes(host.traffic_today)));
+      const days = Array.isArray(host.traffic_days) ? host.traffic_days.map((v) => Number(v) || 0) : [];
+      const top = Math.max(0, ...days);
+      if (days.length && top > 0) {
+        const bars = days
+          .map(
+            (v, i) =>
+              `<i style="height:${Math.max(v > 0 ? 6 : 0, Math.round((v / top) * 100))}%" title="${escapeHtml(this._t("tip.traffic_day", { n: days.length - 1 - i, v: formatBytes(v) }))}"></i>`
+          )
+          .join("");
+        add(this._t("field.traffic_days"), `<span class="fbn-traffic-days">${bars}</span>`);
+      }
+    }
+
     // Device Tracker: immer als eigene Zeile - mit dem echten
     // Zustand der Tracker-Entitaet und einem Hinweis, falls es (noch) keinen
     // gibt. Vorher fehlte die Zeile kommentarlos, wenn die Entitaet nicht
@@ -4177,6 +4270,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-halink:focus-visible { outline: 2px solid var(--fbn-accent); outline-offset: 2px; border-radius: 2px; }
       .fbn-dim { color: var(--fbn-inactive); }
       .fbn-ls-now { color: var(--fbn-active); }
+      .fbn-traffic { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 64px; }
+      .fbn-traffic-bar { display: block; width: 100%; height: 3px; border-radius: 2px; background: var(--fbn-border, rgba(127,127,127,.25)); overflow: hidden; }
+      .fbn-traffic-bar i { display: block; height: 100%; background: var(--fbn-accent); }
+      .fbn-traffic-days { display: inline-flex; align-items: flex-end; gap: 3px; height: 32px; }
+      .fbn-traffic-days i { display: block; width: 10px; background: var(--fbn-accent); border-radius: 2px 2px 0 0; }
       .fbn-lease { font-size: 0.85em; }
       .fbn-dot {
         display: inline-block; width: 10px; height: 10px; border-radius: 50%;
@@ -4523,6 +4621,7 @@ const EDITOR_LABELS = {
   show_model: "Modell",
   show_type: "Gerätetyp",
   show_last_seen: "Zuletzt online",
+  show_traffic: "Datenverbrauch (7 Tage)",
   show_vendor: "Hersteller (aus der MAC-Adresse)",
   show_band: "Funkband (2,4 / 5 GHz)",
   show_connected_via: "Verbunden über (Mesh)",
@@ -4590,6 +4689,7 @@ const EDITOR_HELPERS = {
   filter_lange_offline: "Zeigt nur inaktive Geräte, die seit mindestens 30 Tagen nicht mehr gesehen wurden (oder noch nie, seit die Integration das erfasst). Daneben erscheint ein Knopf, um Namen und MAC-Adressen dieser Geräte zum Aufräumen zu kopieren.",
   show_vendor: "Zeigt den Hersteller, der zum Anfang der MAC-Adresse gehört (aus einer mitgelieferten Liste des IEEE, ohne Internetzugriff). Hilft, ein Gerät mit unklarem Namen zu erkennen. Smartphones mit „Privater WLAN-Adresse“ nutzen zufällige Adressen – dort steht „Zufällige MAC“.",
   mac_click_copies: "Ein Klick auf die MAC-Adresse in der Tabelle kopiert sie in die Zwischenablage, statt das Detail-Popup zu öffnen. Ohne HTTPS nutzt die Karte eine Ausweichmethode; klappt auch die nicht, erscheint ein Hinweis. Im Popup bleibt der Kopier-Knopf.",
+  show_traffic: "Geschätzte Datenmenge je Gerät der letzten 7 Tage. Erscheint nur, wenn in den Integrationsoptionen „Datenverbrauch je Gerät erfassen“ aktiv ist und die Box Werte liefert. Klick auf die Spaltenüberschrift sortiert nach dem größten Verbraucher.",
   show_last_seen: "Wann ein Gerät zuletzt online war. Die FRITZ!Box liefert das nicht – die Integration schreibt es ab Installation selbst mit und speichert es dauerhaft.",
   show_details_popup: "Zeigt beim Antippen alle Felder eines Geräts, auch die auf schmalen Karten ausgeblendeten wie die MAC-Adresse.",
   open_device_on_click: "Wirkt nur, wenn das Detail-Popup ausgeschaltet ist.",
@@ -4621,7 +4721,7 @@ const EDITOR_TX = {
     show_ha_name: "Home Assistant device name (linked)",
     show_ip_type: "IP type (DHCP or static)", show_wan: "Internet access",
     show_update: "Firmware update", show_speed: "Speed", show_model: "Model",
-    show_type: "Device type", show_last_seen: "Last seen",
+    show_type: "Device type", show_last_seen: "Last seen", show_traffic: "Data usage (7 days)",
     show_vendor: "Manufacturer (from the MAC address)",
     show_band: "Wi-Fi band (2.4 / 5 GHz)",
     show_connected_via: "Connected via (mesh)",
@@ -4673,6 +4773,7 @@ const EDITOR_TX = {
     help_show_title: "Hides the card header, e.g. for a popup or a compact view.",
     help_show_ip_type: "Requires IP type tracking enabled in the integration settings.",
     help_show_ha_name: "Shows the device name from Home Assistant if the device has a MAC address there. Clicking the name goes straight to the device.",
+    help_show_traffic: "Estimated data volume per device over the last 7 days. Only shown when \"Record data usage per device\" is enabled in the integration options and the box delivers values. Click the column header to sort by the biggest consumer.",
     help_show_last_seen: "When a device was last online. The FRITZ!Box does not provide this – the integration records it from installation onward and stores it permanently.",
     help_show_details_popup: "Shows all fields of a device on tap, including those hidden on narrow cards such as the MAC address.",
     help_open_device_on_click: "Only applies when the detail popup is disabled.",
@@ -4707,7 +4808,7 @@ const EDITOR_TX = {
     show_ha_name: "Home Assistant-apparaatnaam (gelinkt)",
     show_ip_type: "IP-type (DHCP of statisch)", show_wan: "Internettoegang",
     show_update: "Firmware-update", show_speed: "Snelheid", show_model: "Model",
-    show_type: "Apparaattype", show_last_seen: "Laatst online",
+    show_type: "Apparaattype", show_last_seen: "Laatst online", show_traffic: "Dataverbruik (7 dagen)",
     show_vendor: "Fabrikant (uit het MAC-adres)",
     show_band: "Wifi-band (2,4 / 5 GHz)",
     show_connected_via: "Verbonden via (mesh)",
@@ -4759,6 +4860,7 @@ const EDITOR_TX = {
     help_show_title: "Verbergt de kop van de kaart, bijv. voor een pop-up of een compacte weergave.",
     help_show_ip_type: "Vereist dat het bijhouden van het IP-type is ingeschakeld in de integratie-instellingen.",
     help_show_ha_name: "Toont de apparaatnaam uit Home Assistant als het apparaat daar een MAC-adres heeft. Klikken op de naam gaat direct naar het apparaat.",
+    help_show_traffic: "Geschat datavolume per apparaat over de afgelopen 7 dagen. Alleen zichtbaar als \"Dataverbruik per apparaat vastleggen\" in de integratie-opties aan staat en de box waarden levert. Klik op de kolomkop om op de grootste verbruiker te sorteren.",
     help_show_last_seen: "Wanneer een apparaat laatst online was. De FRITZ!Box levert dit niet – de integratie houdt het vanaf de installatie zelf bij en slaat het permanent op.",
     help_show_details_popup: "Toont bij tikken alle velden van een apparaat, ook die op smalle kaarten verborgen zijn zoals het MAC-adres.",
     help_open_device_on_click: "Werkt alleen als het detailvenster is uitgeschakeld.",

@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 7b01f1e9fadaeefdf3e9f1a841d495b4d862a0582139d7e1f74006df19c98773
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): e098b435d98c69c435c02a252af1d1656ebc5ee78e18c048e96e2ceff76e3b3a
 """Inoffizieller Zugriff auf die FRITZ!Box-Weboberfläche (nur lesend).
 
 ACHTUNG - EXPERIMENTELL: Dieses Modul spricht NICHT TR-064, sondern die
@@ -362,6 +362,56 @@ def fetch_reservations(
         d["mac"].lower(): bool(d["static"]) for d in devices if d.get("static") is not None
     }
     return {"reserved": reserved, "source": source if reserved else None, "devices": len(devices)}
+
+
+# Online-Monitor (Datenraten je Geraet, seit 2.0.0b2): REST-Pfade der
+# Weboberflaeche, so wie sie Fremdprojekte beschreiben (ioBroker-Forum:
+# ``/api/v0/monitor/datasets`` listet die Datenquellen, ``.../macaddrs/subset0000``
+# liefert deren Messreihen). Von AVM nicht dokumentiert, an keiner eigenen Box
+# geprueft; ``traffic.py`` wertet die Antworten tolerant aus.
+MONITOR_DATASETS = "api/v0/monitor/datasets"
+MONITOR_SUBSET = "api/v0/monitor/macaddrs/subset0000"
+
+
+def monitor_get(session: Any, base: str, sid: str, path: str) -> Any:
+    """GET auf einen REST-Pfad der Weboberflaeche (``ValueError`` bei HTTP-Fehler/ohne JSON)."""
+    response = session.get(
+        f"{base}/{path}",
+        headers={"AUTHORIZATION": f"AVM-SID {sid}"},
+        timeout=TIMEOUT,
+    )
+    if not response.ok:
+        raise ValueError(f"{path}: HTTP {response.status_code}")
+    try:
+        return response.json()
+    except ValueError as err:
+        raise ValueError(f"{path}: keine JSON-Antwort") from err
+
+
+def fetch_monitor(
+    session: Any, base: str, user: str, password: str, refresh_sources: bool
+) -> dict[str, Any]:
+    """Liest die Messreihen des Online-Monitors (und bei Bedarf die Zuordnung zu Geraeten).
+
+    Gibt ``{"subsets": <Antwort>, "datasets": <Antwort>|None, "landevices": [...]|None}``
+    zurueck. ``datasets`` und ``landevices`` (fuer die Zuordnung Datenquelle ->
+    MAC-Adresse) werden nur mit ``refresh_sources`` geholt. Fehler laufen als
+    ``ValueError``/Netzwerkfehler zum Aufrufer.
+    """
+    sid = login(session, base, user, password)
+    try:
+        datasets: Any = None
+        landevices: list[dict[str, Any]] | None = None
+        if refresh_sources:
+            datasets = monitor_get(session, base, sid, MONITOR_DATASETS)
+            try:
+                landevices = parse_landevice_list(query_lua(session, base, sid, LANDEVICE_QUERY))
+            except ValueError:
+                landevices = []
+        subsets = monitor_get(session, base, sid, MONITOR_SUBSET)
+    finally:
+        logout(session, base, sid)
+    return {"subsets": subsets, "datasets": datasets, "landevices": landevices}
 
 
 def parse_device_profile(payload: Any) -> str | None:

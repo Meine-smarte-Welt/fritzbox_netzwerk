@@ -7,7 +7,7 @@
 
 Une intégration Home Assistant qui affiche tous les appareils du réseau domestique FRITZ!Box sur votre tableau de bord sous forme de tableau triable – avec adresse IP, adresse MAC, type de connexion et nom de l'appareil Home Assistant correspondant.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Ceci est l'édition française du README, disponible en cinq langues (voir la barre de langues ci-dessus). Le [README.md](README.md) allemand est le fichier principal : il contient la référence complète de la carte, le chapitre de dépannage et l'historique complet des versions. Les sections marquées « en allemand uniquement » ne sont pas encore traduites. L'intégration et la carte elles-mêmes sont traduites en allemand, anglais et néerlandais.
@@ -179,6 +179,22 @@ L'option « Lire le CPU et la RAM de la box (expérimental) » (désactivée par
 
 ---
 
+## Consommation de données par appareil (expérimental, depuis 2.0.0b2)
+
+Option « Enregistrer la consommation de données (expérimental) » (désactivée par défaut). Elle indique **quel appareil a transféré combien de données au cours de la dernière semaine**, afin de repérer les appareils qui communiquent trop avec Internet ou saturent le Wi-Fi (demande issue de #26).
+
+**Fonctionnement :** TR-064 ne fournit aucun chiffre de consommation par appareil. L'intégration lit donc le **moniteur en ligne** de la box (interface web, API REST non documentée `api/v0/monitor/…`), qui fournit un **débit** par appareil, et l'intègre dans le temps en totaux journaliers et sur 7 jours (téléchargement et envoi séparés). Les valeurs sont des **estimations**, pas des compteurs de la box.
+
+**Conditions et limites :**
+- Dans la FRITZ!Box, **« Enregistrer les débits Internet »** doit être activé pour chaque appareil (Réseau domestique → Réseau → appareil → détails ; « Appareils individuels » dans le moniteur en ligne, FRITZ!OS 7.90/8.0 ou plus récent). Les appareils sans ce réglage n'apparaissent pas.
+- Le comptage commence à l'activation de l'option ; la box ne fournit pas de valeurs passées. Une semaine complète demande 7 jours.
+- Les totaux sont conservés dans le stockage de Home Assistant (8 jours). Si Home Assistant ou l'interrogation est interrompu un moment, ce temps manque dans les totaux (le diagnostic compte les lacunes sous `traffic.stats`).
+- **Unité non vérifiée :** on suppose des octets par seconde. Si les chiffres semblent faux, réglez « Unité des valeurs du moniteur en ligne » sur bits par seconde dans les options. Le diagnostic montre des valeurs brutes sous `traffic.shape.sample_values` pour comparer avec le moniteur en ligne de la box.
+
+**Dans la carte :** colonne **Données (7 jours)** avec barre (un clic sur l'en-tête trie par plus gros consommateur) ; la fenêtre détaillée affiche « Données (7 jours) » avec téléchargement/envoi, « Données aujourd'hui » et une évolution quotidienne. La colonne n'apparaît que si des valeurs existent ; masquer avec `show_traffic: false`. L'export CSV contient la valeur sur 7 jours en octets.
+
+---
+
 ## Paramètres DNS (expérimental)
 
 Depuis 1.8.0, l'intégration lit les paramètres DNS de la FRITZ!Box et peut – uniquement après activation de l'option – les modifier.
@@ -345,6 +361,13 @@ Les tests pour 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `te
 Le dépôt contient les tests pour 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`) ; ils s'exécutent sur des données synthétiques, pas sur du matériel réel. Les tests de 1.8.0 pour `dns_settings.py` et `static_ip.py` ne sont pas versionnés.
 
 ## Historique des versions
+
+### 2.0.0b2 – Consommation de données par appareil (7 jours, expérimental)
+
+**Bêta (préversion).** S'appuie sur 2.0.0b1. **Non testé sur une FRITZ!Box réelle ni dans un Home Assistant en fonctionnement** – uniquement contre une box simulée.
+
+- **Nouveau (#26, en partie) :** options « Enregistrer la consommation de données » et « Unité des valeurs du moniteur en ligne ». L'intégration lit les débits par appareil du moniteur en ligne, les intègre en totaux journaliers/7 jours (téléchargement, envoi, aujourd'hui) et les enregistre durablement. Condition : « Enregistrer les débits Internet » par appareil dans la box. Les valeurs sont des estimations ; unité, durée de fenêtre et correspondance non vérifiées. Diagnostic : `traffic`.
+- **Nouveau (carte) :** colonne « Données (7 jours) » (triable, visible seulement avec des données, `show_traffic`), lignes dans la fenêtre détaillée avec évolution quotidienne, export CSV en octets.
 
 ### 2.0.0b1 – IP statique via REST, réservations et appareils VPN, README en cinq langues
 
