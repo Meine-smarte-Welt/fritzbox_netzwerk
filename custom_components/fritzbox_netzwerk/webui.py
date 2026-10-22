@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 474fb6aed6a08af955ae09a7b861d82c9cde3a09ec3fc6aeaaad1ad5fd933712
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 268d18e43fbe0932be71755e39a5acbf2a8234ec96eb9c5abe0e8283dcee7b72
 """Inoffizieller Zugriff auf die FRITZ!Box-Weboberfläche (nur lesend).
 
 ACHTUNG - EXPERIMENTELL: Dieses Modul spricht NICHT TR-064, sondern die
@@ -369,8 +369,11 @@ def fetch_reservations(
 # ``/api/v0/monitor/datasets`` listet die Datenquellen, ``.../macaddrs/subset0000``
 # liefert deren Messreihen). Von AVM nicht dokumentiert, an keiner eigenen Box
 # geprueft; ``traffic.py`` wertet die Antworten tolerant aus.
-MONITOR_DATASETS = "api/v0/monitor/datasets"
-MONITOR_SUBSET = "api/v0/monitor/macaddrs/subset0000"
+# Moegliche Wurzeln der Online-Monitor-Schnittstelle. Das Community-Skript nutzt
+# "api/v0/monitor"; manche Boxen/FRITZ!OS-Staende antworten darauf mit
+# "bad path: monitor/datasets" - dann wird die Variante unter "generic" probiert.
+MONITOR_BASES = ("api/v0/monitor", "api/v0/generic/monitor")
+MONITOR_SUBSET_NAME = "macaddrs/subset0000"
 
 
 def monitor_get(session: Any, base: str, sid: str, path: str) -> Any:
@@ -399,29 +402,49 @@ def monitor_get(session: Any, base: str, sid: str, path: str) -> Any:
 
 
 def fetch_monitor(
-    session: Any, base: str, user: str, password: str, refresh_sources: bool
+    session: Any,
+    base: str,
+    user: str,
+    password: str,
+    refresh_sources: bool,
+    monitor_base: str | None = None,
 ) -> dict[str, Any]:
     """Liest die Messreihen des Online-Monitors (und bei Bedarf die Zuordnung zu Geraeten).
 
-    Gibt ``{"subsets": <Antwort>, "datasets": <Antwort>|None, "landevices": [...]|None}``
-    zurueck. ``datasets`` und ``landevices`` (fuer die Zuordnung Datenquelle ->
-    MAC-Adresse) werden nur mit ``refresh_sources`` geholt. Fehler laufen als
-    ``ValueError``/Netzwerkfehler zum Aufrufer.
+    Gibt ``{"subsets": ..., "datasets": ...|None, "landevices": [...]|None,
+    "monitor_base": <genutzte Wurzel>}`` zurueck. ``datasets`` und ``landevices``
+    (Zuordnung Datenquelle -> MAC-Adresse) werden nur mit ``refresh_sources``
+    geholt; dabei werden die Wurzeln aus ``MONITOR_BASES`` der Reihe nach
+    probiert (oder nur ``monitor_base``, wenn bekannt). Fehler laufen als
+    ``ValueError``/Netzwerkfehler zum Aufrufer; bei mehreren Fehlschlaegen
+    stehen alle Meldungen im Text.
     """
     sid = login(session, base, user, password)
     try:
         datasets: Any = None
         landevices: list[dict[str, Any]] | None = None
-        if refresh_sources:
-            datasets = monitor_get(session, base, sid, MONITOR_DATASETS)
+        roots = (monitor_base,) if monitor_base else MONITOR_BASES
+        used = monitor_base
+        if refresh_sources or not monitor_base:
+            errors: list[str] = []
+            for root in roots:
+                try:
+                    datasets = monitor_get(session, base, sid, f"{root}/datasets")
+                except ValueError as err:
+                    errors.append(str(err))
+                    continue
+                used = root
+                break
+            if used is None:
+                raise ValueError("; ".join(errors))
             try:
                 landevices = parse_landevice_list(query_lua(session, base, sid, LANDEVICE_QUERY))
             except ValueError:
                 landevices = []
-        subsets = monitor_get(session, base, sid, MONITOR_SUBSET)
+        subsets = monitor_get(session, base, sid, f"{used}/{MONITOR_SUBSET_NAME}")
     finally:
         logout(session, base, sid)
-    return {"subsets": subsets, "datasets": datasets, "landevices": landevices}
+    return {"subsets": subsets, "datasets": datasets, "landevices": landevices, "monitor_base": used}
 
 
 def parse_device_profile(payload: Any) -> str | None:

@@ -7,7 +7,7 @@
 
 Una integración de Home Assistant que muestra todos los dispositivos de la red doméstica de la FRITZ!Box en tu panel como una tabla ordenable – con dirección IP, dirección MAC, tipo de conexión y el nombre del dispositivo de Home Assistant correspondiente.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b4-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b5-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Esta es la edición en español del README, disponible en cinco idiomas (consulta la barra de idiomas de arriba). El [README.md](README.md) alemán es el archivo principal y contiene la referencia completa de la tarjeta, el capítulo de solución de problemas y el historial completo de versiones. Las secciones marcadas «solo en alemán» aún no están traducidas. La integración y la tarjeta están traducidas al alemán, inglés y neerlandés.
@@ -363,6 +363,12 @@ Las pruebas de 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `te
 El repositorio contiene las pruebas de 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); se ejecutan con datos sintéticos, no con hardware real. Las pruebas de 1.8.0 para `dns_settings.py` y `static_ip.py` no están incluidas.
 
 ## Historial de versiones
+
+### 2.0.0b5 – Monitor en línea: rutas de interfaz alternativas
+
+**Beta (versión preliminar).** Se basa en 2.0.0b4. **No probado en una FRITZ!Box real.**
+
+- **Corregido (intento):** una caja real respondió «bad path» a `api/v0/monitor/datasets`. La integración prueba ahora `api/v0/monitor/…` y `api/v0/generic/monitor/…` por turno, recuerda la que funciona y lista todos los errores si falla. El diagnóstico y el sensor de estado muestran `schnittstelle` y la versión de FRITZ!OS. Que alguna variante exista en tu caja no está verificado.
 
 ### 2.0.0b4 – Petición del monitor en línea: cabeceras y texto de error
 

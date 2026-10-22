@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b4-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b5-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > This is the English edition of the README, which is available in five languages (see the language bar above). The German [README.md](README.md) is the main file and has the full card reference, the troubleshooting chapter and the complete version history. Sections marked “German only” are not translated yet. The integration and the card themselves are translated into German, English and Dutch.
@@ -380,6 +380,12 @@ The tests for 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `tes
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 2.0.0b5 – Online Monitor: alternative interface paths
+
+**Beta (pre-release).** Builds on 2.0.0b4. **Not tested on a real FRITZ!Box.**
+
+- **Fixed (attempt):** a real box answered `api/v0/monitor/datasets` with “bad path”. The integration now tries `api/v0/monitor/…` and `api/v0/generic/monitor/…` in turn, remembers the working one and lists all error messages on failure. Diagnostics and the status sensor show `schnittstelle` (interface) and the FRITZ!OS version. Whether either variant exists on your box is unverified.
 
 ### 2.0.0b4 – Online Monitor request: headers and error text
 

@@ -9,7 +9,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b4-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b5-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -1744,7 +1744,7 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `e01780d7457a4f2988969829f6c30fa115ab12ed338f9417a00569dd72515a73` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `6481aae96542b94e30b9f4e4322894132cff1693f65b3455b7f34922fe3d6d94` |
 | `custom_components/fritzbox_netzwerk/strings.json` | `eba3c30deb99cf0b7fdd02db735a87a626ca4783c2c355fcc8203ac7ef1deb49` |
 | `custom_components/fritzbox_netzwerk/translations/de.json` | `c855d21892eef9e2db423dbe075b49f954d5a9199f94201dfbebcaa8336a0699` |
 | `custom_components/fritzbox_netzwerk/translations/en.json` | `b7612495e4bd9251381269008685314e3ec98b577c167a254cca8e3a4e697d6d` |
@@ -1786,6 +1786,12 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.0.0b5 – Online-Monitor: alternative Schnittstellenpfade
+
+**Beta (Vorabversion).** Baut auf 2.0.0b4 auf. **Nicht an einer echten FRITZ!Box geprüft.**
+
+- **Behoben (Versuch):** Eine echte Box antwortete auf `api/v0/monitor/datasets` mit „bad path“. Die Integration probiert jetzt nacheinander `api/v0/monitor/…` und `api/v0/generic/monitor/…`, merkt sich den funktionierenden Pfad und nennt bei Misserfolg alle Fehlermeldungen. Diagnose und Status-Sensor zeigen `schnittstelle` und die FRITZ!OS-Version. Ob eine der Varianten bei deiner Box existiert, ist ungeprüft.
 
 ### 2.0.0b4 – Online-Monitor-Abruf: Kopfzeilen und Fehlertext
 

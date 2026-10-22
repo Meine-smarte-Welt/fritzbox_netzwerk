@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 1e1ee41516d972c833e270c0e356e70187a7b85c00aff64d6af15d30aec80551
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): e114133a2d4629fe695db1ccc8acc22daf0be62495f25517d9651963478d5acf
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -258,6 +258,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._traffic_dirty = False
         self._traffic_info: dict[str, Any] = {}
         self._traffic_shape: dict[str, Any] = {}
+        self._traffic_base: str | None = None
         self._address_source_scan: datetime | None = None
         self._address_source_failed = False
         # DHCP-Bereich der Box (erste, letzte Adresse als Zahl): dient der
@@ -540,6 +541,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "enabled": self.traffic_enabled,
             "unit": self._traffic.unit,
             "error": self._traffic_error,
+            "interface": self._traffic_base,
+            "fritzos": self._fritzos(),
             "sources": dict(self._traffic_counts),
             "mapped_sources": len(self._traffic_map),
             "last_poll": dict(self._traffic_info),
@@ -554,6 +557,14 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "shape": dict(self._traffic_shape),
         }
 
+    def _fritzos(self) -> str | None:
+        """FRITZ!OS-Version der Box (fuer Diagnose), ``None`` wenn nicht ermittelbar."""
+        try:
+            version = getattr(self.fritz_hosts.fc, "system_version", None)
+            return ".".join(str(part) for part in version) if version else None
+        except Exception:  # noqa: BLE001 - reine Diagnoseangabe
+            return None
+
     @property
     def traffic_status(self) -> tuple[str, dict[str, Any]]:
         """Zustand der Verbrauchserfassung als (Schluessel, Details) fuer den Status-Sensor.
@@ -567,6 +578,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "zugeordnet": len(self._traffic_map),
             "geraete_mit_daten": len(devices),
             "letzter_abruf": dict(self._traffic_info),
+            "schnittstelle": self._traffic_base,
+            "fritzos": self._fritzos(),
         }
         key = status_key(
             self.traffic_enabled,
@@ -593,13 +606,15 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             or now - self._traffic_map_scan >= TRAFFIC_SOURCES_INTERVAL_SECONDS
         )
         try:
-            found = self._run_web(fetch_monitor, refresh)
+            found = self._run_web(fetch_monitor, refresh, self._traffic_base)
         except (ValueError, RequestException) as err:
             if self._traffic_error != str(err):
                 _LOGGER.warning("Datenverbrauch der Box nicht lesbar (experimentell): %s", err)
+            self._traffic_base = None  # beim naechsten Mal wieder alle Wurzeln probieren
             self._traffic_error = str(err)
             return
         self._traffic_error = None
+        self._traffic_base = found.get("monitor_base") or self._traffic_base
         if refresh:
             self._traffic_map, self._traffic_counts = build_source_map(
                 found.get("datasets"), found.get("landevices")
