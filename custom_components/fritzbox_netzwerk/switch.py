@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f11973fee8e1787d44d5ae25ffca83efe61591c9e88b4dd6799a7fa79c3d4886
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 29836664765812bd7ce62fc26050327ab3de922979b7bcd5f90b145e83b5ff98
 """WLAN-Schalter der Integration fritzbox_netzwerk.
 
 Erzeugt - wenn in den Optionen aktiviert - je vorhandenem WLAN-Band einen
@@ -77,7 +77,8 @@ async def async_setup_entry(
         new_entities: list[FritzboxNetzwerkAutoWolSwitch] = []
         for host in (coordinator.data or {}).get("hosts", []):
             key = mac_key(host.get("mac"))
-            if not key or key in known:
+            # VPN-Gegenstellen ohne MAC-Adresse (Issue #29) lassen sich nicht aufwecken.
+            if not key or key in known or host.get("mac_synthetic"):
                 continue
             known.add(key)
             new_entities.append(

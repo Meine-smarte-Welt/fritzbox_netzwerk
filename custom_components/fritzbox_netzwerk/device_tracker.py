@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f9c426cef912480a6683884f2e0a9521e59ab18c242ba8f2eba2e06942718247
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): a978415291400cddc589d4344d54b04f0b7d232ef209e17fae239dc602c71c83
 """Device-Tracker der Integration fritzbox_netzwerk.
 
 Erzeugt - wenn in den Optionen aktiviert - je Netzwerkgeraet einen
@@ -58,7 +58,8 @@ async def async_setup_entry(
         new_entities: list[FritzboxNetzwerkTracker] = []
         for host in (coordinator.data or {}).get("hosts", []):
             key = mac_key(host.get("mac"))
-            if not key or key in known:
+            # VPN-Gegenstellen ohne MAC-Adresse (Issue #29) bekommen keinen Tracker.
+            if not key or key in known or host.get("mac_synthetic"):
                 continue
             known.add(key)
             new_entities.append(FritzboxNetzwerkTracker(coordinator, entry, host["mac"]))

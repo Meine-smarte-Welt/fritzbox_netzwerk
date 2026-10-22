@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 29de6f47a5876db4e016aef58e8ce904ed0975747caf885b23d8cee208091848
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ed69bfa197837e7f5c72e6e1970acb7f7492dd5d2d591b399ce6caecfa5bc42d
 """Diagnose-Export fuer fritzbox_netzwerk (Idee 15 aus feature-ideen.md).
 
 Liefert die Angaben, die zur Fehlersuche bei einer GitHub-Issue-Meldung am
@@ -131,6 +131,12 @@ async def async_get_config_entry_diagnostics(
                 # Issue #24: was die Box lieferte, bevor die Integration
                 # Eintraege ohne MAC-Adresse verwarf (Abgleich mit host_count).
                 "box_hosts": dict(getattr(coordinator, "_host_stats", {}) or {}),
+                # Issue #31: ob und woher die Reservierungen ("immer die gleiche
+                # IPv4-Adresse") der Box gelesen wurden - nur Zaehler und Quelle.
+                "reservations": {
+                    **dict(getattr(coordinator, "reservation_info", {}) or {}),
+                    "error": getattr(coordinator, "reservation_error", None),
+                },
                 # Nur Zaehler - Etiketten und Notizen selbst gehoeren nicht in
                 # einen Export (sie koennen Namen und Orte enthalten).
                 "notes_count": sum(

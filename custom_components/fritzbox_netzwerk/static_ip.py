@@ -1,5 +1,5 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 9f8a294193626cface773bd670db3ee2dccad50fd38d3f8c323e9b630928644b
-"""Feste IPv4-Adresse eines Geraets festlegen (EXPERIMENTELL, 1.8.0).
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): b87deb8df23841672cfdbfecd33ed27dfc9942011dd9132050533fcc0e46c6cb
+"""Feste IPv4-Adresse eines Geraets festlegen (EXPERIMENTELL, ab 2.0.0 ueber REST).
 
 Entspricht an der FRITZ!Box: Heimnetz -> Netzwerk -> Geraet bearbeiten ->
 "Diesem Netzwerkgeraet immer die gleiche IPv4-Adresse zuweisen".
@@ -9,14 +9,25 @@ die Box. Sie verhindert doppelt vergebene Adressen (andere Geraete in der
 Hostliste, Adresse der Box selbst), prueft Subnetz und Sonderadressen und warnt
 bei Adressen im DHCP-Bereich.
 
-TEIL 2 - ``set_static_ip`` (NICHT an einer echten Box geprueft): liest und schreibt
-ueber ``data.lua`` ``page=edit_device`` der Weboberflaeche. Die Feldnamen unten
-sind ANGENOMMEN, nicht beobachtet. Deshalb schlaegt der Dienst sicher fehl:
-- fehlen die erwarteten Schluessel in der Antwort, wird NICHT geschrieben,
-- nach dem Schreiben wird erneut gelesen; bei Abweichung wird der Ausgangszustand
-  zurueckgeschrieben (falls vorher lesbar) und ein Fehler gemeldet,
-- das bisherige Zugangsprofil wird beim Schreiben mitgeschickt, damit es nicht
-  verloren geht.
+TEIL 2 - ``set_static_ip`` (NICHT an einer echten Box geprueft): schreibt ueber
+die REST-Schnittstelle der Weboberflaeche, wie sie ein Fremdprojekt fuer
+FRITZ!OS 8.25 beschreibt (jvejmelka/fritzbox-static-lease): ``PUT
+/api/v0/generic/landevice/landevice/<UID>`` mit dem Kopf ``AUTHORIZATION:
+AVM-SID <sid>`` und dem JSON-Koerper ``{"static_dhcp": "1"}``; die gewuenschte
+Adresse kommt als ``"ip"`` hinzu (dieses Feld ist auch dort fuer 8.25 ungeprueft).
+Bis 1.9.x nutzte die Integration stattdessen angenommene Formularfelder von
+``data.lua`` (Issue "Umbenennung der IP-Adresse funktioniert nicht"): die Felder
+waren nie beobachtet und wurden von der Box nicht uebernommen. Der alte Weg bleibt
+nur als Rueckfall, wenn die REST-Route mit einem HTTP-Fehler antwortet (aelteres
+FRITZ!OS).
+
+Sicherheitsnetz: Schluessel der Antworten werden nicht geraten. Nach dem Schreiben
+wird der Zustand nachgelesen (``query.lua``, ersatzweise REST/``edit_device``).
+- Zustand "nicht fest" nach dem Schreiben: Fehler, bei vorher aktiver Zuweisung wird
+  der Ausgangszustand zurueckgeschrieben. Ein HTTP 200 allein gilt nicht als Erfolg
+  (nach der Beschreibung des Fremdprojekts verwirft die Box Aenderungen ohne
+  Fehlermeldung, wenn fuer das Benutzerkonto die Zusatzbestaetigung aktiv ist).
+- Nicht nachlesbar: die Antwort enthaelt dann ``verified: False`` und einen Hinweis.
 Die Adresse gilt erst, wenn das Geraet seine Verbindung erneuert (Neustart bzw.
 WLAN/LAN neu verbinden).
 
@@ -27,22 +38,35 @@ from __future__ import annotations
 import ipaddress
 from typing import Any
 
+from .dns_settings import (
+    ConfirmationRequired,
+    DnsSettingsError,
+    SessionExpired,
+    _is_http_error,
+    api_request,
+)
 from .hosts import mac_key, normalize_mac
 from .webui import (
+    LANDEVICE_QUERY,
     TIMEOUT,
     _find_device,
     data_lua,
     login,
     logout,
     parse_device_profile,
+    parse_landevice_list,
+    query_lua,
 )
+from .webui import normalize_mac as plain_mac
 
-# --- ANGENOMMENE Feldnamen der Weboberflaeche (nicht beobachtet) -------------
+# --- REST-Route der Weboberflaeche (Fremdprojekt, FRITZ!OS 8.25) -------------
+LANDEVICE_ENDPOINT = "landevice/landevice/{uid}"
+
+# --- ANGENOMMENE Feldnamen des alten Formulars (``data.lua``, nur Rueckfall) ---
 READ_PATH = ("data", "vars", "dev", "ipv4")
-READ_FLAG_KEY = "dhcp"  # "1"/"on"/true, wenn die feste Zuweisung aktiv ist
+READ_FLAG_KEY = "static_dhcp"  # "1"/"on"/true, wenn die feste Zuweisung aktiv ist
 READ_IP_KEYS = ("current", "ip")
-WRITE_FLAG_FIELD = "dhcp"  # Formularfeld, Wert "on"
-WRITE_IP_FIELD = "ipv4"
+WRITE_FLAG_FIELD = "static_dhcp"  # Formularfeld, Wert "on"
 
 NEEDS_RESTART = (
     "Die neue Adresse gilt erst, wenn das Gerät neu gestartet bzw. neu mit dem "
@@ -133,37 +157,114 @@ def plan_static_ip(
 
 
 def parse_static_state(payload: Any) -> dict[str, Any]:
-    """Liest (feste Zuweisung aktiv?, Adresse) aus ``edit_device``; wirft bei fremdem Aufbau."""
+    """Liest (feste Zuweisung aktiv?, Adresse) aus ``edit_device``; wirft bei fremdem Aufbau.
+
+    Nur noch Rueckfall fuer den alten ``data.lua``-Weg.
+    """
     node: Any = payload
     for key in READ_PATH:
         node = node.get(key) if isinstance(node, dict) else None
     if not isinstance(node, dict) or READ_FLAG_KEY not in node:
         raise StaticIpError(
             "Die Einstellung 'immer die gleiche IPv4-Adresse' ist in der Antwort der "
-            "Weboberfläche nicht zu finden (FRITZ!OS anders aufgebaut als angenommen) - "
-            "es wurde nichts geändert"
+            "Weboberfläche nicht zu finden (FRITZ!OS anders aufgebaut als angenommen)"
         )
     ip = next((str(node[k]).strip() for k in READ_IP_KEYS if node.get(k)), "")
     return {"fixed": _truthy(node[READ_FLAG_KEY]), "ip": ip}
 
 
-def _read(session: Any, base: str, sid: str, uid: str) -> tuple[dict[str, Any], Any]:
-    payload = data_lua(session, base, sid, "edit_device", dev=uid)
-    return parse_static_state(payload), payload
+def _lookup(session: Any, base: str, sid: str, mac: str) -> tuple[dict[str, str], dict[str, Any] | None]:
+    """Findet das Geraet (UID, Name, IP) und - falls die Liste es hergibt - seinen Zustand.
+
+    Zuerst ``query.lua``; fehlt dort das Geraet, die Geraeteliste ``netDev`` von
+    ``data.lua``. Wirft ``ValueError``, wenn das Geraet nirgends zu finden ist.
+    """
+    key = plain_mac(mac)
+    try:
+        entries = parse_landevice_list(query_lua(session, base, sid, LANDEVICE_QUERY))
+    except ValueError:
+        entries = []
+    for entry in entries:
+        if entry["mac"] == key and entry["uid"]:
+            device = {"uid": entry["uid"], "name": entry["name"], "mac": key, "ip": entry["ip"]}
+            state = None
+            if entry["static"] is not None:
+                state = {"fixed": entry["static"], "ip": entry["ip"]}
+            return device, state
+    return _find_device(session, base, sid, mac), None
 
 
-def _post(session: Any, base: str, sid: str, device: dict[str, str], fields: dict[str, str]) -> None:
+def _read_state(session: Any, base: str, sid: str, device: dict[str, str]) -> dict[str, Any] | None:
+    """Aktueller Zustand (``fixed``, ``ip``) - ``None``, wenn die Box ihn nirgends hergibt."""
+    key = plain_mac(device.get("mac"))
+    try:
+        for entry in parse_landevice_list(query_lua(session, base, sid, LANDEVICE_QUERY)):
+            if entry["mac"] == key and entry["static"] is not None:
+                return {"fixed": entry["static"], "ip": entry["ip"]}
+    except ValueError:
+        pass
+    try:
+        data = api_request(
+            session, base, sid, "GET", LANDEVICE_ENDPOINT.format(uid=device["uid"])
+        )
+    except (DnsSettingsError, OSError):
+        data = None
+    if isinstance(data, dict):
+        node = data.get("landevice") if isinstance(data.get("landevice"), dict) else data
+        if "static_dhcp" in node:
+            return {
+                "fixed": _truthy(node["static_dhcp"]),
+                "ip": str(node.get("ip") or "").strip(),
+            }
+    try:
+        return parse_static_state(data_lua(session, base, sid, "edit_device", dev=device["uid"]))
+    except (StaticIpError, ValueError, OSError):
+        return None
+
+
+def _write_rest(
+    session: Any, base: str, sid: str, device: dict[str, str], fixed: bool, ip: str | None
+) -> None:
+    body: dict[str, str] = {"static_dhcp": "1" if fixed else "0"}
+    if fixed and ip:
+        body["ip"] = ip
+    api_request(session, base, sid, "PUT", LANDEVICE_ENDPOINT.format(uid=device["uid"]), body)
+
+
+def _write_legacy(
+    session: Any,
+    base: str,
+    sid: str,
+    device: dict[str, str],
+    fixed: bool,
+    ip: str | None,
+    profile: str | None,
+) -> None:
+    """Rueckfall: Formular-POST an ``data.lua`` (Feldnamen angenommen, ungeprueft)."""
     form = {
         "sid": sid,
         "dev": device["uid"],
         "dev_name": device["name"],
         "page": "edit_device",
+        "back_to_page": "netDev",
         "apply": "true",
     }
-    form.update(fields)
+    if fixed and ip:
+        form[WRITE_FLAG_FIELD] = "on"
+        for index, octet in enumerate(str(ip).split(".")):
+            form[f"dev_ip{index}"] = octet
+    if profile:
+        form["kisi_profile"] = profile
     response = session.post(f"{base}/data.lua", data=form, timeout=TIMEOUT)
     if not response.ok:
         raise StaticIpError(f"data.lua (edit_device): HTTP {response.status_code}")
+
+
+def _profile_of(session: Any, base: str, sid: str, device: dict[str, str]) -> str | None:
+    try:
+        return parse_device_profile(data_lua(session, base, sid, "edit_device", dev=device["uid"]))
+    except (ValueError, OSError):
+        return None
 
 
 def set_static_ip(
@@ -177,40 +278,92 @@ def set_static_ip(
 ) -> dict[str, Any]:
     """Schreibt die feste Adresse (vorher lesen, nachher pruefen, bei Abweichung zurueck).
 
-    ``dry_run`` liest nur und meldet, was geschrieben wuerde.
+    ``dry_run`` liest nur und meldet, was geschrieben wuerde. Rueckgabe:
+    ``before``, ``after`` (Zustaende oder ``None``), ``device``, ``channel``
+    (``"rest"`` oder ``"data.lua"``), ``verified`` und ``warnings``.
     """
     sid = login(session, base, user, password)
     try:
-        device = _find_device(session, base, sid, mac)
-        before, payload = _read(session, base, sid, device["uid"])
-        profile = parse_device_profile(payload)
+        device, listed = _lookup(session, base, sid, mac)
+        before = listed if listed is not None else _read_state(session, base, sid, device)
         if dry_run:
             return {"before": before, "device": device["name"]}
-        extra = {"kisi_profile": profile} if profile else {}
-        _post(session, base, sid, device, {WRITE_FLAG_FIELD: "on", WRITE_IP_FIELD: ip, **extra})
-        after, _p = _read(session, base, sid, device["uid"])
-        if not after["fixed"] or after["ip"] != ip:
-            restored = _restore(session, base, sid, device, before, extra)
-            raise StaticIpError(
-                "Die FRITZ!Box hat die feste Adresse nicht übernommen "
-                f"(jetzt: {after['ip'] or 'unbekannt'}, fest: {after['fixed']}). "
-                + ("Ausgangszustand wiederhergestellt." if restored else
-                   "Ausgangszustand konnte NICHT bestätigt werden - bitte in der Box prüfen.")
+
+        channel = "rest"
+        profile: str | None = None
+        try:
+            _write_rest(session, base, sid, device, True, ip)
+        except (ConfirmationRequired, SessionExpired) as err:
+            raise StaticIpError(str(err)) from err
+        except DnsSettingsError as err:
+            if not _is_http_error(err):
+                raise StaticIpError(str(err)) from err
+            # Aeltere FRITZ!OS-Staende kennen die REST-Route nicht: alter Weg.
+            channel = "data.lua"
+            profile = _profile_of(session, base, sid, device)
+            _write_legacy(session, base, sid, device, True, ip, profile)
+
+        after = _read_state(session, base, sid, device)
+        result: dict[str, Any] = {
+            "before": before,
+            "after": after,
+            "device": device["name"],
+            "channel": channel,
+            "verified": False,
+            "warnings": [],
+        }
+        if after is None:
+            result["warnings"].append(
+                "Die Weboberfläche liefert die feste Zuweisung nicht zum Nachlesen - "
+                "das Ergebnis konnte nicht geprüft werden. Bitte in der FRITZ!Box unter "
+                "Heimnetz → Netzwerk kontrollieren."
             )
-        return {"before": before, "after": after, "device": device["name"]}
+            return result
+        if not after["fixed"]:
+            restored = _restore(session, base, sid, device, before, channel, profile)
+            raise StaticIpError(
+                "Die FRITZ!Box hat die feste Adresse nicht übernommen (Zuweisung nach dem "
+                f"Schreiben: aus; Weg: {channel}). Hat das Benutzerkonto der Integration die "
+                "Zusatzbestätigung (Zwei-Faktor) aktiv, verwirft die Box Änderungen ohne "
+                "Meldung - dann ein Konto ohne Zusatzbestätigung verwenden. "
+                + (
+                    "Ausgangszustand wiederhergestellt."
+                    if restored
+                    else "Ausgangszustand konnte nicht bestätigt werden - bitte in der Box prüfen."
+                    if before and before.get("fixed")
+                    else "Es wurde nichts geändert."
+                )
+            )
+        result["verified"] = True
+        if after["ip"] and after["ip"] != ip:
+            result["warnings"].append(
+                f"Die FRITZ!Box meldet derzeit noch {after['ip']}; die Adresse {ip} wird erst "
+                "nach einer Neuverbindung des Geräts sichtbar. Falls sie danach nicht erscheint, "
+                "hat die Box das Adressfeld nicht übernommen - dann in der Box nachtragen."
+            )
+        return result
     finally:
         logout(session, base, sid)
 
 
 def _restore(
-    session: Any, base: str, sid: str, device: dict[str, str], before: dict[str, Any], extra: dict[str, str]
+    session: Any,
+    base: str,
+    sid: str,
+    device: dict[str, str],
+    before: dict[str, Any] | None,
+    channel: str,
+    profile: str | None,
 ) -> bool:
-    fields: dict[str, str] = dict(extra)
-    if before["fixed"]:
-        fields.update({WRITE_FLAG_FIELD: "on", WRITE_IP_FIELD: before["ip"]})
-    try:
-        _post(session, base, sid, device, fields)
-        now, _p = _read(session, base, sid, device["uid"])
-    except (ValueError, OSError):
+    """Stellt eine vorher aktive feste Zuweisung wieder her (``False``, wenn unklar)."""
+    if not before or not before.get("fixed"):
         return False
-    return now["fixed"] == before["fixed"] and (not before["fixed"] or now["ip"] == before["ip"])
+    try:
+        if channel == "rest":
+            _write_rest(session, base, sid, device, True, before.get("ip") or None)
+        else:
+            _write_legacy(session, base, sid, device, True, before.get("ip") or None, profile)
+        now = _read_state(session, base, sid, device)
+    except (DnsSettingsError, StaticIpError, ValueError, OSError):
+        return False
+    return bool(now and now.get("fixed"))

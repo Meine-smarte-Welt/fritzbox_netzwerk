@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): a97ad89c3749512e60d0ba4729536d8e73a20cdcc716e8d527b70fc1465ae7c7
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 863d123fce5e96c4464ae2f16c4152ee5e5940a4c70d2cff3e47134ed6f27a44
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "1.9.2b1";
+const FBN_VERSION = "2.0.0b1";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -88,6 +88,7 @@ const CONFIG_DEFAULTS = {
   filter_update: true,
   // Nur Geräte mit fester oder reservierter IP-Adresse (aktiv und inaktiv).
   filter_fest: true,
+  filter_vpn: true,
   // Nur Geräte, die innerhalb der letzten 7 Tage zum ersten Mal gesehen
   // wurden (siehe hosts.apply_first_seen()/coordinator._update_first_seen()).
   filter_neu: true,
@@ -148,6 +149,7 @@ const CONFIG_DEFAULTS = {
   color_cat_gesperrt: "",
   color_cat_update: "",
   color_cat_fest: "",
+  color_cat_vpn: "",
   color_cat_neu: "",
   color_cat_lange_offline: "",
 };
@@ -192,6 +194,7 @@ const FILTERS = [
   { key: "gesperrt", label: "Gesperrt", icon: "mdi:web-off" },
   { key: "update", label: "Update", icon: "mdi:package-down" },
   { key: "fest", label: "Feste IP", icon: "mdi:ip-network-outline" },
+  { key: "vpn", label: "VPN", icon: "mdi:shield-lock-outline" },
   { key: "neu", label: "Neu (7 Tage)", icon: "mdi:new-box" },
   { key: "lange_offline", label: "Lange offline", icon: "mdi:clock-remove-outline" },
 ];
@@ -241,7 +244,7 @@ const I18N = {
     "group.empty.label": "Ohne Etikett",
     "group.empty.mesh": "Ohne Mesh-Angabe",
     "flt.alle": "Alle", "flt.aktiv": "Aktiv", "flt.inaktiv": "Inaktiv",
-    "flt.gast": "Gast", "flt.gesperrt": "Gesperrt", "flt.update": "Update", "flt.fest": "Feste IP", "flt.neu": "Neu (7 Tage)", "flt.lange_offline": "Lange offline",
+    "flt.gast": "Gast", "flt.gesperrt": "Gesperrt", "flt.update": "Update", "flt.fest": "Feste IP", "flt.vpn": "VPN", "flt.neu": "Neu (7 Tage)", "flt.lange_offline": "Lange offline",
     "search.placeholder": "Name, IP oder MAC", "search.aria": "Geräte durchsuchen",
     "empty.none": "Keine Geräte gefunden.",
     "empty.sensor": "Der Sensor {entity} ist nicht verfügbar.",
@@ -334,7 +337,7 @@ const I18N = {
     "group.empty.label": "No label",
     "group.empty.mesh": "No mesh info",
     "flt.alle": "All", "flt.aktiv": "Active", "flt.inaktiv": "Inactive",
-    "flt.gast": "Guest", "flt.gesperrt": "Blocked", "flt.update": "Update", "flt.fest": "Fixed IP", "flt.neu": "New (7 days)", "flt.lange_offline": "Long offline",
+    "flt.gast": "Guest", "flt.gesperrt": "Blocked", "flt.update": "Update", "flt.fest": "Fixed IP", "flt.vpn": "VPN", "flt.neu": "New (7 days)", "flt.lange_offline": "Long offline",
     "search.placeholder": "Name, IP or MAC", "search.aria": "Search devices",
     "empty.none": "No devices found.",
     "empty.sensor": "The sensor {entity} is unavailable.",
@@ -427,7 +430,7 @@ const I18N = {
     "group.empty.label": "Geen label",
     "group.empty.mesh": "Geen mesh-gegevens",
     "flt.alle": "Alle", "flt.aktiv": "Actief", "flt.inaktiv": "Inactief",
-    "flt.gast": "Gast", "flt.gesperrt": "Geblokkeerd", "flt.update": "Update", "flt.fest": "Vast IP", "flt.neu": "Nieuw (7 dagen)", "flt.lange_offline": "Lang offline",
+    "flt.gast": "Gast", "flt.gesperrt": "Geblokkeerd", "flt.update": "Update", "flt.vpn": "VPN", "flt.fest": "Vast IP", "flt.neu": "Nieuw (7 dagen)", "flt.lange_offline": "Lang offline",
     "search.placeholder": "Naam, IP of MAC", "search.aria": "Apparaten zoeken",
     "empty.none": "Geen apparaten gevonden.",
     "empty.sensor": "De sensor {entity} is niet beschikbaar.",
@@ -535,6 +538,7 @@ const COLOR_FALLBACKS = {
   color_cat_gesperrt: "inherit",
   color_cat_update: "inherit",
   color_cat_fest: "inherit",
+  color_cat_vpn: "inherit",
   color_cat_neu: "inherit",
   color_cat_lange_offline: "inherit",
 };
@@ -559,6 +563,7 @@ const COLOR_EDITOR_FIELDS = [
   { key: "color_cat_gesperrt", label: "Symbol Kategorie „Gesperrt“" },
   { key: "color_cat_update", label: "Symbol Kategorie „Update“" },
   { key: "color_cat_fest", label: "Symbol Kategorie „Feste IP“" },
+  { key: "color_cat_vpn", label: "Symbol Kategorie „VPN“" },
   { key: "color_cat_neu", label: "Symbol Kategorie „Neu“" },
   { key: "color_cat_lange_offline", label: "Symbol Kategorie „Lange offline“" },
 ];
@@ -603,6 +608,15 @@ function normalizeHex(value) {
     hex = "#" + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
   }
   return hex;
+}
+
+/**
+ * Echte MAC-Adresse eines Geräts. VPN-Gegenstellen meldet die FRITZ!Box ohne
+ * MAC (Kennung "VPN:<IP>", ``mac_synthetic``, Issue #29): Aktionen, die eine
+ * MAC brauchen (Aufwecken, Sperren, Umbenennen, feste IP, Profil), entfallen.
+ */
+function realMac(host) {
+  return host && host.mac && !host.mac_synthetic ? host.mac : "";
 }
 
 /** Maskiert Text, der aus der FRITZ!Box stammt, vor der HTML-Ausgabe. */
@@ -1250,7 +1264,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const search = this._search.trim().toLowerCase();
     let hosts = this._hosts();
 
-    if (this._config.hide_inactive) {
+    // "Nicht verbundene Geräte ausblenden" gilt für die gemischten Ansichten.
+    // Wer ausdrücklich "Inaktiv" oder "Lange offline" wählt, will Offline-Geräte
+    // sehen - dort würde das Ausblenden die Liste sonst leer lassen (Issue #24).
+    const inactiveView = this._filter === "inaktiv" || this._filter === "lange_offline";
+    if (this._config.hide_inactive && !inactiveView) {
       hosts = hosts.filter((host) => host.active);
     }
 
@@ -1274,6 +1292,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
         // Fest = am Gerät eingestellt oder von der Box reserviert (siehe
         // ip_class in hosts.py); aktive und inaktive Geräte.
         hosts = hosts.filter((host) => host.ip_class === "fixed");
+        break;
+      case "vpn":
+        // VPN-Gegenstellen: von der Box als VPN gekennzeichnet (host.vpn) oder
+        // ohne echte MAC-Adresse unter der Kennung "VPN:<IP>" geführt
+        // (mac_synthetic, siehe hosts.py, Issue #29); aktive und inaktive.
+        hosts = hosts.filter((host) => host.vpn || host.mac_synthetic);
         break;
       case "lange_offline": {
         // "last_seen" kommt vom Coordinator (hosts.apply_last_seen) und ist
@@ -2586,7 +2610,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
       }
 
       case "mac": {
-        if (!host.mac) return '<span class="fbn-mono fbn-dim">—</span>';
+        if (!realMac(host)) return '<span class="fbn-mono fbn-dim">—</span>';
         if (!this._config.mac_click_copies) {
           return `<span class="fbn-mono fbn-dim">${escapeHtml(host.mac)}</span>`;
         }
@@ -3140,7 +3164,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
   }
 
   _parentalRowsHtml(host) {
-    if (!this._hass || !host.mac || !this._parentalEnabled()) return "";
+    if (!this._hass || !realMac(host) || !this._parentalEnabled()) return "";
     const t = (key, params) => escapeHtml(this._t(key, params));
     const st = this._parental && this._parental.mac === host.mac ? this._parental : null;
     const row = (inner) =>
@@ -3261,7 +3285,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
    * Doppelvergabe, schreibt nichts); "Uebernehmen" schreibt und braucht die Option der Integration.
    */
   _staticIpRowsHtml(host) {
-    if (!this._hass || !host.mac || this._config.show_static_ip === false) return "";
+    if (!this._hass || !realMac(host) || this._config.show_static_ip === false) return "";
     const t = (key, params) => escapeHtml(this._t(key, params));
     const st = this._staticIp && this._staticIp.mac === host.mac ? this._staticIp : null;
     const row = (inner) =>
@@ -3396,7 +3420,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
    * Speichern/Abbrechen.
    */
   _nameFieldHtml(host) {
-    if (!host.name_writeable) return escapeHtml(host.name);
+    if (!host.name_writeable || host.mac_synthetic) return escapeHtml(host.name);
     if (this._popupEditingName) {
       return `
         <span class="fbn-name-edit">
@@ -3449,7 +3473,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const staticIpRows = this._staticIpRowsHtml(host);
     if (staticIpRows) rows.push(staticIpRows);
     add(this._t("col.ip"), escapeHtml(host.ip), { mono: true, copy: host.ip });
-    add(this._t("col.mac"), escapeHtml(host.mac), { mono: true, copy: host.mac });
+    if (realMac(host)) {
+      add(this._t("col.mac"), escapeHtml(host.mac), { mono: true, copy: host.mac });
+    } else {
+      add(this._t("col.mac"), "—", {});
+    }
     add(
       this._t("field.vendor"),
       host.vendor
@@ -3596,7 +3624,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     }
     // Internetzugang sperren/freigeben - nur mit Home Assistant (Dienstaufruf)
     // und bekannter MAC. Beschriftung richtet sich nach dem aktuellen Zustand.
-    if (this._hass && host.mac) {
+    if (this._hass && realMac(host)) {
       const label = host.blocked ? this._t("btn.unblock") : this._t("btn.block");
       const icon = host.blocked ? "mdi:web" : "mdi:web-off";
       buttons.push(
@@ -3607,7 +3635,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     }
     // Aufwecken nur anbieten, wenn das Geraet gerade nicht verbunden ist
     // und Home Assistant fuer den Dienstaufruf bereitsteht.
-    if (!host.active && this._hass) {
+    if (!host.active && this._hass && realMac(host)) {
       buttons.push(
         `<button class="fbn-btn fbn-act-wol" type="button"><ha-icon icon="mdi:power"></ha-icon>${escapeHtml(this._t("btn.wol"))}</button>`
       );
@@ -3656,7 +3684,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
 
   /** Ruft den Wake-on-LAN-Dienst der Integration auf. */
   _wakeDevice(host, button) {
-    if (!this._hass || !host.mac) return;
+    if (!this._hass || !realMac(host)) return;
     button.disabled = true;
     const label = button;
     this._hass
@@ -3672,7 +3700,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
 
   /** Ruft den Internet-Sperr-Dienst auf und dreht den Zustand um. */
   _setInternet(host, button) {
-    if (!this._hass || !host.mac) return;
+    if (!this._hass || !realMac(host)) return;
     const willBlock = button.dataset.blocked !== "1";
     button.disabled = true;
     button.innerHTML =
@@ -4427,6 +4455,7 @@ const EDITOR_SCHEMA = [
       { name: "filter_gesperrt", selector: { boolean: {} } },
       { name: "filter_update", selector: { boolean: {} } },
       { name: "filter_fest", selector: { boolean: {} } },
+      { name: "filter_vpn", selector: { boolean: {} } },
       { name: "filter_neu", selector: { boolean: {} } },
       { name: "filter_lange_offline", selector: { boolean: {} } },
       {
@@ -4519,6 +4548,7 @@ const EDITOR_LABELS = {
   filter_gesperrt: "Button „Gesperrt“",
   filter_update: "Button „Update“",
   filter_fest: "Button „Feste IP“",
+  filter_vpn: "Button „VPN“",
   filter_neu: "Button „Neu (7 Tage)“",
   filter_lange_offline: "Button „Lange offline“",
   hide_inactive: "Nicht verbundene Geräte ausblenden",
@@ -4543,6 +4573,7 @@ const EDITOR_HELPERS = {
   show_version: "Zeigt auf der Steuerungsseite die Version der Integration. Gibt es eine neuere Version, wird sie farblich hervorgehoben.",
   show_static_ip: "Zeigt im Geräte-Popup die Zeile „Statische IP“ (feste IPv4-Adresse zuweisen, mit Prüfung gegen doppelte Adressen). Schreiben nur mit eingeschalteter Integrationsoption.",
   show_parental: "Zeigt im Geräte-Popup die Auswahl des Zugangsprofils (Kindersicherung). Erscheint nur, wenn die Funktion in den Integrationsoptionen eingeschaltet ist.",
+  hide_inactive: "Blendet Geräte aus, die gerade nicht verbunden sind. Die Ansichten „Inaktiv“ und „Lange offline“ zeigen sie trotzdem. Fehlen Offline-Geräte in der Liste, zuerst prüfen, ob dieser Schalter an ist und welcher Filter („Aktiv“, „Alle“) beim Laden gewählt wird.",
   default_filter: "Welcher Filter aktiv ist, wenn die Karte geladen oder neu geöffnet wird (z. B. „Aktiv“). Nach einem Refresh wird nicht mehr auf „Alle“ zurückgesetzt.",
   language: "Sprache der Beschriftungen in der Karte. „Automatisch“ folgt der in Home Assistant eingestellten Sprache (Deutsch, Englisch, Niederländisch).",
   show_title: "Blendet die Kopfzeile der Karte aus, z. B. für ein Popup oder eine kompakte Ansicht.",
@@ -4554,6 +4585,7 @@ const EDITOR_HELPERS = {
   remember_view: "Merkt Filter, Sortierung, Gruppierung und eingeklappte Gruppen pro Browser (localStorage). Ändert man die Startwerte in dieser Konfiguration, gilt wieder die neue Vorgabe.",
   show_connected_via: "Zeigt den Mesh-Nachbarn (FRITZ!Box oder Repeater), über den ein Gerät gerade verbunden ist, mit der aktuellen Verbindungsrate als Tooltip. Braucht mindestens einen FRITZ!-Mesh-Repeater im Heimnetz; bei nur einer FRITZ!Box bleibt die Spalte leer. Die genaue Mesh-Datenstruktur der FRITZ!Box ist nicht an jeder Hardware/FRITZ!OS-Version geprüft – fehlt die Angabe bei einem Gerät, zeigt die Box dafür vermutlich keine eindeutige Verbindung.",
   filter_fest: "Zeigt nur Geräte mit fester IP-Adresse – am Gerät eingestellt oder von der FRITZ!Box reserviert – aktive und inaktive. Braucht die IP-Typ-Erfassung in den Einstellungen der Integration. Eine Reservierung innerhalb des DHCP-Bereichs meldet die FRITZ!Box nicht; solche Geräte gelten als „dynamisch“.",
+  filter_vpn: "Zeigt nur VPN-Geräte: Gegenstellen, die die FRITZ!Box als VPN kennzeichnet, und Einträge ohne MAC-Adresse unter der Kennung „VPN:<IP>“ (seit 2.0.0). Ob die Box WireGuard-Gegenstellen so meldet, ist an keiner Box geprüft.",
   filter_neu: "Zeigt nur Geräte, die in den letzten 7 Tagen zum ersten Mal im Heimnetz aufgetaucht sind. Bereits vor der Installation dieser Funktion bekannte Geräte gelten nicht als „neu“.",
   filter_lange_offline: "Zeigt nur inaktive Geräte, die seit mindestens 30 Tagen nicht mehr gesehen wurden (oder noch nie, seit die Integration das erfasst). Daneben erscheint ein Knopf, um Namen und MAC-Adressen dieser Geräte zum Aufräumen zu kopieren.",
   show_vendor: "Zeigt den Hersteller, der zum Anfang der MAC-Adresse gehört (aus einer mitgelieferten Liste des IEEE, ohne Internetzugriff). Hilft, ein Gerät mit unklarem Namen zu erkennen. Smartphones mit „Privater WLAN-Adresse“ nutzen zufällige Adressen – dort steht „Zufällige MAC“.",
@@ -4603,6 +4635,7 @@ const EDITOR_TX = {
     help_show_band: "Shows which Wi-Fi band a device is currently connected on (2.4, 5 or 6 GHz). The integration reads the FRITZ!Box Wi-Fi device list for this (integration setting \"Track Wi-Fi band per device\"). Devices without a Wi-Fi connection to the box - wired, offline, or behind a repeater the box does not serve itself - show \"\u2014\". Display only: the FRITZ!Box cannot assign a device to a band.",
     help_show_connected_via: "Shows the mesh neighbor (FRITZ!Box or repeater) a device is currently connected through, with the current link rate as a tooltip. Needs at least one FRITZ! mesh repeater on the network; with a single FRITZ!Box the column stays empty. The FRITZ!Box's exact mesh data structure has not been verified on every hardware/FRITZ!OS version \u2013 if a device is missing this value, the box likely does not report one clear connection for it.",
     help_filter_fest: "Shows only devices with a fixed IP address - set on the device or reserved by the FRITZ!Box - active and inactive. Needs IP type tracking in the integration settings. The FRITZ!Box does not report a reservation inside the DHCP range; such devices count as \"dynamic\".",
+    help_filter_vpn: "Shows only VPN devices: peers the FRITZ!Box flags as VPN and entries without a MAC address kept as \"VPN:<IP>\" (since 2.0.0). Whether the box reports WireGuard peers this way is untested.",
     help_filter_neu: "Shows only devices that first appeared on the network within the last 7 days. Devices already known before this feature was installed do not count as \"new\".",
     help_filter_lange_offline: "Shows only inactive devices not seen for at least 30 days (or never, since the integration started tracking this). Also shows a button to copy these devices' names and MAC addresses for cleanup.",
     help_show_vendor: "Shows the manufacturer that belongs to the start of the MAC address (from a bundled IEEE list, no internet access needed). Helps to recognize a device with an unclear name. Smartphones with a \u201cPrivate Wi-Fi address\u201d use random addresses \u2013 those show \u201cRandom MAC\u201d.",
@@ -4621,7 +4654,7 @@ const EDITOR_TX = {
     help_show_parental: "Shows the access profile selection (parental control) in the device popup. Only appears if the feature is enabled in the integration options.",
     filter_alle: '"All" button', filter_aktiv: '"Active" button',
     filter_inaktiv: '"Inactive" button', filter_gast: '"Guest" button',
-    filter_gesperrt: '"Blocked" button', filter_update: '"Update" button', filter_fest: '"Fixed IP" button', filter_neu: '"New (7 days)" button', filter_lange_offline: '"Long offline" button',
+    filter_gesperrt: '"Blocked" button', filter_update: '"Update" button', filter_fest: '"Fixed IP" button', filter_vpn: '"VPN" button', filter_neu: '"New (7 days)" button', filter_lange_offline: '"Long offline" button',
     hide_inactive: "Hide disconnected devices", compact: "Compact rows",
     show_details_popup: "Click opens a detail popup",
     open_device_on_click: "Click opens the Home Assistant device",
@@ -4634,6 +4667,7 @@ const EDITOR_TX = {
     refresh_interval: "Redraw the list at most every … seconds (0 = immediately)",
     sort_by: "Sort by", sort_dir: "Direction",
     default_filter: "Default filter on load",
+    help_hide_inactive: "Hides devices that are not connected right now. The \"Inactive\" and \"Long offline\" views still show them. If offline devices are missing from the list, first check whether this switch is on and which filter (\"Active\", \"All\") is selected on load.",
     help_default_filter: "Which filter is active when the card loads or is reopened (e.g. \"Active\"). After a refresh it no longer resets to \"All\".",
     help_language: 'Language of the card labels. "Automatic" follows the language configured in Home Assistant (German, English, Dutch).',
     help_show_title: "Hides the card header, e.g. for a popup or a compact view.",
@@ -4661,7 +4695,7 @@ const EDITOR_TX = {
     color_inactive: "Inactive", color_guest: "Guest network",
     color_blocked: "Blocked", color_update: "Update available",
     color_static: "Static IP", color_accent: "Accent (sorting, filter)",
-    color_cat_alle: "Icon category \"All\"", color_cat_aktiv: "Icon category \"Active\"", color_cat_inaktiv: "Icon category \"Inactive\"", color_cat_gast: "Icon category \"Guest\"", color_cat_gesperrt: "Icon category \"Blocked\"", color_cat_update: "Icon category \"Update\"", color_cat_fest: "Icon category \"Fixed IP\"",
+    color_cat_alle: "Icon category \"All\"", color_cat_aktiv: "Icon category \"Active\"", color_cat_inaktiv: "Icon category \"Inactive\"", color_cat_gast: "Icon category \"Guest\"", color_cat_gesperrt: "Icon category \"Blocked\"", color_cat_update: "Icon category \"Update\"", color_cat_fest: "Icon category \"Fixed IP\"", color_cat_vpn: "Icon category \"VPN\"",
   },
   nl: {
     entity: "Sensor met de apparaatlijst", title: "Titel", show_title: "Titel tonen",
@@ -4687,6 +4721,7 @@ const EDITOR_TX = {
     help_show_band: "Toont op welke wifi-band een apparaat nu verbonden is (2,4, 5 of 6 GHz). De integratie leest hiervoor de wifi-apparatenlijst van de FRITZ!Box (instelling \"Wifi-band per apparaat bijhouden\"). Apparaten zonder wifi-verbinding met de box - bekabeld, offline of achter een repeater die de box niet zelf bedient - tonen \"\u2014\". Alleen weergave: de FRITZ!Box kan een apparaat niet aan een band toewijzen.",
     help_show_connected_via: "Toont de meshbuur (FRITZ!Box of repeater) waarmee een apparaat nu verbonden is, met de huidige verbindingssnelheid als tooltip. Vereist minstens \u00e9\u00e9n FRITZ!-meshrepeater in het netwerk; met slechts \u00e9\u00e9n FRITZ!Box blijft de kolom leeg. De exacte meshgegevensstructuur van de FRITZ!Box is niet op elke hardware/FRITZ!OS-versie getest \u2013 ontbreekt deze waarde bij een apparaat, dan meldt de box daarvoor waarschijnlijk geen eenduidige verbinding.",
     help_filter_fest: "Toont alleen apparaten met een vast IP-adres - op het apparaat ingesteld of door de FRITZ!Box gereserveerd - actief en inactief. Vereist het bijhouden van het IP-type in de integratie-instellingen. Een reservering binnen het DHCP-bereik meldt de FRITZ!Box niet; zulke apparaten gelden als \"dynamisch\".",
+    help_filter_vpn: "Toont alleen VPN-apparaten: gesprekspartners die de FRITZ!Box als VPN markeert en vermeldingen zonder MAC-adres onder de id \"VPN:<IP>\" (sinds 2.0.0). Of de box WireGuard-gesprekspartners zo meldt, is ongetest.",
     help_filter_neu: "Toont alleen apparaten die in de afgelopen 7 dagen voor het eerst in het netwerk zijn verschenen. Apparaten die al bekend waren voordat deze functie werd geïnstalleerd, gelden niet als \"nieuw\".",
     help_filter_lange_offline: "Toont alleen inactieve apparaten die minstens 30 dagen niet zijn gezien (of nooit, sinds de integratie dit bijhoudt). Toont ook een knop om namen en MAC-adressen van deze apparaten te kopiëren voor opschoning.",
     help_show_vendor: "Toont de fabrikant die bij het begin van het MAC-adres hoort (uit een meegeleverde IEEE-lijst, zonder internettoegang). Helpt een apparaat met een onduidelijke naam te herkennen. Smartphones met een \u201cPrivé wifi-adres\u201d gebruiken willekeurige adressen \u2013 daar staat \u201cWillekeurig MAC\u201d.",
@@ -4705,7 +4740,7 @@ const EDITOR_TX = {
     help_show_parental: "Toont in de apparaat-popup de keuze van het toegangsprofiel (ouderlijk toezicht). Verschijnt alleen als de functie in de integratie-opties is ingeschakeld.",
     filter_alle: 'Knop "Alle"', filter_aktiv: 'Knop "Actief"',
     filter_inaktiv: 'Knop "Inactief"', filter_gast: 'Knop "Gast"',
-    filter_gesperrt: 'Knop "Geblokkeerd"', filter_update: 'Knop "Update"', filter_fest: 'Knop "Vast IP"', filter_neu: 'Knop "Nieuw (7 dagen)"', filter_lange_offline: 'Knop "Lang offline"',
+    filter_gesperrt: 'Knop "Geblokkeerd"', filter_update: 'Knop "Update"', filter_fest: 'Knop "Vast IP"', filter_vpn: 'Knop "VPN"', filter_neu: 'Knop "Nieuw (7 dagen)"', filter_lange_offline: 'Knop "Lang offline"',
     hide_inactive: "Niet-verbonden apparaten verbergen", compact: "Compacte rijen",
     show_details_popup: "Klik opent een detailvenster",
     open_device_on_click: "Klik opent het Home Assistant-apparaat",
@@ -4718,6 +4753,7 @@ const EDITOR_TX = {
     refresh_interval: "Lijst hoogstens elke … seconden opnieuw tekenen (0 = direct)",
     sort_by: "Sorteren op", sort_dir: "Richting",
     default_filter: "Standaardfilter bij laden",
+    help_hide_inactive: "Verbergt apparaten die nu niet verbonden zijn. De weergaven \"Inactief\" en \"Lang offline\" tonen ze toch. Ontbreken offline-apparaten in de lijst, controleer dan eerst of deze schakelaar aan staat en welk filter (\"Actief\", \"Alle\") bij het laden is gekozen.",
     help_default_filter: "Welk filter actief is als de kaart wordt geladen of opnieuw geopend (bijv. \"Actief\"). Na een refresh wordt niet meer teruggezet naar \"Alle\".",
     help_language: 'Taal van de kaartlabels. "Automatisch" volgt de in Home Assistant ingestelde taal (Duits, Engels, Nederlands).',
     help_show_title: "Verbergt de kop van de kaart, bijv. voor een pop-up of een compacte weergave.",
@@ -4745,7 +4781,7 @@ const EDITOR_TX = {
     color_inactive: "Inactief", color_guest: "Gastnetwerk",
     color_blocked: "Geblokkeerd", color_update: "Update beschikbaar",
     color_static: "Statisch IP", color_accent: "Accent (sorteren, filter)",
-    color_cat_alle: "Pictogram categorie \"Alle\"", color_cat_aktiv: "Pictogram categorie \"Actief\"", color_cat_inaktiv: "Pictogram categorie \"Inactief\"", color_cat_gast: "Pictogram categorie \"Gast\"", color_cat_gesperrt: "Pictogram categorie \"Geblokkeerd\"", color_cat_update: "Pictogram categorie \"Update\"", color_cat_fest: "Pictogram categorie \"Vast IP\"",
+    color_cat_alle: "Pictogram categorie \"Alle\"", color_cat_aktiv: "Pictogram categorie \"Actief\"", color_cat_inaktiv: "Pictogram categorie \"Inactief\"", color_cat_gast: "Pictogram categorie \"Gast\"", color_cat_gesperrt: "Pictogram categorie \"Geblokkeerd\"", color_cat_update: "Pictogram categorie \"Update\"", color_cat_fest: "Pictogram categorie \"Vast IP\"", color_cat_vpn: "Pictogram categorie \"VPN\"",
   },
 };
 

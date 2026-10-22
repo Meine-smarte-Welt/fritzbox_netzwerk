@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 362573f1d57c0c9be046c3afd85bceeee65d93d00772f56138a8b6dfbd5e2e14
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 98e8ccf985e8b6724039e65ab42485b9d2793c70c4680111a30b875da7c371bb
 """DNS-Einstellungen der FRITZ!Box ueber die REST-Schnittstelle der Weboberflaeche.
 
 EXPERIMENTELL: Das ist NICHT TR-064. Die neue Weboberflaeche (FRITZ!OS 8,
@@ -355,7 +355,11 @@ def change_dns_settings(
             check = {DNSCFG: after, IPV6: after_ipv6 or {}}
             for endpoint, expected in new.items():
                 for field, (ep, key, _k) in FIELD_MAP.items():
-                    if ep == endpoint and field in diff and str(check[endpoint].get(key)) != expected[key]:
+                    if (
+                        ep == endpoint
+                        and field in diff
+                        and not _same_value(check[endpoint].get(key), expected[key])
+                    ):
                         raise DnsSettingsError(
                             f"Die FRITZ!Box hat '{key}' nicht übernommen "
                             f"(ist: {check[endpoint].get(key)}, erwartet: {expected[key]})"
@@ -405,7 +409,22 @@ def _ipv6_applied(
     if not isinstance(ipv6, dict):
         return False
     keys = [key for field, (ep, key, _k) in FIELD_MAP.items() if ep == IPV6 and field in diff]
-    return bool(keys) and all(str(ipv6.get(key)) == str(expected.get(key)) for key in keys)
+    return bool(keys) and all(_same_value(ipv6.get(key), expected.get(key)) for key in keys)
+
+
+def _same_value(left: Any, right: Any) -> bool:
+    """Vergleicht zwei Feldwerte; IP-Adressen nach Normalisierung (Issue #30).
+
+    Die Box liefert IPv6-Adressen komprimiert (``2001:db8::1``), ``validate_address``
+    erzeugt mitunter die Schreibweise mit einzelnen Nullen (``2001:db8:0:0:0:0:0:1``
+    bzw. ``...:0:...``). Als rohe Zeichenketten waeren beide ungleich, obwohl die Box
+    den Wert uebernommen hat. Deshalb werden Adressen als ``ip_address`` verglichen;
+    alles andere (Schalter ``"0"``/``"1"``) bleibt ein Zeichenkettenvergleich.
+    """
+    try:
+        return ipaddress.ip_address(str(left).strip()) == ipaddress.ip_address(str(right).strip())
+    except ValueError:
+        return str(left) == str(right)
 
 
 def _rollback(

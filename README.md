@@ -1,4 +1,7 @@
-🇩🇪 Deutsch · [🇬🇧 English](README.en.md) · [🇳🇱 Nederlands](README.nl.md)
+**🌍 Sprache · Language · Taal · Langue · Idioma**
+
+| 🇩🇪 **Deutsch** | 🇬🇧 [English](README.en.md) | 🇳🇱 [Nederlands](README.nl.md) | 🇫🇷 [Français](README.fr.md) | 🇪🇸 [Español](README.es.md) |
+|:---:|:---:|:---:|:---:|:---:|
 
 # FRITZ!Box Netzwerk
 
@@ -6,7 +9,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-1.9.2b1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -62,10 +65,14 @@ passenden Home-Assistant-Gerätenamen.
 - Alle bekannten Netzwerkgeräte der FRITZ!Box als **eine** Tabelle im Dashboard
 - **Sortierbar** durch Klick auf jede Spaltenüberschrift, auch per Tastatur
 - **Suchfeld** über Name, IP-Adresse, MAC-Adresse, Modell und Home-Assistant-Namen
-- **Filterleiste**: Alle, Aktiv, Inaktiv, Gast, Gesperrt, Update, Feste IP – jeder Button **einzeln
+- **Filterleiste**: Alle, Aktiv, Inaktiv, Gast, Gesperrt, Update, Feste IP, VPN – jeder Button **einzeln
   ausblendbar**
 - **Feste IP** als Filter: alle Geräte mit fester oder reservierter Adresse, aktive und
-  inaktive – mit den Grenzen, die die FRITZ!Box vorgibt
+  inaktive – seit 2.0.0 werden die Reservierungen zusätzlich aus der Weboberfläche der Box gelesen
+  (an keiner echten Box geprüft)
+- **VPN-Geräte** (seit 2.0.0, ungeprüft): Gegenstellen, die die Box mit VPN-Kennzeichen, aber ohne
+  MAC-Adresse meldet, fallen nicht mehr aus der Liste; der Filterknopf **VPN** (`filter_vpn: false` blendet ihn aus) zeigt nur diese Geräte
+- **README in fünf Sprachen** (Deutsch, Englisch, Niederländisch, Französisch, Spanisch)
 - **Funkband** (2,4 / 5 GHz) je WLAN-Gerät als Spalte – nur zur Anzeige
 - **Hersteller zur MAC-Adresse** aus einer mitgelieferten Liste – ohne Internetzugriff. Hilft,
   Geräte mit unklarem Namen zu erkennen; zufällige „Private WLAN-Adressen" werden als solche
@@ -527,14 +534,26 @@ IPv4-Adresse zuweisen“*. Aus: Option „Statische IP-Adresse setzen (experimen
   Gerät mit derselben Adresse und eine Adresse im DHCP-Bereich erzeugen eine Warnung.
 - **Neustart nötig:** Die neue Adresse gilt erst, wenn das Gerät neu gestartet bzw. neu mit dem Netzwerk
   verbunden wurde. Der Dienst weist in der Antwort darauf hin.
-- **Sicherheitsnetz:** Fehlen die erwarteten Felder in der Antwort der Box, wird nichts geschrieben. Nach dem
-  Schreiben wird erneut gelesen; bei Abweichung wird der Ausgangszustand zurückgeschrieben. Das bisherige
-  Zugangsprofil wird mitgeschickt.
+- **Sicherheitsnetz:** Nach dem Schreiben wird der Zustand erneut gelesen (`query.lua`, sonst REST bzw.
+  `edit_device`). Ist die Zuweisung danach nicht aktiv, meldet der Dienst einen Fehler und stellt – falls sie
+  vorher aktiv war – den Ausgangszustand wieder her. Ein HTTP 200 allein gilt nicht als Erfolg. Lässt sich der
+  Zustand nicht zurücklesen, steht in der Antwort `geprueft: false` mit Hinweis.
+- **Zwei-Faktor-Bestätigung:** Verlangt die Box eine Bestätigung, wird nichts geändert. Ein Benutzer mit
+  aktivierter Zusatzbestätigung kann dazu führen, dass die Box Änderungen kommentarlos verwirft – für die
+  Integration einen Benutzer ohne diese Bestätigung verwenden.
 
-**Teststand (ehrlich):** Die Prüfung gegen Doppelvergabe ist mit Tests belegt. Die **Feldnamen der
-Weboberfläche** (`edit_device`) sind **angenommen** und an **keiner** Box geprüft – weder gelesen noch
-geschrieben. Passt der Aufbau nicht, meldet der Dienst „nichts geändert“; dann bitte ein Issue mit der
-Anfrage öffnen, die die Box-Oberfläche beim Speichern sendet (Browser-Entwicklerwerkzeuge → Netzwerk).
+**Schreibweg (seit 2.0.0):** über die REST-Schnittstelle der Weboberfläche, wie sie ein Drittprojekt für
+FRITZ!OS 8.25 beschreibt (`jvejmelka/fritzbox-static-lease`): `PUT /api/v0/generic/landevice/landevice/<UID>` mit
+`{"static_dhcp": "1"}`, die gewünschte Adresse kommt als `"ip"` dazu. Bis 1.9.x nutzte die Integration
+Formularfelder von `data.lua`, die nur *angenommen* waren und die die Box nicht annahm – die Änderung der
+Adresse funktionierte nicht. Der alte Weg ist nur noch Ausweichweg, falls die Box die REST-Anfrage mit einem
+HTTP-Fehler beantwortet (ältere FRITZ!OS).
+
+**Teststand (ehrlich):** Die Prüfung gegen Doppelvergabe und der gesamte Schreibablauf sind mit Tests gegen eine
+**simulierte** Box belegt. An einer **echten** FRITZ!Box **nicht** geprüft: das Feld `ip` der REST-Anfrage ist
+selbst im Drittprojekt ungeprüft, die Feldnamen des Ausweichwegs sind angenommen. Viele Boxen melden die alte
+Adresse weiter, bis das Gerät neu verbunden wurde – der Dienst weist darauf hin. Klappt es bei dir nicht, bitte
+ein Issue mit Fehlertext und Diagnose-Download öffnen.
 
 ## DNS-Einstellungen (experimentell)
 
@@ -759,7 +778,12 @@ show_ip_type: true
 show_last_seen: true    # bei inaktiven Geräten: wann sie zuletzt da waren
 ```
 
-**Wichtige Grenze.** Die FRITZ!Box meldet über TR-064 **nicht, welche Geräte eine Reservierung
+**Seit 2.0.0:** Zusätzlich zu den unten genannten Wegen liest die Integration die Reservierungen aus der
+Weboberfläche der Box (`query.lua`, sonst `netDev`; im Takt der IP-Typ-Erfassung) und zählt sie als *fest*.
+**An keiner echten Box geprüft** – ob dein FRITZ!OS das Kennzeichen liefert, zeigt der Diagnose-Download unter
+`reservations` (Quelle und Anzahl). Liefert die Box nichts, bleibt alles wie unten beschrieben.
+
+**Wichtige Grenze (TR-064).** Die FRITZ!Box meldet über TR-064 **nicht, welche Geräte eine Reservierung
 haben** („Diesem Netzwerkgerät immer die gleiche IPv4-Adresse zuweisen"). Als *fest* erkennt die
 Integration nur
 
@@ -1070,7 +1094,8 @@ filter_gast: true
 filter_gesperrt: true
 filter_update: true
 filter_fest: true       # Feste IP
-default_filter: aktiv   # alle | aktiv | inaktiv | gast | gesperrt | update | fest
+filter_vpn: true        # VPN (seit 2.0.0)
+default_filter: aktiv   # alle | aktiv | inaktiv | gast | gesperrt | update | fest | vpn
 hide_inactive: false
 ip_filter: ""           # z. B. "192.168.2.*"; mehrere Muster mit Komma/Leerzeichen, ! schließt aus
 mac_click_copies: true  # Klick auf die MAC-Adresse kopiert sie
@@ -1555,7 +1580,10 @@ beeinflussen. Die Releases und Tags stehen bei GitHub bereit. Abhilfe: In HACS b
 selbst eine neue Version an (Karte, Binärsensor „Update verfügbar“, tägliche Prüfung, abschaltbar).
 
 **Offline-Geräte fehlen in der Liste (Issue #24).**
-Eine Ursache ist bisher nicht gefunden; im Code werden Offline-Geräte nicht ausgefiltert. Bitte den
+Prüfe zuerst die Einstellung „Getrennte Geräte ausblenden“ (`hide_inactive`) und den Standardfilter der Karte:
+Bis 2.0.0 leerte diese Einstellung auch die Ansichten „Inaktiv“ und „Lange offline“; seit 2.0.0 zeigen diese
+Ansichten Offline-Geräte immer. Das ist eine mögliche Ursache, nicht bei jedem Melder bestätigt. Fehlen weiter
+Geräte, bitte den
 Diagnose-Download (Einstellungen → Geräte & Dienste → FRITZ!Box Netzwerk → ⋮ → Diagnose herunterladen)
 und das Debug-Protokoll im Issue anhängen. Seit 1.9.1 steht in `box_hosts`, wie viele Einträge die Box
 lieferte (`raw_total`), wie viele davon aktiv waren (`raw_active`) und wie viele die Integration
@@ -1609,7 +1637,8 @@ Lovelace-Ressource ein. Wird sie trotzdem nicht gefunden, hilft in dieser Reihen
 
 Sowohl die **Integration** (Einrichtung, Dienste) als auch die **Dashboard-Karte** – inklusive
 ihres **Konfigurations-Editors** – sind auf
-**Deutsch**, **Englisch** und **Niederländisch** übersetzt (`de`, `en`, `nl`). Die Karte
+**Deutsch**, **Englisch** und **Niederländisch** übersetzt (`de`, `en`, `nl`). Die **README** gibt es seit 2.0.0
+in fünf Sprachen: Deutsch, Englisch, Niederländisch, Französisch und Spanisch (Sprachleiste ganz oben). Die Karte
 folgt automatisch der in Home Assistant eingestellten Sprache; fehlt eine Übersetzung, wird
 auf Deutsch zurückgefallen.
 
@@ -1633,13 +1662,15 @@ language: nl   # "" = automatisch, sonst de | en | nl
   Weboberfläche wäre es nur mit ungeprüften Annahmen möglich und würde bei jedem
   FRITZ!OS-Update riskieren zu brechen. Bewusst nicht Teil dieser Version.
 - **Statische IP nur über die Weboberfläche.** TR-064 kennt dafür keine Aktion. Seit 1.8.0 gibt es den
-  experimentellen Dienst `set_static_ip` über die undokumentierte Weboberfläche; dessen Feldnamen sind angenommen und
-  an keiner Box geprüft, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell).
-- **VPN-Geräte (Issue #29).** Ein Gerät, das die Box in ihrer Geräteliste mit dem Kennzeichen „VPN“ meldet,
-  trägt in der Karte das Abzeichen „VPN“. Gegenstellen von WireGuard- oder IPsec-Verbindungen fragt die
-  Integration nicht gesondert ab; ob und wie die Box sie über TR-064 meldet, ist ungeprüft. Gewünscht wurde die Anzeige
-  für WireGuard-Verbindungen der FRITZ!Box mit MyFRITZ!-Adresse als Endpunkt (Rückmeldung zu #29); eine dokumentierte
-  Schnittstelle dafür ist mir nicht bekannt.
+  experimentellen Dienst `set_static_ip` über die undokumentierte Weboberfläche (seit 2.0.0 über deren REST-Schnittstelle, nach
+  Beschreibung eines Drittprojekts für FRITZ!OS 8.25); an keiner Box geprüft, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell).
+- **VPN-Geräte (Issue #29).** Einträge ohne MAC-Adresse wurden bisher als Karteileichen verworfen; Gegenstellen,
+  die die Box als VPN kennzeichnet (Kennzeichen `X_AVM-DE_VPN` oder Schnittstellentyp VPN/WireGuard/IPsec) und die
+  eine IP-Adresse haben, bleiben seit 2.0.0 erhalten, mit der Kennung `VPN:<IP>`. Sie erscheinen in Liste und
+  Zählern, bekommen aber keine Entitäten und keine Aktionen, die eine MAC-Adresse brauchen (Aufwecken, Sperren,
+  Umbenennen, statische IP). **Ob die Box WireGuard-Gegenstellen so meldet, ist ungeprüft**; eine dokumentierte
+  Schnittstelle zur gesonderten Abfrage gibt es nicht. Der Diagnose-Download (`box_hosts.without_mac_samples`) zeigt,
+  wie die Box solche Einträge kennzeichnet.
 - **Mesh nur in Teilen.** FRITZ!Box und Repeater bilden eine Gruppe (siehe oben); seit 1.6.3
   zeigt die Karte in „Verbunden über“, an welchem Mesh-Nachbarn ein Gerät hängt, samt
   Verbindungsrate. **Keine Signalstärke in dBm** (liefert die Mesh-Liste nicht). Das Funkband
@@ -1678,8 +1709,10 @@ language: nl   # "" = automatisch, sonst de | en | nl
   Weboberfläche. Das Schreiben ist an keiner echten Box geprüft (nur das Lesen der Antworten und des Quelltexts der
   Oberfläche), die Box kann eine Zwei-Faktor-Bestätigung verlangen, siehe
   [DNS-Einstellungen](#dns-einstellungen-experimentell). Eine Karten-Oberfläche dafür gibt es noch nicht, nur Dienste.
-- **Statische IP (experimentell, seit 1.8.0)** nutzt die Weboberfläche (`data.lua`, `edit_device`); die Feldnamen sind
-  angenommen und an keiner Box geprüft, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell).
+- **Statische IP (experimentell, seit 1.8.0)** nutzt die Weboberfläche (seit 2.0.0 REST-Route, mit Rücklesen und
+  Ausweichweg); an keiner Box geprüft, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell).
+- **Reservierungen innerhalb des DHCP-Bereichs** liest die Integration seit 2.0.0 zusätzlich aus der Weboberfläche;
+  ob dein FRITZ!OS das Kennzeichen liefert, ist ungeprüft (Diagnose: `reservations`).
 - **Datenverbrauch je Gerät** liefert die Box nicht über TR-064.
 - **Notification Center (seit 1.9.2b1, Beta)** ist nur gegen einen simulierten Ereignisbus geprüft, nicht gegen ein echtes Notification Center und nicht an echter Hardware; die Schalter gibt es nur im Konfigurieren-Dialog, nicht in der Karte, siehe [Notification Center](#notification-center-optional).
 - Die Zuordnung zu Home-Assistant-Geräten erfolgt ausschließlich über die MAC-Adresse.
@@ -1693,11 +1726,11 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `7e6b26d81b6d71fdab3fcd9df0e8b37c2c74cb54bdbf4a63f2398cd43f91f56a` |
-| `custom_components/fritzbox_netzwerk/strings.json` | `9740b6717b26eeb247be762e9e500be9c327d9cd356448ef68ed53da21eba7d6` |
-| `custom_components/fritzbox_netzwerk/translations/de.json` | `ef00666a1ed90ce387c6842d1200e87bd806c27d0a32670c1e8fc7c5d48b250a` |
-| `custom_components/fritzbox_netzwerk/translations/en.json` | `8c9de0e76d7e00adc915843e97341f45aa89fac98690de323bd7a49807556495` |
-| `custom_components/fritzbox_netzwerk/translations/nl.json` | `c471503daa1ca26fafa6d1ea992c21e692b746540e8785102676eb533dcc8a34` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `a636167dfbdf079d62da87251bdc932d826eb1a14f01d1fd84ef1b42f8f13d7f` |
+| `custom_components/fritzbox_netzwerk/strings.json` | `6c28ceef405af4b1b9351a85adcb7f44c2d301f9cba374cd4b7a010ef12a2024` |
+| `custom_components/fritzbox_netzwerk/translations/de.json` | `96029f05383347f00be71630d36cf494b4b783cdaaf53745eb4bc73d3a9a01eb` |
+| `custom_components/fritzbox_netzwerk/translations/en.json` | `570e74e76f9b422316141732b8ce702b00b59e9abc4e9a2442d4cf25d5ab5f1e` |
+| `custom_components/fritzbox_netzwerk/translations/nl.json` | `3aaa82620137b35fa5b16cfba1f8b56d99b39415a7f5090343ddacedfd7ca385` |
 
 ## Entwicklung und Tests
 
@@ -1712,6 +1745,8 @@ pip install fritzconnection==1.15.1 segno==1.6.6 pytest
 python3 -m pytest -q tests                                  # Fälle zu 1.9.0 (Mesh, Gast-Dienst, Sammelmarkierung, …)
 node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fritzbox-netzwerk-card.js
 ```
+
+**Tests zu 2.0.0** (`test_issue30_dns.py`, `test_static_ip.py`, `test_vpn_and_reservations.py`, mit eigener `conftest.py`, die die Module ohne Home Assistant lädt) liegen dem Release als eigenes Paket bei, nicht im Repository; sie laufen gegen eine simulierte FRITZ!Box.
 
 **Tests zu 1.9.2b1** (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, mit eigener `conftest.py`, die Home Assistant durch Attrappen ersetzt) liegen dem Release als eigenes Paket bei, nicht im Repository.
 
@@ -1733,6 +1768,40 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.0.0b1 – Statische IP über REST, Reservierungen und VPN-Geräte, README in fünf Sprachen
+
+**Beta (Vorabversion).** Baut auf 1.9.2b1 auf. **Nichts davon wurde an einer echten FRITZ!Box oder in einem laufenden Home Assistant geprüft** –
+nur gegen eine simulierte Box und synthetische Daten.
+
+- **Behoben (IP-Adresse ändern):** `set_static_ip` und die Zeile „Statische IP“ in der Karte funktionierten nicht.
+  Ursache: Die Formularfelder von `data.lua` waren nur angenommen, die Box nahm sie nie an. Die Integration schreibt jetzt
+  über die REST-Route, die ein Drittprojekt für FRITZ!OS 8.25 beschreibt (`PUT /api/v0/generic/landevice/landevice/<UID>`),
+  liest das Ergebnis zurück (`query.lua`, sonst REST bzw. `edit_device`), meldet eine fehlende oder kommentarlos verworfene
+  Änderung als Fehler (mit Hinweis auf die Zwei-Faktor-Bestätigung) und stellt eine frühere Zuweisung wieder her. Der alte
+  Weg bleibt als Ausweichweg. Das Feld `ip` der Anfrage ist selbst im Drittprojekt ungeprüft.
+- **Behoben (#30):** `set_dns_settings` machte an einer FRITZ!Box 6591 Cable auch nach 1.9.1 den IPv4-Wert rückgängig.
+  Ursache: Der zurückgelesene Wert wurde als Zeichenkette verglichen, die Box kürzt eine einzelne Null-Gruppe einer
+  IPv6-Adresse zu `::`, die Integration behielt `:0:`. IP-Adressen werden jetzt als Adressen verglichen, sowohl bei der
+  Prüfung nach einem HTTP-Fehler als auch bei der Schlussprüfung. Gegen eine simulierte Box nachgestellt und behoben.
+- **Behoben (#31):** Geräte mit „Diesem Netzwerkgerät immer die gleiche IPv4-Adresse zuweisen“ innerhalb des DHCP-Bereichs
+  galten als „dynamisch“ und fehlten im Filter „Feste IP“ (die Box meldet das nicht über TR-064). Die Integration liest die
+  Reservierungen jetzt zusätzlich aus der Weboberfläche (`query.lua`, sonst `netDev`, im Takt der IP-Typ-Erfassung) und zählt
+  sie als fest. **An keiner Box geprüft:** Die Feldnamen stammen aus Beschreibungen von Drittprojekten; liefert die Box das
+  Kennzeichen nicht, ändert sich nichts. Der Diagnose-Download zeigt unter `reservations`, welcher Weg klappte.
+- **Behoben (#29, wahrscheinliche Ursache):** Einträge ohne MAC-Adresse wurden als Karteileichen verworfen – WireGuard-
+  Gegenstellen haben keine. Als VPN gekennzeichnete Gegenstellen mit IP-Adresse bleiben jetzt mit der Kennung `VPN:<IP>`
+  erhalten und erscheinen als aktiv; sie bekommen keine Entitäten und keine Aktionen, die eine MAC-Adresse brauchen.
+  **Ob die Box WireGuard-Gegenstellen in ihrer Geräteliste meldet, ist ungeprüft**; `box_hosts.without_mac_samples` in der
+  Diagnose zeigt, wie sie sie kennzeichnet.
+- **Behoben (#24, eine mögliche Ursache):** Die Einstellung „Getrennte Geräte ausblenden“ leerte auch die Ansichten
+  „Inaktiv“ und „Lange offline“. Diese Ansichten zeigen jetzt Offline-Geräte; die Einstellung gilt nur noch für die
+  gemischten Ansichten (Hilfetext ergänzt). Nicht bei jedem Melder ist die Ursache bestätigt.
+- **Neu:** Filterknopf **VPN** in der Filterleiste der Karte (neben „Feste IP“): zeigt Geräte, die die Box als VPN kennzeichnet, und Einträge, die als `VPN:<IP>` geführt werden. Ausblenden mit `filter_vpn: false`, `default_filter: vpn` ist möglich, Symbolfarbe `color_cat_vpn`. Nur per Syntaxprüfung der Karte geprüft, nicht im Browser.
+- **Dokumentation:** Die README gibt es jetzt in **fünf Sprachen** (de, en, nl, fr, es) mit Sprachleiste ganz oben in jeder
+  Datei. Integration und Karte sind weiterhin in de, en und nl übersetzt.
+- **Nicht gelöst:** #26 (Datenvolumen je Gerät) – TR-064 liefert es nicht, das Issue bleibt offen. #20 wurde in 1.9.1 gelöst
+  und vom Melder bestätigt; #28 ist eine HACS-Angelegenheit.
 
 ### 1.9.2b1 – Notification Center (optional), Update-Hinweis für Vorabversionen
 

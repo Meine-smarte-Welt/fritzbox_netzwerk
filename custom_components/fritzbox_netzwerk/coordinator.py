@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f8c7f8ddff8eb4bd9a68e348e0b4af99dbf8be79bc98e6b826a787cdd9ce714d
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 091e4a477d5915345aed7e558404ebf7f1c1b7f48179d8f45130066d3bfee0c6
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -86,11 +86,6 @@ from .const import (
     USER_DATA_DIRNAME,
 )
 from .hosts import (
-    IEEE_REGISTER_URLS,
-    MAC_FILTER_INFO_KEY,
-    MIN_MA_L_ENTRIES,
-    UPNP_ALREADY_TERMINATED,
-    UPNP_DISCONNECT_IN_PROGRESS,
     apply_mesh_repeaters,
     as_bool,
     build_hosts,
@@ -98,16 +93,20 @@ from .hosts import (
     dhcp_pool,
     frequency_band,
     guest_service_index,
+    host_identity,
+    IEEE_REGISTER_URLS,
     is_mac_filter_band,
     is_repeater,
     list_path,
     load_notes,
     load_oui,
+    MAC_FILTER_INFO_KEY,
     mac_key,
     make_note_entry,
     merge_oui,
     mesh_members,
     mesh_reboot_plan,
+    MIN_MA_L_ENTRIES,
     normalize_mac,
     parse_ieee_csv,
     parse_oui,
@@ -115,11 +114,13 @@ from .hosts import (
     reconnect_plan,
     repeater_login_users,
     select_hosts_by_ip,
+    serialize_oui,
     set_config_arguments,
     summarize,
-    serialize_oui,
     to_kbytes_per_s,
     to_mbit_per_s,
+    UPNP_ALREADY_TERMINATED,
+    UPNP_DISCONNECT_IN_PROGRESS,
     upnp_error_code,
     validate_custom_oui_lines,
     wan_kind,
@@ -148,6 +149,7 @@ from .static_ip import NEEDS_RESTART, StaticIpError, plan_static_ip, set_static_
 from .webui import (
     assign_profile,
     base_url,
+    fetch_reservations,
     fetch_system_stats,
     get_device_profile,
     list_profiles,
@@ -218,6 +220,12 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # erneute Anmeldung.
         self._auth_guard = auth_guard or AuthFailureGuard()
         self._address_sources: dict[str, dict[str, Any]] = {}
+        # Reservierungen der Box ("immer die gleiche IPv4-Adresse", Issue #31):
+        # ``mac_key`` -> bool, gelesen ueber die Weboberflaeche im Takt der
+        # IP-Typ-Abfrage. Fehler sind harmlos (dann gilt die TR-064-Angabe).
+        self._reservations: dict[str, bool] = {}
+        self._reservation_info: dict[str, Any] = {"source": None, "devices": 0, "reserved": 0}
+        self._reservation_error: str | None = None
         self._address_source_scan: datetime | None = None
         self._address_source_failed = False
         # DHCP-Bereich der Box (erste, letzte Adresse als Zahl): dient der
@@ -459,6 +467,29 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             }
         self._address_sources = sources
 
+    def _fetch_reservations(self) -> None:
+        """Liest die Reservierungen der Box ueber die Weboberflaeche (blockierend).
+
+        Jeder Fehler ist harmlos: es bleibt der letzte bekannte Stand, die
+        Geraeteliste laeuft unberuehrt weiter. Die Fehlermeldung erscheint nur
+        beim Wechsel im Protokoll und im Diagnose-Download.
+        """
+        try:
+            found = self._run_web(fetch_reservations)
+        except (ValueError, RequestException) as err:
+            if self._reservation_error != str(err):
+                _LOGGER.warning("Reservierungen der Box nicht lesbar (experimentell): %s", err)
+            self._reservation_error = str(err)
+            return
+        self._reservation_error = None
+        self._reservations = dict(found.get("reserved") or {})
+        self._reservation_info = {
+            "source": found.get("source"),
+            "devices": found.get("devices", 0),
+            "reserved": sum(1 for value in self._reservations.values() if value),
+        }
+        _LOGGER.debug("Reservierungen der Box: %s", self._reservation_info)
+
     def _dhcp_pool_due(self) -> bool:
         """Ob der DHCP-Bereich neu abgefragt werden soll.
 
@@ -504,6 +535,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._address_sources_due():
             macs = [str(host.get("MACAddress") or "") for host in raw_hosts]
             self._fetch_address_sources(macs)
+            self._fetch_reservations()
             refreshed = True
         if self._dhcp_pool_due():
             self._dhcp_pool = self._fetch_dhcp_pool()
@@ -547,6 +579,16 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def system_stats(self) -> dict[str, float | None] | None:
         """Letzte gelesene Werte (``cpu``, ``ram``, ``temperature``) oder ``None``."""
         return self._system_stats
+
+    @property
+    def reservation_info(self) -> dict[str, Any]:
+        """Wie viele Reservierungen die Box lieferte und woher (Diagnose, Issue #31)."""
+        return dict(self._reservation_info)
+
+    @property
+    def reservation_error(self) -> str | None:
+        """Grund des letzten Fehlschlags beim Lesen der Reservierungen, sonst ``None``."""
+        return self._reservation_error
 
     @property
     def system_stats_error(self) -> str | None:
@@ -1517,6 +1559,30 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "raw_without_mac": sum(
                 1 for raw in raw_hosts or [] if not normalize_mac(raw.get("MACAddress"))
             ),
+            # Davon als VPN-Gegenstelle behalten (Issue #29) bzw. verworfen.
+            "raw_vpn_kept": sum(
+                1
+                for raw in raw_hosts or []
+                if not normalize_mac(raw.get("MACAddress")) and host_identity(raw)
+            ),
+            "raw_dropped_without_mac": sum(
+                1
+                for raw in raw_hosts or []
+                if not normalize_mac(raw.get("MACAddress")) and not host_identity(raw)
+            ),
+            # Nur die Form (keine Namen, Adressen), damit sich bei Meldungen wie
+            # Issue #29 erkennen laesst, wie die Box solche Eintraege kennzeichnet.
+            "without_mac_samples": [
+                {
+                    "interface_type": str(raw.get("InterfaceType") or ""),
+                    "vpn_flag": as_bool(raw.get("X_AVM-DE_VPN")),
+                    "active": as_bool(raw.get("Active")),
+                    "has_ip": bool(str(raw.get("IPAddress") or "").strip()),
+                    "has_name": bool(str(raw.get("HostName") or "").strip()),
+                }
+                for raw in (raw_hosts or [])
+                if not normalize_mac(raw.get("MACAddress"))
+            ][:8],
         }
         self._update_last_seen(raw_hosts)
         is_baseline_cycle = self._new_device_baseline_pending
@@ -1535,6 +1601,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._first_seen,
             mesh_links,
             self._notes,
+            self._reservations,
         )
         _LOGGER.debug(
             "Geraeteliste: %s Eintraege (%s aktiv, %s inaktiv); Box lieferte %s "
@@ -1983,6 +2050,13 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             result["geschrieben"] = not dry_run
             result["vorher"] = outcome.get("before")
             result["nachher"] = outcome.get("after")
+            if not dry_run:
+                result["weg"] = outcome.get("channel")
+                result["geprueft"] = bool(outcome.get("verified"))
+                if outcome.get("warnings"):
+                    result["warnings"] = [*result.get("warnings", []), *outcome["warnings"]]
+                if outcome.get("verified"):
+                    self._reservations[mac_key(mac)] = True
             return result
 
         try:
@@ -2223,7 +2297,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for raw in raw_hosts or []:
             if not raw.get("Active"):
                 continue
-            key = mac_key(raw.get("MACAddress"))
+            key = mac_key(host_identity(raw))
             if not key:
                 continue
             self._last_seen[key] = now
@@ -2266,7 +2340,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for raw in raw_hosts or []:
             if not raw.get("Active"):
                 continue
-            key = mac_key(raw.get("MACAddress"))
+            key = mac_key(host_identity(raw))
             if not key or key in known_before or key in self._first_seen:
                 continue
             self._first_seen[key] = now

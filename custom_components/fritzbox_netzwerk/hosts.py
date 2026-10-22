@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 30414d11f8748900ad5c73fc9e4584bc7a0c8b32b068606af64d2b997039c30e
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 2d8aa1d5aca390b1e0dce4729449c7ba0df75b9575d44d57c339c158c7fdb295
 """Aufbereitung der FRITZ!Box-Hostliste.
 
 Dieses Modul enthaelt bewusst KEINE Home-Assistant- und keine
@@ -266,6 +266,44 @@ def is_repeater(model: Any) -> bool:
     return "repeater" in text or "fritz!box" in text
 
 
+# Kennung fuer Geraete, die die Box ohne MAC-Adresse meldet (VPN-Gegenstellen,
+# z. B. WireGuard/IPsec, Issue #29). Sie ist aus der IP-Adresse abgeleitet und
+# damit solange stabil, wie die Gegenstelle ihre VPN-Adresse behaelt.
+VPN_IDENTITY_PREFIX: Final = "VPN:"
+
+
+def is_vpn_entry(raw: dict[str, Any]) -> bool:
+    """Ob die Box den Eintrag als VPN-Gegenstelle meldet.
+
+    Massgeblich ist ``X_AVM-DE_VPN`` (TR-064 Hosts). Zusaetzlich zaehlt ein
+    ``InterfaceType`` mit "vpn", "wireguard" oder "ipsec", falls eine FRITZ!OS-
+    Version die Art nur dort angibt.
+    """
+    if as_bool(raw.get("X_AVM-DE_VPN")):
+        return True
+    kind = str(raw.get("InterfaceType") or "").strip().lower()
+    return any(word in kind for word in ("vpn", "wireguard", "ipsec"))
+
+
+def host_identity(raw: dict[str, Any]) -> str:
+    """Kennung eines Roh-Eintrags: die MAC-Adresse, sonst bei VPN die IP-Adresse.
+
+    Eintraege ohne MAC-Adresse sind sonst Karteileichen der Box und werden
+    verworfen (Rueckgabe ``""``). VPN-Gegenstellen haben keine MAC, sind aber
+    echte, aktive Geraete (Issue #29) - sie bekommen ``VPN:<IP>`` als Kennung,
+    sofern eine IP-Adresse vorliegt. ``mac_key`` und ``normalize_mac`` lassen
+    diese Kennung unveraendert eindeutig (Grossbuchstaben bzw. klein ohne
+    Trennzeichen).
+    """
+    mac = normalize_mac(raw.get("MACAddress"))
+    if mac:
+        return mac
+    ip = str(raw.get("IPAddress") or "").strip()
+    if ip and is_vpn_entry(raw):
+        return f"{VPN_IDENTITY_PREFIX}{ip}"
+    return ""
+
+
 def display_name(raw: dict[str, Any]) -> str:
     """Bester verfuegbarer Anzeigename des Geraets.
 
@@ -277,12 +315,12 @@ def display_name(raw: dict[str, Any]) -> str:
         if value:
             return value
     mac = normalize_mac(raw.get("MACAddress"))
-    return mac or "Unbekanntes Geraet"
+    return mac or str(raw.get("IPAddress") or "").strip() or "Unbekanntes Geraet"
 
 
 def normalize_host(raw: dict[str, Any]) -> dict[str, Any]:
     """Uebersetzt einen Roh-Hosteintrag in das Format der Dashboard-Karte."""
-    mac = normalize_mac(raw.get("MACAddress"))
+    mac = host_identity(raw)
     kind = connection_kind(raw.get("InterfaceType"))
     port = as_int(raw.get("X_AVM-DE_Port"))
     guest = as_bool(raw.get("X_AVM-DE_Guest"))
@@ -297,6 +335,11 @@ def normalize_host(raw: dict[str, Any]) -> dict[str, Any]:
         "name_writeable": as_bool(raw.get("X_AVM-DE_FriendlyNameIsWriteable")),
         "ip": str(raw.get("IPAddress") or "").strip(),
         "mac": mac,
+        # ``True`` bei Geraeten ohne echte MAC-Adresse (VPN-Gegenstellen,
+        # Issue #29): ``mac`` ist dann die Kennung ``VPN:<IP>``. Solche Geraete
+        # erscheinen in der Liste, bekommen aber keine Entitaeten und keine
+        # Aktionen, die eine MAC brauchen.
+        "mac_synthetic": mac.startswith(VPN_IDENTITY_PREFIX),
         # Wird in ``apply_vendors()`` ergaenzt. ``mac_random`` steht dagegen
         # fest: zufaellige (private) Adressen haben keinen Hersteller.
         "vendor": "",
@@ -361,6 +404,10 @@ def normalize_host(raw: dict[str, Any]) -> dict[str, Any]:
         "label": "",
         "note": "",
         "reserved": False,
+        # Wird in ``apply_reservations()`` ergaenzt (Issue #31): ob die FRITZ!Box
+        # dem Geraet eine feste Adresse zugewiesen hat ("Diesem Netzwerkgeraet
+        # immer die gleiche IPv4-Adresse zuweisen"). ``None`` = nicht ermittelt.
+        "box_reserved": None,
     }
 
 
@@ -387,6 +434,26 @@ def apply_address_sources(
         lease = entry.get("lease_time_remaining")
         if lease is not None:
             host["lease_time_remaining"] = as_int(lease)
+    return hosts
+
+
+def apply_reservations(
+    hosts: list[dict[str, Any]], reservations: dict[str, bool] | None
+) -> list[dict[str, Any]]:
+    """Ergaenzt, ob die Box dem Geraet eine feste Adresse (Reservierung) zugewiesen hat.
+
+    ``reservations`` bildet ``mac_key`` auf ``True``/``False`` ab (Quelle: die
+    Weboberflaeche, siehe ``webui.fetch_reservations``). Ohne Eintrag bleibt
+    ``box_reserved`` bei ``None`` - die Einordnung faellt dann auf die Angabe der
+    TR-064-Schnittstelle zurueck. TR-064 selbst meldet Reservierungen INNERHALB des
+    DHCP-Bereichs nicht (siehe ``classify_ip``).
+    """
+    if not reservations:
+        return hosts
+    for host in hosts:
+        value = reservations.get(mac_key(host["mac"]))
+        if value is not None:
+            host["box_reserved"] = bool(value)
     return hosts
 
 
@@ -470,7 +537,9 @@ def classify_ip_with_reserved(
     bleibt "none".
     """
     result = classify_ip(host, pool)
-    if host.get("reserved") and result in ("dynamic", None):
+    # "reserved": manuelle Markierung in Home Assistant; "box_reserved": die Box
+    # meldet die Reservierung selbst (Issue #31).
+    if (host.get("reserved") or host.get("box_reserved")) and result in ("dynamic", None):
         return "fixed"
     return result
 
@@ -657,6 +726,7 @@ def build_hosts(
     first_seen: dict[str, str] | None = None,
     mesh_links: dict[str, dict[str, Any]] | None = None,
     notes: dict[str, dict[str, Any]] | None = None,
+    reservations: dict[str, bool] | None = None,
 ) -> list[dict[str, Any]]:
     """Baut die vollstaendige, sortierte Hostliste fuer das Sensorattribut.
 
@@ -664,18 +734,21 @@ def build_hosts(
     Einordnung fest/dynamisch. ``oui`` ist die Herstellertabelle (siehe
     ``load_oui``); ohne sie bleibt ``vendor`` leer. ``bands`` ordnet MAC-
     Schluessel dem WLAN-Band zu (siehe ``wlan_bands``); ohne sie bleibt ``band``
-    leer.
+    leer. ``reservations`` ordnet MAC-Schluessel der Reservierung der Box zu
+    (siehe ``apply_reservations``).
 
     Sortiert wird nach IP-Adresse (numerisch). Eintraege ohne MAC-Adresse
     werden verworfen - sie sind Karteileichen der FRITZ!Box und wuerden in
-    der Karte nur eine leere Zeile erzeugen.
+    der Karte nur eine leere Zeile erzeugen. Ausnahme (seit 2.0.0, Issue #29):
+    VPN-Gegenstellen mit IP-Adresse (``host_identity``).
     """
     hosts = [
         normalize_host(raw)
         for raw in raw_hosts or []
-        if normalize_mac(raw.get("MACAddress"))
+        if host_identity(raw)
     ]
     apply_address_sources(hosts, address_sources)
+    apply_reservations(hosts, reservations)
     apply_ha_devices(hosts, ha_devices)
     apply_last_seen(hosts, last_seen)
     apply_first_seen(hosts, first_seen)
@@ -1047,7 +1120,9 @@ def select_hosts_by_ip(hosts: list[dict[str, Any]], pattern: Any) -> list[dict[s
     return [
         host
         for host in hosts
-        if host.get("ip") and ip_matches_filter(host["ip"], parsed)
+        if host.get("ip")
+        and not host.get("mac_synthetic")
+        and ip_matches_filter(host["ip"], parsed)
     ]
 
 
@@ -1425,6 +1500,7 @@ def host_device_selection(
         host
         for host in hosts
         if mac_key(host.get("mac"))
+        and not host.get("mac_synthetic")
         and not host.get("repeater")
         and ip_matches_filter(host.get("ip"), filt)
     ]

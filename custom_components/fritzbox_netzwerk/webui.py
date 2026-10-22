@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 0f873e55054124ef99cb89e8fb7d59b238f572b092c009515f19eccc20abedfe
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 7b01f1e9fadaeefdf3e9f1a841d495b4d862a0582139d7e1f74006df19c98773
 """Inoffizieller Zugriff auf die FRITZ!Box-Weboberfläche (nur lesend).
 
 ACHTUNG - EXPERIMENTELL: Dieses Modul spricht NICHT TR-064, sondern die
@@ -250,15 +250,118 @@ def parse_net_devices(payload: Any) -> list[dict[str, str]]:
             if not uid or len(mac) != 12:
                 continue
             ipv4 = entry.get("ipv4")
+            ipv4 = ipv4 if isinstance(ipv4, dict) else {}
             devices.append(
                 {
                     "uid": uid,
                     "mac": mac,
                     "name": str(entry.get("name") or "").strip(),
-                    "ip": str((ipv4 or {}).get("ip") or "") if isinstance(ipv4, dict) else "",
+                    "ip": str(ipv4.get("ip") or ""),
+                    # Reservierung ("immer die gleiche IPv4-Adresse"), falls die Box
+                    # das Flag in der Liste mitliefert; sonst ``None`` (unbekannt).
+                    "static": _flag(ipv4.get("static_dhcp", entry.get("static_dhcp"))),
                 }
             )
     return devices
+
+
+def _flag(value: Any) -> bool | None:
+    """Schalterwert der Box (``"1"``/``"0"``, ``"on"``, ``true`` ...) oder ``None``, wenn unbekannt."""
+    if value is None or value == "":
+        return None
+    text = str(value).strip().lower()
+    if text in ("1", "on", "true", "yes"):
+        return True
+    if text in ("0", "off", "false", "no"):
+        return False
+    return None
+
+
+# Geraeteliste ueber ``query.lua`` (Issue #31, feste Adresse): ``static_dhcp`` ist
+# der Schalter "Diesem Netzwerkgeraet immer die gleiche IPv4-Adresse zuweisen".
+# Nach Angabe eines Fremdprojekts (jvejmelka/fritzbox-static-lease, FRITZ!OS 8.25)
+# liest die Weboberflaeche den Zustand ueber ``query.lua``; die genauen Feldnamen
+# der Liste sind hier an keiner eigenen Box geprueft. Fehlt das Feld, bleibt der
+# Wert ``None`` und die Karte zeigt weiter die Angabe der TR-064-Schnittstelle.
+LANDEVICE_QUERY = "landevice:settings/landevice/list(name,ip,mac,UID,static_dhcp)"
+
+
+def query_lua(session: Any, base: str, sid: str, query: str, key: str = "hosts") -> Any:
+    """Ruft ``query.lua`` auf (``ValueError`` bei HTTP-Fehler oder ohne JSON)."""
+    response = session.get(f"{base}/query.lua?sid={sid}&{key}={query}", timeout=TIMEOUT)
+    if not response.ok:
+        raise ValueError(f"query.lua: HTTP {response.status_code}")
+    try:
+        return response.json()
+    except ValueError as err:
+        raise ValueError("query.lua lieferte kein JSON") from err
+
+
+def parse_landevice_list(payload: Any) -> list[dict[str, Any]]:
+    """Liest Geraete (``uid``, ``mac``, ``name``, ``ip``, ``static``) aus ``query.lua``.
+
+    Erwartet ein JSON-Objekt, dessen (erste) Liste die Geraete enthaelt, oder
+    direkt eine Liste. ``static`` ist ``True``/``False`` bei vorhandenem Feld
+    ``static_dhcp``, sonst ``None``. Eintraege ohne MAC-Adresse werden uebersprungen.
+    """
+    entries: Any = None
+    if isinstance(payload, dict):
+        entries = next((v for v in payload.values() if isinstance(v, list)), None)
+    elif isinstance(payload, list):
+        entries = payload
+    result: list[dict[str, Any]] = []
+    for entry in entries or []:
+        if not isinstance(entry, dict):
+            continue
+        mac = normalize_mac(entry.get("mac"))
+        if len(mac) != 12:
+            continue
+        result.append(
+            {
+                "uid": str(entry.get("UID") or "").strip(),
+                "mac": mac,
+                "name": str(entry.get("name") or "").strip(),
+                "ip": str(entry.get("ip") or "").strip(),
+                "static": _flag(entry.get("static_dhcp")),
+            }
+        )
+    return result
+
+
+def fetch_reservations(
+    session: Any, base: str, user: str, password: str
+) -> dict[str, Any]:
+    """Liest, welche Geraete eine feste Zuweisung (Reservierung) haben (Issue #31).
+
+    Gibt ``{"reserved": {mac_klein: bool}, "source": "query.lua"|"netDev"|None,
+    "devices": n}`` zurueck. Zuerst ``query.lua``, ersatzweise ``netDev``. Liefert
+    keiner der Wege das Feld, ist ``reserved`` leer (kein Fehler). Netzwerk- und
+    Anmeldefehler laufen als ``ValueError``/Netzwerkfehler zum Aufrufer.
+    """
+    sid = login(session, base, user, password)
+    try:
+        devices: list[dict[str, Any]] = []
+        source: str | None = None
+        try:
+            devices = parse_landevice_list(query_lua(session, base, sid, LANDEVICE_QUERY))
+            source = "query.lua"
+        except ValueError:
+            devices = []
+        if not any(d["static"] is not None for d in devices):
+            try:
+                alt = parse_net_devices(
+                    data_lua(session, base, sid, "netDev", xhrId="all", useajax="1")
+                )
+            except ValueError:
+                alt = []
+            if any(d.get("static") is not None for d in alt):
+                devices, source = alt, "netDev"
+    finally:
+        logout(session, base, sid)
+    reserved = {
+        d["mac"].lower(): bool(d["static"]) for d in devices if d.get("static") is not None
+    }
+    return {"reserved": reserved, "source": source if reserved else None, "devices": len(devices)}
 
 
 def parse_device_profile(payload: Any) -> str | None:

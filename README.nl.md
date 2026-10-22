@@ -1,10 +1,13 @@
-🇩🇪 [Deutsch](README.md) · [🇬🇧 English](README.en.md) · 🇳🇱 Nederlands
+**🌍 Sprache · Language · Taal · Langue · Idioma**
+
+| 🇩🇪 [Deutsch](README.md) | 🇬🇧 [English](README.en.md) | 🇳🇱 **Nederlands** | 🇫🇷 [Français](README.fr.md) | 🇪🇸 [Español](README.es.md) |
+|:---:|:---:|:---:|:---:|:---:|
 
 # FRITZ!Box Netzwerk
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-1.9.2b1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Dit is de Nederlandse uitgave. De Duitse [README.md](README.md) is het hoofdbestand en bevat de volledige kaartreferentie, het hoofdstuk probleemoplossing en de complete versiegeschiedenis. Onderdelen met „alleen Duits” zijn nog niet vertaald.
@@ -46,7 +49,10 @@ Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk a
 
 - Alle bekende netwerkapparaten van de FRITZ!Box als **één** tabel op het dashboard
 - **Sorteerbaar** door op een kolomkop te klikken, ook met het toetsenbord; **zoeken** op naam, IP, MAC, model en Home Assistant-naam
-- **Filterbalk**: Alle, Actief, Inactief, Gast, Geblokkeerd, Update, Vast IP – elke knop afzonderlijk te verbergen
+- **Filterbalk**: Alle, Actief, Inactief, Gast, Geblokkeerd, Update, Vast IP, VPN – elke knop afzonderlijk te verbergen
+- **Reserveringen van de box** (sinds 2.0.0, op geen enkele box getest): apparaten met „Dit netwerkapparaat altijd hetzelfde IPv4-adres geven” worden uit de webinterface gelezen en als vast geteld
+- **VPN-apparaten** (sinds 2.0.0, ongetest): gesprekspartners die de box met VPN-markering maar zonder MAC-adres meldt, verdwijnen niet meer uit de lijst; de filterknop **VPN** (`filter_vpn: false` verbergt hem) toont alleen deze apparaten
+- **README in vijf talen** (Duits, Engels, Nederlands, Frans, Spaans)
 - **Wifi-band** (2,4 / 5 GHz), **fabrikant bij het MAC-adres** (meegeleverde lijst, geen internet nodig), **MAC met één klik kopiëren**
 - **IP-filter met jokertekens** (`192.168.2.*`) om een groot netwerk over meerdere kaarten te verdelen
 - **Detailvenster** per apparaat met alle velden, Wake-on-LAN, naam wijzigen, label/notitie/„gereserveerd”-markering en een sprong naar het Home Assistant-apparaat
@@ -199,9 +205,12 @@ Sinds 1.8.0 kan de integratie een apparaat een vast IPv4-adres toewijzen – dit
 - **Knop in de kaart:** in het detailvenster de rij „Statisch IP” → *Instellen* → adres invullen → *Controleren* (alleen controle) of *Toepassen*. Te verbergen met `show_static_ip: false`.
 - **Geen dubbele adressen:** het verzoek wordt geweigerd als het adres van een ander actief, vast of als „gereserveerd” gemarkeerd apparaat is, het adres van de box zelf is, buiten het thuisnetwerk valt, een netwerk-/broadcastadres is of geen geldig apparaatadres. Een offline apparaat met hetzelfde adres en een adres binnen het DHCP-bereik geven alleen een waarschuwing.
 - **Herstart nodig:** het nieuwe adres geldt pas nadat het apparaat is herstart of opnieuw met het netwerk is verbonden.
-- **Vangnet:** ontbreken de verwachte velden in het antwoord van de box, dan wordt niets geschreven. Na het schrijven wordt de box opnieuw gelezen; bij afwijking wordt de vorige toestand hersteld. Het huidige toegangsprofiel wordt meegestuurd.
+- **Vangnet:** na het schrijven wordt de toestand opnieuw gelezen (`query.lua`, anders REST of `edit_device`). Is de toewijzing daarna niet actief, dan meldt de service een fout en herstelt – als ze eerder actief was – de vorige toestand. Alleen HTTP 200 geldt niet als succes. Kan de toestand niet worden teruggelezen, dan staat in het antwoord `geprueft: false` met een opmerking.
+- **Tweefactorbevestiging:** vraagt de box om bevestiging, dan wordt niets gewijzigd. Een gebruiker met extra bevestiging kan ertoe leiden dat de box wijzigingen zonder melding negeert – gebruik voor de integratie een gebruiker zonder die bevestiging.
 
-**Teststatus (eerlijk):** de controle op dubbele adressen is met tests gedekt. De **veldnamen van de webinterface** (`edit_device`) zijn **aangenomen** en op geen enkele box getest – niet gelezen en niet geschreven. Past de opbouw niet, dan meldt de service „niets gewijzigd”; open dan een issue met het verzoek dat de box bij het opslaan verstuurt (browser-ontwikkelaarstools → Netwerk).
+**Schrijfweg (sinds 2.0.0):** via de REST-interface van de webinterface, zoals een extern project die voor FRITZ!OS 8.25 beschrijft (`jvejmelka/fritzbox-static-lease`): `PUT /api/v0/generic/landevice/landevice/<UID>` met `{"static_dhcp": "1"}`; het gewenste adres komt als `"ip"` erbij. Tot 1.9.x gebruikte de integratie formuliervelden van `data.lua` die slechts *aangenomen* waren en die de box niet accepteerde – het wijzigen van het adres werkte niet. De oude weg is nu alleen nog een terugvaloptie als de box het REST-verzoek met een HTTP-fout beantwoordt (oudere FRITZ!OS).
+
+**Teststatus (eerlijk):** de controle op dubbele adressen en de hele schrijfstroom zijn met tests tegen een **gesimuleerde** box gedekt. Op een **echte** FRITZ!Box **niet** getest: het veld `ip` van het REST-verzoek is zelfs in het externe project ongetest, de veldnamen van de terugvaloptie zijn aangenomen. Veel boxen blijven het oude adres melden tot het apparaat opnieuw verbindt – de service wijst daarop. Werkt het bij jou niet, open dan een issue met de foutmelding en de diagnose-download.
 
 ---
 
@@ -272,7 +281,7 @@ show_band: false
 show_summary: true
 show_search: true
 show_filter: true
-default_filter: aktiv   # alle | aktiv | inaktiv | gast | gesperrt | update | fest
+default_filter: aktiv   # alle | aktiv | inaktiv | gast | gesperrt | update | fest | vpn
 ip_filter: ""           # bijv. "192.168.2.*"
 show_parental: true     # rij toegangsprofiel in het detailvenster
 show_static_ip: true    # rij statisch IP in het detailvenster
@@ -313,7 +322,7 @@ De geïnstalleerde versie staat in de kaart (tandwieltab → app-versie), in de 
 
 ## Talen
 
-Duits, Engels en Nederlands – in de config flow, entiteiten, services en de kaart (taal uit Home Assistant, terugval Engels).
+Duits, Engels en Nederlands – in de config flow, entiteiten, services en de kaart (taal uit Home Assistant, terugval Engels). De **README** is beschikbaar in vijf talen: Duits, Engels, Nederlands, Frans en Spaans (taalbalk bovenaan elk bestand).
 
 ## Beveiliging
 
@@ -325,16 +334,17 @@ Schrijfacties vereisen beheerdersrechten; invoer wordt in de backend gecontrolee
 
 - **Notification Center (sinds 1.9.2b1, bèta)** is alleen getest tegen een gesimuleerde gebeurtenisbus, niet tegen een echt Notification Center of echte hardware; de schakelaars bestaan alleen in het dialoogvenster Configureren, niet in de kaart, zie [Notification Center](#notification-center-optioneel).
 - **„Alle ongebruikte verbindingen verwijderen” ontbreekt** – TR-064 heeft daarvoor geen actie.
-- **Statisch IP en DNS schrijven zijn experimenteel** en gebruiken de ongedocumenteerde webinterface van de box. Schrijven is op geen enkele echte box getest; de veldnamen voor het statische IP zijn aangenomen. Ze kunnen met elke FRITZ!OS-update breken.
+- **Statisch IP en DNS schrijven zijn experimenteel** en gebruiken de ongedocumenteerde webinterface van de box. Schrijven is op geen enkele echte box getest; de REST-route voor het statische IP volgt de beschrijving van een extern project voor FRITZ!OS 8.25. Ze kunnen met elke FRITZ!OS-update breken.
+- **DHCP-reserveringen maar deels herkend.** De box meldt reserveringen *binnen* het DHCP-bereik niet via TR-064. Sinds 2.0.0 leest de integratie ze extra uit de webinterface (`query.lua`, anders `netDev`); of jouw FRITZ!OS de markering levert, is ongetest. Zo niet, dan blijven zulke apparaten „dynamisch” – de diagnose-download (`reservations`) toont welke weg werkte. Alternatief: handmatig of in bulk markeren (`mark_devices_reserved`).
 - **Mesh maar gedeeltelijk:** geen signaalsterkte in dBm.
 - **Dataverbruik per apparaat** levert de box niet via TR-064.
-- **VPN-apparaten (issue #29):** een apparaat dat de box in de apparatenlijst met de markering „VPN” meldt, krijgt het label „VPN”. WireGuard-/IPsec-gesprekspartners worden niet apart opgevraagd; of en hoe de box ze via TR-064 meldt, is ongetest. Gevraagd werd om WireGuard-verbindingen van de FRITZ!Box met een MyFRITZ!-adres als eindpunt (terugmelding bij #29); een gedocumenteerde interface daarvoor ken ik niet.
+- **VPN-apparaten (issue #29):** vermeldingen zonder MAC-adres werden eerder als verlopen weggegooid; gesprekspartners die de box als VPN markeert (markering `X_AVM-DE_VPN` of interfacetype VPN/WireGuard/IPsec) en een IP-adres hebben, blijven sinds 2.0.0 behouden, met de id `VPN:<IP>`. Ze verschijnen in lijst en tellers maar krijgen geen entiteiten en geen acties die een MAC-adres vereisen (wekken, blokkeren, hernoemen, statisch IP). **Of de box WireGuard-gesprekspartners zo meldt, is ongetest**; een gedocumenteerde interface om ze apart op te vragen ken ik niet. De diagnose-download (`box_hosts.without_mac_samples`) toont hoe de box zulke vermeldingen markeert.
 - Apparaten worden uitsluitend via het MAC-adres aan Home Assistant-apparaten gekoppeld.
 - De volledige lijst staat in de Duitse README.
 
 ## Probleemoplossing
 
-Alleen Duits: zie het hoofdstuk „Fehlerbehebung” in [README.md](README.md#fehlerbehebung). Twee opmerkingen: HACS bepaalt zelf wanneer een nieuwe release verschijnt (issue #28) – gebruik ⋮ → *Informatie bijwerken* bij de repository in HACS; en voor ontbrekende offline-apparaten (issue #24) de diagnose-download en het debuglog aan het issue toevoegen – sinds 1.9.1 staat daarin hoeveel items de box leverde (`box_hosts`). Logger: `custom_components.fritzbox_netzwerk`; de diagnose-download is geanonimiseerd.
+Alleen Duits: zie het hoofdstuk „Fehlerbehebung” in [README.md](README.md#fehlerbehebung). Twee opmerkingen: HACS bepaalt zelf wanneer een nieuwe release verschijnt (issue #28) – gebruik ⋮ → *Informatie bijwerken* bij de repository in HACS; en voor ontbrekende offline-apparaten (issue #24) eerst de instelling „Verbroken apparaten verbergen” en het standaardfilter van de kaart controleren – tot 2.0.0 maakte die instelling ook de weergaven „Inactief” en „Lang offline” leeg. Ontbreken er nog apparaten, voeg dan de diagnose-download en het debuglog aan het issue toe – daarin staat hoeveel items de box leverde (`box_hosts`). Logger: `custom_components.fritzbox_netzwerk`; de diagnose-download is geanonimiseerd.
 
 ## Bestandsintegriteit
 
@@ -348,11 +358,26 @@ python3 -m pytest -q tests
 node tests/test_card_editor_title.js custom_components/fritzbox_netzwerk/www/fritzbox-netzwerk-card.js
 ```
 
+De tests voor 2.0.0 (`test_issue30_dns.py`, `test_static_ip.py`, `test_vpn_and_reservations.py`, met een eigen `conftest.py` die de modules zonder Home Assistant laadt) worden eveneens als apart pakket geleverd, niet in de repository. Ze draaien tegen een gesimuleerde FRITZ!Box.
+
 De tests voor 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `test_coordinator_nc.py`, `test_updates_prerelease.py`, met een eigen `conftest.py` die Home Assistant door attrappen vervangt) worden als apart pakket bij de release geleverd, niet in de repository.
 
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 2.0.0b1 – Statisch IP via REST, reserveringen en VPN-apparaten, README in vijf talen
+
+**Bèta (voorlopige versie).** Bouwt voort op 1.9.2b1. **Niets hiervan is getest op een echte FRITZ!Box of in een draaiende Home Assistant** – alleen tegen een gesimuleerde box en synthetische gegevens.
+
+- **Opgelost (IP-adres wijzigen):** `set_static_ip` en de rij „Statisch IP” in de kaart werkten niet. Oorzaak: de formuliervelden van `data.lua` waren slechts aangenomen en de box accepteerde ze nooit. De integratie schrijft nu via de REST-route die een extern project voor FRITZ!OS 8.25 beschrijft (`PUT /api/v0/generic/landevice/landevice/<UID>`), leest het resultaat terug (`query.lua`, anders REST of `edit_device`), meldt een ontbrekende of zonder melding genegeerde wijziging als fout (met verwijzing naar de tweefactorbevestiging) en herstelt een eerdere toewijzing. De oude weg blijft als terugvaloptie. Het veld `ip` van het verzoek is zelfs in het externe project ongetest.
+- **Opgelost (#30):** `set_dns_settings` draaide op een FRITZ!Box 6591 Cable ook na 1.9.1 de IPv4-waarde terug. Oorzaak: de teruggelezen waarde werd als tekenreeks vergeleken; de box kort één nulgroep van een IPv6-adres in tot `::`, de integratie hield `:0:`. IP-adressen worden nu als adressen vergeleken, zowel bij de controle na een HTTP-fout als bij de eindcontrole. Nagebootst en opgelost tegen een gesimuleerde box.
+- **Opgelost (#31):** apparaten met „altijd hetzelfde IPv4-adres geven” binnen het DHCP-bereik golden als „dynamisch” en ontbraken in het filter „Vast IP” (de box meldt dit niet via TR-064). De integratie leest de reserveringen nu extra uit de webinterface (`query.lua`, anders `netDev`, in het ritme van de IP-typebepaling) en telt ze als vast. **Op geen enkele box getest:** de veldnamen komen uit beschrijvingen van externe projecten; levert de box de markering niet, dan verandert er niets. De diagnose-download toont onder `reservations` welke weg werkte.
+- **Opgelost (#29, waarschijnlijke oorzaak):** vermeldingen zonder MAC-adres werden als verlopen weggegooid – WireGuard-gesprekspartners hebben er geen. Als VPN gemarkeerde gesprekspartners met IP-adres blijven nu behouden met de id `VPN:<IP>` en verschijnen als actief; ze krijgen geen entiteiten en geen acties die een MAC-adres vereisen. **Of de box WireGuard-gesprekspartners in zijn apparatenlijst meldt, is ongetest**; `box_hosts.without_mac_samples` in de diagnose toont hoe hij ze markeert.
+- **Opgelost (#24, één mogelijke oorzaak):** de instelling „Verbroken apparaten verbergen” maakte ook de weergaven „Inactief” en „Lang offline” leeg. Die weergaven tonen nu offline-apparaten; de instelling geldt nog alleen voor de gemengde weergaven (helptekst toegevoegd). Niet bij elke melder is de oorzaak bevestigd.
+- **Nieuw:** filterknop **VPN** in de filterbalk van de kaart (naast „Vast IP”): toont apparaten die de box als VPN markeert en vermeldingen die als `VPN:<IP>` zijn bewaard. Te verbergen met `filter_vpn: false`, `default_filter: vpn` mogelijk, pictogramkleur `color_cat_vpn`. Alleen gecontroleerd met een syntaxcontrole van de kaart, niet in een browser.
+- **Documentatie:** de README is nu beschikbaar in **vijf talen** (de, en, nl, fr, es) met een taalbalk bovenaan elk bestand. Integratie en kaart blijven vertaald in de, en, nl.
+- **Niet opgelost:** #26 (dataverbruik per apparaat) – TR-064 levert het niet, het issue blijft open. #20 was opgelost in 1.9.1 en door de melder bevestigd; #28 is een HACS-kwestie.
 
 ### 1.9.2b1 – Notification Center (optioneel), updatemelding voor voorlopige versies
 
