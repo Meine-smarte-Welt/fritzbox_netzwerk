@@ -7,7 +7,7 @@
 
 Une intégration Home Assistant qui affiche tous les appareils du réseau domestique FRITZ!Box sur votre tableau de bord sous forme de tableau triable – avec adresse IP, adresse MAC, type de connexion et nom de l'appareil Home Assistant correspondant.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b5-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b6-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Ceci est l'édition française du README, disponible en cinq langues (voir la barre de langues ci-dessus). Le [README.md](README.md) allemand est le fichier principal : il contient la référence complète de la carte, le chapitre de dépannage et l'historique complet des versions. Les sections marquées « en allemand uniquement » ne sont pas encore traduites. L'intégration et la carte elles-mêmes sont traduites en allemand, anglais et néerlandais.
@@ -189,7 +189,7 @@ Option « Enregistrer la consommation de données (expérimental) » (désactiv�
 - Dans la FRITZ!Box, **« Enregistrer les débits Internet »** doit être activé pour chaque appareil (Réseau domestique → Réseau → appareil → détails ; « Appareils individuels » dans le moniteur en ligne, FRITZ!OS 7.90/8.0 ou plus récent). Les appareils sans ce réglage n'apparaissent pas.
 - Le comptage commence à l'activation de l'option ; la box ne fournit pas de valeurs passées. Une semaine complète demande 7 jours.
 - Les totaux sont conservés dans le stockage de Home Assistant (8 jours). Si Home Assistant ou l'interrogation est interrompu un moment, ce temps manque dans les totaux (le diagnostic compte les lacunes sous `traffic.stats`).
-- **Unité non vérifiée :** on suppose des octets par seconde. Si les chiffres semblent faux, réglez « Unité des valeurs du moniteur en ligne » sur bits par seconde dans les options. Le diagnostic montre des valeurs brutes sous `traffic.shape.sample_values` pour comparer avec le moniteur en ligne de la box.
+- **Unité vérifiée seulement pour la plausibilité :** octets par seconde ; sur une FRITZ!Box 5690 Pro (FRITZ!OS 8.40) l'ordre de grandeur correspond aux compteurs de la box, une comparaison exacte manque encore. Si les chiffres semblent faux, réglez « Unité des valeurs du moniteur en ligne » sur bits par seconde dans les options. Le diagnostic montre des valeurs brutes sous `traffic.shape.sample_values` pour comparer avec le moniteur en ligne de la box.
 
 **Capteurs (depuis 2.0.0b3) :** L'option crée *Statut de la consommation de données* (diagnostic ; affiche « Données disponibles », « En attente de mesures », « Aucune source associée », « Aucune mesure correspondante » ou « Erreur de lecture » ; la cause est dans les attributs), *Consommation de données 7 jours (tous les appareils)* et *Plus gros consommateur (7 jours)* (nom de l'appareil, classement des cinq premiers dans les attributs). Chaque appareil avec des valeurs reçoit aussi *<appareil> Daten 7 Tage* et *<appareil> Daten heute* (unité octet, affichage en Go ; téléchargement, envoi et évolution quotidienne en attributs). Les capteurs d'appareil n'apparaissent qu'une fois des valeurs disponibles. **Si vous ne voyez rien, regardez d'abord le capteur de statut.**
 
@@ -363,6 +363,14 @@ Les tests pour 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `te
 Le dépôt contient les tests pour 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`) ; ils s'exécutent sur des données synthétiques, pas sur du matériel réel. Les tests de 1.8.0 pour `dns_settings.py` et `static_ip.py` ne sont pas versionnés.
 
 ## Historique des versions
+
+### 2.0.0b6 – Moniteur en ligne pour FRITZ!OS 8.x (observé sur une FRITZ!Box 5690 Pro)
+
+**Bêta (préversion).** S'appuie sur 2.0.0b5. L'interface a été observée dans le navigateur sur une FRITZ!Box 5690 Pro sous FRITZ!OS 8.40 (lecture seule) ; **l'intégration elle-même n'y a pas encore tourné**.
+
+- **Corrigé :** les données du moniteur en ligne s'y trouvent sous `api/v0/monitor/online/0` (mesures toutes les 5 secondes, par appareil avec adresse MAC). L'intégration lit maintenant ce chemin en premier ; les anciens restent en secours. La requête d'association supplémentaire disparaît.
+- **Remarque :** la box ne conserve qu'environ 24 heures par appareil (les séries de 14 et 60 jours ne contiennent pas d'appareils individuels). Le total sur 7 jours reste donc construit par addition depuis l'activation.
+- **Unité :** octets par seconde correspond à l'ordre de grandeur des compteurs de la box.
 
 ### 2.0.0b5 – Moniteur en ligne : chemins d'interface alternatifs
 

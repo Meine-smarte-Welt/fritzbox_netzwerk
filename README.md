@@ -9,7 +9,7 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b5-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b6-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 ---
@@ -528,7 +528,7 @@ Option „Datenverbrauch je Gerät erfassen (experimentell)“ (standardmäßig 
 - In der FRITZ!Box muss je Gerät **„Internet-Datenraten speichern“** aktiv sein (Heimnetz → Netzwerk → Gerät → Details; „Einzelne Geräte“ im Online-Monitor, FRITZ!OS 7.90/8.0 und neuer). Geräte ohne diese Einstellung erscheinen nicht.
 - Gezählt wird ab Aktivierung der Option; die Werte der Vergangenheit liefert die Box nicht. Eine volle Woche gibt es erst nach 7 Tagen.
 - Die Summen werden im Home-Assistant-Speicher gehalten (8 Tage). Läuft Home Assistant oder der Abruf zeitweise nicht, fehlt diese Zeit in der Summe (die Diagnose zählt die Lücken unter `traffic.stats`).
-- **Einheit ungeprüft:** Angenommen werden Byte pro Sekunde. Stimmen die Zahlen nicht, in den Optionen „Einheit der Messwerte des Online-Monitors“ auf Bit pro Sekunde stellen. Die Diagnose zeigt unter `traffic.shape.sample_values` rohe Beispielwerte zum Vergleichen mit dem Online-Monitor der Box.
+- **Einheit nur plausibel geprüft:** Byte pro Sekunde; an einer FRITZ!Box 5690 Pro (FRITZ!OS 8.40) passt die Größenordnung zu den Zählern der Box, ein genauer Abgleich steht aus. Stimmen die Zahlen nicht, in den Optionen „Einheit der Messwerte des Online-Monitors“ auf Bit pro Sekunde stellen. Die Diagnose zeigt unter `traffic.shape.sample_values` rohe Beispielwerte zum Vergleichen mit dem Online-Monitor der Box.
 
 **Sensoren (seit 2.0.0b3):** Mit der Option entstehen *Datenverbrauch Status* (Diagnose; zeigt „Daten vorhanden“, „Wartet auf Messwerte“, „Keine Datenquelle zugeordnet“, „Keine passenden Messwerte“ oder „Fehler beim Abruf“, der Grund steht in den Attributen), *Datenverbrauch 7 Tage (alle Geräte)* und *Größter Datenverbraucher (7 Tage)* (Name des Geräts, Rangliste der fünf größten in den Attributen). Je Gerät mit Messwerten kommen *<Gerät> Daten 7 Tage* und *<Gerät> Daten heute* dazu (Einheit Byte, Anzeige in GB; Download, Upload und Tagesverlauf als Attribute). Die Geräte-Sensoren entstehen erst, sobald für das Gerät Messwerte vorliegen. **Siehst du nichts, schau zuerst auf den Status-Sensor.**
 
@@ -1744,7 +1744,7 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `6481aae96542b94e30b9f4e4322894132cff1693f65b3455b7f34922fe3d6d94` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `99de00dbf0a1338584d66513f49b736961d30537e7312f690c02e12461022d40` |
 | `custom_components/fritzbox_netzwerk/strings.json` | `eba3c30deb99cf0b7fdd02db735a87a626ca4783c2c355fcc8203ac7ef1deb49` |
 | `custom_components/fritzbox_netzwerk/translations/de.json` | `c855d21892eef9e2db423dbe075b49f954d5a9199f94201dfbebcaa8336a0699` |
 | `custom_components/fritzbox_netzwerk/translations/en.json` | `b7612495e4bd9251381269008685314e3ec98b577c167a254cca8e3a4e697d6d` |
@@ -1786,6 +1786,14 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.0.0b6 – Online-Monitor für FRITZ!OS 8.x (an einer FRITZ!Box 5690 Pro betrachtet)
+
+**Beta (Vorabversion).** Baut auf 2.0.0b5 auf. Die Schnittstelle wurde an einer FRITZ!Box 5690 Pro mit FRITZ!OS 8.40 im Browser betrachtet (nur lesend); **die Integration selbst lief dort noch nicht**.
+
+- **Behoben:** Die Online-Monitor-Daten liegen dort unter `api/v0/monitor/online/0` (Messwerte im 5-Sekunden-Abstand, je Gerät mit MAC-Adresse). Die Integration liest jetzt diesen Weg zuerst; die alten Pfade bleiben als Ausweichweg. Eine zusätzliche Zuordnungsabfrage entfällt.
+- **Hinweis:** Die Box hält je Gerät nur rund 24 Stunden vor (die 14- und 60-Tage-Reihen enthalten keine Einzelgeräte). Die 7-Tage-Summe entsteht also weiterhin durch Aufsummieren ab Aktivierung.
+- **Einheit:** Byte pro Sekunde passt zur Größenordnung der Zähler der Box.
 
 ### 2.0.0b5 – Online-Monitor: alternative Schnittstellenpfade
 

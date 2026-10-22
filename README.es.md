@@ -7,7 +7,7 @@
 
 Una integración de Home Assistant que muestra todos los dispositivos de la red doméstica de la FRITZ!Box en tu panel como una tabla ordenable – con dirección IP, dirección MAC, tipo de conexión y el nombre del dispositivo de Home Assistant correspondiente.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b5-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b6-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Esta es la edición en español del README, disponible en cinco idiomas (consulta la barra de idiomas de arriba). El [README.md](README.md) alemán es el archivo principal y contiene la referencia completa de la tarjeta, el capítulo de solución de problemas y el historial completo de versiones. Las secciones marcadas «solo en alemán» aún no están traducidas. La integración y la tarjeta están traducidas al alemán, inglés y neerlandés.
@@ -189,7 +189,7 @@ Opción «Registrar el consumo de datos (experimental)» (desactivada por defect
 - En la FRITZ!Box debe estar activado **«Guardar velocidades de datos de Internet»** por dispositivo (Red doméstica → Red → dispositivo → detalles; «Dispositivos individuales» en el monitor en línea, FRITZ!OS 7.90/8.0 o posterior). Los dispositivos sin este ajuste no aparecen.
 - El recuento empieza al activar la opción; la caja no entrega valores pasados. Una semana completa requiere 7 días.
 - Los totales se guardan en el almacenamiento de Home Assistant (8 días). Si Home Assistant o la consulta se interrumpen un tiempo, ese tiempo falta en los totales (el diagnóstico cuenta los huecos en `traffic.stats`).
-- **Unidad sin verificar:** se suponen bytes por segundo. Si las cifras no cuadran, ajuste «Unidad de los valores del monitor en línea» a bits por segundo en las opciones. El diagnóstico muestra valores crudos en `traffic.shape.sample_values` para compararlos con el monitor en línea de la caja.
+- **Unidad solo verificada en plausibilidad:** bytes por segundo; en una FRITZ!Box 5690 Pro (FRITZ!OS 8.40) el orden de magnitud encaja con los contadores de la caja, falta una comparación exacta. Si las cifras no cuadran, ajuste «Unidad de los valores del monitor en línea» a bits por segundo en las opciones. El diagnóstico muestra valores crudos en `traffic.shape.sample_values` para compararlos con el monitor en línea de la caja.
 
 **Sensores (desde 2.0.0b3):** La opción crea *Estado del consumo de datos* (diagnóstico; muestra «Datos disponibles», «Esperando mediciones», «Ninguna fuente asignada», «Sin mediciones coincidentes» o «Error de lectura»; la causa está en los atributos), *Consumo de datos 7 días (todos los dispositivos)* y *Mayor consumidor de datos (7 días)* (nombre del dispositivo, ranking de los cinco primeros en los atributos). Cada dispositivo con valores recibe además *<dispositivo> Daten 7 Tage* y *<dispositivo> Daten heute* (unidad byte, visualización en GB; descarga, subida y evolución diaria como atributos). Los sensores de dispositivo solo aparecen cuando hay valores. **Si no ves nada, mira primero el sensor de estado.**
 
@@ -363,6 +363,14 @@ Las pruebas de 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `te
 El repositorio contiene las pruebas de 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); se ejecutan con datos sintéticos, no con hardware real. Las pruebas de 1.8.0 para `dns_settings.py` y `static_ip.py` no están incluidas.
 
 ## Historial de versiones
+
+### 2.0.0b6 – Monitor en línea para FRITZ!OS 8.x (observado en una FRITZ!Box 5690 Pro)
+
+**Beta (versión preliminar).** Se basa en 2.0.0b5. La interfaz se observó en el navegador en una FRITZ!Box 5690 Pro con FRITZ!OS 8.40 (solo lectura); **la integración en sí aún no se ejecutó allí**.
+
+- **Corregido:** los datos del monitor en línea están allí en `api/v0/monitor/online/0` (mediciones cada 5 segundos, por dispositivo con dirección MAC). La integración lee ahora esa ruta primero; las antiguas quedan como alternativa. La petición de asignación adicional ya no hace falta.
+- **Nota:** la caja guarda solo unas 24 horas por dispositivo (las series de 14 y 60 días no contienen dispositivos individuales). El total de 7 días se sigue formando sumando desde la activación.
+- **Unidad:** bytes por segundo encaja con el orden de magnitud de los contadores de la caja.
 
 ### 2.0.0b5 – Monitor en línea: rutas de interfaz alternativas
 

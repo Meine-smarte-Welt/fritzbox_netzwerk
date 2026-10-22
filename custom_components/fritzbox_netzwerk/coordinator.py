@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): e114133a2d4629fe695db1ccc8acc22daf0be62495f25517d9651963478d5acf
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 335001f3407df6e1ee90644f9b7c814b7f441fec2282349a5de1d393d8079166
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -139,6 +139,8 @@ from .traffic import (
     TrafficLedger,
     apply_traffic,
     build_source_map,
+    online_shape,
+    parse_online,
     parse_subsets,
     status_key,
     traffic_shape,
@@ -615,16 +617,25 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         self._traffic_error = None
         self._traffic_base = found.get("monitor_base") or self._traffic_base
-        if refresh:
-            self._traffic_map, self._traffic_counts = build_source_map(
-                found.get("datasets"), found.get("landevices")
+        if found.get("mode") == "online":
+            # FRITZ!OS 8.x: MAC-Adressen stehen direkt in der Antwort, die
+            # Zuordnung entsteht bei jedem Abruf neu.
+            self._traffic_map, self._traffic_counts, subsets = parse_online(
+                found.get("online"), found.get("interval")
             )
-            # Ohne einen einzigen zugeordneten Zaehler beim naechsten Abruf erneut
-            # versuchen (statt 15 Minuten zu warten), z. B. wenn die Geraete-
-            # liste der Box beim ersten Mal noch nicht vollstaendig war.
-            self._traffic_map_scan = now if self._traffic_map else None
-        subsets = parse_subsets(found.get("subsets"))
-        self._traffic_shape.update(traffic_shape(found.get("datasets"), found.get("subsets")))
+            self._traffic_map_scan = now
+            self._traffic_shape.update(online_shape(found.get("online"), found.get("interval")))
+        else:
+            if refresh:
+                self._traffic_map, self._traffic_counts = build_source_map(
+                    found.get("datasets"), found.get("landevices")
+                )
+                # Ohne einen einzigen zugeordneten Zaehler beim naechsten Abruf erneut
+                # versuchen (statt 15 Minuten zu warten), z. B. wenn die Geraete-
+                # liste der Box beim ersten Mal noch nicht vollstaendig war.
+                self._traffic_map_scan = now if self._traffic_map else None
+            subsets = parse_subsets(found.get("subsets"))
+            self._traffic_shape.update(traffic_shape(found.get("datasets"), found.get("subsets")))
         added = self._traffic.ingest(self._traffic_map, subsets)
         self._traffic_info = {
             "subsets": len(subsets),

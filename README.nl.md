@@ -7,7 +7,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.0.0b5-blue)
+![Version](https://img.shields.io/badge/Version-2.0.0b6-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 > Dit is de Nederlandse uitgave. De Duitse [README.md](README.md) is het hoofdbestand en bevat de volledige kaartreferentie, het hoofdstuk probleemoplossing en de complete versiegeschiedenis. Onderdelen met „alleen Duits” zijn nog niet vertaald.
@@ -190,7 +190,7 @@ Optie “Dataverbruik per apparaat vastleggen (experimenteel)” (standaard uit)
 - In de FRITZ!Box moet per apparaat **“Internetdatasnelheden opslaan”** aan staan (Thuisnetwerk → Netwerk → apparaat → details; “Afzonderlijke apparaten” in de Online Monitor, FRITZ!OS 7.90/8.0 of nieuwer). Apparaten zonder deze instelling verschijnen niet.
 - Tellen begint zodra de optie aan staat; de box levert geen waarden uit het verleden. Een volledige week duurt 7 dagen.
 - De totalen staan in de opslag van Home Assistant (8 dagen). Als Home Assistant of het ophalen tijdelijk uitvalt, ontbreekt die tijd in de totalen (diagnose telt de gaten onder `traffic.stats`).
-- **Eenheid ongecontroleerd:** aangenomen wordt byte per seconde. Kloppen de cijfers niet, zet dan “Eenheid van de waarden van de online-monitor” op bit per seconde. De diagnose toont onder `traffic.shape.sample_values` ruwe voorbeeldwaarden om met de Online Monitor van de box te vergelijken.
+- **Eenheid alleen op plausibiliteit gecontroleerd:** byte per seconde; op een FRITZ!Box 5690 Pro (FRITZ!OS 8.40) past de ordegrootte bij de tellers van de box, een exacte vergelijking ontbreekt nog. Kloppen de cijfers niet, zet dan “Eenheid van de waarden van de online-monitor” op bit per seconde. De diagnose toont onder `traffic.shape.sample_values` ruwe voorbeeldwaarden om met de Online Monitor van de box te vergelijken.
 
 **Sensoren (sinds 2.0.0b3):** De optie maakt *Dataverbruik status* (diagnose; toont „Gegevens beschikbaar”, „Wacht op metingen”, „Geen gegevensbron gekoppeld”, „Geen passende metingen” of „Fout bij ophalen”, de reden staat in de attributen), *Dataverbruik 7 dagen (alle apparaten)* en *Grootste dataverbruiker (7 dagen)* (apparaatnaam, top-vijf in de attributen). Elk apparaat met waarden krijgt ook *<apparaat> Daten 7 Tage* en *<apparaat> Daten heute* (eenheid byte, weergave in GB; download, upload en dagverloop als attributen). Apparaatsensoren verschijnen pas zodra er waarden zijn. **Zie je niets, kijk dan eerst naar de statussensor.**
 
@@ -383,6 +383,14 @@ De tests voor 1.9.2b1 (`test_notification_bridge.py`, `test_nc_catalog.py`, `tes
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 2.0.0b6 – Online Monitor voor FRITZ!OS 8.x (bekeken op een FRITZ!Box 5690 Pro)
+
+**Bèta (voorlopige versie).** Bouwt voort op 2.0.0b5. De interface is in de browser bekeken op een FRITZ!Box 5690 Pro met FRITZ!OS 8.40 (alleen lezen); **de integratie zelf draaide daar nog niet**.
+
+- **Opgelost:** de Online Monitor-gegevens staan daar onder `api/v0/monitor/online/0` (metingen om de 5 seconden, per apparaat met MAC-adres). De integratie leest nu eerst dit pad; de oude paden blijven als terugvaloptie. Het extra koppelverzoek vervalt.
+- **Let op:** de box bewaart per apparaat slechts ongeveer 24 uur (de reeksen van 14 en 60 dagen bevatten geen afzonderlijke apparaten). Het 7-dagentotaal ontstaat dus nog steeds door op te tellen vanaf de activering.
+- **Eenheid:** byte per seconde past bij de ordegrootte van de tellers van de box.
 
 ### 2.0.0b5 – Online Monitor: alternatieve interfacepaden
 

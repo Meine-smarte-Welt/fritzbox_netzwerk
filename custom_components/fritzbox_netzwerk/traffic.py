@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 5236d7bf8990e5f30fd7e81e9f3e68be77673ecdc84e536fa4844580f558f9aa
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 97168147bbb8c207cf51b8a04aef17cfd6531d0245e820e96638d69bc2e4778e
 """Datenverbrauch je Geraet ueber 7 Tage (EXPERIMENTELL, seit 2.0.0b2).
 
 Quelle ist der Online-Monitor der Weboberflaeche (FRITZ!OS ab 7.90/8.0,
@@ -202,6 +202,79 @@ def traffic_shape(datasets_payload: Any, subsets_payload: Any) -> dict[str, Any]
         measurements_len=len(measurements) if isinstance(measurements, list) else None,
         timestamp_digits=len(str(int(timestamp))) if timestamp else None,
         sample_values=[round(n, 1) for n in numbers[-6:]],
+    )
+    return shape
+
+
+_ONLINE_UID = re.compile(r"^mac([0-9a-f]{12})$", re.IGNORECASE)
+
+
+def parse_online(payload: Any, interval: float | None = None) -> tuple[dict[str, dict[str, str]], dict[str, int], list[dict[str, Any]]]:
+    """Liest die Antwort von ``api/v0/monitor/online/<id>`` (FRITZ!OS 8.x, an einer 8.40 beobachtet).
+
+    Aufbau: ``{"lastSampleTime": <s>, "categories": [...], "devices": [{"UID":
+    "mac<12 Hex>", "landeviceUid": "landeviceNNN", "upstream": [...],
+    "downstream": [...]}]}`` - die Werte sind Raten je Messzeitpunkt, der
+    Zeitstempel ist der der neuesten Messung. Gibt ``(Zuordnung, Zaehler,
+    Messreihen)`` im selben Format wie ``build_source_map``/``parse_subsets``
+    zurueck, damit ``TrafficLedger.ingest`` beide Wege gleich verarbeitet.
+    """
+    mapping: dict[str, dict[str, str]] = {}
+    counts = {"sources": 0, "per_device": 0, "resolved": 0, "unresolved": 0, "no_direction": 0}
+    raw: list[dict[str, Any]] = []
+    if not isinstance(payload, dict):
+        return mapping, counts, []
+    last = payload.get("lastSampleTime")
+    step = interval if interval and 1 <= interval <= 3600 else SAMPLE_SECONDS
+    for device in payload.get("devices") or []:
+        if not isinstance(device, dict):
+            continue
+        counts["per_device"] += 1
+        found = _ONLINE_UID.match(str(device.get("UID") or "").strip())
+        if not found:
+            counts["unresolved"] += 1
+            continue
+        key = found.group(1).lower()
+        counts["resolved"] += 1
+        for field, kind in (("downstream", "down"), ("upstream", "up")):
+            values = device.get(field)
+            if not isinstance(values, list) or not values:
+                continue
+            name = f"{key}:{kind}"
+            counts["sources"] += 1
+            mapping[name] = {"mac": key, "kind": kind}
+            raw.append(
+                {"dataSourceName": name, "timestamp": last, "measurements": values, "sampleInterval": step}
+            )
+    return mapping, counts, parse_subsets(raw)
+
+
+def online_shape(payload: Any, interval: float | None) -> dict[str, Any]:
+    """Aufbau der ``online``-Antwort fuer den Diagnose-Download (ohne Namen/Adressen)."""
+    shape: dict[str, Any] = {"mode": "online", "interval_s": interval}
+    if not isinstance(payload, dict):
+        shape["top"] = type(payload).__name__
+        return shape
+    devices = [d for d in payload.get("devices") or [] if isinstance(d, dict)]
+    with_values = [
+        d for d in devices if any(_number(v) is not None for v in (d.get("downstream") or []))
+    ]
+    sample: list[float] = []
+    for device in with_values:
+        sample = [n for n in (_number(v) for v in (device.get("downstream") or [])) if n is not None][-6:]
+        if any(sample):
+            break
+    last = _number(payload.get("lastSampleTime"))
+    series = with_values[0].get("downstream") if with_values else None
+    shape.update(
+        keys=sorted(str(k) for k in payload)[:12],
+        devices=len(devices),
+        devices_with_mac_uid=sum(1 for d in devices if _ONLINE_UID.match(str(d.get("UID") or ""))),
+        devices_with_values=len(with_values),
+        categories=sorted({str(c.get("type")) for c in payload.get("categories") or [] if isinstance(c, dict)})[:8],
+        series_len=len(series) if isinstance(series, list) else None,
+        timestamp_digits=len(str(int(last))) if last else None,
+        sample_values=[round(n, 1) for n in sample],
     )
     return shape
 

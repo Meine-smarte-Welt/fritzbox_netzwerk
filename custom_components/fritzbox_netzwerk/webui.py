@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 268d18e43fbe0932be71755e39a5acbf2a8234ec96eb9c5abe0e8283dcee7b72
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 0b1eac6df3b9f08e3f7a238c7eee31c0f0c4514bf4e9d22f048c5cea96d1a9a3
 """Inoffizieller Zugriff auf die FRITZ!Box-Weboberfläche (nur lesend).
 
 ACHTUNG - EXPERIMENTELL: Dieses Modul spricht NICHT TR-064, sondern die
@@ -401,6 +401,21 @@ def monitor_get(session: Any, base: str, sid: str, path: str) -> Any:
         raise ValueError(f"{path}: keine JSON-Antwort") from err
 
 
+MONITOR_ONLINE = "api/v0/monitor/online"
+
+
+def _online_interval(payload: Any) -> float | None:
+    """Abtastabstand (Sekunden) der Messreihe 0 aus ``monitor/online/subsets``."""
+    for entry in payload if isinstance(payload, list) else []:
+        if isinstance(entry, dict) and str(entry.get("id")) == "0":
+            try:
+                ms = float(entry.get("sampleInterval"))
+            except (TypeError, ValueError):
+                return None
+            return ms / 1000 if ms > 0 else None
+    return None
+
+
 def fetch_monitor(
     session: Any,
     base: str,
@@ -409,24 +424,54 @@ def fetch_monitor(
     refresh_sources: bool,
     monitor_base: str | None = None,
 ) -> dict[str, Any]:
-    """Liest die Messreihen des Online-Monitors (und bei Bedarf die Zuordnung zu Geraeten).
+    """Liest die Messreihen des Online-Monitors (Raten je Geraet).
 
-    Gibt ``{"subsets": ..., "datasets": ...|None, "landevices": [...]|None,
-    "monitor_base": <genutzte Wurzel>}`` zurueck. ``datasets`` und ``landevices``
-    (Zuordnung Datenquelle -> MAC-Adresse) werden nur mit ``refresh_sources``
-    geholt; dabei werden die Wurzeln aus ``MONITOR_BASES`` der Reihe nach
-    probiert (oder nur ``monitor_base``, wenn bekannt). Fehler laufen als
-    ``ValueError``/Netzwerkfehler zum Aufrufer; bei mehreren Fehlschlaegen
-    stehen alle Meldungen im Text.
+    Zwei Wege, in dieser Reihenfolge probiert (oder nur der in ``monitor_base``
+    gemerkte):
+
+    * ``"online"`` - ``api/v0/monitor/online/0`` (FRITZ!OS 8.x, an einer 8.40
+      beobachtet): die Antwort enthaelt je Geraet MAC-Adresse und Raten.
+      Ergebnis: ``{"mode": "online", "online": <Antwort>, "interval": <s>,
+      "monitor_base": "online"}``.
+    * Ausweichweg ``api/v0/monitor`` bzw. ``api/v0/generic/monitor`` mit
+      ``datasets`` und ``macaddrs/subset0000`` (so beschreibt es ein
+      Community-Skript fuer aeltere Staende), Ergebnis mit ``"mode": "legacy"``,
+      ``subsets``, ``datasets`` (nur mit ``refresh_sources``) und ``landevices``.
+
+    Fehler laufen als ``ValueError``/Netzwerkfehler zum Aufrufer; bei mehreren
+    Fehlschlaegen stehen alle Meldungen im Text.
     """
     sid = login(session, base, user, password)
     try:
+        errors: list[str] = []
+        if monitor_base in (None, "online"):
+            try:
+                interval: float | None = None
+                try:
+                    interval = _online_interval(monitor_get(session, base, sid, f"{MONITOR_ONLINE}/subsets"))
+                except ValueError:
+                    interval = None
+                online = monitor_get(session, base, sid, f"{MONITOR_ONLINE}/0")
+                if not isinstance(online, dict) or "devices" not in online:
+                    raise ValueError(f"{MONITOR_ONLINE}/0: unerwartetes Format")
+                return {
+                    "mode": "online",
+                    "online": online,
+                    "interval": interval,
+                    "monitor_base": "online",
+                    "subsets": None,
+                    "datasets": None,
+                    "landevices": None,
+                }
+            except ValueError as err:
+                if monitor_base == "online":
+                    raise
+                errors.append(str(err))
         datasets: Any = None
         landevices: list[dict[str, Any]] | None = None
         roots = (monitor_base,) if monitor_base else MONITOR_BASES
         used = monitor_base
-        if refresh_sources or not monitor_base:
-            errors: list[str] = []
+        if refresh_sources or not monitor_base or monitor_base == "online":
             for root in roots:
                 try:
                     datasets = monitor_get(session, base, sid, f"{root}/datasets")
@@ -435,7 +480,7 @@ def fetch_monitor(
                     continue
                 used = root
                 break
-            if used is None:
+            if used is None or used == "online":
                 raise ValueError("; ".join(errors))
             try:
                 landevices = parse_landevice_list(query_lua(session, base, sid, LANDEVICE_QUERY))
@@ -444,7 +489,13 @@ def fetch_monitor(
         subsets = monitor_get(session, base, sid, f"{used}/{MONITOR_SUBSET_NAME}")
     finally:
         logout(session, base, sid)
-    return {"subsets": subsets, "datasets": datasets, "landevices": landevices, "monitor_base": used}
+    return {
+        "mode": "legacy",
+        "subsets": subsets,
+        "datasets": datasets,
+        "landevices": landevices,
+        "monitor_base": used,
+    }
 
 
 def parse_device_profile(payload: Any) -> str | None:
