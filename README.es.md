@@ -7,7 +7,7 @@
 
 Una integración de Home Assistant que muestra todos los dispositivos de la red doméstica de la FRITZ!Box en tu panel como una tabla ordenable – con dirección IP, dirección MAC, tipo de conexión y el nombre del dispositivo de Home Assistant correspondiente.
 
-![Version](https://img.shields.io/badge/Version-2.0.0-blue)
+![Version](https://img.shields.io/badge/Version-2.0.1b1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Vídeo y guía de la tarjeta de red (en alemán):** [meinesmartewelt.de – FRITZ!Box Netzwerk para Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -394,6 +394,29 @@ Las pruebas del centro de notificaciones en 2.0.0 (`test_notification_bridge.py`
 El repositorio contiene las pruebas de 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); se ejecutan con datos sintéticos, no con hardware real. Las pruebas de 1.8.0 para `dns_settings.py` y `static_ip.py` no están incluidas.
 
 ## Historial de versiones
+
+### 2.0.1b1 – Mapa Mesh con cascada y nubes, nombre de la FRITZ!Box, lectura del perfil de acceso sin timeout
+
+Versión previa (beta), basada en 2.0.0. **No probada en una FRITZ!Box real ni en un Home Assistant en funcionamiento** – la evaluación solo se ejecutó con una topología mesh simulada (box, repetidores en cascada, dispositivos tras un switch) y con simulaciones de la interfaz web. La tarjeta se dibujó con datos de prueba en un navegador sin interfaz.
+
+**Tarjeta (pestaña «Mesh»)**
+
+- **Nuevo – vista en árbol:** un repetidor tras otro repetidor (cascada) se dibuja ahora como árbol; cada enlace muestra su velocidad de datos.
+- **Nuevo – nubes por estación:** bajo la FRITZ!Box y bajo cada repetidor cuelgan nubes con los dispositivos conectados, separados en **Wi-Fi** y **LAN** (más «otros» si el tipo es desconocido). Los dispositivos tras un **switch** aparecen en la nube LAN de la estación a la que está conectado el switch – la FRITZ!Box no informa de los switches por separado.
+- **Nuevo – total en la FRITZ!Box:** la box muestra «N dispositivos en total»; la sección desplegable indica «10 directos · 15 en total». Los repetidores en la lista de una estación se marcan con «↳».
+- **Corregido – nombre en lugar de modelo:** la FRITZ!Box aparecía con su modelo («FRITZ!Box 5530 Fiber»). Ahora muestra su nombre de la red doméstica (entrada de la propia box en la lista de dispositivos; si no, el nombre de la topología mesh); el modelo queda debajo.
+- **Corregido – box no conectada consigo misma:** la entrada propia de la FRITZ!Box ya no aparece en la lista de dispositivos de su propia estación.
+- **Mejorado – velocidades:** si falta la velocidad actual (frecuente en enlaces por cable y algunos repetidores), se usa la velocidad máxima del enlace. Sin probar; sin ninguno de los dos valores la celda queda en «—».
+- La columna y la ventana «Conectado a través de» muestran el nombre de la estación del mesh.
+
+**Integración**
+
+- **Corregido – repetidores en cascada:** la evaluación mesh omitía hasta ahora todos los dispositivos con varias conexiones activas – justo los repetidores con clientes propios. El enlace ascendente de cada dispositivo es ahora el camino más corto hasta la box principal; los repetidores también reciben «Conectado a través de» y una velocidad. Nuevos atributos por dispositivo: `via_id`, `link_type`, `mesh_id`; los miembros del mesh llevan `mesh_id`, `via_id`, `link_mbit`, `link_type`.
+- **Corregido – timeout en `get_access_profile` (comentario sobre la 5530):** `Read timed out (read timeout=10)`. El dispositivo se busca ahora primero en la lista ligera (la misma vía que la dirección IP fija); las páginas pesadas de la interfaz web (`netDev`, `edit_device`, `kidPro`) pueden responder hasta 40 segundos. Que esto elimine el timeout en la 5530 no está probado.
+
+**Actualización:** vía HACS (mostrar versiones previas en HACS), reiniciar Home Assistant, vaciar la caché del navegador (Ctrl+F5).
+
+**Conocido:** cómo informa la box de los dispositivos tras un switch depende de FRITZ!OS; la asignación a una estación no está probada. Los comentarios con la descarga de diagnóstico (sección mesh) ayudan.
 
 ### 2.0.0 – Monitor en línea y mapa Mesh, información de la FRITZ!Box con temperatura, centro de notificaciones, consumo de datos por dispositivo, IP estática mediante REST
 

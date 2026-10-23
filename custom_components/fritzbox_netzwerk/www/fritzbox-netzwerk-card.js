@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): b0bc459fbd12bbc15f164993dec6b6440e3bd20ff9d0574bea175c63b0a21ddb
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 62ce65ef2aeee62e9572220889dd3249562461b5c108987213bc6f565ffb326a
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "2.0.0";
+const FBN_VERSION = "2.0.1b1";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -308,7 +308,7 @@ const I18N = {
     "tip.copy": "Klicken zum Kopieren", "copy.done": "{value} kopiert",
     "copy.failed": "Kopieren nicht möglich – bitte den Wert markieren und mit Strg+C kopieren.",
     "popup.open_tip": "Gerätedetails öffnen", "mm.hint": "Tippe auf ein Gerät oder einen Repeater, um die Details zu öffnen. „Geräte“ klappt die Liste auf.",
-    "mm.show_devices": "Geräteliste öffnen", "mm.open_tip": "Details von {name} öffnen",
+    "mm.show_devices": "Geräteliste öffnen", "mm.cloud_wlan": "{n} WLAN", "mm.cloud_lan": "{n} LAN", "mm.cloud_other": "{n} Sonstige", "mm.min": "min. {v} Mbit/s", "mm.total": "{n} Geräte gesamt", "mm.direct_total": "{d} direkt · {t} gesamt", "mm.hint2": "Die Wolken zeigen die verbundenen Geräte je Station, getrennt nach WLAN und LAN. Geräte an einem Switch stehen in der LAN-Wolke der Station, an der der Switch hängt – die FRITZ!Box meldet Switches nicht einzeln.", "mm.open_tip": "Details von {name} öffnen",
     "box.accordion": "FRITZ!Box", "box.model": "Modell", "box.os": "FRITZ!OS", "box.ip": "IP-Adresse", "box.uptime": "Laufzeit",
     "box.temperature": "Temperatur", "box.cpu": "CPU-Auslastung", "box.ram": "RAM-Auslastung",
     "box.system_off": "Temperatur, CPU und RAM erscheinen, wenn du unter „Konfigurieren“ die Option „CPU und RAM der Box lesen (experimentell)“ einschaltest.",
@@ -416,7 +416,7 @@ const I18N = {
     "tip.copy": "Click to copy", "copy.done": "{value} copied",
     "copy.failed": "Copying is not possible \u2013 please select the value and copy it with Ctrl+C.",
     "popup.open_tip": "Open device details", "mm.hint": "Tap a device or a repeater to open its details. \"Devices\" expands the list.",
-    "mm.show_devices": "Open device list", "mm.open_tip": "Open details of {name}",
+    "mm.show_devices": "Open device list", "mm.cloud_wlan": "{n} Wi-Fi", "mm.cloud_lan": "{n} LAN", "mm.cloud_other": "{n} other", "mm.min": "min. {v} Mbit/s", "mm.total": "{n} devices total", "mm.direct_total": "{d} direct · {t} total", "mm.hint2": "The clouds show the connected devices per station, split into Wi-Fi and LAN. Devices behind a switch appear in the LAN cloud of the station the switch is plugged into – the FRITZ!Box does not report switches individually.", "mm.open_tip": "Open details of {name}",
     "box.accordion": "FRITZ!Box", "box.model": "Model", "box.os": "FRITZ!OS", "box.ip": "IP address", "box.uptime": "Uptime",
     "box.temperature": "Temperature", "box.cpu": "CPU load", "box.ram": "RAM usage",
     "box.system_off": "Temperature, CPU and RAM appear once you enable \"Read CPU and RAM of the box (experimental)\" under \"Configure\".",
@@ -524,7 +524,7 @@ const I18N = {
     "tip.copy": "Klik om te kopiëren", "copy.done": "{value} gekopieerd",
     "copy.failed": "Kopiëren niet mogelijk \u2013 selecteer de waarde en kopieer met Ctrl+C.",
     "popup.open_tip": "Apparaatdetails openen", "mm.hint": "Tik op een apparaat of repeater om de details te openen. „Apparaten” klapt de lijst open.",
-    "mm.show_devices": "Apparatenlijst openen", "mm.open_tip": "Details van {name} openen",
+    "mm.show_devices": "Apparatenlijst openen", "mm.cloud_wlan": "{n} wifi", "mm.cloud_lan": "{n} LAN", "mm.cloud_other": "{n} overig", "mm.min": "min. {v} Mbit/s", "mm.total": "{n} apparaten totaal", "mm.direct_total": "{d} direct · {t} totaal", "mm.hint2": "De wolken tonen de verbonden apparaten per station, verdeeld in wifi en LAN. Apparaten achter een switch staan in de LAN-wolk van het station waar de switch op is aangesloten – de FRITZ!Box meldt switches niet afzonderlijk.", "mm.open_tip": "Details van {name} openen",
     "box.accordion": "FRITZ!Box", "box.model": "Model", "box.os": "FRITZ!OS", "box.ip": "IP-adres", "box.uptime": "Looptijd",
     "box.temperature": "Temperatuur", "box.cpu": "CPU-belasting", "box.ram": "RAM-gebruik",
     "box.system_off": "Temperatuur, CPU en RAM verschijnen zodra je onder „Configureren” de optie „CPU en RAM van de box lezen (experimenteel)” inschakelt.",
@@ -1331,6 +1331,16 @@ class FritzboxNetzwerkCard extends HTMLElement {
     box.dataset.linkBound = "1";
     box.addEventListener("click", (event) => this._onLinkActivate(event));
     box.addEventListener("keydown", (event) => this._onLinkActivate(event));
+  }
+
+  /** Name des Mesh-Nachbarn, über den ein Gerät verbunden ist (bevorzugt der Name der Station aus der Mesh-Gruppe). */
+  _viaName(host) {
+    if (!host) return "";
+    const state = this._stateObj();
+    const attributes = (state && state.attributes) || {};
+    const members = attributes.mesh && Array.isArray(attributes.mesh.members) ? attributes.mesh.members : [];
+    const hub = host.via_id ? members.find((m) => m.mesh_id && m.mesh_id === host.via_id) : null;
+    return (hub && hub.name) || host.connected_via || "";
   }
 
   /** Klappt die Geräteliste eines Mesh-Knotens auf und blendet sie ein. */
@@ -2577,7 +2587,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
 
   /* -- Reiter Mesh (Karte) --------------------------------------------- */
 
-  /** Zeichnet das Mesh als Karte: FRITZ!Box, Repeater und ihre Geraete (wie Heimnetz -> Mesh). */
+  /**
+   * Zeichnet das Mesh als Baum: FRITZ!Box links, ihre Repeater rechts daneben - auch kaskadiert
+   * (Repeater hinter einem Repeater). Unter jeder Station hängen "Wolken" mit den verbundenen
+   * Geräten, getrennt nach WLAN und LAN (Geräte an einem Switch stehen in der LAN-Wolke der
+   * Station, an der der Switch hängt - die FRITZ!Box meldet Switches nicht einzeln).
+   */
   _renderMeshMap() {
     const box = this.querySelector(".fbn-meshmap");
     if (!box) return;
@@ -2594,92 +2609,237 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const members = mesh.members;
     const root = members.find((m) => m.role === "box") || members[0];
     const hubs = [root, ...members.filter((m) => m !== root)];
-    const byHub = new Map(hubs.map((h) => [h.name, []]));
-    const looseHosts = [];
+    const hubKey = (h) => String(h.mesh_id || h.mac || h.name || "");
+    const byId = new Map();
+    const byName = new Map();
+    for (const h of hubs) {
+      if (h.mesh_id) byId.set(h.mesh_id, h);
+      if (h.name && !byName.has(h.name)) byName.set(h.name, h);
+    }
+    // Uplink eines Repeaters: der Repeater/die Box laut via_id (Kaskade), sonst die Box.
+    const parents = new Map(
+      hubs.map((h) => {
+        if (h === root) return [h, null];
+        const p = (h.via_id && byId.get(h.via_id)) || null;
+        return [h, p && p !== h ? p : root];
+      })
+    );
+    for (const h of hubs) {
+      const seen = new Set([h]);
+      let p = parents.get(h);
+      while (p) {
+        if (seen.has(p)) {
+          parents.set(h, root);
+          break;
+        }
+        seen.add(p);
+        p = parents.get(p);
+      }
+    }
+    const children = new Map(hubs.map((h) => [h, []]));
+    for (const h of hubs) if (parents.get(h)) children.get(parents.get(h)).push(h);
+
+    // Geräte den Stationen zuordnen. Die Box selbst und Repeater sind keine "Geräte" in den Wolken.
+    const kindOf = (host) => {
+      const t = String(host.link_type || "").toUpperCase();
+      if (t === "WLAN" || t === "LAN") return t;
+      if (host.connection === "wlan") return "WLAN";
+      if (host.connection === "lan" || host.connection === "powerline") return "LAN";
+      return "OTHER";
+    };
+    const clients = new Map(hubs.map((h) => [h, []]));
+    let loose = 0;
     for (const host of hosts) {
       if (!host.active || host.repeater || host.is_repeater || host.mac_synthetic) continue;
-      const hub = host.connected_via && byHub.has(host.connected_via) ? host.connected_via : null;
-      if (hub) byHub.get(hub).push(host);
-      else looseHosts.push(host);
+      if (host.ip && root.ip && host.ip === root.ip) continue;
+      let hub = (host.via_id && byId.get(host.via_id)) || (host.connected_via && byName.get(host.connected_via)) || null;
+      if (!hub) {
+        hub = root;
+        loose += 1;
+      }
+      clients.get(hub).push(host);
     }
-    // Hosts ohne eindeutige Zuordnung haengen an der Box (Anzahl gesondert genannt) und stehen
-    // in deren Geraeteliste, damit jedes Geraet erreichbar bleibt.
-    const loose = looseHosts.length;
-    byHub.set(root.name, byHub.get(root.name).concat(looseHosts));
-    // Das Popup einer Mesh-Station: Repeater ueber die MAC, die Box ueber ihre IP-Adresse.
+    const total = [...clients.values()].reduce((sum, list) => sum + list.length, 0);
+    const groupsOf = (hub) => {
+      const parts = { WLAN: [], LAN: [], OTHER: [] };
+      for (const h of clients.get(hub)) parts[kindOf(h)].push(h);
+      return ["WLAN", "LAN", "OTHER"].filter((k) => parts[k].length).map((k) => ({ kind: k, list: parts[k] }));
+    };
+    // Das Popup einer Mesh-Station: Repeater über die MAC, die Box über ihre IP-Adresse.
     const hubTarget = (m) => (m.role === "box" ? this._hostByIp(m.ip) : this._hostByMac(m.mac));
-    const sig = JSON.stringify([hubs.map((h) => [h.name, h.online, h.model, h.mac, h.ip, hubTarget(h) ? 1 : 0]), [...byHub].map(([k, v]) => [k, v.map((x) => [x.mac, x.link_mbit, x.label || x.name, x.band])]), loose, this._lang()]);
+    const sig = JSON.stringify([
+      hubs.map((h) => [h.name, h.online, h.model, h.mac, h.ip, h.mesh_id, h.via_id, h.link_mbit, hubTarget(h) ? 1 : 0]),
+      hubs.map((h) => (clients.get(h) || []).map((x) => [x.mac, x.link_mbit, x.label || x.name, x.band, x.link_type, x.connection])),
+      total,
+      loose,
+      this._lang(),
+    ]);
     if (sig === this._meshSig) return;
     this._meshSig = sig;
     this._bindLinks(box);
 
-    const rowH = 92;
-    const width = 640;
-    const rootX = 96;
-    const clusterX = 524;
-    const repX = 310;
-    let svg = "";
-    const others = hubs.slice(1);
-    const ys = others.map((_, i) => Math.round(55 + i * rowH));
-    const rootY = ys.length ? Math.round((ys[0] + ys[ys.length - 1]) / 2) : 55;
-    const boxClusterY = rootY + 84;
-    const height = Math.max(ys.length ? ys[ys.length - 1] + 60 : 0, boxClusterY + 40);
-    // ``attrs``: Klickziel - Popup des Geraets (data-open-*) oder Geraeteliste (data-mesh-open).
-    const node = (x, y, icon, title, sub, cls, attrs = "", label = "") => `
-      <g class="fbn-mm-node ${cls}${attrs ? " fbn-mm-link" : ""}" transform="translate(${x - 84} ${y - 26})"${
+    // -- Layout: Spalte je Ebene, Unterbäume untereinander, Wolken unter der Station -----------
+    const HUB_W = 168;
+    const HUB_H = 64;
+    const CL_W = 116;
+    const CL_H = 52;
+    const ROW = 64;
+    const COL = 290;
+    const rowsOf = (hub) => Math.ceil(groupsOf(hub).length / 2);
+    const blockH = (hub) => HUB_H + (rowsOf(hub) ? 16 + rowsOf(hub) * ROW : 0) + 16;
+    const subH = new Map();
+    const measure = (hub) => {
+      let kids = 0;
+      for (const k of children.get(hub)) kids += measure(k);
+      const h = Math.max(blockH(hub), kids);
+      subH.set(hub, h);
+      return h;
+    };
+    measure(root);
+    let maxDepth = 0;
+    const depthOf = new Map();
+    const walk = (hub, depth) => {
+      depthOf.set(hub, depth);
+      maxDepth = Math.max(maxDepth, depth);
+      for (const k of children.get(hub)) walk(k, depth + 1);
+    };
+    walk(root, 0);
+    // Seitenrand: links die Wolken der Box (bis 120 px neben der Mitte), rechts die der letzten Spalte.
+    const width = Math.max(560, 2 * 130 + maxDepth * COL);
+    const x0 = (width - maxDepth * COL) / 2;
+    const pos = new Map();
+    const place = (hub, top) => {
+      pos.set(hub, { x: x0 + depthOf.get(hub) * COL, top });
+      let t = top;
+      for (const k of children.get(hub)) {
+        place(k, t);
+        t += subH.get(k);
+      }
+    };
+    place(root, 8);
+    const height = subH.get(root) + 16;
+
+    // ``attrs``: Klickziel - Popup des Geräts (data-open-*) oder Geräteliste (data-mesh-open).
+    const node = (cx, top, w, h, icon, lines, cls, attrs = "", label = "") => {
+      const textX = w > 120 ? 38 : 28;
+      const avail = w - textX - 6;
+      const ys = lines.length > 2 ? [20, 35, 50] : [22, 38];
+      const text = lines
+        .map((line, i) => `<text x="${textX}" y="${ys[i]}" class="${i === 0 ? "fbn-mm-t" : "fbn-mm-s"}">${escapeHtml(String(line).slice(0, Math.floor(avail / (i === 0 ? 6.4 : 5.3))))}</text>`)
+        .join("");
+      const icoSize = w > 120 ? 24 : 18;
+      return `
+      <g class="fbn-mm-node ${cls}${attrs ? " fbn-mm-link" : ""}" transform="translate(${cx - w / 2} ${top})"${
         attrs ? ` role="button" tabindex="0" ${attrs} aria-label="${escapeHtml(label)}"` : ""
       }>
-        <rect width="168" height="52" rx="12"/>
-        <foreignObject x="8" y="14" width="24" height="24"><ha-icon icon="${icon}" xmlns="http://www.w3.org/1999/xhtml"></ha-icon></foreignObject>
-        <text x="38" y="22" class="fbn-mm-t">${escapeHtml(String(title).slice(0, 19))}</text>
-        <text x="38" y="38" class="fbn-mm-s">${escapeHtml(String(sub).slice(0, 26))}</text>
+        <rect width="${w}" height="${h}" rx="12"/>
+        <foreignObject x="${w > 120 ? 8 : 6}" y="${(h - icoSize) / 2}" width="${icoSize}" height="${icoSize}"><ha-icon icon="${icon}" xmlns="http://www.w3.org/1999/xhtml"></ha-icon></foreignObject>
+        ${text}
       </g>`;
-    ys.forEach((y, i) => {
-      svg += `<path class="fbn-mm-edge${others[i].online === false ? " fbn-mm-off" : ""}" d="M${rootX + 84} ${rootY} C ${rootX + 150} ${rootY}, ${repX - 150} ${y}, ${repX - 84} ${y}"/>`;
-    });
-    // Klickbar nur, wenn es zur Station ein Geraet in der Liste gibt (sonst gaebe das Popup nichts her).
+    };
+    // Klickbar nur, wenn es zur Station ein Gerät in der Liste gibt (sonst gäbe das Popup nichts her).
     const targetAttrs = (m) => {
       const host = hubTarget(m);
       if (!host) return "";
       return m.role === "box" ? `data-open-ip="${escapeHtml(m.ip)}"` : `data-open-mac="${escapeHtml(host.mac)}"`;
     };
-    svg += node(rootX, rootY, "mdi:router-wireless", root.name || "FRITZ!Box", root.model || "FRITZ!Box", root.online === false ? "fbn-mm-off" : "fbn-mm-box", targetAttrs(root), this._t("mm.open_tip", { name: root.name || "FRITZ!Box" }));
-    others.forEach((m, i) => {
-      svg += node(repX, ys[i], m.online === false ? "mdi:access-point-network-off" : "mdi:access-point-network", m.name || "Repeater", m.model || "Repeater", m.online === false ? "fbn-mm-off" : "fbn-mm-rep", targetAttrs(m), this._t("mm.open_tip", { name: m.name || "Repeater" }));
-    });
-    const clusters = [[root, rootY, rootX]].concat(others.map((m, i) => [m, ys[i], repX]));
-    clusters.forEach(([hub, y, x], idx) => {
-      const list = byHub.get(hub.name) || [];
-      const n = list.length;
-      if (!n) return;
-      const speeds = list.map((h) => h.link_mbit).filter((v) => typeof v === "number");
-      const slow = speeds.length ? Math.min(...speeds) : null;
-      const cx = idx === 0 ? rootX : clusterX;
-      const cy = idx === 0 ? boxClusterY : y;
-      const label = this._t("mm.devices", { n });
-      const sub = slow != null ? this._t("mm.slowest", { v: String(slow).replace(".", ",") }) : "";
-      svg += idx === 0
-        ? `<path class="fbn-mm-edge fbn-mm-dash" d="M${rootX} ${rootY + 26} L ${cx} ${cy - 26}"/>`
-        : `<path class="fbn-mm-edge fbn-mm-dash" d="M${x + 84} ${y} L ${cx - 84} ${cy}"/>`;
-      svg += node(cx, cy, "mdi:devices", label, sub, "fbn-mm-cl", `data-mesh-open="${escapeHtml(hub.name || "")}"`, `${this._t("mm.show_devices")}: ${hub.name || ""}`);
-    });
-    const detail = clusters
-      .map(([hub], idx) => {
-        const list = (byHub.get(hub.name) || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
-        if (!list.length) return "";
-        const body = `<div class="fbn-mm-list">${list
-          .map((h) => `<div class="fbn-kv fbn-link" role="button" tabindex="0" data-open-mac="${escapeHtml(h.mac)}"
-              title="${escapeHtml(this._t("popup.open_tip"))}"><span>${escapeHtml(h.label || h.name || h.mac)}</span>
-              <b>${escapeHtml([h.band, h.link_mbit != null ? `${String(h.link_mbit).replace(".", ",")} Mbit/s` : ""].filter(Boolean).join(" · ") || "—")}</b><ha-icon icon="mdi:chevron-right"></ha-icon></div>`)
-          .join("")}</div>`;
-        return this._accordion(`mesh:${hub.name}`, hub.role === "box" ? "mdi:router-wireless" : "mdi:access-point-network", hub.name || "", this._t("mm.devices", { n: list.length }), body, "", idx === 0);
+    const rateText = (v) => `${String(v).replace(".", ",")} Mbit/s`;
+    const cloudMeta = {
+      WLAN: { icon: "mdi:wifi", key: "mm.cloud_wlan" },
+      LAN: { icon: "mdi:ethernet", key: "mm.cloud_lan" },
+      OTHER: { icon: "mdi:devices", key: "mm.cloud_other" },
+    };
+
+    let edges = "";
+    let nodes = "";
+    for (const hub of hubs) {
+      const { x, top } = pos.get(hub);
+      const cy = top + HUB_H / 2;
+      const off = hub.online === false;
+      for (const kid of children.get(hub)) {
+        const k = pos.get(kid);
+        const ky = k.top + HUB_H / 2;
+        const x1 = x + HUB_W / 2;
+        const x2 = k.x - HUB_W / 2;
+        const mid = (x1 + x2) / 2;
+        // Rechtwinklig statt geschwungen, damit die Linie nicht durch die Wolken der Station läuft.
+        edges += `<path class="fbn-mm-edge${kid.online === false ? " fbn-mm-off" : ""}" d="M${x1} ${cy} H ${mid} V ${ky} H ${x2}"/>`;
+        if (typeof kid.link_mbit === "number" && kid.link_mbit > 0) {
+          edges += `<text class="fbn-mm-lbl" x="${x2 - 4}" y="${ky - 5}" text-anchor="end">${escapeHtml(rateText(kid.link_mbit))}</text>`;
+        }
+      }
+      const groups = groupsOf(hub);
+      groups.forEach((g, i) => {
+        const row = Math.floor(i / 2);
+        const inRow = groups.length - row * 2 >= 2 ? 2 : 1;
+        const cx = x + (inRow === 2 ? (i % 2 ? 62 : -62) : 0);
+        const cTop = top + HUB_H + 16 + row * ROW;
+        const speeds = g.list.map((h) => h.link_mbit).filter((v) => typeof v === "number" && v > 0);
+        const slow = speeds.length ? Math.min(...speeds) : null;
+        const n = g.list.length;
+        let title = this._t(cloudMeta[g.kind].key, { n });
+        if (g.kind === "OTHER" && groups.length === 1) title = this._t("mm.devices", { n });
+        edges += `<path class="fbn-mm-edge fbn-mm-dash" d="M${x} ${top + HUB_H} L ${cx} ${cTop}"/>`;
+        nodes += node(
+          cx,
+          cTop,
+          CL_W,
+          CL_H,
+          cloudMeta[g.kind].icon,
+          [title, slow != null ? this._t("mm.min", { v: String(slow).replace(".", ",") }) : ""],
+          "fbn-mm-cl",
+          `data-mesh-open="${escapeHtml(hubKey(hub))}"`,
+          `${this._t("mm.show_devices")}: ${hub.name || ""}`
+        );
+      });
+      const isBox = hub === root;
+      const sub = hub.model && hub.model !== hub.name ? hub.model : isBox ? "FRITZ!Box" : "Repeater";
+      const count = isBox ? this._t("mm.total", { n: total }) : this._t("mm.devices", { n: (clients.get(hub) || []).length });
+      nodes += node(
+        x,
+        top,
+        HUB_W,
+        HUB_H,
+        isBox ? "mdi:router-wireless" : off ? "mdi:access-point-network-off" : "mdi:access-point-network",
+        [hub.name || (isBox ? "FRITZ!Box" : "Repeater"), sub, count],
+        off ? "fbn-mm-off" : isBox ? "fbn-mm-box" : "fbn-mm-rep",
+        targetAttrs(hub),
+        this._t("mm.open_tip", { name: hub.name || (isBox ? "FRITZ!Box" : "Repeater") })
+      );
+    }
+
+    // -- Tabellarische Ansicht: je Station ein Akkordeon mit Repeatern und Geräten ---------------
+    const valueOf = (h) => {
+      const parts = [];
+      if (kindOf(h) === "LAN") parts.push("LAN");
+      if (h.band) parts.push(`${h.band} GHz`);
+      parts.push(h.link_mbit != null && Number(h.link_mbit) > 0 ? rateText(h.link_mbit) : "—");
+      return parts.join(" · ");
+    };
+    const row = (mac, name, value, icon = "") => `<div class="fbn-kv fbn-link" role="button" tabindex="0" data-open-mac="${escapeHtml(mac)}"
+          title="${escapeHtml(this._t("popup.open_tip"))}"><span>${icon ? `${escapeHtml(icon)} ` : ""}${escapeHtml(name)}</span>
+          <b>${escapeHtml(value)}</b><ha-icon icon="mdi:chevron-right"></ha-icon></div>`;
+    const detail = hubs
+      .map((hub, idx) => {
+        const list = (clients.get(hub) || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        const kids = children.get(hub);
+        if (!list.length && !kids.length) return "";
+        const kidRows = kids
+          .filter((k) => k.mac)
+          .map((k) => row(k.mac, k.name || k.mac, typeof k.link_mbit === "number" && k.link_mbit > 0 ? rateText(k.link_mbit) : "—", "↳"))
+          .join("");
+        const body = `<div class="fbn-mm-list">${kidRows}${list.map((h) => row(h.mac, h.label || h.name || h.mac, valueOf(h))).join("")}</div>`;
+        const meta = hub === root ? this._t("mm.direct_total", { d: list.length, t: total }) : this._t("mm.devices", { n: list.length });
+        return this._accordion(`mesh:${hubKey(hub)}`, hub === root ? "mdi:router-wireless" : "mdi:access-point-network", hub.name || "", meta, body, "", idx === 0);
       })
       .join("");
+    const svgStyle = `max-width:${width}px;min-width:${Math.min(width, 760)}px`;
     box.innerHTML = `
       <div class="fbn-mm-wrap">
-        <svg class="fbn-mm-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(this._t("tab.mesh"))}">${svg}</svg>
+        <svg class="fbn-mm-svg" style="${svgStyle}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(this._t("tab.mesh"))}">${edges}${nodes}</svg>
       </div>
       <p class="fbn-om-hint">${escapeHtml(this._t("mm.hint"))}</p>
+      <p class="fbn-om-hint">${escapeHtml(this._t("mm.hint2"))}</p>
       ${loose ? `<p class="fbn-om-hint">${escapeHtml(this._t("mm.loose", { n: loose }))}</p>` : ""}
       ${detail}`;
     if (!box.dataset.bound) {
@@ -3191,11 +3351,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
       }
 
       case "connected_via": {
-        if (!host.connected_via) return '<span class="fbn-dim">—</span>';
+        const via = this._viaName(host);
+        if (!via) return '<span class="fbn-dim">—</span>';
         const rate = host.link_mbit ? ` (${formatSpeed(host.link_mbit)})` : "";
-        return `<span title="${escapeHtml(host.connected_via + rate)}">${escapeHtml(
-          host.connected_via
-        )}</span>`;
+        return `<span title="${escapeHtml(via + rate)}">${escapeHtml(via)}</span>`;
       }
 
       case "vendor":
@@ -4074,9 +4233,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
     );
     add(this._t("col.connection"), escapeHtml(this._connLabel(host)));
     if (host.band) add(this._t("field.band"), escapeHtml(this._bandLabel(host)));
-    if (host.connected_via) {
+    if (host.connected_via || host.via_id) {
       const rate = host.link_mbit ? ` (${formatSpeed(host.link_mbit)})` : "";
-      add(this._t("field.connected_via"), escapeHtml(host.connected_via + rate));
+      add(this._t("field.connected_via"), escapeHtml(this._viaName(host) + rate));
     }
     add(
       this._t("field.status"),
@@ -4704,6 +4863,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-mm-node.fbn-mm-link:hover rect, .fbn-mm-node.fbn-mm-link:focus-visible rect { stroke-width: 3; }
       .fbn-mm-node.fbn-mm-link:focus-visible { outline: none; }
       .fbn-mm-node ha-icon { --mdc-icon-size: 24px; width: 24px; height: 24px; color: var(--fbn-accent); }
+      .fbn-mm-node.fbn-mm-cl ha-icon { --mdc-icon-size: 18px; width: 18px; height: 18px; }
+      .fbn-mm-lbl { font-size: 9px; fill: var(--fbn-header-text, #777); }
       .fbn-mm-t { font-size: 12px; font-weight: 600; fill: var(--primary-text-color, #222); }
       .fbn-mm-s { font-size: 10px; fill: var(--fbn-header-text, #777); }
       .fbn-mm-edge { fill: none; stroke: var(--fbn-accent); stroke-width: 2; }

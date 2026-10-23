@@ -7,7 +7,7 @@
 
 Une intégration Home Assistant qui affiche tous les appareils du réseau domestique FRITZ!Box sur votre tableau de bord sous forme de tableau triable – avec adresse IP, adresse MAC, type de connexion et nom de l'appareil Home Assistant correspondant.
 
-![Version](https://img.shields.io/badge/Version-2.0.0-blue)
+![Version](https://img.shields.io/badge/Version-2.0.1b1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Vidéo et guide de la carte réseau (en allemand) :** [meinesmartewelt.de – FRITZ!Box Netzwerk pour Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -394,6 +394,29 @@ Les tests du centre de notifications dans 2.0.0 (`test_notification_bridge.py`, 
 Le dépôt contient les tests pour 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`) ; ils s'exécutent sur des données synthétiques, pas sur du matériel réel. Les tests de 1.8.0 pour `dns_settings.py` et `static_ip.py` ne sont pas versionnés.
 
 ## Historique des versions
+
+### 2.0.1b1 – Carte Mesh avec cascade et nuages, nom de la FRITZ!Box, lecture du profil d’accès sans timeout
+
+Préversion (bêta), basée sur 2.0.0. **Non testée sur une vraie FRITZ!Box ni dans un Home Assistant en fonctionnement** – l’évaluation n’a tourné que sur une topologie mesh simulée (box, répéteurs en cascade, appareils derrière un switch) et sur des simulacres de l’interface web. La carte a été dessinée avec des données de test dans un navigateur sans interface.
+
+**Carte (onglet « Mesh »)**
+
+- **Nouveau – vue en arbre :** un répéteur derrière un autre répéteur (cascade) est désormais dessiné en arbre ; chaque liaison indique son débit.
+- **Nouveau – nuages par station :** sous la FRITZ!Box et sous chaque répéteur, des nuages montrent les appareils connectés, séparés en **Wi-Fi** et **LAN** (plus « autres » si le type est inconnu). Les appareils derrière un **switch** apparaissent dans le nuage LAN de la station où le switch est branché – la FRITZ!Box ne signale pas les switches individuellement.
+- **Nouveau – nombre total à la FRITZ!Box :** la box affiche « N appareils au total » ; la section dépliable indique « 10 directs · 15 au total ». Les répéteurs dans la liste d’une station sont marqués « ↳ ».
+- **Corrigé – nom au lieu du modèle :** la FRITZ!Box s’affichait avec son modèle (« FRITZ!Box 5530 Fiber »). Elle affiche maintenant son nom du réseau domestique (entrée de la box dans la liste des appareils, sinon nom de la topologie mesh) ; le modèle figure en dessous.
+- **Corrigé – box non reliée à elle-même :** l’entrée propre de la FRITZ!Box n’apparaît plus dans la liste d’appareils de sa propre station.
+- **Amélioré – débits :** si le débit actuel manque (fréquent pour les liaisons filaires et certains répéteurs), le débit maximal de la liaison est utilisé. Non testé ; sans aucune des deux valeurs, la cellule reste « — ».
+- La colonne et la fenêtre « Connecté via » affichent le nom de la station du mesh.
+
+**Intégration**
+
+- **Corrigé – répéteurs en cascade :** l’évaluation mesh ignorait jusqu’ici tous les appareils ayant plusieurs connexions actives – précisément les répéteurs avec leurs propres clients. La liaison montante de chaque appareil est maintenant le chemin le plus court vers la box principale ; les répéteurs reçoivent aussi « Connecté via » et un débit. Nouveaux attributs par appareil : `via_id`, `link_type`, `mesh_id` ; les membres du mesh portent `mesh_id`, `via_id`, `link_mbit`, `link_type`.
+- **Corrigé – timeout dans `get_access_profile` (retour sur la 5530) :** `Read timed out (read timeout=10)`. L’appareil est maintenant d’abord cherché dans la liste légère (même voie que l’adresse IP fixe) ; les pages lourdes de l’interface web (`netDev`, `edit_device`, `kidPro`) peuvent répondre jusqu’à 40 secondes. Que cela supprime le timeout sur la 5530 n’est pas testé.
+
+**Mise à jour :** via HACS (afficher les préversions dans HACS), redémarrer Home Assistant, vider le cache du navigateur (Ctrl+F5).
+
+**Connu :** la manière dont la box signale les appareils derrière un switch dépend de FRITZ!OS ; l’affectation à une station n’est pas testée. Vos retours avec le téléchargement de diagnostic (section mesh) aident.
 
 ### 2.0.0 – Moniteur en ligne et carte Mesh, infos FRITZ!Box avec température, centre de notifications, consommation de données par appareil, IP statique via REST
 

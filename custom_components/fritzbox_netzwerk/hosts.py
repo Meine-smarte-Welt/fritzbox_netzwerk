@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 2d8aa1d5aca390b1e0dce4729449c7ba0df75b9575d44d57c339c158c7fdb295
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): d882f63c6bb142a46769bde29858686c9c0ae93da703cf10e6f552cffc905c23
 """Aufbereitung der FRITZ!Box-Hostliste.
 
 Dieses Modul enthaelt bewusst KEINE Home-Assistant- und keine
@@ -397,6 +397,13 @@ def normalize_host(raw: dict[str, Any]) -> dict[str, Any]:
         # dortigen Hinweis.
         "connected_via": "",
         "link_mbit": None,
+        # Ebenfalls aus ``apply_mesh_links()``: Kennung des Nachbarn (``via_id``,
+        # passt zu ``mesh_id`` der Mesh-Mitglieder) und Art der Verbindung
+        # (``"WLAN"``/``"LAN"``, sonst ``""``). Fuer die Mesh-Karte.
+        "via_id": "",
+        "link_type": "",
+        # Wird in ``apply_mesh_repeaters()`` ergaenzt: Kennung dieses Geraets im Mesh.
+        "mesh_id": "",
         # Wird in ``apply_notes()`` ergaenzt (Idee 3 aus feature-ideen.md):
         # eigenes Etikett, freie Notiz und die manuelle Markierung
         # "reserviert" - alles nur in Home Assistant gespeichert, die
@@ -1016,8 +1023,13 @@ def mesh_members(
     box_name: str,
     box_model: str = "",
     box_ip: str = "",
+    box_id: str = "",
 ) -> list[dict[str, Any]]:
     """Die FRITZ!-Geraete des Heimnetzes: zuerst die Box, dann die Repeater.
+
+    ``mesh_id`` ist die Kennung im Mesh (Box: ``box_id``), ``via_id`` bei einem
+    Repeater die Kennung seines Uplinks - daraus baut die Karte auch kaskadierte
+    Repeater auf.
 
     Die Box ist in ihrer eigenen Hostliste nicht enthalten; sie antwortet
     aber gerade (sonst gaebe es diese Daten nicht) und gilt deshalb als online.
@@ -1033,6 +1045,8 @@ def mesh_members(
             "ip": box_ip,
             "mac": None,
             "online": True,
+            "mesh_id": box_id,
+            "via_id": "",
         }
     ]
     repeaters = [
@@ -1048,6 +1062,10 @@ def mesh_members(
                 "ip": host.get("ip") or "",
                 "mac": host.get("mac"),
                 "online": bool(host.get("active")),
+                "mesh_id": host.get("mesh_id") or "",
+                "via_id": host.get("via_id") or "",
+                "link_mbit": host.get("link_mbit"),
+                "link_type": host.get("link_type") or "",
             }
         )
     return members
@@ -1194,6 +1212,8 @@ def apply_mesh_links(
             continue
         host["connected_via"] = link.get("connected_via") or ""
         host["link_mbit"] = link.get("link_mbit")
+        host["via_id"] = link.get("via_id") or ""
+        host["link_type"] = link.get("type") or ""
         # Band hinter einem Repeater: die WLAN-Liste der Box kennt solche
         # Geraete nicht, die Mesh-Topologie schon (Issue #21). Ein Band aus
         # der WLAN-Liste der Box hat Vorrang.
@@ -1216,10 +1236,14 @@ def apply_mesh_repeaters(
     if not repeaters:
         return hosts
     for host in hosts:
-        if host.get("repeater") or (box_ip and host.get("ip") == box_ip):
+        if box_ip and host.get("ip") == box_ip:
             continue
         info = repeaters.get(mac_key(host["mac"]))
-        if not info:
+        if info:
+            # Kennung im Mesh - auch fuer Repeater, die schon am Modell erkannt wurden
+            # (die Karte baut daraus die Kaskade).
+            host["mesh_id"] = info.get("id") or ""
+        if host.get("repeater") or not info:
             continue
         host["repeater"] = True
         if not host.get("model") and info.get("model"):

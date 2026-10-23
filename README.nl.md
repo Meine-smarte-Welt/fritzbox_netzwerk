@@ -7,7 +7,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.0.0-blue)
+![Version](https://img.shields.io/badge/Version-2.0.1b1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video en handleiding voor de netwerkkaart (Duits):** [meinesmartewelt.de – FRITZ!Box Netzwerk voor Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -414,6 +414,29 @@ De tests voor het Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 2.0.1b1 – Meshkaart met cascade en wolken, naam van de FRITZ!Box, toegangsprofiel zonder timeout
+
+Voorlopige versie (bèta), bouwt voort op 2.0.0. **Niet getest op een echte FRITZ!Box of in een draaiende Home Assistant** – de verwerking liep alleen tegen een nagebouwde mesh-topologie (box, gecascadeerde repeaters, apparaten achter een switch) en tegen dubbelgangers van de webinterface. De kaart is met testgegevens in een headless browser getekend.
+
+**Kaart (tab „Mesh”)**
+
+- **Nieuw – boomweergave:** een repeater achter een andere repeater (cascade) wordt nu als boom getekend; bij elke verbinding staat de datasnelheid.
+- **Nieuw – wolken per station:** onder de FRITZ!Box en onder elke repeater hangen wolken met de verbonden apparaten, verdeeld in **wifi** en **LAN** (plus „overig” bij onbekend type). Apparaten achter een **switch** staan in de LAN-wolk van het station waar de switch op is aangesloten – de FRITZ!Box meldt switches niet afzonderlijk.
+- **Nieuw – totaal aantal bij de FRITZ!Box:** de box toont „N apparaten totaal”; in het uitklapbare onderdeel staat „10 direct · 15 totaal”. Repeaters in de lijst van een station staan met „↳”.
+- **Opgelost – naam in plaats van model:** de FRITZ!Box werd met haar modelnaam getoond („FRITZ!Box 5530 Fiber”). Nu staat haar naam uit het thuisnetwerk (eigen vermelding van de box in de apparatenlijst, anders de naam uit de mesh-topologie); het model staat eronder.
+- **Opgelost – box niet met zichzelf verbonden:** de eigen vermelding van de FRITZ!Box staat niet meer in de apparatenlijst van haar eigen station.
+- **Verbeterd – snelheden:** ontbreekt de actuele datasnelheid (vaak bij kabelverbindingen en sommige repeaters), dan geldt de maximale snelheid van de verbinding. Ongetest; zonder beide waarden blijft „—” staan.
+- De kolom en het popup „Verbonden via” tonen de naam van het station uit de mesh.
+
+**Integratie**
+
+- **Opgelost – gecascadeerde repeaters:** de mesh-verwerking sloeg tot nu toe alle apparaten met meerdere actieve verbindingen over – precies de repeaters met eigen clients. De uplink van elk apparaat is nu de kortste weg naar de hoofdbox; ook repeaters krijgen „Verbonden via” en een datasnelheid. Nieuwe attributen per apparaat: `via_id`, `link_type`, `mesh_id`; mesh-leden hebben `mesh_id`, `via_id`, `link_mbit`, `link_type`.
+- **Opgelost – timeout bij `get_access_profile` (reactie over de 5530):** `Read timed out (read timeout=10)`. Het apparaat wordt nu eerst in de lichte apparatenlijst gezocht (dezelfde route als het vaste IP-adres); de zware pagina’s van de webinterface (`netDev`, `edit_device`, `kidPro`) mogen tot 40 seconden antwoorden. Of de timeout op de 5530 daarmee verdwijnt, is ongetest.
+
+**Update-instructies:** bijwerken via HACS (toon voorlopige versies in HACS), Home Assistant herstarten, browsercache wissen (Ctrl+F5).
+
+**Bekend:** hoe de box apparaten achter een switch meldt, hangt van FRITZ!OS af; de toewijzing aan een station is ongetest. Reacties met de diagnose-download (mesh-gedeelte) helpen.
 
 ### 2.0.0 – Online-monitor en Mesh-kaart, FRITZ!Box-info met temperatuur, Notification Center, dataverbruik per apparaat, statisch IP via REST
 

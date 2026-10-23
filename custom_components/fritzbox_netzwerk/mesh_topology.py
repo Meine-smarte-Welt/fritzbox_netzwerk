@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 7ed979872381d56118288020283a357765a2f99c64affc017b34f93bf3477e9a
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 46a9c021de134afd3841ad370dc7d486323e55eb65504f493a7cb28aa98fd038
 """Mesh-Topologie ueber ``fritzconnection.lib.fritztopology`` (Idee 5 aus feature-ideen.md).
 
 Eigenes, von Home Assistant unabhaengiges Modul - wie ``connection.py`` -
@@ -13,24 +13,31 @@ durchspielt). Nutzt dieselbe, mit diesem Projekt gepinnte Bibliotheksversion
 from __future__ import annotations
 
 import re
+from collections import deque
 from typing import Any
 
-from fritzconnection.lib.fritztopology import FritzMeshTopology
+from fritzconnection.lib.fritztopology import Connection, FritzMeshTopology
 
 from .hosts import BAND_2_4, BAND_5, BAND_6, band_from_channel, mac_key, mesh_link_mbit
 
 
-def fetch_mesh(fc: Any) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, str]]]:
-    """Laedt die Mesh-Topologie einmal und liefert (Verbindungen, Mesh-Geraete).
+def fetch_mesh(
+    fc: Any,
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, str]], dict[str, Any]]:
+    """Laedt die Mesh-Topologie einmal und liefert (Verbindungen, Mesh-Geraete, Hauptbox).
 
     Wie ``fetch_mesh_links``, gibt aber zusaetzlich die FRITZ!-Geraete im Mesh
     zurueck (siehe ``repeaters_from_topology``) - damit auch ein Repeater
     erkannt wird, dessen gemeldetes Modell nicht "Repeater"/"FRITZ!Box" heisst
-    (Issue #16).
+    (Issue #16) - und die Angaben der Hauptbox (``master_from_topology``).
     """
     topology = FritzMeshTopology(fc)
     topology.load_topology()
-    return links_from_topology(topology), repeaters_from_topology(topology)
+    return (
+        links_from_topology(topology),
+        repeaters_from_topology(topology),
+        master_from_topology(topology),
+    )
 
 
 def fetch_mesh_links(fc: Any) -> dict[str, dict[str, Any]]:
@@ -49,46 +56,161 @@ def fetch_mesh_links(fc: Any) -> dict[str, dict[str, Any]]:
     return links_from_topology(topology)
 
 
+def _device_keys(device: Any) -> list[str]:
+    """MAC-Schluessel eines Mesh-Geraets: Geraete-MAC und alle Schnittstellen-MACs.
+
+    Ein WLAN-Repeater steht in der Hostliste der Box mit der MAC seiner
+    Uplink-Schnittstelle, nicht mit der Geraete-MAC - ohne die Schnittstellen-
+    MACs liesse sich seine Verbindung nicht zuordnen.
+    """
+    keys: list[str] = []
+    for mac in [getattr(device, "mac", "")] + [
+        getattr(interface, "mac", "") for interface in getattr(device, "interfaces", [])
+    ]:
+        key = mac_key(mac)
+        if key and key not in keys:
+            keys.append(key)
+    return keys
+
+
+def device_id(device: Any) -> str:
+    """Kennung eines Mesh-Geraets (MAC-Schluessel seiner Geraete-MAC)."""
+    return mac_key(getattr(device, "mac", ""))
+
+
+def link_rate_mbit(connection: Any) -> float | None:
+    """Verbindungsrate in Mbit/s: aktuelle Rate, sonst die maximale.
+
+    ANNAHME (nicht an echter Hardware geprueft): Bei Kabelverbindungen und
+    manchen Repeatern fehlt die aktuelle Rate (``cur_data_rate_*``); die
+    maximale Rate (``max_data_rate_*``) ist dann die beste verfuegbare Angabe.
+    Eine Rate von 0 gilt als unbekannt.
+    """
+    for name in ("cur_tx", "cur_rx", "max_tx", "max_rx"):
+        value = mesh_link_mbit(getattr(connection, name, None))
+        if value:
+            return value
+    return None
+
+
+def _connected(device: Any) -> list[Any]:
+    return [c for c in device.get_connections() if c.state == "CONNECTED"]
+
+
+def _link_record(connection: Any) -> dict[str, Any]:
+    target = connection.target
+    return {
+        "connected_via": str(getattr(target, "name", "") or "").strip(),
+        "via_id": device_id(target),
+        "link_mbit": link_rate_mbit(connection),
+        "band": link_band(connection),
+        "type": str(getattr(connection, "type", "") or "").upper(),
+    }
+
+
+def _mesh_depths(topology: FritzMeshTopology) -> tuple[dict[str, int], dict[str, list[tuple[Any, Any]]]]:
+    """Abstand jedes Geraets von der Hauptbox und die Nachbarschaft (beide Richtungen).
+
+    Breitensuche ueber die aktiven Verbindungen, ausgehend vom Mesh-Master.
+    Ein Repeater hinter einem Repeater hat so Abstand 2, ein Client daran 3.
+    Ohne Master ist das Ergebnis leer.
+    """
+    master = next(
+        (d for d in topology.devices if str(getattr(d, "mesh_role", "") or "").lower() == "master"),
+        None,
+    )
+    adjacency: dict[str, list[tuple[Any, Any]]] = {}
+    for device in topology.devices:
+        for connection in _connected(device):
+            target = connection.target
+            adjacency.setdefault(device.uid, []).append((target, connection))
+            adjacency.setdefault(target.uid, []).append((device, connection))
+    if master is None:
+        return {}, adjacency
+    depth = {master.uid: 0}
+    queue = deque([master])
+    while queue:
+        current = queue.popleft()
+        for neighbor, _connection in adjacency.get(current.uid, []):
+            if neighbor.uid not in depth:
+                depth[neighbor.uid] = depth[current.uid] + 1
+                queue.append(neighbor)
+    return depth, adjacency
+
+
 def links_from_topology(topology: FritzMeshTopology) -> dict[str, dict[str, Any]]:
     """Baut "verbunden ueber" + Verbindungsrate je Geraet aus einer geladenen Topologie.
 
-    Nur Geraete mit GENAU EINER aktiven Verbindung (``state == "CONNECTED"``)
-    bekommen einen Eintrag: der Nachbar am anderen Ende dieser einen
-    Verbindung ist dann eindeutig der Access Point, ueber den das Geraet
-    gerade online ist - unabhaengig davon, auf welcher Seite des Links laut
-    JSON die Box steht (das uebernehmen ``Connection``/``InterfaceLink`` aus
-    der Bibliothek selbst). Geraete mit mehreren aktiven Verbindungen
-    (typischerweise die FRITZ!Box selbst oder ein Repeater mit mehreren
-    eigenen Clients) bleiben bewusst ohne Angabe - dort waere "verbunden
-    ueber" nicht aus einem einzelnen Nachbarn ablesbar, und sie sind in der
-    Hostliste ohnehin schon als eigenstaendiger Access Point erkennbar.
+    Der Nachbar, ueber den ein Geraet gerade online ist, ist der mit dem
+    kleineren Abstand zur Hauptbox (Breitensuche vom Mesh-Master aus). Damit
+    bekommt auch ein Repeater mit eigenen Clients - und ein Repeater hinter
+    einem anderen Repeater (Kaskade) - seinen Uplink; frueher blieben alle
+    Geraete mit mehreren aktiven Verbindungen ohne Angabe.
+
+    Geraete, die von der Hauptbox aus nicht erreichbar sind (oder eine
+    Topologie ohne Master), fallen auf die alte Regel zurueck: genau eine
+    aktive Verbindung ergibt den Nachbarn, sonst keine Angabe. Die Hauptbox
+    selbst bekommt nie einen Eintrag.
 
     Aufgeteilt von ``fetch_mesh_links()``, damit sich dieser Teil - die
     eigentliche Auswertungslogik - mit einer von Hand gebauten Topologie
     testen laesst, ohne eine echte FRITZ!Box zu brauchen.
     """
     links: dict[str, dict[str, Any]] = {}
+    depth, adjacency = _mesh_depths(topology)
     for device in topology.devices:
-        key = mac_key(getattr(device, "mac", ""))
-        if not key:
+        keys = _device_keys(device)
+        if not keys:
             continue
-        connected = [
-            connection
-            for connection in device.get_connections()
-            if connection.state == "CONNECTED"
-        ]
-        if len(connected) != 1:
+        own = depth.get(device.uid)
+        if own == 0:
             continue
-        connection = connected[0]
-        neighbor_name = str(getattr(connection.target, "name", "") or "").strip()
-        if not neighbor_name:
+        record: dict[str, Any] | None = None
+        if own is not None:
+            candidates = [
+                (neighbor, connection)
+                for neighbor, connection in adjacency.get(device.uid, [])
+                if depth.get(neighbor.uid, own) < own
+            ]
+            if candidates:
+                best = min(
+                    candidates,
+                    key=lambda item: (
+                        depth[item[0].uid],
+                        -(link_rate_mbit(item[1]) or 0.0),
+                    ),
+                )
+                connection = best[1]
+                if connection.target.uid != best[0].uid:
+                    # Verbindung aus Sicht des Nachbarn gespeichert: Gegenstelle ist
+                    # dann das eigene Geraet - fuer die Anzeige zaehlt der Nachbar.
+                    connection = Connection(device, best[0], connection.interface_link)
+                record = _link_record(connection)
+        else:
+            connected = _connected(device)
+            if len(connected) == 1:
+                record = _link_record(connected[0])
+        if record is None or not (record["connected_via"] or record["via_id"]):
             continue
-        links[key] = {
-            "connected_via": neighbor_name,
-            "link_mbit": mesh_link_mbit(connection.cur_tx),
-            "band": link_band(connection),
-        }
+        for key in keys:
+            links[key] = record
     return links
+
+
+def master_from_topology(topology: FritzMeshTopology) -> dict[str, Any]:
+    """Angaben der Hauptbox (Mesh-Master): ``id``, ``name``, ``model``, ``keys``.
+
+    Leer, wenn die Topologie keinen Master meldet.
+    """
+    for device in topology.devices:
+        if str(getattr(device, "mesh_role", "") or "").lower() == "master":
+            return {
+                "id": device_id(device),
+                "name": str(getattr(device, "name", "") or "").strip(),
+                "model": str(getattr(device, "model", "") or "").strip(),
+                "keys": _device_keys(device),
+            }
+    return {}
 
 
 _BAND_TOKENS = ((r"(?<![0-9])2G|2[.,]4", BAND_2_4), (r"(?<![0-9])5G", BAND_5), (r"(?<![0-9])6G", BAND_6))
@@ -156,11 +278,8 @@ def repeaters_from_topology(topology: FritzMeshTopology) -> dict[str, dict[str, 
         info = {
             "name": str(getattr(device, "name", "") or ""),
             "model": str(getattr(device, "model", "") or ""),
+            "id": device_id(device),
         }
-        macs = [getattr(device, "mac", "")]
-        macs.extend(getattr(interface, "mac", "") for interface in device.interfaces)
-        for mac in macs:
-            key = mac_key(mac)
-            if key:
-                found[key] = info
+        for key in _device_keys(device):
+            found[key] = info
     return found

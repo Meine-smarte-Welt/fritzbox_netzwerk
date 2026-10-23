@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 6713040a93e1047217e080974cf1815a43a4fdeec8a0c86c6fa5810cbb1958ba
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): d3714f31c70dc12cb96f06e75b7853e932b98ab609f621c63c1bfb775b36fd1a
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -299,6 +299,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # FRITZ!-Geraete laut Mesh-Topologie (MAC-Schluessel -> Name/Modell);
         # erkennt auch Repeater, deren Modellname nicht "Repeater" enthaelt.
         self._mesh_repeaters: dict[str, dict[str, str]] = {}
+        # Angaben der Hauptbox aus der Mesh-Topologie (``id``, ``name``, ``model``).
+        self._mesh_master: dict[str, Any] = {}
 
         # Herstellertabelle (MAC-Praefix -> Name); wird einmal beim Start
         # geladen, siehe ``async_load_oui``. Bleibt sie leer, fehlt nur die
@@ -978,7 +980,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not self._mesh_topology_supported:
             return {}
         try:
-            links, self._mesh_repeaters = fetch_mesh(self.fritz_hosts.fc)
+            links, self._mesh_repeaters, self._mesh_master = fetch_mesh(self.fritz_hosts.fc)
             return links
         except (FritzConnectionException, RequestException) as err:
             _LOGGER.debug("Mesh-Topologie nicht abrufbar: %s", err)
@@ -1173,11 +1175,23 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _mesh_members(self, hosts: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """FRITZ!Box + Repeater als Gruppe (siehe ``hosts.mesh_members``)."""
         model = self.box_model
+        box_ip = str(self.entry.data.get(CONF_HOST, ""))
+        # Name der Box, wie ihn der Nutzer kennt (Heimnetz -> Netzwerk), nicht die
+        # Modellbezeichnung: zuerst der Eintrag der Box in der Hostliste, dann der
+        # Name aus der Mesh-Topologie, zuletzt das Modell.
+        own = next((h for h in hosts if box_ip and h.get("ip") == box_ip), None)
+        name = (
+            str((own or {}).get("name") or "").strip()
+            or str(self._mesh_master.get("name") or "").strip()
+            or model
+            or "FRITZ!Box"
+        )
         return mesh_members(
             hosts,
-            box_name=model or "FRITZ!Box",
-            box_model=model,
-            box_ip=str(self.entry.data.get(CONF_HOST, "")),
+            box_name=name,
+            box_model=model or str(self._mesh_master.get("model") or ""),
+            box_ip=box_ip,
+            box_id=str(self._mesh_master.get("id") or ""),
         )
 
     def reboot_mesh(self, targets: list[dict[str, Any]]) -> dict[str, Any]:

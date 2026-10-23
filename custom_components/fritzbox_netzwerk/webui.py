@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 3af8a250cdea16f378a72609288d1b5623b421c249cf576752a8aa814f9ab4e4
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 8c49a148cb65c12086ffbc15b196710fd7d0b77250b97e1db3b34d244ee90f08
 """Inoffizieller Zugriff auf die FRITZ!Box-Weboberfläche (nur lesend).
 
 ACHTUNG - EXPERIMENTELL: Dieses Modul spricht NICHT TR-064, sondern die
@@ -23,6 +23,10 @@ from urllib.parse import urlsplit
 
 EMPTY_SID = "0000000000000000"
 TIMEOUT = 10
+# Lesezeit fuer die schweren Seiten der Weboberflaeche (``netDev`` mit allen
+# Geraeten, ``edit_device``, ``kidPro``): Boxen mit vielen Geraeten brauchen dafuer
+# laenger als 10 s (Rueckmeldung zu 2.0.0: "Read timed out (read timeout=10)").
+SLOW_TIMEOUT = 40
 
 
 def base_url(address: str, port: int | None, remote: bool) -> str:
@@ -160,11 +164,18 @@ def logout(session: Any, base: str, sid: str) -> None:
         pass
 
 
-def data_lua(session: Any, base: str, sid: str, page: str, **fields: str) -> Any:
+def data_lua(
+    session: Any,
+    base: str,
+    sid: str,
+    page: str,
+    request_timeout: float = TIMEOUT,
+    **fields: str,
+) -> Any:
     """Ruft ``data.lua`` auf und liefert die Antwort (JSON-Objekt, sonst Text)."""
     form = {"xhr": "1", "sid": sid, "lang": "de", "page": page, "no_sidrenew": ""}
     form.update(fields)
-    response = session.post(f"{base}/data.lua", data=form, timeout=TIMEOUT)
+    response = session.post(f"{base}/data.lua", data=form, timeout=request_timeout)
     if not response.ok:
         raise ValueError(f"data.lua ({page}): HTTP {response.status_code}")
     try:
@@ -286,9 +297,16 @@ def _flag(value: Any) -> bool | None:
 LANDEVICE_QUERY = "landevice:settings/landevice/list(name,ip,mac,UID,static_dhcp)"
 
 
-def query_lua(session: Any, base: str, sid: str, query: str, key: str = "hosts") -> Any:
+def query_lua(
+    session: Any,
+    base: str,
+    sid: str,
+    query: str,
+    key: str = "hosts",
+    request_timeout: float = TIMEOUT,
+) -> Any:
     """Ruft ``query.lua`` auf (``ValueError`` bei HTTP-Fehler oder ohne JSON)."""
-    response = session.get(f"{base}/query.lua?sid={sid}&{key}={query}", timeout=TIMEOUT)
+    response = session.get(f"{base}/query.lua?sid={sid}&{key}={query}", timeout=request_timeout)
     if not response.ok:
         raise ValueError(f"query.lua: HTTP {response.status_code}")
     try:
@@ -527,9 +545,21 @@ def resolve_profile(profiles: list[dict[str, str]], reference: str) -> dict[str,
 
 
 def _find_device(session: Any, base: str, sid: str, mac: str) -> dict[str, str]:
+    """Findet ein Geraet (``uid``, ``mac``, ``name``, ``ip``) in der Weboberflaeche.
+
+    Zuerst die schlanke Liste ueber ``query.lua`` (wie die Zuweisung einer festen
+    Adresse, die auch bei grossen Netzen funktioniert); nur wenn das Geraet dort
+    fehlt, die schwere Seite ``netDev`` - mit langer Lesezeit (``SLOW_TIMEOUT``).
+    """
     key = normalize_mac(mac)
+    try:
+        for entry in parse_landevice_list(query_lua(session, base, sid, LANDEVICE_QUERY)):
+            if entry["mac"] == key and entry["uid"]:
+                return {"uid": entry["uid"], "mac": key, "name": entry["name"], "ip": entry["ip"]}
+    except ValueError:
+        pass
     devices = parse_net_devices(
-        data_lua(session, base, sid, "netDev", xhrId="all", useajax="1")
+        data_lua(session, base, sid, "netDev", SLOW_TIMEOUT, xhrId="all", useajax="1")
     )
     for device in devices:
         if device["mac"] == key:
@@ -540,14 +570,14 @@ def _find_device(session: Any, base: str, sid: str, mac: str) -> dict[str, str]:
 
 
 def _read_profile(session: Any, base: str, sid: str, uid: str) -> str | None:
-    return parse_device_profile(data_lua(session, base, sid, "edit_device", dev=uid))
+    return parse_device_profile(data_lua(session, base, sid, "edit_device", SLOW_TIMEOUT, dev=uid))
 
 
 def list_profiles(session: Any, base: str, user: str, password: str) -> list[dict[str, str]]:
     """Alle Zugangsprofile der Box (``id``, ``name``)."""
     sid = login(session, base, user, password)
     try:
-        profiles = parse_profiles(data_lua(session, base, sid, "kidPro"))
+        profiles = parse_profiles(data_lua(session, base, sid, "kidPro", SLOW_TIMEOUT))
     finally:
         logout(session, base, sid)
     if not profiles:
@@ -563,7 +593,10 @@ def get_device_profile(
     try:
         device = _find_device(session, base, sid, mac)
         current = _read_profile(session, base, sid, device["uid"])
-        names = {p["id"]: p["name"] for p in parse_profiles(data_lua(session, base, sid, "kidPro"))}
+        names = {
+            p["id"]: p["name"]
+            for p in parse_profiles(data_lua(session, base, sid, "kidPro", SLOW_TIMEOUT))
+        }
     finally:
         logout(session, base, sid)
     return {
@@ -591,7 +624,7 @@ def assign_profile(
     """
     sid = login(session, base, user, password)
     try:
-        profiles = parse_profiles(data_lua(session, base, sid, "kidPro"))
+        profiles = parse_profiles(data_lua(session, base, sid, "kidPro", SLOW_TIMEOUT))
         target = resolve_profile(profiles, reference)
         device = _find_device(session, base, sid, mac)
         previous = _read_profile(session, base, sid, device["uid"])
@@ -610,7 +643,7 @@ def assign_profile(
                     "page": "edit_device",
                     "apply": "true",
                 },
-                timeout=TIMEOUT,
+                timeout=SLOW_TIMEOUT,
             )
             if not response.ok:
                 raise ValueError(f"data.lua (edit_device): HTTP {response.status_code}")

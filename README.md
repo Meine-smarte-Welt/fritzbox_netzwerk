@@ -13,7 +13,7 @@ passenden Home-Assistant-Gerätenamen
   <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=Meine-smarte-Welt&amp;repository=fritzbox_netzwerk&amp;category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Repository in Home Assistant öffnen" height="32"></a>
 </p>
 
-![Version](https://img.shields.io/badge/Version-2.0.0-blue)
+![Version](https://img.shields.io/badge/Version-2.0.1b1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video und Anleitung zur Netzwerkkarte:** [meinesmartewelt.de – FRITZ!Box Netzwerk für Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -966,7 +966,7 @@ Reiterleiste im Stil von *FRITZ!Box Anrufe*:
 | --- | --- |
 | **Netzwerk** (`mdi:lan`) | Filterleiste, Suchfeld, Zusammenfassung, Geräteliste |
 | **Online-Monitor** (`mdi:chart-areaspline`) | Aktuelle Down-/Upload-Rate mit Verlauf, Auslastung nach Priorität, größte Verbraucher, Verbindungsdetails, Online-Zähler (heute/gestern/Woche/Monat/gesamt). Die **größten Verbraucher** sind antippbar und öffnen das Popup des Geräts. Nur mit eingeschalteter Datenverbrauchs-Erfassung (Editor: *Reiter Online-Monitor anzeigen*) |
-| **Mesh** (`mdi:router-network`) | Karte wie *Heimnetz → Mesh* der Box: FRITZ!Box, Repeater und die verbundenen Geräte mit Verbindungsrate. Antippen der FRITZ!Box oder eines Repeaters öffnet dessen Popup; „N Geräte“ klappt die Geräteliste des Knotens auf, jedes Gerät darin öffnet sein Popup. Nur mit mindestens einem Repeater (Editor: *Reiter Mesh (Karte) anzeigen*) |
+| **Mesh** (`mdi:router-network`) | Karte wie *Heimnetz → Mesh* der Box: FRITZ!Box, Repeater (auch kaskadiert) und – als Wolken je Station, getrennt nach WLAN und LAN – die verbundenen Geräte mit Verbindungsrate; die FRITZ!Box zeigt zusätzlich die Gesamtanzahl. Antippen der FRITZ!Box oder eines Repeaters öffnet dessen Popup; „N Geräte“ klappt die Geräteliste des Knotens auf, jedes Gerät darin öffnet sein Popup. Nur mit mindestens einem Repeater (Editor: *Reiter Mesh (Karte) anzeigen*) |
 | **Einstellungen** (`mdi:cog`, früher „Steuerung“) | Download/Upload, WLAN-Schalter, MAC-Filter, Pairing, Neuverbinden, Neustart, Mesh-Gruppe und aufklappbare Bereiche: **App-Version** (offen, orange bei neuer Version), **FRITZ!Box** (Modell, FRITZ!OS, IP-Adresse, Laufzeit sowie Temperatur, CPU und RAM mit der Option „CPU und RAM der Box lesen“), **Internetverbindung** und **Heimnetz** |
 
 Die Trennung ist strikt: Jeder Reiter zeigt nur seine eigenen Elemente, nichts erscheint doppelt. Reiter ohne Daten werden nicht angelegt; gibt es nur eine Kategorie, verschwindet die Reiterleiste ganz. Der Reiter *Einstellungen* ist immer der letzte.
@@ -1769,7 +1769,7 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `72d06929fa346146a55ab8179aa958c2a79f69fc2e8f0ca29cc1d9d7327a6944` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `66278c606ed05da12aadbf1e039df065a5119f294c45426afa5133aac68027a9` |
 | `custom_components/fritzbox_netzwerk/strings.json` | `eba3c30deb99cf0b7fdd02db735a87a626ca4783c2c355fcc8203ac7ef1deb49` |
 | `custom_components/fritzbox_netzwerk/translations/de.json` | `c855d21892eef9e2db423dbe075b49f954d5a9199f94201dfbebcaa8336a0699` |
 | `custom_components/fritzbox_netzwerk/translations/en.json` | `b7612495e4bd9251381269008685314e3ec98b577c167a254cca8e3a4e697d6d` |
@@ -1811,6 +1811,29 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.0.1b1 – Mesh-Karte mit Kaskade und Wolken, Name der FRITZ!Box, Zugangsprofil-Abruf ohne Timeout
+
+Vorabversion (Beta), baut auf 2.0.0 auf. **Nicht an einer echten FRITZ!Box oder in einem laufenden Home Assistant geprüft** – die Auswertung läuft nur gegen eine nachgebaute Mesh-Topologie (Box, kaskadierte Repeater, Geräte an einem Switch) und gegen Attrappen der Weboberfläche. Die Karte wurde mit Testdaten in einem Headless-Browser gezeichnet.
+
+**Karte (Reiter „Mesh“)**
+
+- **Neu – Baumdarstellung:** Repeater hinter einem Repeater (Kaskade) werden jetzt als Baum gezeichnet; an jeder Verbindung steht die Datenrate.
+- **Neu – Wolken je Station:** Unter der FRITZ!Box und unter jedem Repeater hängen Wolken mit den verbundenen Geräten, getrennt nach **WLAN** und **LAN** (plus „Sonstige“ ohne erkennbare Art). Geräte an einem **Switch** stehen in der LAN-Wolke der Station, an der der Switch hängt – die FRITZ!Box meldet Switches nicht einzeln.
+- **Neu – Gesamtanzahl bei der FRITZ!Box:** Die Box zeigt „N Geräte gesamt“; im aufklappbaren Bereich steht „10 direkt · 15 gesamt“. Repeater in der Liste ihrer Station erscheinen mit „↳“.
+- **Behoben – Name statt Modell:** Die FRITZ!Box erschien mit der Modellbezeichnung („FRITZ!Box 5530 Fiber“). Jetzt steht ihr Name aus dem Heimnetz (Eintrag der Box in der Geräteliste, sonst Name aus der Mesh-Topologie); das Modell steht darunter.
+- **Behoben – Box nicht mit sich selbst verbunden:** Der eigene Eintrag der FRITZ!Box taucht nicht mehr in der Geräteliste ihrer eigenen Station auf.
+- **Verbessert – Geschwindigkeiten:** Fehlt die aktuelle Datenrate (häufig bei Kabelverbindungen und manchen Repeatern), gilt die maximale Rate der Verbindung. Der Wert ist ungeprüft; ohne beide Angaben bleibt „—“.
+- Die Spalte und das Popup „Verbunden über“ zeigen den Namen der Station aus dem Mesh.
+
+**Integration**
+
+- **Behoben – kaskadierte Repeater:** Die Mesh-Auswertung ließ bisher alle Geräte mit mehreren aktiven Verbindungen aus – also genau die Repeater mit eigenen Geräten. Jetzt wird der Uplink jedes Geräts über den kürzesten Weg zur Hauptbox bestimmt; auch Repeater bekommen „Verbunden über“ und eine Datenrate. Neue Attribute je Gerät: `via_id`, `link_type`, `mesh_id`; die Mesh-Mitglieder tragen `mesh_id`, `via_id`, `link_mbit`, `link_type`.
+- **Behoben – Timeout bei `get_access_profile` (Rückmeldung zur 5530):** `Read timed out (read timeout=10)`. Das Gerät wird jetzt zuerst über die schlanke Geräteliste gesucht (derselbe Weg wie bei der festen IP-Adresse); die schweren Seiten der Weboberfläche (`netDev`, `edit_device`, `kidPro`) dürfen bis zu 40 Sekunden antworten. Ob das Timeout auf der 5530 damit verschwindet, ist ungeprüft.
+
+**Hinweise zum Update:** Über HACS aktualisieren (Vorabversionen in HACS einblenden), Home Assistant neu starten, Browser-Cache leeren (Strg+F5).
+
+**Bekannt:** Wie die Box Geräte hinter einem Switch meldet, hängt vom FRITZ!OS ab; die Zuordnung zu einer Station ist ungeprüft. Rückmeldungen mit dem Diagnose-Download (Mesh-Abschnitt) helfen.
 
 ### 2.0.0 – Online-Monitor und Mesh-Karte, FRITZ!Box-Infos mit Temperatur, Notification Center, Datenverbrauch je Gerät, statische IP über REST
 

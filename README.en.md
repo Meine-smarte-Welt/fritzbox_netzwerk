@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.0.0-blue)
+![Version](https://img.shields.io/badge/Version-2.0.1b1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video and guide for the network card (German):** [meinesmartewelt.de – FRITZ!Box Netzwerk for Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -411,6 +411,29 @@ The tests for the Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 2.0.1b1 – Mesh map with cascade and clouds, FRITZ!Box name, access-profile read without timeout
+
+Pre-release (beta), builds on 2.0.0. **Not tested on a real FRITZ!Box or in a running Home Assistant** – the evaluation only ran against a simulated mesh topology (box, cascaded repeaters, devices behind a switch) and web-interface stand-ins. The card was rendered with test data in a headless browser.
+
+**Card (“Mesh” tab)**
+
+- **New – tree view:** a repeater behind another repeater (cascade) is now drawn as a tree; each link shows its data rate.
+- **New – clouds per station:** under the FRITZ!Box and under every repeater, clouds show the connected devices, split into **Wi-Fi** and **LAN** (plus “other” when the type is unknown). Devices behind a **switch** appear in the LAN cloud of the station the switch is plugged into – the FRITZ!Box does not report switches individually.
+- **New – total count at the FRITZ!Box:** the box shows “N devices total”; the collapsible section reads “10 direct · 15 total”. Repeaters in a station’s list are marked with “↳”.
+- **Fixed – name instead of model:** the FRITZ!Box was shown with its model name (“FRITZ!Box 5530 Fiber”). It now shows its home-network name (the box’s own entry in the device list, otherwise the name from the mesh topology); the model sits below.
+- **Fixed – box not connected to itself:** the FRITZ!Box’s own entry no longer appears in the device list of its own station.
+- **Improved – speeds:** if the current data rate is missing (common for wired links and some repeaters), the link’s maximum rate is used. This is untested; with neither value the cell stays “—”.
+- The “Connected via” column and popup show the station name from the mesh.
+
+**Integration**
+
+- **Fixed – cascaded repeaters:** the mesh evaluation used to skip every device with several active connections – exactly the repeaters with their own clients. The uplink of each device is now the shortest path to the main box; repeaters get “Connected via” and a data rate too. New attributes per device: `via_id`, `link_type`, `mesh_id`; mesh members carry `mesh_id`, `via_id`, `link_mbit`, `link_type`.
+- **Fixed – timeout in `get_access_profile` (feedback on the 5530):** `Read timed out (read timeout=10)`. The device is now looked up in the lightweight device list first (the same route as the fixed IP address); the heavy web-interface pages (`netDev`, `edit_device`, `kidPro`) may take up to 40 seconds. Whether this removes the timeout on the 5530 is untested.
+
+**Update notes:** update via HACS (show pre-releases in HACS), restart Home Assistant, clear the browser cache (Ctrl+F5).
+
+**Known:** how the box reports devices behind a switch depends on FRITZ!OS; the assignment to a station is untested. Feedback with the diagnostics download (mesh section) helps.
 
 ### 2.0.0 – Online monitor and Mesh map, FRITZ!Box info with temperature, Notification Center, data usage per device, static IP via REST
 
