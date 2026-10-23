@@ -11,7 +11,6 @@ passenden Home-Assistant-Gerätenamen
 
 <p>
   <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=Meine-smarte-Welt&amp;repository=fritzbox_netzwerk&amp;category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Repository in Home Assistant öffnen" height="32"></a>
-  <a href="https://my.home-assistant.io/redirect/config_flow_start/?domain=fritzbox_netzwerk"><img src="https://my.home-assistant.io/badges/config_flow_start.svg" alt="Integration hinzufügen" height="32"></a>
 </p>
 
 ![Version](https://img.shields.io/badge/Version-2.0.0-blue)
