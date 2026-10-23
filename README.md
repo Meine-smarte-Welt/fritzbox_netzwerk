@@ -73,9 +73,6 @@ passenden Home-Assistant-Gerätenamen
 
 **Reiter „Netzwerk“** – alle Geräte als sortierbare Tabelle mit Filterleiste (Aktiv, Inaktiv, Gast, Gesperrt, Update, Feste IP, VPN, Neu, Lange offline), IP- und MAC-Adresse, Hersteller, Verbindung, Verlinkung zum Home-Assistant-Gerät, Etikett und Notiz.
 
-![Reiter Netzwerk: Geräteliste mit Filterleiste](docs/images/netzwerk.png)
-
-**Reiter „Online-Monitor“** – aktuelle Down- und Upload-Rate mit Verlauf, Auslastung nach Priorität und die größten Verbraucher. Ein Tipp auf einen Verbraucher öffnet das Popup des Geräts.
 
 ![Reiter Online-Monitor](docs/images/online-monitor.png)
 
