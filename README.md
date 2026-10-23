@@ -9,6 +9,12 @@ Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sort
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
 passenden Home-Assistant-Gerätenamen.
 
+[
+
+![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)
+
+](https://my.home-assistant.io/redirect/config_flow_start/?domain=fritzbox_netzwerk)
+
 ![Version](https://img.shields.io/badge/Version-2.0.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
