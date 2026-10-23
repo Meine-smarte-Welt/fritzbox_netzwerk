@@ -7,8 +7,13 @@
 
 Eine Home-Assistant-Integration, die alle Geräte im FRITZ!Box-Heimnetz als sortierbare
 Tabelle auf das Dashboard bringt – mit IP-Adresse, MAC-Adresse, Verbindungsart und dem
-passenden Home-Assistant-Gerätenamen.
+passenden Home-Assistant-Gerätenamen
 
+[
+
+![Open your Home Assistant instance and open a repository in the Marketplace.](https://my.home-assistant.io/badges/hacs_repository.svg)
+
+](https://my.home-assistant.io/redirect/hacs_repository/?owner=Meine-smarte-Welt&repository=fritzbox_netzwerk&category=integration)
 [
 
 ![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)
