@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): d882f63c6bb142a46769bde29858686c9c0ae93da703cf10e6f552cffc905c23
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 1beeb0c0846bcec5de72dbc2c8f3a7f2400163a18c19ac51545dfa7cdfbce59f
 """Aufbereitung der FRITZ!Box-Hostliste.
 
 Dieses Modul enthaelt bewusst KEINE Home-Assistant- und keine
@@ -1064,6 +1064,8 @@ def mesh_members(
                 "online": bool(host.get("active")),
                 "mesh_id": host.get("mesh_id") or "",
                 "via_id": host.get("via_id") or "",
+                # Name des Uplinks: Rueckfall der Karte, wenn ``via_id`` keinem Mitglied zugeordnet werden kann.
+                "connected_via": host.get("connected_via") or "",
                 "link_mbit": host.get("link_mbit"),
                 "link_type": host.get("link_type") or "",
             }
@@ -1208,33 +1210,46 @@ def apply_mesh_links(
         return hosts
     for host in hosts:
         link = links.get(mac_key(host["mac"]))
-        if not link:
-            continue
-        host["connected_via"] = link.get("connected_via") or ""
-        host["link_mbit"] = link.get("link_mbit")
-        host["via_id"] = link.get("via_id") or ""
-        host["link_type"] = link.get("type") or ""
-        # Band hinter einem Repeater: die WLAN-Liste der Box kennt solche
-        # Geraete nicht, die Mesh-Topologie schon (Issue #21). Ein Band aus
-        # der WLAN-Liste der Box hat Vorrang.
-        if not host.get("band") and link.get("band"):
-            host["band"] = link["band"]
+        if link:
+            _set_mesh_link(host, link)
     return hosts
+
+
+def _set_mesh_link(host: dict[str, Any], link: dict[str, Any]) -> None:
+    """Uebernimmt "verbunden ueber", Rate, Art und Band einer Mesh-Verbindung in einen Host."""
+    host["connected_via"] = link.get("connected_via") or ""
+    host["link_mbit"] = link.get("link_mbit")
+    host["via_id"] = link.get("via_id") or ""
+    host["link_type"] = link.get("type") or ""
+    # Band hinter einem Repeater: die WLAN-Liste der Box kennt solche
+    # Geraete nicht, die Mesh-Topologie schon (Issue #21). Ein Band aus
+    # der WLAN-Liste der Box hat Vorrang.
+    if not host.get("band") and link.get("band"):
+        host["band"] = link["band"]
 
 
 def apply_mesh_repeaters(
     hosts: list[dict[str, Any]],
     repeaters: dict[str, dict[str, str]] | None,
     box_ip: str = "",
+    links: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Markiert Hosts als Repeater, die die Mesh-Topologie als FRITZ!-Geraet kennt.
 
     Ergaenzt ``is_repeater`` (Modellname): ein Repeater, dessen Modell weder
     "Repeater" noch "FRITZ!Box" enthaelt oder leer ist, wird sonst nicht
     erkannt (Issue #16). Die Hauptbox (``box_ip``) wird nie markiert.
+
+    Rueckfall ueber den Namen: Steht ein Repeater mit einer MAC-Adresse in der Hostliste,
+    die zu keiner Schnittstelle der Topologie passt, bekommt er ``mesh_id`` und - mit
+    ``links`` - seine Uplink-Angaben ueber den Namen, sofern der Name unter den noch nicht
+    zugeordneten Repeatern und unter den Mesh-Geraeten eindeutig ist. Ohne ``mesh_id``
+    liesse sich weder ein Repeater unter ihn noch er unter einen anderen haengen.
     """
     if not repeaters:
         return hosts
+    unmatched: list[dict[str, Any]] = []
+    claimed: set[str] = set()
     for host in hosts:
         if box_ip and host.get("ip") == box_ip:
             continue
@@ -1243,11 +1258,37 @@ def apply_mesh_repeaters(
             # Kennung im Mesh - auch fuer Repeater, die schon am Modell erkannt wurden
             # (die Karte baut daraus die Kaskade).
             host["mesh_id"] = info.get("id") or ""
+            claimed.add(host["mesh_id"])
+        elif host.get("repeater"):
+            unmatched.append(host)
         if host.get("repeater") or not info:
             continue
         host["repeater"] = True
         if not host.get("model") and info.get("model"):
             host["model"] = info["model"]
+    if not unmatched:
+        return hosts
+    # Mesh-Geraete je Kennung (ein Geraet steht mit allen Schnittstellen-MACs im Verzeichnis).
+    by_id: dict[str, dict[str, str]] = {}
+    keys_of: dict[str, list[str]] = {}
+    for key, info in repeaters.items():
+        ident = info.get("id") or ""
+        if ident and ident not in claimed:
+            by_id.setdefault(ident, info)
+            keys_of.setdefault(ident, []).append(key)
+    for host in unmatched:
+        name = str(host.get("name") or "").strip().casefold()
+        if not name:
+            continue
+        same_host = [h for h in unmatched if str(h.get("name") or "").strip().casefold() == name]
+        candidates = [i for i in by_id.values() if str(i.get("name") or "").strip().casefold() == name]
+        if len(same_host) != 1 or len(candidates) != 1:
+            continue
+        ident = candidates[0]["id"]
+        host["mesh_id"] = ident
+        link = next((links[k] for k in keys_of[ident] if links and k in links), None)
+        if link:
+            _set_mesh_link(host, link)
     return hosts
 
 

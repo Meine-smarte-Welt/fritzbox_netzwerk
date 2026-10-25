@@ -7,7 +7,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.0.1b1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video en handleiding voor de netwerkkaart (Duits):** [meinesmartewelt.de – FRITZ!Box Netzwerk voor Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -415,28 +415,34 @@ De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/co
 
 ## Versiegeschiedenis
 
-### 2.0.1b1 – Meshkaart met cascade en wolken, naam van de FRITZ!Box, toegangsprofiel zonder timeout
+### 2.0.1 – Toegangsprofielen met echte namen, Meshkaart met cascade en wolken, naam van de FRITZ!Box
 
-Voorlopige versie (bèta), bouwt voort op 2.0.0. **Niet getest op een echte FRITZ!Box of in een draaiende Home Assistant** – de verwerking liep alleen tegen een nagebouwde mesh-topologie (box, gecascadeerde repeaters, apparaten achter een switch) en tegen dubbelgangers van de webinterface. De kaart is met testgegevens in een headless browser getekend.
+Verbeteringen en oplossingen ten opzichte van 2.0.0 na reacties. **Getest:** de profielnamen en de profielenlijst, alleen lezend op een echte FRITZ!Box 5690 Pro (FRITZ!OS 8.40). **Niet getest op een echte FRITZ!Box of in een draaiende Home Assistant:** al het overige – de meshverwerking draaide alleen tegen nagebouwde topologieën (met de echte klassen van `fritzconnection`) en de kaart tegen testgegevens in een gesimuleerde browser.
 
-**Kaart (tab „Mesh”)**
+**Kaart**
 
-- **Nieuw – boomweergave:** een repeater achter een andere repeater (cascade) wordt nu als boom getekend; bij elke verbinding staat de datasnelheid.
-- **Nieuw – wolken per station:** onder de FRITZ!Box en onder elke repeater hangen wolken met de verbonden apparaten, verdeeld in **wifi** en **LAN** (plus „overig” bij onbekend type). Apparaten achter een **switch** staan in de LAN-wolk van het station waar de switch op is aangesloten – de FRITZ!Box meldt switches niet afzonderlijk.
-- **Nieuw – totaal aantal bij de FRITZ!Box:** de box toont „N apparaten totaal”; in het uitklapbare onderdeel staat „10 direct · 15 totaal”. Repeaters in de lijst van een station staan met „↳”.
-- **Opgelost – naam in plaats van model:** de FRITZ!Box werd met haar modelnaam getoond („FRITZ!Box 5530 Fiber”). Nu staat haar naam uit het thuisnetwerk (eigen vermelding van de box in de apparatenlijst, anders de naam uit de mesh-topologie); het model staat eronder.
-- **Opgelost – box niet met zichzelf verbonden:** de eigen vermelding van de FRITZ!Box staat niet meer in de apparatenlijst van haar eigen station.
-- **Verbeterd – snelheden:** ontbreekt de actuele datasnelheid (vaak bij kabelverbindingen en sommige repeaters), dan geldt de maximale snelheid van de verbinding. Ongetest; zonder beide waarden blijft „—” staan.
-- De kolom en het popup „Verbonden via” tonen de naam van het station uit de mesh.
+- **Opgelost – profielnamen in de keuzelijst (reactie):** De keuze van de toegangsprofielen toonde `filtprof1`, `filtprof2` … in plaats van namen. Nu staan daar de namen van de box („Standard", „Gast", „Unbeschränkt", plus je eigen profielen). Hebben twee profielen dezelfde naam, dan staat de ID tussen haakjes erachter.
+- **Nieuw – boomweergave (tabblad „Mesh"):** Repeaters achter een repeater (cascade) worden als boom getekend; bij elke verbinding staat de datasnelheid.
+- **Opgelost – repeater achter repeater (reactie):** Alle repeaters leken rechtstreeks aan de FRITZ!Box te hangen. Kan de uplink van een repeater aan geen enkel lid worden gekoppeld, dan hangt de kaart hem onder de naam van zijn uplink en pas daarna onder de box.
+- **Nieuw – wolken per station:** Onder de FRITZ!Box en onder elke repeater hangen wolken met de verbonden apparaten, gesplitst in **WLAN** en **LAN** (plus „Overig" als de soort niet te herkennen is). Apparaten achter een **switch** staan in de LAN-wolk van het station waar de switch aan hangt – de FRITZ!Box meldt switches niet afzonderlijk.
+- **Nieuw – totaalaantal bij de FRITZ!Box:** De box toont „N apparaten totaal"; in het uitklapbare gedeelte staat „10 direct · 15 totaal". Repeaters in de lijst van hun station verschijnen met „↳".
+- **Opgelost – naam in plaats van model:** De FRITZ!Box verscheen met zijn modelnaam („FRITZ!Box 5530 Fiber"). Nu staat zijn naam uit het thuisnetwerk (vermelding van de box in de apparatenlijst, anders de naam uit de mesh-topologie); het model staat eronder.
+- **Opgelost – box niet met zichzelf verbonden:** De eigen vermelding van de FRITZ!Box verschijnt niet meer in de apparatenlijst van zijn eigen station.
+- **Verbeterd – snelheden:** Ontbreekt de actuele datasnelheid (vaak bij kabelverbindingen en sommige repeaters), dan geldt de maximale snelheid van de verbinding. De waarde is ongetest; zonder beide waarden blijft „—" staan.
+- De kolom en het pop-up „Verbonden via" tonen de naam van het station uit de mesh.
 
 **Integratie**
 
-- **Opgelost – gecascadeerde repeaters:** de mesh-verwerking sloeg tot nu toe alle apparaten met meerdere actieve verbindingen over – precies de repeaters met eigen clients. De uplink van elk apparaat is nu de kortste weg naar de hoofdbox; ook repeaters krijgen „Verbonden via” en een datasnelheid. Nieuwe attributen per apparaat: `via_id`, `link_type`, `mesh_id`; mesh-leden hebben `mesh_id`, `via_id`, `link_mbit`, `link_type`.
-- **Opgelost – timeout bij `get_access_profile` (reactie over de 5530):** `Read timed out (read timeout=10)`. Het apparaat wordt nu eerst in de lichte apparatenlijst gezocht (dezelfde route als het vaste IP-adres); de zware pagina’s van de webinterface (`netDev`, `edit_device`, `kidPro`) mogen tot 40 seconden antwoorden. Of de timeout op de 5530 daarmee verdwijnt, is ongetest.
+- **Opgelost – profielnamen en profielenlijst (FRITZ!OS 8.40):** Namen werden alleen uit een attribuut `data-name` gelezen, dat de box niet levert. Bovendien antwoordt FRITZ!OS 8.40 op de pagina `kidPro` alleen nog met het overzicht – de profielenlijst was daar helemaal niet te lezen. Nu worden de namen gelezen uit de apparaatkeuze van de box (`edit_device`), uit het pad `api/v0/generic/filter_profile` (waar de standaardprofielen een lege naam hebben), uit `kidPro` en uit `kidLis`; voor de drie vaste profielen gelden als laatste terugval „Standard" (`filtprof1`), „Gast" (`filtprof2`) en „Unbeschränkt" (`filtprof3`). Alleen lezend bevestigd op een FRITZ!Box 5690 Pro (FRITZ!OS 8.40).
+- **Nieuw – diagnose bij ontbrekende namen:** Wordt nergens een naam gevonden, dan toont de keuze de ID en komt er per start één waarschuwing in het logboek („Zugangsprofile ohne Namen") met een kort fragment van de pagina `kidPro` (zonder sessie-ID).
+- **Opgelost – gecascadeerde repeaters:** De meshverwerking sloeg tot nu toe alle apparaten met meerdere actieve verbindingen over – juist de repeaters met eigen apparaten. Nu wordt de uplink van elk apparaat bepaald via de gunstigste weg naar de hoofdbox: verbindingen met een gemelde actuele datasnelheid tellen zwaarder dan die zonder, en clients (smartphones, pc's …) geven nooit door. Een extra, als verbonden gemarkeerde verbinding tussen repeater en hoofdbox (bijvoorbeeld een verouderd item zonder actuele snelheid) wint dus niet meer van de echte weg via een andere repeater. Of de box zulke items echt meldt, is ongetest. Ook repeaters krijgen „Verbonden via" en een datasnelheid. Nieuwe attributen per apparaat: `via_id`, `link_type`, `mesh_id`; de mesh-leden dragen `mesh_id`, `via_id`, `connected_via`, `link_mbit`, `link_type`.
+- **Nieuw – naam als terugval voor repeaters:** Past het MAC-adres van een repeater in de apparatenlijst bij geen enkele interface van de mesh-topologie, dan wordt hij via zijn unieke naam gekoppeld. Bij dubbelzinnige namen wordt niets geraden.
+- **Nieuw – diagnose-export:** Twee nieuwe onderdelen, `mesh_topology` (geanonimiseerd: knooppunten met rol, model, afstand en uplink, verbindingen met soort, status en snelheid) en `mesh_resolution` (hoe de kaart elke repeater indeelt). De mesh-ID's `mesh_id` en `via_id` (afgeleid van het MAC-adres van het apparaat) worden in het export nu afgeschermd.
+- **Opgelost – timeout bij `get_access_profile` (reactie over de 5530):** `Read timed out (read timeout=10)`. Het apparaat wordt nu eerst in de lichte apparatenlijst gezocht (dezelfde route als het vaste IP-adres); de zware pagina's van de webinterface (`netDev`, `edit_device`, `kidPro`) mogen tot 40 seconden antwoorden. Of de timeout op de 5530 daarmee verdwijnt, is ongetest.
 
-**Update-instructies:** bijwerken via HACS (toon voorlopige versies in HACS), Home Assistant herstarten, browsercache wissen (Ctrl+F5).
+**Updatetips:** Bijwerken via HACS, Home Assistant herstarten, browsercache legen (Ctrl+F5).
 
-**Bekend:** hoe de box apparaten achter een switch meldt, hangt van FRITZ!OS af; de toewijzing aan een station is ongetest. Reacties met de diagnose-download (mesh-gedeelte) helpen.
+**Bekend:** In zijn eigen apparaatkeuze biedt de FRITZ!Box het profiel „Gast" niet aan (op één apparaat waargenomen); de integratie toont het toch. Of de box de toewijzing accepteert, is ongetest – anders verschijnt de melding dat het profiel niet is overgenomen. Hoe de box apparaten achter een switch meldt, hangt van FRITZ!OS af; de toewijzing aan een station is ongetest. Blijft de meshweergave plat, stuur dan de diagnose-download van de invoer (menu ⋮ → „Diagnose downloaden") met de onderdelen `mesh_topology` en `mesh_resolution` mee; daarin staan geen namen of adressen.
 
 ### 2.0.0 – Online-monitor en Mesh-kaart, FRITZ!Box-info met temperatuur, Notification Center, dataverbruik per apparaat, statisch IP via REST
 

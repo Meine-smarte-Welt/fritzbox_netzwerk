@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 8c49a148cb65c12086ffbc15b196710fd7d0b77250b97e1db3b34d244ee90f08
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): fa15ccd1042bc9d0e2b30dfd3ff11209c0460cfd3382d5c1d63580263fbc43d1
 """Inoffizieller Zugriff auf die FRITZ!Box-Weboberfläche (nur lesend).
 
 ACHTUNG - EXPERIMENTELL: Dieses Modul spricht NICHT TR-064, sondern die
@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import hashlib
 import html
+import json
+import logging
 import re
 import xml.etree.ElementTree as ET
 from typing import Any
@@ -211,8 +213,30 @@ def fetch_system_stats(session: Any, base: str, user: str, password: str) -> dic
 # ---------------------------------------------------------------------------
 
 PROFILE_ID_RE = re.compile(r"filtprof\d+")
-_TAG_RE = re.compile(r"<[^>]*\bvalue=\"(filtprof\d+)\"[^>]*>", re.IGNORECASE)
-_NAME_RE = re.compile(r"\bdata-name=\"([^\"]*)\"", re.IGNORECASE)
+_TAG_RE = re.compile(r"<[^>]*\bvalue=[\"'](filtprof\d+)[\"'][^>]*>", re.IGNORECASE)
+_NAME_RE = re.compile(r"\bdata-(?:profile-?)?name=[\"']([^\"']*)[\"']", re.IGNORECASE)
+_OPTION_RE = re.compile(
+    r"<option\b[^>]*\bvalue=[\"'](filtprof\d+)[\"'][^>]*>(.*?)</option>", re.IGNORECASE | re.DOTALL
+)
+_ROW_RE = re.compile(r"<(tr|li)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
+_CELL_RE = re.compile(r"<(t[dh])\b([^>]*)>(.*?)</\1>", re.IGNORECASE | re.DOTALL)
+_NAME_CELL_RE = re.compile(r"(?:datalabel|data-label|class)=[\"'][^\"']*name", re.IGNORECASE)
+_ID_KEYS = ("id", "value", "uid", "UID", "key", "profile", "profile_id", "profileId")
+_NAME_KEYS = (
+    "name", "Name", "text", "label", "title", "displayName", "display_name", "profile_name", "caption",
+)
+# Beschriftungen von Schaltflächen und Spaltenköpfen, die nie ein Profilname sind.
+_NOT_NAMES = frozenset(
+    {"bearbeiten", "löschen", "loeschen", "ändern", "edit", "delete", "remove", "name", "profil", "profile"}
+)
+# REST-Pfad der Profilliste (FRITZ!OS 8.x, so lädt ihn die Oberfläche selbst). Dort stehen die
+# Standardprofile mit LEEREM ``name`` - die Oberfläche blendet ihre Namen selbst ein.
+FILTER_PROFILE_PATH = "api/v0/generic/filter_profile"
+# Namen der drei fest eingebauten Profile, wie die Oberfläche (FRITZ!OS 8.40, Deutsch) sie zeigt:
+# Standard, Gast, Unbeschränkt. Nur letzter Rückfall, wenn die Box keinen Namen liefert.
+DEFAULT_PROFILE_NAMES = {"filtprof1": "Standard", "filtprof2": "Gast", "filtprof3": "Unbeschränkt"}
+_LOGGER = logging.getLogger(__name__)
+_names_warned = False
 
 
 def normalize_mac(mac: Any) -> str:
@@ -220,23 +244,183 @@ def normalize_mac(mac: Any) -> str:
     return re.sub(r"[^0-9A-Fa-f]", "", str(mac or "")).upper()
 
 
-def parse_profiles(page: Any) -> list[dict[str, str]]:
-    """Liest die Zugangsprofile (``id``, ``name``) aus der HTML-Seite ``kidPro``.
+def _clean_text(fragment: Any) -> str:
+    """Sichtbarer Text eines HTML-Schnipsels (ohne Tags, Entitäten aufgelöst, Leerraum zusammengefasst)."""
+    text = re.sub(r"<[^>]*>", " ", str(fragment or ""))
+    return re.sub(r"\s+", " ", html.unescape(text)).strip()
 
-    Erwartet Markierungen mit ``value="filtprofNNN"`` und ``data-name="…"`` im
-    selben Tag (Attributreihenfolge egal). Doppelte IDs zählen einmal.
+
+def _usable_name(value: Any, profile_id: str = "") -> str:
+    """Bereinigter Profilname oder ``""``, wenn der Wert die ID, eine Schaltfläche o. ä. ist."""
+    if not isinstance(value, str):
+        return ""
+    name = _clean_text(value)
+    if not name or len(name) > 80 or name == profile_id or PROFILE_ID_RE.fullmatch(name):
+        return ""
+    if name.casefold() in _NOT_NAMES or re.fullmatch(r"[\W_]+", name):
+        return ""
+    return name
+
+
+def _json_profiles(node: Any, found: dict[str, str], depth: int = 0) -> None:
+    """Sammelt ``ID -> Name`` aus beliebig verschachteltem JSON (Reihenfolge des ersten Fundes bleibt).
+
+    Erkannt werden Objekte mit einem ID-Feld (``id``, ``value``, ``UID`` …) neben einem Namensfeld
+    (``name``, ``text``, ``label`` …) und Zuordnungen der Form ``{"filtprof1": "Standard"}``. Das Feld
+    ``selected`` zählt bewusst nicht als ID-Feld (es nennt nur die Auswahl, nicht ein Profil).
     """
-    text = page if isinstance(page, str) else ""
-    result: list[dict[str, str]] = []
-    seen: set[str] = set()
+    if depth > 12:
+        return
+
+    def put(profile_id: str, name: str) -> None:
+        if not found.get(profile_id):
+            found[profile_id] = name
+
+    if isinstance(node, dict):
+        profile_id = next(
+            (v for k, v in node.items() if k in _ID_KEYS and isinstance(v, str) and PROFILE_ID_RE.fullmatch(v)),
+            None,
+        )
+        if profile_id:
+            put(profile_id, next((n for n in (_usable_name(node.get(k), profile_id) for k in _NAME_KEYS) if n), ""))
+        for key, value in node.items():
+            if isinstance(key, str) and PROFILE_ID_RE.fullmatch(key):
+                if isinstance(value, str):
+                    put(key, _usable_name(value, key))
+                elif isinstance(value, dict):
+                    put(key, next((n for n in (_usable_name(value.get(k), key) for k in _NAME_KEYS) if n), ""))
+            _json_profiles(value, found, depth + 1)
+    elif isinstance(node, list):
+        for item in node:
+            _json_profiles(item, found, depth + 1)
+
+
+def _html_profiles(text: str) -> dict[str, str]:
+    """Sammelt ``ID -> Name`` aus einer HTML-Seite (``value="filtprofN"`` markiert ein Profil).
+
+    Namen kommen, in dieser Reihenfolge, aus dem Text eines ``<option>``, aus einem ``data-name``
+    im selben Tag oder aus der Tabellen-/Listenzeile, in der die ID steht (bevorzugt die Zelle mit
+    „name“ in Klasse oder ``datalabel``, sonst die erste Zelle mit brauchbarem Text).
+    """
+    found: dict[str, str] = {}
+
+    def put(profile_id: str, name: str) -> None:
+        if not found.get(profile_id):
+            found[profile_id] = name
+
+    for match in _OPTION_RE.finditer(text):
+        put(match.group(1), _usable_name(match.group(2), match.group(1)))
     for match in _TAG_RE.finditer(text):
-        profile_id = match.group(1)
-        if profile_id in seen:
+        data_name = _NAME_RE.search(match.group(0))
+        put(match.group(1), _usable_name(data_name.group(1), match.group(1)) if data_name else "")
+    for row in _ROW_RE.finditer(text):
+        ids = list(dict.fromkeys(PROFILE_ID_RE.findall(row.group(0))))
+        if len(ids) != 1 or ids[0] not in found or found[ids[0]]:
             continue
-        name = _NAME_RE.search(match.group(0))
-        seen.add(profile_id)
-        result.append({"id": profile_id, "name": html.unescape(name.group(1)).strip() if name else ""})
-    return result
+        cells = [(m.group(2), _clean_text(m.group(3))) for m in _CELL_RE.finditer(row.group(0))]
+        ordered = [t for a, t in cells if _NAME_CELL_RE.search(a)] + [t for _, t in cells]
+        put(ids[0], next((n for n in (_usable_name(t, ids[0]) for t in ordered) if n), ""))
+    return found
+
+
+def parse_profile_names(page: Any) -> dict[str, str]:
+    """``ID -> Name`` aus einer Seite der Weboberfläche (HTML-Text oder JSON); nur gefundene Namen."""
+    found: dict[str, str] = {}
+    if isinstance(page, (dict, list)):
+        _json_profiles(page, found)
+    elif isinstance(page, str):
+        found = _html_profiles(page)
+    return {pid: name for pid, name in found.items() if name}
+
+
+def parse_profiles(page: Any) -> list[dict[str, str]]:
+    """Liest die Zugangsprofile (``id``, ``name``) aus der Seite ``kidPro`` (HTML oder JSON).
+
+    Ein Profil ist jede ``value="filtprofNNN"``-Markierung (bei JSON: ein Objekt mit ID-Feld). Der
+    Name stammt aus dem ersten Treffer von :func:`_html_profiles` bzw. :func:`_json_profiles`;
+    fehlt er, bleibt ``name`` leer (der Aufrufer ergänzt ihn aus weiteren Quellen). Doppelte IDs
+    zählen einmal.
+    """
+    if isinstance(page, (dict, list)):
+        found: dict[str, str] = {}
+        _json_profiles(page, found)
+    else:
+        found = _html_profiles(page if isinstance(page, str) else "")
+    return [{"id": pid, "name": name} for pid, name in found.items()]
+
+
+def _fill_names(profiles: list[dict[str, str]], names: dict[str, str]) -> None:
+    """Trägt fehlende Namen aus ``names`` nach (vorhandene bleiben unverändert)."""
+    for profile in profiles:
+        if not profile["name"]:
+            profile["name"] = names.get(profile["id"], "")
+
+
+def _profile_excerpt(page: Any) -> str:
+    """Kurzer Auszug (ohne Session-ID) rund um das erste Profil einer Seite - für die Fehlersuche."""
+    text = json.dumps(page, ensure_ascii=False) if isinstance(page, (dict, list)) else str(page or "")
+    start = text.find("filtprof")
+    if start < 0:
+        return text[:300]
+    excerpt = re.sub(r"\s+", " ", text[max(0, start - 250) : start + 450])
+    return re.sub(r"\bsid=[0-9a-fA-F]{8,}", "sid=…", excerpt)
+
+
+def _profile_id_number(profile: dict[str, str]) -> int:
+    """Zahl hinter ``filtprof`` (für die Reihenfolge wie in der Oberfläche: 1, 2, 3, 1008 …)."""
+    digits = re.sub(r"\D", "", profile["id"])
+    return int(digits) if digits else 0
+
+
+def _missing_names(profiles: list[dict[str, str]]) -> bool:
+    return any(not p["name"] for p in profiles)
+
+
+def read_profile_catalog(session: Any, base: str, sid: str, extra: Any = None) -> list[dict[str, str]]:
+    """Alle Zugangsprofile (``id``, ``name``) mit möglichst vollständigen Namen.
+
+    Die Profilliste kommt aus ``kidPro`` (FRITZ!OS bis 8.2x); liefert die Box dort keine
+    Profile (FRITZ!OS 8.40 antwortet für unbekannte Seiten mit der Übersicht), aus dem REST-Pfad
+    ``filter_profile``, sonst aus ``extra``. Fehlende Namen werden in dieser Reihenfolge ergänzt:
+    ``extra`` (die ``edit_device``-Antwort des Geräts - dort stehen sie so, wie die Box sie in der
+    Auswahl zeigt) → ``filter_profile`` → ``kidLis`` → die festen Namen der Standardprofile
+    (``DEFAULT_PROFILE_NAMES``). Weitere Quellen werden nur abgefragt, solange noch etwas fehlt.
+    Bleibt ein Name leer, zeigt die Oberfläche die ID; einmal je Start steht dann ein Auszug der
+    Seite ``kidPro`` im Protokoll (Warnung), damit das Format nachgetragen werden kann.
+    """
+    global _names_warned  # noqa: PLW0603 - einmalige Warnung je Start genügt
+    page = data_lua(session, base, sid, "kidPro", SLOW_TIMEOUT)
+    profiles = parse_profiles(page)
+    device_names = parse_profile_names(extra) if extra is not None else {}
+    if profiles:
+        _fill_names(profiles, device_names)
+    if not profiles or _missing_names(profiles):
+        try:
+            rest = parse_profiles(monitor_get(session, base, sid, FILTER_PROFILE_PATH))
+        except Exception:  # noqa: BLE001 - Zusatzquelle (nur FRITZ!OS 8.x), Fehler sind hier harmlos
+            rest = []
+        if not profiles:
+            profiles = sorted(rest, key=_profile_id_number)
+            _fill_names(profiles, device_names)
+        else:
+            _fill_names(profiles, {p["id"]: p["name"] for p in rest})
+    if not profiles and device_names:
+        # Letzter Weg zur Liste: die Auswahl des Geräts selbst (zeigt nur die für dieses Gerät wählbaren Profile).
+        profiles = [{"id": pid, "name": name} for pid, name in device_names.items()]
+    if profiles and _missing_names(profiles):
+        try:
+            _fill_names(profiles, parse_profile_names(data_lua(session, base, sid, "kidLis", SLOW_TIMEOUT)))
+        except Exception:  # noqa: BLE001 - Zusatzquelle, ein Fehler darf die Profilliste nicht kippen
+            pass
+    _fill_names(profiles, DEFAULT_PROFILE_NAMES)
+    if profiles and _missing_names(profiles) and not _names_warned:
+        _names_warned = True
+        _LOGGER.warning(
+            "Zugangsprofile ohne Namen (%s) - Auszug der Seite kidPro: %s",
+            ", ".join(p["id"] for p in profiles if not p["name"]),
+            _profile_excerpt(page),
+        )
+    return profiles
 
 
 def parse_net_devices(payload: Any) -> list[dict[str, str]]:
@@ -569,15 +753,19 @@ def _find_device(session: Any, base: str, sid: str, mac: str) -> dict[str, str]:
     raise ValueError(f"Gerät {mac} ist der Weboberfläche nicht bekannt")
 
 
+def _read_device_page(session: Any, base: str, sid: str, uid: str) -> Any:
+    return data_lua(session, base, sid, "edit_device", SLOW_TIMEOUT, dev=uid)
+
+
 def _read_profile(session: Any, base: str, sid: str, uid: str) -> str | None:
-    return parse_device_profile(data_lua(session, base, sid, "edit_device", SLOW_TIMEOUT, dev=uid))
+    return parse_device_profile(_read_device_page(session, base, sid, uid))
 
 
 def list_profiles(session: Any, base: str, user: str, password: str) -> list[dict[str, str]]:
     """Alle Zugangsprofile der Box (``id``, ``name``)."""
     sid = login(session, base, user, password)
     try:
-        profiles = parse_profiles(data_lua(session, base, sid, "kidPro", SLOW_TIMEOUT))
+        profiles = read_profile_catalog(session, base, sid)
     finally:
         logout(session, base, sid)
     if not profiles:
@@ -592,18 +780,16 @@ def get_device_profile(
     sid = login(session, base, user, password)
     try:
         device = _find_device(session, base, sid, mac)
-        current = _read_profile(session, base, sid, device["uid"])
-        names = {
-            p["id"]: p["name"]
-            for p in parse_profiles(data_lua(session, base, sid, "kidPro", SLOW_TIMEOUT))
-        }
+        device_page = _read_device_page(session, base, sid, device["uid"])
+        current = parse_device_profile(device_page)
+        profiles = read_profile_catalog(session, base, sid, extra=device_page)
     finally:
         logout(session, base, sid)
     return {
         "profile": current,
-        "name": names.get(current or "", None),
+        "name": next((p["name"] for p in profiles if p["id"] == current and p["name"]), None),
         "device": device["name"],
-        "profile_liste": [{"id": pid, "name": name} for pid, name in names.items()],
+        "profile_liste": profiles,
     }
 
 
@@ -624,7 +810,7 @@ def assign_profile(
     """
     sid = login(session, base, user, password)
     try:
-        profiles = parse_profiles(data_lua(session, base, sid, "kidPro", SLOW_TIMEOUT))
+        profiles = read_profile_catalog(session, base, sid)
         target = resolve_profile(profiles, reference)
         device = _find_device(session, base, sid, mac)
         previous = _read_profile(session, base, sid, device["uid"])

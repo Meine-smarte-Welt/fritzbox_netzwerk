@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.0.1b1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video and guide for the network card (German):** [meinesmartewelt.de – FRITZ!Box Netzwerk for Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -412,28 +412,34 @@ The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `test
 
 ## Version history
 
-### 2.0.1b1 – Mesh map with cascade and clouds, FRITZ!Box name, access-profile read without timeout
+### 2.0.1 – Access profiles with real names, Mesh map with cascade and clouds, FRITZ!Box name
 
-Pre-release (beta), builds on 2.0.0. **Not tested on a real FRITZ!Box or in a running Home Assistant** – the evaluation only ran against a simulated mesh topology (box, cascaded repeaters, devices behind a switch) and web-interface stand-ins. The card was rendered with test data in a headless browser.
+Fixes and improvements to 2.0.0 based on feedback. **Tested:** the profile names and the profile list, read-only on a real FRITZ!Box 5690 Pro (FRITZ!OS 8.40). **Not tested on a real FRITZ!Box or in a running Home Assistant:** everything else – the mesh evaluation only ran against simulated topologies (built with the real `fritzconnection` classes), and the card against test data in a simulated browser.
 
-**Card (“Mesh” tab)**
+**Card**
 
-- **New – tree view:** a repeater behind another repeater (cascade) is now drawn as a tree; each link shows its data rate.
-- **New – clouds per station:** under the FRITZ!Box and under every repeater, clouds show the connected devices, split into **Wi-Fi** and **LAN** (plus “other” when the type is unknown). Devices behind a **switch** appear in the LAN cloud of the station the switch is plugged into – the FRITZ!Box does not report switches individually.
-- **New – total count at the FRITZ!Box:** the box shows “N devices total”; the collapsible section reads “10 direct · 15 total”. Repeaters in a station’s list are marked with “↳”.
-- **Fixed – name instead of model:** the FRITZ!Box was shown with its model name (“FRITZ!Box 5530 Fiber”). It now shows its home-network name (the box’s own entry in the device list, otherwise the name from the mesh topology); the model sits below.
-- **Fixed – box not connected to itself:** the FRITZ!Box’s own entry no longer appears in the device list of its own station.
-- **Improved – speeds:** if the current data rate is missing (common for wired links and some repeaters), the link’s maximum rate is used. This is untested; with neither value the cell stays “—”.
-- The “Connected via” column and popup show the station name from the mesh.
+- **Fixed – profile names in the dropdown (feedback):** The access-profile selection showed `filtprof1`, `filtprof2` … instead of names. It now shows the box's names ("Standard", "Gast", "Unbeschränkt", plus your own profiles). If two profiles have the same name, the ID is appended in parentheses.
+- **New – tree view ("Mesh" tab):** Repeaters behind a repeater (cascade) are drawn as a tree; the data rate is shown on every connection.
+- **Fixed – repeater behind repeater (feedback):** All repeaters appeared to hang directly on the FRITZ!Box. If a repeater's uplink cannot be matched to any member, the card now hangs it under the uplink's name and only then under the box.
+- **New – clouds per station:** Under the FRITZ!Box and under each repeater hang clouds with the connected devices, split into **WLAN** and **LAN** (plus "Other" where the type cannot be told). Devices behind a **switch** appear in the LAN cloud of the station the switch is connected to – the FRITZ!Box does not report switches individually.
+- **New – total count at the FRITZ!Box:** The box shows "N devices total"; the expandable area shows "10 direct · 15 total". Repeaters in their station's list appear with "↳".
+- **Fixed – name instead of model:** The FRITZ!Box appeared with its model designation ("FRITZ!Box 5530 Fiber"). It now shows its home-network name (the box's entry in the device list, otherwise the name from the mesh topology); the model is shown below.
+- **Fixed – box not connected to itself:** The FRITZ!Box's own entry no longer appears in the device list of its own station.
+- **Improved – speeds:** If the current data rate is missing (common with cable connections and some repeaters), the connection's maximum rate is used. The value is untested; with neither value, "—" remains.
+- The "Connected via" column and popup show the station's name from the mesh.
 
 **Integration**
 
-- **Fixed – cascaded repeaters:** the mesh evaluation used to skip every device with several active connections – exactly the repeaters with their own clients. The uplink of each device is now the shortest path to the main box; repeaters get “Connected via” and a data rate too. New attributes per device: `via_id`, `link_type`, `mesh_id`; mesh members carry `mesh_id`, `via_id`, `link_mbit`, `link_type`.
+- **Fixed – profile names and profile list (FRITZ!OS 8.40):** Names were only read from a `data-name` attribute, which the box does not provide. In addition, FRITZ!OS 8.40 answers the `kidPro` page with the overview only – the profile list could not be read there at all. Names are now read from the box's device selection (`edit_device`), from the path `api/v0/generic/filter_profile` (where the default profiles have an empty name), from `kidPro` and from `kidLis`; for the three built-in profiles "Standard" (`filtprof1`), "Gast" (`filtprof2`) and "Unbeschränkt" (`filtprof3`) are the last fallback. Confirmed read-only on a FRITZ!Box 5690 Pro (FRITZ!OS 8.40).
+- **New – diagnostics for missing names:** If no name is found anywhere, the selection shows the ID, and the log gets one warning per start ("Zugangsprofile ohne Namen") with a short excerpt of the `kidPro` page (without session ID).
+- **Fixed – cascaded repeaters:** The mesh evaluation used to skip every device with several active connections – exactly the repeaters with their own devices. The uplink of each device is now determined via the cheapest path to the main box: connections with a reported current data rate count for more than those without, and clients (phones, PCs …) never forward traffic. An additional connection marked as connected between a repeater and the main box (for example a stale entry without a current rate) therefore no longer beats the real path through another repeater. Whether the box actually reports such entries is untested. Repeaters now also get "Connected via" and a data rate. New attributes per device: `via_id`, `link_type`, `mesh_id`; mesh members carry `mesh_id`, `via_id`, `connected_via`, `link_mbit`, `link_type`.
+- **New – name fallback for repeaters:** If a repeater's MAC address in the device list matches no interface of the mesh topology, it is matched by its unique name. With ambiguous names nothing is guessed.
+- **New – diagnostics export:** Two new sections, `mesh_topology` (anonymised: nodes with role, model, distance and uplink, connections with type, state and rate) and `mesh_resolution` (how the card places each repeater). The mesh identifiers `mesh_id` and `via_id` (derived from the device MAC) are now redacted in the export.
 - **Fixed – timeout in `get_access_profile` (feedback on the 5530):** `Read timed out (read timeout=10)`. The device is now looked up in the lightweight device list first (the same route as the fixed IP address); the heavy web-interface pages (`netDev`, `edit_device`, `kidPro`) may take up to 40 seconds. Whether this removes the timeout on the 5530 is untested.
 
-**Update notes:** update via HACS (show pre-releases in HACS), restart Home Assistant, clear the browser cache (Ctrl+F5).
+**Update notes:** Update via HACS, restart Home Assistant, clear the browser cache (Ctrl+F5).
 
-**Known:** how the box reports devices behind a switch depends on FRITZ!OS; the assignment to a station is untested. Feedback with the diagnostics download (mesh section) helps.
+**Known:** In its own device selection the FRITZ!Box does not offer the "Gast" (guest) profile (observed on one device); the integration lists it anyway. Whether the box accepts the assignment is untested – otherwise the message that the profile was not applied appears. How the box reports devices behind a switch depends on FRITZ!OS; the assignment to a station is untested. If the mesh view stays flat, please attach the entry's diagnostics download (menu ⋮ → "Download diagnostics") with the sections `mesh_topology` and `mesh_resolution`; they contain neither names nor addresses.
 
 ### 2.0.0 – Online monitor and Mesh map, FRITZ!Box info with temperature, Notification Center, data usage per device, static IP via REST
 

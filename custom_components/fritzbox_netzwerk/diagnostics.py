@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f47068550997c87cabe2b82d12d76b954fbf8f7980864e691de2c869ab49fcf7
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 670de274d62a13df581e0f332c2e90ba8b5047b825d8a5d81bb38e78fd5572e8
 """Diagnose-Export fuer fritzbox_netzwerk (Idee 15 aus feature-ideen.md).
 
 Liefert die Angaben, die zur Fehlersuche bei einer GitHub-Issue-Meldung am
@@ -40,6 +40,9 @@ TO_REDACT_HOST_FIELDS = {
     "ha_name",
     "ha_device_id",
     "ha_area",
+    # Kennungen im Mesh (``hosts.mesh_members``) sind aus der Geraete-MAC abgeleitet.
+    "mesh_id",
+    "via_id",
 }
 
 # "connection" (siehe coordinator._async_update_data) enthaelt die externe
@@ -61,6 +64,47 @@ def _nc_diagnostics(coordinator: Any) -> dict[str, Any]:
         "types": {item["type"]: item["enabled"] for item in snapshot["types"]},
         "sent": dict(getattr(coordinator, "nc_counts", {}) or {}),
     }
+
+
+def _mesh_resolution(members: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Wie die Karte die Mesh-Mitglieder einordnet - ohne Namen, MAC- und IP-Adressen.
+
+    ``uplink`` ist die Nummer des Mitglieds (0 = Hauptbox), unter dem die Karte das Mitglied
+    haengt: ``via_id`` (Kennung), sonst der Name des Uplinks, sonst die Hauptbox (Rueckfall).
+    Steht dort bei einer Kaskade ``0 (Rueckfall)``, hat die Zuordnung nicht geklappt.
+    """
+    by_id = {m.get("mesh_id"): i for i, m in enumerate(members) if m.get("mesh_id")}
+    by_name: dict[Any, int] = {}
+    for i, member in enumerate(members):
+        by_name.setdefault(member.get("name"), i)
+    result: list[dict[str, Any]] = []
+    for i, member in enumerate(members):
+        via = member.get("via_id") or ""
+        via_name = member.get("connected_via") or ""
+        if i == 0:
+            uplink: Any = None
+        elif via and by_id.get(via, i) != i:
+            uplink = by_id[via]
+        elif via_name and by_name.get(via_name, i) != i:
+            uplink = by_name[via_name]
+        else:
+            uplink = "0 (Rueckfall)"
+        result.append(
+            {
+                "member": i,
+                "role": member.get("role"),
+                "model": member.get("model"),
+                "online": member.get("online"),
+                "has_mesh_id": bool(member.get("mesh_id")),
+                "has_via_id": bool(via),
+                "via_id_known": bool(via) and via in by_id,
+                "has_uplink_name": bool(via_name),
+                "link_type": member.get("link_type"),
+                "link_mbit": member.get("link_mbit"),
+                "uplink": uplink,
+            }
+        )
+    return result
 
 
 async def async_get_config_entry_diagnostics(
@@ -85,6 +129,10 @@ async def async_get_config_entry_diagnostics(
                 "connection": data.get("connection"),
                 "wlan": data.get("wlan"),
                 "mesh": data.get("mesh"),
+                # Mesh-Karte: was die Box meldet (Knoten, Verbindungen, Uplinks - ohne Namen und
+                # Adressen) und wie die Karte die Repeater daraus einordnet.
+                "mesh_topology": dict(getattr(coordinator, "_mesh_debug", {}) or {}),
+                "mesh_resolution": _mesh_resolution(list(data.get("mesh") or [])),
                 # Nur die Felder, die fuer die Fehlersuche typischerweise
                 # noetig sind (Verbindungsart, Modell, Flags) - der Rest
                 # (Name/IP/MAC) ist ohnehin geschwaerzt, wird aber bewusst

@@ -7,7 +7,7 @@
 
 Una integración de Home Assistant que muestra todos los dispositivos de la red doméstica de la FRITZ!Box en tu panel como una tabla ordenable – con dirección IP, dirección MAC, tipo de conexión y el nombre del dispositivo de Home Assistant correspondiente.
 
-![Version](https://img.shields.io/badge/Version-2.0.1b1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Vídeo y guía de la tarjeta de red (en alemán):** [meinesmartewelt.de – FRITZ!Box Netzwerk para Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -395,28 +395,34 @@ El repositorio contiene las pruebas de 1.9.0 (`tests/test_issues_1_9_0.py`, `tes
 
 ## Historial de versiones
 
-### 2.0.1b1 – Mapa Mesh con cascada y nubes, nombre de la FRITZ!Box, lectura del perfil de acceso sin timeout
+### 2.0.1 – Perfiles de acceso con sus nombres reales, mapa Mesh con cascada y nubes, nombre de la FRITZ!Box
 
-Versión previa (beta), basada en 2.0.0. **No probada en una FRITZ!Box real ni en un Home Assistant en funcionamiento** – la evaluación solo se ejecutó con una topología mesh simulada (box, repetidores en cascada, dispositivos tras un switch) y con simulaciones de la interfaz web. La tarjeta se dibujó con datos de prueba en un navegador sin interfaz.
+Correcciones y mejoras respecto a 2.0.0 según los comentarios recibidos. **Probado:** los nombres de los perfiles y la lista de perfiles, solo lectura en una FRITZ!Box 5690 Pro real (FRITZ!OS 8.40). **No probado en una FRITZ!Box real ni en un Home Assistant en funcionamiento:** todo lo demás – la evaluación del mesh solo se ejecutó contra topologías simuladas (con las clases reales de `fritzconnection`) y la tarjeta contra datos de prueba en un navegador simulado.
 
-**Tarjeta (pestaña «Mesh»)**
+**Tarjeta**
 
-- **Nuevo – vista en árbol:** un repetidor tras otro repetidor (cascada) se dibuja ahora como árbol; cada enlace muestra su velocidad de datos.
-- **Nuevo – nubes por estación:** bajo la FRITZ!Box y bajo cada repetidor cuelgan nubes con los dispositivos conectados, separados en **Wi-Fi** y **LAN** (más «otros» si el tipo es desconocido). Los dispositivos tras un **switch** aparecen en la nube LAN de la estación a la que está conectado el switch – la FRITZ!Box no informa de los switches por separado.
-- **Nuevo – total en la FRITZ!Box:** la box muestra «N dispositivos en total»; la sección desplegable indica «10 directos · 15 en total». Los repetidores en la lista de una estación se marcan con «↳».
-- **Corregido – nombre en lugar de modelo:** la FRITZ!Box aparecía con su modelo («FRITZ!Box 5530 Fiber»). Ahora muestra su nombre de la red doméstica (entrada de la propia box en la lista de dispositivos; si no, el nombre de la topología mesh); el modelo queda debajo.
-- **Corregido – box no conectada consigo misma:** la entrada propia de la FRITZ!Box ya no aparece en la lista de dispositivos de su propia estación.
-- **Mejorado – velocidades:** si falta la velocidad actual (frecuente en enlaces por cable y algunos repetidores), se usa la velocidad máxima del enlace. Sin probar; sin ninguno de los dos valores la celda queda en «—».
+- **Corregido – nombres de perfil en la lista (comentario):** La selección de perfiles de acceso mostraba `filtprof1`, `filtprof2` … en lugar de los nombres. Ahora muestra los nombres de la caja («Standard», «Gast», «Unbeschränkt», más tus propios perfiles). Si dos perfiles tienen el mismo nombre, se añade el ID entre paréntesis.
+- **Nuevo – vista en árbol (pestaña «Mesh»):** Los repetidores detrás de otro repetidor (cascada) se dibujan como árbol; en cada conexión figura la velocidad.
+- **Corregido – repetidor detrás de un repetidor (comentario):** Todos los repetidores aparecían como si estuvieran conectados directamente a la FRITZ!Box. Si el enlace ascendente de un repetidor no se puede asignar a ningún miembro, la tarjeta lo cuelga bajo el nombre de su enlace ascendente y solo después de la caja.
+- **Nuevo – nubes por estación:** Bajo la FRITZ!Box y bajo cada repetidor cuelgan nubes con los dispositivos conectados, separados en **WLAN** y **LAN** (más «Otros» si no se reconoce el tipo). Los dispositivos tras un **switch** aparecen en la nube LAN de la estación a la que está conectado el switch – la FRITZ!Box no notifica los switches por separado.
+- **Nuevo – cantidad total en la FRITZ!Box:** La caja muestra «N dispositivos en total»; el área desplegable indica «10 directos · 15 en total». Los repetidores en la lista de su estación aparecen con «↳».
+- **Corregido – nombre en lugar del modelo:** La FRITZ!Box aparecía con la denominación del modelo («FRITZ!Box 5530 Fiber»). Ahora muestra su nombre de la red doméstica (entrada de la caja en la lista de dispositivos, si no el nombre de la topología Mesh); el modelo figura debajo.
+- **Corregido – caja no conectada consigo misma:** La entrada propia de la FRITZ!Box ya no aparece en la lista de dispositivos de su propia estación.
+- **Mejorado – velocidades:** Si falta la velocidad actual (frecuente en conexiones por cable y en algunos repetidores), se usa la velocidad máxima de la conexión. El valor no está comprobado; sin ninguno de los dos valores queda «—».
 - La columna y la ventana «Conectado a través de» muestran el nombre de la estación del mesh.
 
 **Integración**
 
-- **Corregido – repetidores en cascada:** la evaluación mesh omitía hasta ahora todos los dispositivos con varias conexiones activas – justo los repetidores con clientes propios. El enlace ascendente de cada dispositivo es ahora el camino más corto hasta la box principal; los repetidores también reciben «Conectado a través de» y una velocidad. Nuevos atributos por dispositivo: `via_id`, `link_type`, `mesh_id`; los miembros del mesh llevan `mesh_id`, `via_id`, `link_mbit`, `link_type`.
+- **Corregido – nombres y lista de perfiles (FRITZ!OS 8.40):** Los nombres solo se leían de un atributo `data-name`, que la caja no ofrece. Además, FRITZ!OS 8.40 responde a la página `kidPro` solo con la vista general – la lista de perfiles no se podía leer allí en absoluto. Ahora los nombres se leen de la selección de dispositivo de la caja (`edit_device`), de la ruta `api/v0/generic/filter_profile` (donde los perfiles estándar tienen un nombre vacío), de `kidPro` y de `kidLis`; para los tres perfiles integrados, «Standard» (`filtprof1`), «Gast» (`filtprof2`) y «Unbeschränkt» (`filtprof3`) son el último recurso. Confirmado en solo lectura en una FRITZ!Box 5690 Pro (FRITZ!OS 8.40).
+- **Nuevo – diagnóstico si faltan nombres:** Si no se encuentra ningún nombre, la selección muestra el ID y el registro contiene, una vez por inicio, una advertencia («Zugangsprofile ohne Namen») con un breve extracto de la página `kidPro` (sin ID de sesión).
+- **Corregido – repetidores en cascada:** La evaluación del mesh omitía hasta ahora todos los dispositivos con varias conexiones activas – justamente los repetidores con dispositivos propios. Ahora el enlace ascendente de cada dispositivo se determina por el camino más favorable hacia la caja principal: las conexiones con velocidad actual notificada cuentan más que las que no la tienen, y los clientes (móviles, PC …) nunca reenvían. Una conexión adicional marcada como conectada entre un repetidor y la caja principal (por ejemplo una entrada obsoleta sin velocidad actual) ya no gana al camino real a través de otro repetidor. Si la caja notifica realmente tales entradas no está comprobado. Los repetidores también reciben «Conectado a través de» y una velocidad. Atributos nuevos por dispositivo: `via_id`, `link_type`, `mesh_id`; los miembros del mesh llevan `mesh_id`, `via_id`, `connected_via`, `link_mbit`, `link_type`.
+- **Nuevo – respaldo por nombre para repetidores:** Si la dirección MAC de un repetidor en la lista de dispositivos no coincide con ninguna interfaz de la topología Mesh, se asigna por su nombre único. Con nombres ambiguos no se adivina nada.
+- **Nuevo – exportación de diagnóstico:** Dos secciones nuevas, `mesh_topology` (anonimizada: nodos con rol, modelo, distancia y enlace ascendente, conexiones con tipo, estado y velocidad) y `mesh_resolution` (cómo la tarjeta sitúa cada repetidor). Los identificadores Mesh `mesh_id` y `via_id` (derivados de la MAC del dispositivo) ahora se ocultan en la exportación.
 - **Corregido – timeout en `get_access_profile` (comentario sobre la 5530):** `Read timed out (read timeout=10)`. El dispositivo se busca ahora primero en la lista ligera (la misma vía que la dirección IP fija); las páginas pesadas de la interfaz web (`netDev`, `edit_device`, `kidPro`) pueden responder hasta 40 segundos. Que esto elimine el timeout en la 5530 no está probado.
 
-**Actualización:** vía HACS (mostrar versiones previas en HACS), reiniciar Home Assistant, vaciar la caché del navegador (Ctrl+F5).
+**Notas de actualización:** Actualizar vía HACS, reiniciar Home Assistant, vaciar la caché del navegador (Ctrl+F5).
 
-**Conocido:** cómo informa la box de los dispositivos tras un switch depende de FRITZ!OS; la asignación a una estación no está probada. Los comentarios con la descarga de diagnóstico (sección mesh) ayudan.
+**Conocido:** En su propia selección de dispositivo, la FRITZ!Box no ofrece el perfil «Gast» (invitados) (observado en un dispositivo); la integración lo lista de todos modos. Si la caja acepta la asignación no está comprobado – de lo contrario aparece el mensaje de que el perfil no se aplicó. La forma en que la caja notifica los dispositivos tras un switch depende de FRITZ!OS; la asignación a una estación no está comprobada. Si la vista Mesh sigue plana, adjunte la descarga de diagnóstico de la entrada (menú ⋮ → «Descargar diagnósticos») con las secciones `mesh_topology` y `mesh_resolution`; no contienen nombres ni direcciones.
 
 ### 2.0.0 – Monitor en línea y mapa Mesh, información de la FRITZ!Box con temperatura, centro de notificaciones, consumo de datos por dispositivo, IP estática mediante REST
 

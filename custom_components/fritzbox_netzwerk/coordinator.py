@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): d3714f31c70dc12cb96f06e75b7853e932b98ab609f621c63c1bfb775b36fd1a
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 81e37ce7b9a35fe4e10e19e01c05653324a5cd15d8d001aecf6c59728502cde2
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -301,6 +301,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._mesh_repeaters: dict[str, dict[str, str]] = {}
         # Angaben der Hauptbox aus der Mesh-Topologie (``id``, ``name``, ``model``).
         self._mesh_master: dict[str, Any] = {}
+        # Anonymisierte Beschreibung der zuletzt gelesenen Mesh-Topologie (nur fuer den Diagnose-Export).
+        self._mesh_debug: dict[str, Any] = {}
 
         # Herstellertabelle (MAC-Praefix -> Name); wird einmal beim Start
         # geladen, siehe ``async_load_oui``. Bleibt sie leer, fehlt nur die
@@ -980,7 +982,9 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not self._mesh_topology_supported:
             return {}
         try:
-            links, self._mesh_repeaters, self._mesh_master = fetch_mesh(self.fritz_hosts.fc)
+            links, self._mesh_repeaters, self._mesh_master = fetch_mesh(
+                self.fritz_hosts.fc, self._mesh_debug
+            )
             return links
         except (FritzConnectionException, RequestException) as err:
             _LOGGER.debug("Mesh-Topologie nicht abrufbar: %s", err)
@@ -1898,7 +1902,10 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Repeater, die die Mesh-Topologie kennt, deren Modellname aber nicht
         # danach aussieht (Issue #16).
         apply_mesh_repeaters(
-            hosts, self._mesh_repeaters, str(self.entry.data.get(CONF_HOST, ""))
+            hosts,
+            self._mesh_repeaters,
+            str(self.entry.data.get(CONF_HOST, "")),
+            self._mesh_links_cache,
         )
         # Fuer den NAECHSTEN Zyklus: ob sich eine Mesh-Topologie-Abfrage
         # ueberhaupt lohnt (siehe ``_fetch``/``_fetch_mesh_topology``). Auch

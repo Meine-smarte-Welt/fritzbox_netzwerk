@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 62ce65ef2aeee62e9572220889dd3249562461b5c108987213bc6f565ffb326a
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 6731c2d748c740dded0abe7778d8021bc0042a2aa27beba290662f101ede3575
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "2.0.1b1";
+const FBN_VERSION = "2.0.1";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -2616,12 +2616,16 @@ class FritzboxNetzwerkCard extends HTMLElement {
       if (h.mesh_id) byId.set(h.mesh_id, h);
       if (h.name && !byName.has(h.name)) byName.set(h.name, h);
     }
-    // Uplink eines Repeaters: der Repeater/die Box laut via_id (Kaskade), sonst die Box.
+    // Uplink eines Repeaters: der Repeater/die Box laut via_id (Kaskade), sonst laut Name des Uplinks
+    // (connected_via), erst dann die Box. Ohne den Namens-Rückfall hinge jeder Repeater an der Box,
+    // dessen via_id keinem Mitglied zugeordnet werden kann.
     const parents = new Map(
       hubs.map((h) => {
         if (h === root) return [h, null];
-        const p = (h.via_id && byId.get(h.via_id)) || null;
-        return [h, p && p !== h ? p : root];
+        const byIdParent = h.via_id ? byId.get(h.via_id) : null;
+        const byNameParent = h.connected_via ? byName.get(h.connected_via) : null;
+        const p = byIdParent && byIdParent !== h ? byIdParent : byNameParent && byNameParent !== h ? byNameParent : null;
+        return [h, p || root];
       })
     );
     for (const h of hubs) {
@@ -2668,7 +2672,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // Das Popup einer Mesh-Station: Repeater über die MAC, die Box über ihre IP-Adresse.
     const hubTarget = (m) => (m.role === "box" ? this._hostByIp(m.ip) : this._hostByMac(m.mac));
     const sig = JSON.stringify([
-      hubs.map((h) => [h.name, h.online, h.model, h.mac, h.ip, h.mesh_id, h.via_id, h.link_mbit, hubTarget(h) ? 1 : 0]),
+      hubs.map((h) => [h.name, h.online, h.model, h.mac, h.ip, h.mesh_id, h.via_id, h.connected_via, h.link_mbit, hubTarget(h) ? 1 : 0]),
       hubs.map((h) => (clients.get(h) || []).map((x) => [x.mac, x.link_mbit, x.label || x.name, x.band, x.link_type, x.connection])),
       total,
       loose,
@@ -3926,13 +3930,20 @@ class FritzboxNetzwerkCard extends HTMLElement {
       );
     }
     const saving = st.status === "saving";
+    // Gleiche Namen (z. B. zwei Profile "Kinder") bekommen die ID in Klammern, damit sie unterscheidbar bleiben.
+    const nameCount = {};
+    (st.profiles || []).forEach((p) => {
+      const n = p.name || p.id;
+      nameCount[n] = (nameCount[n] || 0) + 1;
+    });
     const options = (st.profiles || [])
-      .map(
-        (p) =>
-          `<option value="${escapeHtml(p.id)}"${p.id === st.draftProfile ? " selected" : ""}>${escapeHtml(
-            p.name || p.id
-          )}</option>`
-      )
+      .map((p) => {
+        const n = p.name || p.id;
+        const label = nameCount[n] > 1 && p.name ? `${n} (${p.id})` : n;
+        return `<option value="${escapeHtml(p.id)}"${p.id === st.draftProfile ? " selected" : ""}>${escapeHtml(
+          label
+        )}</option>`;
+      })
       .join("");
     const current = (st.profiles || []).find((p) => p.id === st.current);
     const revert = st.revertTo

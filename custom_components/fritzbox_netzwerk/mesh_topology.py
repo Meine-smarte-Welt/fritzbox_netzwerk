@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 46a9c021de134afd3841ad370dc7d486323e55eb65504f493a7cb28aa98fd038
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 71cdd99b17961dfc6e713a16a03095d0ca7c60e1e36acdb6b5b8e54578344862
 """Mesh-Topologie ueber ``fritzconnection.lib.fritztopology`` (Idee 5 aus feature-ideen.md).
 
 Eigenes, von Home Assistant unabhaengiges Modul - wie ``connection.py`` -
@@ -12,8 +12,8 @@ durchspielt). Nutzt dieselbe, mit diesem Projekt gepinnte Bibliotheksversion
 
 from __future__ import annotations
 
+import heapq
 import re
-from collections import deque
 from typing import Any
 
 from fritzconnection.lib.fritztopology import Connection, FritzMeshTopology
@@ -22,7 +22,7 @@ from .hosts import BAND_2_4, BAND_5, BAND_6, band_from_channel, mac_key, mesh_li
 
 
 def fetch_mesh(
-    fc: Any,
+    fc: Any, debug: dict[str, Any] | None = None
 ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, str]], dict[str, Any]]:
     """Laedt die Mesh-Topologie einmal und liefert (Verbindungen, Mesh-Geraete, Hauptbox).
 
@@ -30,9 +30,19 @@ def fetch_mesh(
     zurueck (siehe ``repeaters_from_topology``) - damit auch ein Repeater
     erkannt wird, dessen gemeldetes Modell nicht "Repeater"/"FRITZ!Box" heisst
     (Issue #16) - und die Angaben der Hauptbox (``master_from_topology``).
+
+    Ist ``debug`` ein Dict, wird es mit der anonymisierten Beschreibung der
+    Topologie gefuellt (``describe_topology``) - fuer den Diagnose-Export.
     """
     topology = FritzMeshTopology(fc)
     topology.load_topology()
+    if debug is not None:
+        try:
+            description = describe_topology(topology)
+        except Exception:  # noqa: BLE001 - reine Diagnose, darf die Auswertung nie kippen
+            description = {"error": "Beschreibung der Topologie nicht moeglich"}
+        debug.clear()
+        debug.update(description)
     return (
         links_from_topology(topology),
         repeaters_from_topology(topology),
@@ -108,84 +118,111 @@ def _link_record(connection: Any) -> dict[str, Any]:
     }
 
 
-def _mesh_depths(topology: FritzMeshTopology) -> tuple[dict[str, int], dict[str, list[tuple[Any, Any]]]]:
-    """Abstand jedes Geraets von der Hauptbox und die Nachbarschaft (beide Richtungen).
+# Kosten einer aktiven Verbindung bei der Wegsuche. Eine Verbindung MIT gemeldeter aktueller
+# Datenrate ist glaubwuerdig; eine ohne (Kabel - oder ein veralteter Eintrag, der noch als
+# verbunden gilt) zaehlt mehr, damit sie einen echten Weg ueber einen Repeater nicht aussticht.
+_COST_ACTIVE = 1.0
+_COST_NO_RATE = 2.5
 
-    Breitensuche ueber die aktiven Verbindungen, ausgehend vom Mesh-Master.
-    Ein Repeater hinter einem Repeater hat so Abstand 2, ein Client daran 3.
+
+def _role(device: Any) -> str:
+    return str(getattr(device, "mesh_role", "") or "").lower()
+
+
+def _strict_mesh_flags(topology: FritzMeshTopology) -> bool:
+    """Ob die Topologie ``is_meshed`` verlaesslich meldet (mindestens ein Repeater ausser der Hauptbox)."""
+    return any(getattr(d, "is_meshed", False) and _role(d) != "master" for d in topology.devices)
+
+
+def _is_hub(device: Any, strict: bool) -> bool:
+    """Ob ein Knoten Verkehr weiterleiten kann (Hauptbox, Repeater) - Clients sind nur Endpunkte.
+
+    Ohne verlaessliche ``is_meshed``-Angaben (``strict`` falsch) gilt jeder Knoten als moeglicher
+    Zwischenpunkt, wie bisher.
+    """
+    if not strict:
+        return True
+    return bool(getattr(device, "is_meshed", False)) or _role(device) in ("master", "slave")
+
+
+def _has_current_rate(connection: Any) -> bool:
+    return any(mesh_link_mbit(getattr(connection, name, None)) for name in ("cur_tx", "cur_rx"))
+
+
+def _mesh_paths(
+    topology: FritzMeshTopology,
+) -> tuple[Any, dict[str, float], dict[str, tuple[Any, Any]]]:
+    """Guenstigster Weg von der Hauptbox zu jedem Geraet: ``(master, abstand, vorgaenger)``.
+
+    Wegsuche (Dijkstra) ueber die aktiven Verbindungen, ausgehend vom Mesh-Master; der
+    ``vorgaenger`` eines Geraets ist ``(nachbar, verbindung)`` - sein Uplink. Nur Hauptbox und
+    Repeater leiten weiter, Clients sind Endpunkte. Verbindungen mit aktueller Datenrate sind
+    guenstiger als solche ohne (``_COST_*``); bei gleichen Kosten gewinnt die schnellere.
     Ohne Master ist das Ergebnis leer.
     """
-    master = next(
-        (d for d in topology.devices if str(getattr(d, "mesh_role", "") or "").lower() == "master"),
-        None,
-    )
+    master = next((d for d in topology.devices if _role(d) == "master"), None)
+    if master is None:
+        return None, {}, {}
+    strict = _strict_mesh_flags(topology)
     adjacency: dict[str, list[tuple[Any, Any]]] = {}
     for device in topology.devices:
         for connection in _connected(device):
             target = connection.target
             adjacency.setdefault(device.uid, []).append((target, connection))
             adjacency.setdefault(target.uid, []).append((device, connection))
-    if master is None:
-        return {}, adjacency
-    depth = {master.uid: 0}
-    queue = deque([master])
-    while queue:
-        current = queue.popleft()
-        for neighbor, _connection in adjacency.get(current.uid, []):
-            if neighbor.uid not in depth:
-                depth[neighbor.uid] = depth[current.uid] + 1
-                queue.append(neighbor)
-    return depth, adjacency
+    distance: dict[str, float] = {master.uid: 0.0}
+    parent: dict[str, tuple[Any, Any]] = {}
+    best: dict[str, tuple[float, float]] = {}
+    heap: list[tuple[float, int, Any]] = [(0.0, 0, master)]
+    counter = 1
+    while heap:
+        dist, _order, current = heapq.heappop(heap)
+        if dist > distance.get(current.uid, float("inf")) or not _is_hub(current, strict):
+            continue
+        for neighbor, connection in adjacency.get(current.uid, []):
+            if neighbor.uid == master.uid:
+                continue
+            cost = _COST_ACTIVE if _has_current_rate(connection) else _COST_NO_RATE
+            key = (round(dist + cost, 6), -(link_rate_mbit(connection) or 0.0))
+            if neighbor.uid not in best or key < best[neighbor.uid]:
+                best[neighbor.uid] = key
+                distance[neighbor.uid] = key[0]
+                parent[neighbor.uid] = (current, connection)
+                heapq.heappush(heap, (key[0], counter, neighbor))
+                counter += 1
+    return master, distance, parent
 
 
 def links_from_topology(topology: FritzMeshTopology) -> dict[str, dict[str, Any]]:
     """Baut "verbunden ueber" + Verbindungsrate je Geraet aus einer geladenen Topologie.
 
-    Der Nachbar, ueber den ein Geraet gerade online ist, ist der mit dem
-    kleineren Abstand zur Hauptbox (Breitensuche vom Mesh-Master aus). Damit
-    bekommt auch ein Repeater mit eigenen Clients - und ein Repeater hinter
-    einem anderen Repeater (Kaskade) - seinen Uplink; frueher blieben alle
-    Geraete mit mehreren aktiven Verbindungen ohne Angabe.
+    Der Uplink eines Geraets ist der Vorgaenger auf dem guenstigsten Weg von der Hauptbox
+    (``_mesh_paths``). Damit bekommt auch ein Repeater mit eigenen Clients - und ein Repeater
+    hinter einem anderen Repeater (Kaskade) - seinen Uplink, selbst wenn die Box zusaetzlich
+    eine veraltete, als verbunden markierte Verbindung ohne aktuelle Rate zur Hauptbox listet.
 
-    Geraete, die von der Hauptbox aus nicht erreichbar sind (oder eine
-    Topologie ohne Master), fallen auf die alte Regel zurueck: genau eine
-    aktive Verbindung ergibt den Nachbarn, sonst keine Angabe. Die Hauptbox
-    selbst bekommt nie einen Eintrag.
+    Geraete, die von der Hauptbox aus nicht erreichbar sind (oder eine Topologie ohne
+    Master), fallen auf die alte Regel zurueck: genau eine aktive Verbindung ergibt den
+    Nachbarn, sonst keine Angabe. Die Hauptbox selbst bekommt nie einen Eintrag.
 
     Aufgeteilt von ``fetch_mesh_links()``, damit sich dieser Teil - die
     eigentliche Auswertungslogik - mit einer von Hand gebauten Topologie
     testen laesst, ohne eine echte FRITZ!Box zu brauchen.
     """
     links: dict[str, dict[str, Any]] = {}
-    depth, adjacency = _mesh_depths(topology)
+    master, _distance, parent = _mesh_paths(topology)
     for device in topology.devices:
         keys = _device_keys(device)
-        if not keys:
-            continue
-        own = depth.get(device.uid)
-        if own == 0:
+        if not keys or (master is not None and device.uid == master.uid):
             continue
         record: dict[str, Any] | None = None
-        if own is not None:
-            candidates = [
-                (neighbor, connection)
-                for neighbor, connection in adjacency.get(device.uid, [])
-                if depth.get(neighbor.uid, own) < own
-            ]
-            if candidates:
-                best = min(
-                    candidates,
-                    key=lambda item: (
-                        depth[item[0].uid],
-                        -(link_rate_mbit(item[1]) or 0.0),
-                    ),
-                )
-                connection = best[1]
-                if connection.target.uid != best[0].uid:
-                    # Verbindung aus Sicht des Nachbarn gespeichert: Gegenstelle ist
-                    # dann das eigene Geraet - fuer die Anzeige zaehlt der Nachbar.
-                    connection = Connection(device, best[0], connection.interface_link)
-                record = _link_record(connection)
+        if device.uid in parent:
+            neighbor, connection = parent[device.uid]
+            if connection.target.uid != neighbor.uid:
+                # Verbindung aus Sicht des Nachbarn gespeichert: Gegenstelle ist
+                # dann das eigene Geraet - fuer die Anzeige zaehlt der Nachbar.
+                connection = Connection(device, neighbor, connection.interface_link)
+            record = _link_record(connection)
         else:
             connected = _connected(device)
             if len(connected) == 1:
@@ -195,6 +232,68 @@ def links_from_topology(topology: FritzMeshTopology) -> dict[str, dict[str, Any]
         for key in keys:
             links[key] = record
     return links
+
+
+def describe_topology(topology: FritzMeshTopology) -> dict[str, Any]:
+    """Anonymisierte Beschreibung der Mesh-Topologie fuer den Diagnose-Export.
+
+    Ohne Namen und MAC-Adressen: Hauptbox und Repeater als durchnummerierte Knoten
+    (Rolle, Modell, ``is_meshed``, Abstand von der Hauptbox, gewaehlter Uplink) und die
+    Verbindungen zwischen ihnen (Art, Zustand, aktuelle/maximale Rate). Clients werden
+    nur gezaehlt. Damit laesst sich aus einer Meldung ablesen, was die Box wirklich liefert.
+    """
+    master, distance, parent = _mesh_paths(topology)
+    strict = _strict_mesh_flags(topology)
+    hubs = [d for d in topology.devices if _is_hub(d, strict)]
+    index = {d.uid: number for number, d in enumerate(hubs, 1)}
+    nodes: list[dict[str, Any]] = []
+    for device in hubs:
+        uplink = parent.get(device.uid)
+        nodes.append(
+            {
+                "node": index[device.uid],
+                "role": _role(device) or "?",
+                "model": str(getattr(device, "model", "") or ""),
+                "meshed": bool(getattr(device, "is_meshed", False)),
+                "distance": distance.get(device.uid),
+                "uplink_node": index.get(uplink[0].uid) if uplink else None,
+                "interfaces": sorted({str(getattr(i, "type", "") or "?") for i in device.interfaces}),
+            }
+        )
+    seen: set[Any] = set()
+    links: list[dict[str, Any]] = []
+    for device in hubs:
+        for connection in device.get_connections():
+            target = connection.target
+            if target.uid not in index:
+                continue
+            link_id = getattr(connection.interface_link, "uid", None) or tuple(sorted((device.uid, target.uid)))
+            if link_id in seen:
+                continue
+            seen.add(link_id)
+            links.append(
+                {
+                    "from": index[device.uid],
+                    "to": index[target.uid],
+                    "type": str(getattr(connection, "type", "") or "").upper(),
+                    "state": str(getattr(connection, "state", "") or ""),
+                    "cur_mbit": max(
+                        mesh_link_mbit(getattr(connection, "cur_tx", None)) or 0.0,
+                        mesh_link_mbit(getattr(connection, "cur_rx", None)) or 0.0,
+                    ),
+                    "max_mbit": max(
+                        mesh_link_mbit(getattr(connection, "max_tx", None)) or 0.0,
+                        mesh_link_mbit(getattr(connection, "max_rx", None)) or 0.0,
+                    ),
+                }
+            )
+    return {
+        "master_found": master is not None,
+        "meshed_flags_reliable": strict,
+        "nodes": nodes,
+        "links": links,
+        "clients": len(topology.devices) - len(hubs),
+    }
 
 
 def master_from_topology(topology: FritzMeshTopology) -> dict[str, Any]:
