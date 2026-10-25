@@ -1826,6 +1826,7 @@ Fehlerbehebungen und Verbesserungen zu 2.0.0 nach Rückmeldungen. **Geprüft:** 
 - **Behoben – Name statt Modell:** Die FRITZ!Box erschien mit der Modellbezeichnung („FRITZ!Box 5530 Fiber“). Jetzt steht ihr Name aus dem Heimnetz (Eintrag der Box in der Geräteliste, sonst Name aus der Mesh-Topologie); das Modell steht darunter.
 - **Behoben – Box nicht mit sich selbst verbunden:** Der eigene Eintrag der FRITZ!Box taucht nicht mehr in der Geräteliste ihrer eigenen Station auf.
 - **Verbessert – Geschwindigkeiten:** Fehlt die aktuelle Datenrate (häufig bei Kabelverbindungen und manchen Repeatern), gilt die maximale Rate der Verbindung. Der Wert ist ungeprüft; ohne beide Angaben bleibt „—“.
+- **Behoben – Profil im Geräte-Popup:** Im Abschnitt „Informationen“ stand die Profil-ID (`filtprof1`). Jetzt steht dort der Name („Standard“, „Gast“, „Unbeschränkt“; eigene Profile, sobald die Profilliste einmal geladen wurde). Ungeprüft an einer echten Box.
 - Die Spalte und das Popup „Verbunden über“ zeigen den Namen der Station aus dem Mesh.
 
 **Integration**

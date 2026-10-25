@@ -429,6 +429,7 @@ Verbeteringen en oplossingen ten opzichte van 2.0.0 na reacties. **Getest:** de 
 - **Opgelost – naam in plaats van model:** De FRITZ!Box verscheen met zijn modelnaam („FRITZ!Box 5530 Fiber"). Nu staat zijn naam uit het thuisnetwerk (vermelding van de box in de apparatenlijst, anders de naam uit de mesh-topologie); het model staat eronder.
 - **Opgelost – box niet met zichzelf verbonden:** De eigen vermelding van de FRITZ!Box verschijnt niet meer in de apparatenlijst van zijn eigen station.
 - **Verbeterd – snelheden:** Ontbreekt de actuele datasnelheid (vaak bij kabelverbindingen en sommige repeaters), dan geldt de maximale snelheid van de verbinding. De waarde is ongetest; zonder beide waarden blijft „—" staan.
+- **Opgelost – profiel in het apparaat-popup:** In het onderdeel „Informatie" stond de profiel-ID (`filtprof1`). Nu staat daar de naam („Standard", „Gast", „Unbeschränkt"; eigen profielen zodra de profiellijst eenmaal is geladen). Niet geverifieerd op een echte box.
 - De kolom en het pop-up „Verbonden via" tonen de naam van het station uit de mesh.
 
 **Integratie**

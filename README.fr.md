@@ -410,6 +410,7 @@ Corrections et améliorations par rapport à 2.0.0 d’après les retours. **Tes
 - **Corrigé – box non reliée à elle-même :** L’entrée propre de la FRITZ!Box n’apparaît plus dans la liste d’appareils de sa propre station.
 - **Amélioré – débits :** Si le débit actuel manque (fréquent avec les liaisons filaires et certains répéteurs), le débit maximal de la liaison est utilisé. La valeur n’est pas vérifiée ; sans aucune des deux valeurs, « — » reste affiché.
 - La colonne et la fenêtre « Connecté via » affichent le nom de la station issu du mesh.
+- **Corrigé – profil dans la fenêtre de l’appareil :** La section « Informations » affichait l’ID du profil (`filtprof1`). Elle affiche maintenant le nom (« Standard », « Gast », « Unbeschränkt » ; vos profils une fois la liste chargée). Non vérifié sur une vraie box.
 
 **Intégration**
 

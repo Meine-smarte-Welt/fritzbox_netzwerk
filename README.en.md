@@ -426,6 +426,7 @@ Fixes and improvements to 2.0.0 based on feedback. **Tested:** the profile names
 - **Fixed – name instead of model:** The FRITZ!Box appeared with its model designation ("FRITZ!Box 5530 Fiber"). It now shows its home-network name (the box's entry in the device list, otherwise the name from the mesh topology); the model is shown below.
 - **Fixed – box not connected to itself:** The FRITZ!Box's own entry no longer appears in the device list of its own station.
 - **Improved – speeds:** If the current data rate is missing (common with cable connections and some repeaters), the connection's maximum rate is used. The value is untested; with neither value, "—" remains.
+- **Fixed – profile in the device popup:** The "Information" section showed the profile ID (`filtprof1`). It now shows the name ("Standard", "Gast", "Unbeschränkt"; your own profiles once the profile list has been loaded). Not verified on a real box.
 - The "Connected via" column and popup show the station's name from the mesh.
 
 **Integration**

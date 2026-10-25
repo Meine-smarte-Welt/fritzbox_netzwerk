@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 6731c2d748c740dded0abe7778d8021bc0042a2aa27beba290662f101ede3575
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): e154529339e8aaa5329a1298b4d04674ca6d2ef5d893d23a4383b76175cbc408
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -671,6 +671,14 @@ function realMac(host) {
 }
 
 /** Maskiert Text, der aus der FRITZ!Box stammt, vor der HTML-Ausgabe. */
+// Namen der Zugangsprofile: feste Profile der Box + alles, was ein geladener Profilkatalog geliefert hat.
+const FBN_PROFILE_NAMES = { filtprof1: "Standard", filtprof2: "Gast", filtprof3: "Unbeschränkt" };
+
+function fbnProfileLabel(id) {
+  const key = String(id || "");
+  return FBN_PROFILE_NAMES[key] || key;
+}
+
 function escapeHtml(value) {
   if (value === null || value === undefined) return "";
   return String(value)
@@ -3983,6 +3991,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
         if (this._popupMac !== host.mac || !this._parental) return;
         const r = (result && result.response) || {};
         const profiles = Array.isArray(r.profile_liste) ? r.profile_liste : [];
+        profiles.forEach((p) => {
+          if (p && p.id && p.name) FBN_PROFILE_NAMES[p.id] = p.name;
+        });
         this._parental = {
           mac: host.mac,
           status: "ready",
@@ -4267,7 +4278,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
 
     add(this._t("field.speed"), host.active ? escapeHtml(formatSpeed(host.speed)) : "—");
     add(this._t("field.wan"), host.blocked ? this._t("wan.blocked") : this._t("wan.allowed"));
-    if (host.filter_profile) add(this._t("field.filter_profile"), escapeHtml(host.filter_profile));
+    if (host.filter_profile) add(this._t("field.filter_profile"), escapeHtml(fbnProfileLabel(host.filter_profile)));
     add(this._t("field.update"), host.update_available ? this._t("upd.available") : this._t("upd.none"));
     if (host.model) add(this._t("field.model"), escapeHtml(host.model));
     add(

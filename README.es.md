@@ -410,6 +410,7 @@ Correcciones y mejoras respecto a 2.0.0 según los comentarios recibidos. **Prob
 - **Corregido – caja no conectada consigo misma:** La entrada propia de la FRITZ!Box ya no aparece en la lista de dispositivos de su propia estación.
 - **Mejorado – velocidades:** Si falta la velocidad actual (frecuente en conexiones por cable y en algunos repetidores), se usa la velocidad máxima de la conexión. El valor no está comprobado; sin ninguno de los dos valores queda «—».
 - La columna y la ventana «Conectado a través de» muestran el nombre de la estación del mesh.
+- **Corregido – perfil en la ventana del dispositivo:** La sección «Información» mostraba el ID del perfil (`filtprof1`). Ahora muestra el nombre («Standard», «Gast», «Unbeschränkt»; sus perfiles una vez cargada la lista). No comprobado en una caja real.
 
 **Integración**
 
