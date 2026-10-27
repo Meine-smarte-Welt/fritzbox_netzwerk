@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): dcb6c2af47158730e54f432afbd56b251c189c4ac8e6e3a49d6024ef67b4be3b
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ca248896e41c02a917ca9cf678a51dfe88fd9de1ee3d6c71fe49a82efd661dd6
 set_device_name:
   fields:
     mac:
@@ -131,6 +131,11 @@ set_device_note:
     reserved:
       required: false
       example: true
+      selector:
+        boolean:
+    lost_ignore:
+      required: false
+      example: false
       selector:
         boolean:
     config_entry:
@@ -305,6 +310,19 @@ mark_devices_reserved:
       default: true
       selector:
         boolean:
+    dry_run:
+      required: false
+      default: false
+      selector:
+        boolean:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+remove_unused_connections:
+  fields:
     dry_run:
       required: false
       default: false

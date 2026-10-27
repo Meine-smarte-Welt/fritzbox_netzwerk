@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): cfe6f13d19b74e7fc3b17bcbc9ba3856696535d0895ff2d55a864c2c3ed491c6
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 661d32fbbaf53e6f3296ad59b46acd57fbda16b655ea7d2b987df3caa26efd06
 """Konstanten der Integration fritzbox_netzwerk."""
 
 from typing import Final
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "2.0.1"
+VERSION: Final = "2.0.2"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -59,6 +59,12 @@ CONF_HOST_DEVICE_FILTER: Final = "host_device_filter"
 CONF_ENABLE_DNS_SETTINGS: Final = "enable_dns_settings"
 # Feste IPv4-Adresse je Geraet setzen (experimentell, siehe static_ip.py).
 CONF_ENABLE_STATIC_IP: Final = "enable_static_ip"
+# Ungenutzte Verbindungen aus der Geraeteliste der Box entfernen (seit 2.0.2,
+# experimentell, siehe cleanup.py). Standardmaessig aus.
+CONF_ENABLE_CLEANUP: Final = "enable_cleanup"
+# "Verloren" (seit 2.0.2): ein Geraet, das offline ist und seit mehr als N Tagen
+# nicht mehr gesehen wurde. 0 = Funktion aus.
+CONF_LOST_AFTER_DAYS: Final = "lost_after_days"
 # Optionale Anbindung an das Notification Center (seit 1.9.2b1): Hauptschalter
 # und Auswahl der gesendeten Meldungsarten. Die Namen entsprechen denen der
 # Bruecke (notification_bridge.OPT_ENABLED / OPT_TYPES).
@@ -86,6 +92,10 @@ DEFAULT_ENABLE_PARENTAL: Final = False
 DEFAULT_CHECK_UPDATES: Final = True
 DEFAULT_ENABLE_DNS_SETTINGS: Final = False
 DEFAULT_ENABLE_STATIC_IP: Final = False
+DEFAULT_ENABLE_CLEANUP: Final = False
+DEFAULT_LOST_AFTER_DAYS: Final = 7
+MIN_LOST_AFTER_DAYS: Final = 0
+MAX_LOST_AFTER_DAYS: Final = 365
 DEFAULT_NC_ENABLED: Final = True
 UPDATE_CHECK_HOURS: Final = 24
 # Wer eine Vorabversion (b/rc) installiert hat, fragt die Release-Liste ab, weil
@@ -148,6 +158,7 @@ SERVICE_GET_DNS_SETTINGS: Final = "get_dns_settings"
 SERVICE_SET_DNS_SETTINGS: Final = "set_dns_settings"
 SERVICE_SET_STATIC_IP: Final = "set_static_ip"
 SERVICE_MARK_RESERVED: Final = "mark_devices_reserved"
+SERVICE_REMOVE_UNUSED: Final = "remove_unused_connections"
 ATTR_IP_FILTER: Final = "ip_filter"
 ATTR_SERVICE: Final = "service"
 ATTR_DRY_RUN: Final = "dry_run"
@@ -171,6 +182,7 @@ ATTR_MINUTES: Final = "minutes"
 ATTR_LABEL: Final = "label"
 ATTR_NOTE: Final = "note"
 ATTR_RESERVED: Final = "reserved"
+ATTR_LOST_IGNORE: Final = "lost_ignore"
 # Optionales Feld in allen Diensten (Idee 14 aus feature-ideen.md): ohne
 # Angabe wirkt ein Dienst weiterhin auf die zuerst geladene Box (bisheriges
 # Verhalten, siehe README "Bekannte Einschränkungen").
@@ -208,3 +220,5 @@ SLOW_FETCH_INTERVAL: Final = 300
 CARD_FILENAME: Final = "fritzbox-netzwerk-card.js"
 URL_BASE: Final = f"/{DOMAIN}"
 CARD_URL: Final = f"{URL_BASE}/{CARD_FILENAME}"
+# Das Symbol der Integration (brand/icon.png) fuer die Titelzeile der Karte.
+URL_BRAND: Final = f"/{DOMAIN}_brand"

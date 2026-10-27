@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): e154529339e8aaa5329a1298b4d04674ca6d2ef5d893d23a4383b76175cbc408
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 13b96468fd1b5d05fda7460e1bf2f90d2b9480d207f56737a7ad64a27004b78d
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "2.0.1";
+const FBN_VERSION = "2.0.2";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -26,8 +26,11 @@ const FBN_VERSION = "2.0.1";
 
 const CONFIG_DEFAULTS = {
   entity: "",
-  title: "Netzwerkgeräte",
+  title: "FRITZ!Box Netzwerk",
   show_title: true,
+  // 2.0.2: Icon der Integration vor dem Titel und aktueller Download/Upload der Box rechts daneben.
+  show_icon: true,
+  show_rates: true,
   language: "",
 
   // Spalten
@@ -101,6 +104,10 @@ const CONFIG_DEFAULTS = {
   // wurden (oder noch nie, seit last_seen erfasst wird) - Arbeitsgrundlage
   // zum Aufräumen alter Einträge.
   filter_lange_offline: true,
+  // 2.0.2: nur sichtbar, wenn die Integration "Verloren nach (Tagen)" eingeschaltet hat.
+  filter_verloren: true,
+  // 2.0.2: Knopf "Ungenutzte IPs freigeben" (braucht die Option der Integration).
+  show_cleanup: true,
   // Welcher Filter beim Laden/Neuöffnen aktiv ist. Standardmäßig
   // "aktiv" (vorher "alle"); über den Editor oder default_filter änderbar.
   default_filter: "aktiv",
@@ -143,6 +150,7 @@ const CONFIG_DEFAULTS = {
   color_inactive: "",
   color_guest: "",
   color_blocked: "",
+  color_lost: "",
   color_update: "",
   color_static: "",
   color_accent: "",
@@ -157,6 +165,7 @@ const CONFIG_DEFAULTS = {
   color_cat_vpn: "",
   color_cat_neu: "",
   color_cat_lange_offline: "",
+  color_cat_verloren: "",
 };
 
 /**
@@ -189,6 +198,12 @@ const COLUMNS = [
 // da die Karte unabhängig von den Python-Dateien geladen wird.
 const NEW_DEVICE_FILTER_DAYS = 7;
 
+// Standardtitel bis 2.0.1; wird auf CONFIG_DEFAULTS.title abgebildet (siehe withDefaults).
+const LEGACY_DEFAULT_TITLE = "Netzwerkgeräte";
+
+// Pfad der Marken-Bilder, die die Integration ausliefert (const.py: URL_BRAND).
+const BRAND_URL = "/fritzbox_netzwerk_brand";
+
 // Schwelle fuer den Filter "Lange offline" (Idee 6 aus feature-ideen.md).
 const LONG_OFFLINE_FILTER_DAYS = 30;
 
@@ -203,6 +218,7 @@ const FILTERS = [
   { key: "vpn", label: "VPN", icon: "mdi:shield-lock-outline" },
   { key: "neu", label: "Neu (7 Tage)", icon: "mdi:new-box" },
   { key: "lange_offline", label: "Lange offline", icon: "mdi:clock-remove-outline" },
+  { key: "verloren", label: "Verloren", icon: "mdi:lan-pending" },
 ];
 
 /**
@@ -250,7 +266,18 @@ const I18N = {
     "group.empty.label": "Ohne Etikett",
     "group.empty.mesh": "Ohne Mesh-Angabe",
     "flt.alle": "Alle", "flt.aktiv": "Aktiv", "flt.inaktiv": "Inaktiv",
-    "flt.gast": "Gast", "flt.gesperrt": "Gesperrt", "flt.update": "Update", "flt.fest": "Feste IP", "flt.vpn": "VPN", "flt.neu": "Neu (7 Tage)", "flt.lange_offline": "Lange offline",
+    "flt.gast": "Gast", "flt.gesperrt": "Gesperrt", "flt.update": "Update", "flt.fest": "Feste IP", "flt.vpn": "VPN", "flt.neu": "Neu (7 Tage)", "flt.lange_offline": "Lange offline", "flt.verloren": "Verloren",
+    "badge.lost": "Verloren", "field.lost": "Verloren", "lost.since": "seit {n} Tagen keine Nachricht",
+    "note.lost_ignore": "Offline-Status ignorieren (nie als verloren markieren)",
+    "note.lost_ignore_yes": "Offline-Status wird ignoriert",
+    "field.lost_ignore": "Verloren-Prüfung",
+    "btn.cleanup": "Ungenutzte IPs freigeben",
+    "btn.cleanup_tip": "Entfernt in der FRITZ!Box alle ungenutzten Verbindungen (wie „Alle ungenutzten Verbindungen entfernen“ unter Heimnetz) und gibt deren IP-Adressen wieder frei. Geräte mit fester Zuweisung bleiben erhalten.",
+    "btn.cleanup_confirm": "Wirklich freigeben? Nochmal klicken",
+    "btn.cleanup_busy": "Gebe frei …",
+    "btn.cleanup_done": "{n} Einträge freigegeben",
+    "btn.cleanup_none": "Nichts zu entfernen",
+    "btn.cleanup_sent": "Freigabe gesendet",
     "search.placeholder": "Name, IP oder MAC", "search.aria": "Geräte durchsuchen",
     "empty.none": "Keine Geräte gefunden.",
     "empty.sensor": "Der Sensor {entity} ist nicht verfügbar.",
@@ -358,7 +385,18 @@ const I18N = {
     "group.empty.label": "No label",
     "group.empty.mesh": "No mesh info",
     "flt.alle": "All", "flt.aktiv": "Active", "flt.inaktiv": "Inactive",
-    "flt.gast": "Guest", "flt.gesperrt": "Blocked", "flt.update": "Update", "flt.fest": "Fixed IP", "flt.vpn": "VPN", "flt.neu": "New (7 days)", "flt.lange_offline": "Long offline",
+    "flt.gast": "Guest", "flt.gesperrt": "Blocked", "flt.update": "Update", "flt.fest": "Fixed IP", "flt.vpn": "VPN", "flt.neu": "New (7 days)", "flt.lange_offline": "Long offline", "flt.verloren": "Lost",
+    "badge.lost": "Lost", "field.lost": "Lost", "lost.since": "no message for {n} days",
+    "note.lost_ignore": "Ignore offline status (never mark as lost)",
+    "note.lost_ignore_yes": "Offline status is ignored",
+    "field.lost_ignore": "Lost check",
+    "btn.cleanup": "Release unused IPs",
+    "btn.cleanup_tip": "Removes all unused connections in the FRITZ!Box (like \"Remove all unused connections\" under Home Network) and releases their IP addresses. Devices with a fixed assignment are kept.",
+    "btn.cleanup_confirm": "Really release? Click again",
+    "btn.cleanup_busy": "Releasing …",
+    "btn.cleanup_done": "{n} entries released",
+    "btn.cleanup_none": "Nothing to remove",
+    "btn.cleanup_sent": "Release sent",
     "search.placeholder": "Name, IP or MAC", "search.aria": "Search devices",
     "empty.none": "No devices found.",
     "empty.sensor": "The sensor {entity} is unavailable.",
@@ -466,7 +504,18 @@ const I18N = {
     "group.empty.label": "Geen label",
     "group.empty.mesh": "Geen mesh-gegevens",
     "flt.alle": "Alle", "flt.aktiv": "Actief", "flt.inaktiv": "Inactief",
-    "flt.gast": "Gast", "flt.gesperrt": "Geblokkeerd", "flt.update": "Update", "flt.vpn": "VPN", "flt.fest": "Vast IP", "flt.neu": "Nieuw (7 dagen)", "flt.lange_offline": "Lang offline",
+    "flt.gast": "Gast", "flt.gesperrt": "Geblokkeerd", "flt.update": "Update", "flt.vpn": "VPN", "flt.fest": "Vast IP", "flt.neu": "Nieuw (7 dagen)", "flt.lange_offline": "Lang offline", "flt.verloren": "Verloren",
+    "badge.lost": "Verloren", "field.lost": "Verloren", "lost.since": "{n} dagen geen bericht",
+    "note.lost_ignore": "Offline-status negeren (nooit als verloren markeren)",
+    "note.lost_ignore_yes": "Offline-status wordt genegeerd",
+    "field.lost_ignore": "Verloren-controle",
+    "btn.cleanup": "Ongebruikte IP's vrijgeven",
+    "btn.cleanup_tip": "Verwijdert in de FRITZ!Box alle ongebruikte verbindingen (zoals \"Alle ongebruikte verbindingen verwijderen\" onder Thuisnetwerk) en geeft hun IP-adressen vrij. Apparaten met een vaste toewijzing blijven behouden.",
+    "btn.cleanup_confirm": "Echt vrijgeven? Klik nogmaals",
+    "btn.cleanup_busy": "Vrijgeven …",
+    "btn.cleanup_done": "{n} items vrijgegeven",
+    "btn.cleanup_none": "Niets te verwijderen",
+    "btn.cleanup_sent": "Vrijgave verzonden",
     "search.placeholder": "Naam, IP of MAC", "search.aria": "Apparaten zoeken",
     "empty.none": "Geen apparaten gevonden.",
     "empty.sensor": "De sensor {entity} is niet beschikbaar.",
@@ -578,6 +627,7 @@ const COLOR_FALLBACKS = {
   color_inactive: "var(--disabled-text-color, #9e9e9e)",
   color_guest: "var(--warning-color, #ffa600)",
   color_blocked: "var(--error-color, #db4437)",
+  color_lost: "#ef6c00",
   color_update: "var(--info-color, #039be5)",
   color_static: "var(--primary-color)",
   color_accent: "var(--primary-color)",
@@ -592,6 +642,7 @@ const COLOR_FALLBACKS = {
   color_cat_vpn: "inherit",
   color_cat_neu: "inherit",
   color_cat_lange_offline: "inherit",
+  color_cat_verloren: "inherit",
 };
 
 const COLOR_EDITOR_FIELDS = [
@@ -604,6 +655,7 @@ const COLOR_EDITOR_FIELDS = [
   { key: "color_inactive", label: "Inaktiv" },
   { key: "color_guest", label: "Gastnetz" },
   { key: "color_blocked", label: "Gesperrt" },
+  { key: "color_lost", label: "Verloren" },
   { key: "color_update", label: "Update verfügbar" },
   { key: "color_static", label: "Statische IP" },
   { key: "color_accent", label: "Akzent (Sortierung, Filter)" },
@@ -617,6 +669,7 @@ const COLOR_EDITOR_FIELDS = [
   { key: "color_cat_vpn", label: "Symbol Kategorie „VPN“" },
   { key: "color_cat_neu", label: "Symbol Kategorie „Neu“" },
   { key: "color_cat_lange_offline", label: "Symbol Kategorie „Lange offline“" },
+  { key: "color_cat_verloren", label: "Symbol Kategorie „Verloren“" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -625,7 +678,11 @@ const COLOR_EDITOR_FIELDS = [
 
 /** Fuellt fehlende Schluessel mit den Standardwerten auf. */
 function withDefaults(config) {
-  return { ...CONFIG_DEFAULTS, ...(config || {}) };
+  const merged = { ...CONFIG_DEFAULTS, ...(config || {}) };
+  // 2.0.2: Der frühere Standardtitel wird auf den neuen abgebildet. Ein bewusst
+  // gesetzter anderer Titel (auch ein leerer) bleibt unverändert.
+  if (merged.title === LEGACY_DEFAULT_TITLE) merged.title = CONFIG_DEFAULTS.title;
+  return merged;
 }
 
 /**
@@ -1121,6 +1178,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (!config || !config.entity) {
       throw new Error("Bitte den Sensor mit der Geräteliste auswählen (entity).");
     }
+    this._rawConfig = config || {};
     this._config = withDefaults(config);
     this._sortBy = this._config.sort_by;
     this._sortDir = this._config.sort_dir === "desc" ? "desc" : "asc";
@@ -1408,6 +1466,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
           host.label,
           host.note,
           host.reserved ? 1 : 0,
+          host.lost ? 1 : 0,
+          host.lost_ignore ? 1 : 0,
           host.ip_class,
           Math.round(Number(host.traffic_week) / 1e7), // 10-MB-Schritte, kein Neuzeichnen bei jedem Messwert
         ].join("|")
@@ -1452,7 +1512,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // "Nicht verbundene Geräte ausblenden" gilt für die gemischten Ansichten.
     // Wer ausdrücklich "Inaktiv" oder "Lange offline" wählt, will Offline-Geräte
     // sehen - dort würde das Ausblenden die Liste sonst leer lassen (Issue #24).
-    const inactiveView = this._filter === "inaktiv" || this._filter === "lange_offline";
+    const inactiveView =
+      this._filter === "inaktiv" || this._filter === "lange_offline" || this._filter === "verloren";
     if (this._config.hide_inactive && !inactiveView) {
       hosts = hosts.filter((host) => host.active);
     }
@@ -1483,6 +1544,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
         // ohne echte MAC-Adresse unter der Kennung "VPN:<IP>" geführt
         // (mac_synthetic, siehe hosts.py, Issue #29); aktive und inaktive.
         hosts = hosts.filter((host) => host.vpn || host.mac_synthetic);
+        break;
+      case "verloren":
+        // "lost" setzt die Integration (hosts.apply_lost): offline UND länger als
+        // "Verloren nach (Tagen)" ohne Nachricht, außer "Offline-Status ignorieren".
+        hosts = hosts.filter((host) => host.lost);
         break;
       case "lange_offline": {
         // "last_seen" kommt vom Coordinator (hosts.apply_last_seen) und ist
@@ -1655,14 +1721,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
 
     const card = document.createElement("ha-card");
     card.className = "fbn-card";
-    if (config.show_title && config.title) {
-      card.setAttribute("header", config.title);
-    }
     card.innerHTML = `
       <style>${this._styles()}</style>
       <div class="fbn-root${config.compact ? " fbn-compact" : ""}${
       config.sticky_name ? " fbn-sticky" : ""
     }">
+        <div class="fbn-titlebar" hidden></div>
         <div class="fbn-tabbar" role="tablist" hidden></div>
         <div class="fbn-toolbar" data-tab="network">
           <div class="fbn-filters"></div>
@@ -1723,7 +1787,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
 
   /** Liste der aktuell eingeschalteten Filter-Buttons. */
   _visibleFilters() {
-    return FILTERS.filter((filter) => this._config[`filter_${filter.key}`] !== false);
+    return FILTERS.filter(
+      (filter) =>
+        this._config[`filter_${filter.key}`] !== false &&
+        (filter.key !== "verloren" || this._lostEnabled())
+    );
   }
 
   _buildFilters() {
@@ -1873,7 +1941,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (!container) return;
     const showGroup = this._config.show_group_select !== false;
     const showCsv = this._config.show_csv_export !== false;
-    if (!showGroup && !showCsv) {
+    const showCleanup = this._config.show_cleanup !== false;
+    if (!showGroup && !showCsv && !showCleanup) {
       container.hidden = true;
       return;
     }
@@ -1902,6 +1971,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
                <span>${escapeHtml(this._t("btn.csv"))}</span>
              </button>`
           : ""
+      }
+      ${
+        showCleanup
+          ? `<button class="fbn-copy-list fbn-cleanup" type="button" hidden>
+               <ha-icon icon="mdi:ip-network-outline"></ha-icon>
+               <span></span>
+             </button>`
+          : ""
       }`;
     const select = container.querySelector("select");
     if (select) {
@@ -1909,6 +1986,84 @@ class FritzboxNetzwerkCard extends HTMLElement {
     }
     const csv = container.querySelector(".fbn-csv");
     if (csv) csv.addEventListener("click", () => this._exportCsv(csv));
+    const cleanup = container.querySelector(".fbn-cleanup");
+    if (cleanup) cleanup.addEventListener("click", () => this._cleanupClick());
+    this._renderCleanup();
+  }
+
+  /**
+   * "Ungenutzte IPs freigeben" (2.0.2): löst in der FRITZ!Box "Alle ungenutzten
+   * Verbindungen entfernen" aus (Dienst fritzbox_netzwerk.remove_unused_connections).
+   * Sichtbar nur, wenn die Option in der Integration eingeschaltet ist. Gelöscht wird
+   * erst beim zweiten Klick innerhalb von 6 Sekunden.
+   */
+  _cleanupAvailable() {
+    const state = this._stateObj();
+    return !!(state && state.attributes && state.attributes.cleanup === true) && !!this._hass;
+  }
+
+  _renderCleanup() {
+    const button = this.querySelector(".fbn-cleanup");
+    if (!button) return;
+    const available = this._cleanupAvailable();
+    button.hidden = !available;
+    if (!available) return;
+    const st = this._cleanup || { status: "idle" };
+    const labels = {
+      idle: this._t("btn.cleanup"),
+      confirm: this._t("btn.cleanup_confirm"),
+      busy: this._t("btn.cleanup_busy"),
+      done: st.text || "",
+      error: this._t("act.failed"),
+    };
+    const span = button.querySelector("span");
+    if (span) span.textContent = labels[st.status] || labels.idle;
+    button.title = st.status === "error" && st.error ? st.error : this._t("btn.cleanup_tip");
+    button.disabled = st.status === "busy";
+    button.classList.toggle("fbn-copy-fail", st.status === "error");
+    button.classList.toggle("fbn-copy-ok", st.status === "done");
+  }
+
+  _cleanupClick() {
+    if (!this._cleanupAvailable()) return;
+    const st = this._cleanup || { status: "idle" };
+    if (st.status === "busy") return;
+    if (st.status !== "confirm") {
+      clearTimeout(this._cleanupTimer);
+      this._cleanup = { status: "confirm" };
+      this._cleanupTimer = setTimeout(() => {
+        this._cleanup = { status: "idle" };
+        this._renderCleanup();
+      }, 6000);
+      this._renderCleanup();
+      return;
+    }
+    clearTimeout(this._cleanupTimer);
+    this._cleanup = { status: "busy" };
+    this._renderCleanup();
+    const finish = (next) => {
+      this._cleanup = next;
+      this._renderCleanup();
+      clearTimeout(this._cleanupTimer);
+      this._cleanupTimer = setTimeout(() => {
+        this._cleanup = { status: "idle" };
+        this._renderCleanup();
+      }, 5000);
+    };
+    this._hass
+      .callService("fritzbox_netzwerk", "remove_unused_connections", { dry_run: false }, undefined, true, true)
+      .then((result) => {
+        const r = (result && result.response) || {};
+        const n = r.entfernt;
+        let text = this._t("btn.cleanup_sent");
+        if (typeof n === "number") {
+          text = n > 0 ? this._t("btn.cleanup_done", { n }) : this._t("btn.cleanup_none");
+        }
+        finish({ status: "done", text });
+      })
+      .catch((err) => {
+        finish({ status: "error", error: String((err && (err.message || err.error)) || err || "") });
+      });
   }
 
   _setGroup(mode) {
@@ -2153,7 +2308,70 @@ class FritzboxNetzwerkCard extends HTMLElement {
     });
   }
 
+  /**
+   * Titelzeile (2.0.2): Icon der Integration, Titel und rechts der aktuelle
+   * Download/Upload der Box. Alle drei Teile sind einzeln schaltbar
+   * (show_icon, show_title, show_rates). Wer vor 2.0.2 nur "show_title: false"
+   * gesetzt hatte (Popup/kompakt), behält die ausgeblendete Kopfzeile.
+   */
+  _titleBarWanted() {
+    const config = this._config;
+    const raw = this._rawConfig || {};
+    const legacyHidden =
+      config.show_title === false && !("show_icon" in raw) && !("show_rates" in raw);
+    if (legacyHidden) return { icon: false, title: false, rates: false };
+    return {
+      icon: config.show_icon !== false,
+      title: config.show_title !== false && !!config.title,
+      rates: config.show_rates !== false,
+    };
+  }
+
+  _renderTitleBar() {
+    const bar = this.querySelector(".fbn-titlebar");
+    if (!bar) return;
+    const want = this._titleBarWanted();
+    const state = this._stateObj();
+    const attributes = (state && state.attributes) || {};
+    const connection = attributes.connection && typeof attributes.connection === "object" ? attributes.connection : null;
+    const hasRates = !!connection && (connection.down_rate != null || connection.up_rate != null);
+    const showRates = want.rates && hasRates;
+    if (!want.icon && !want.title && !showRates) {
+      bar.hidden = true;
+      this._titleBarSig = "";
+      return;
+    }
+    const down = showRates ? formatRate(connection.down_rate) : "";
+    const up = showRates ? formatRate(connection.up_rate) : "";
+    const sig = [want.icon, want.title ? this._config.title : "", showRates, down, up].join("|");
+    if (sig === this._titleBarSig) return;
+    this._titleBarSig = sig;
+    bar.hidden = false;
+    const icon = want.icon
+      ? `<img class="fbn-tb-icon" src="${BRAND_URL}/icon.png" srcset="${BRAND_URL}/icon.png 1x, ${BRAND_URL}/icon@2x.png 2x" width="28" height="28" alt="">`
+      : "";
+    const title = want.title ? `<span class="fbn-tb-title">${escapeHtml(this._config.title)}</span>` : "";
+    const rates = showRates
+      ? `<span class="fbn-tb-rates" title="${escapeHtml(this._t("ctl.throughput"))}">
+           <span class="fbn-tb-rate fbn-tb-down"><ha-icon icon="mdi:arrow-down"></ha-icon>${escapeHtml(down)}</span>
+           <span class="fbn-tb-rate fbn-tb-up"><ha-icon icon="mdi:arrow-up"></ha-icon>${escapeHtml(up)}</span>
+         </span>`
+      : "";
+    bar.innerHTML = `${icon}${title}${rates}`;
+    const img = bar.querySelector(".fbn-tb-icon");
+    if (img) img.addEventListener("error", () => { img.hidden = true; });
+  }
+
+  /** Verloren-Funktion der Integration eingeschaltet ("Verloren nach (Tagen)" > 0)? */
+  _lostEnabled() {
+    const state = this._stateObj();
+    const days = Number(state && state.attributes ? state.attributes.lost_after_days : 0);
+    return Number.isFinite(days) && days > 0;
+  }
+
   _renderSummary() {
+    this._renderTitleBar();
+    this._renderCleanup();
     const container = this.querySelector(".fbn-summary");
     if (!container) return;
     if (!this._config.show_summary) {
@@ -2691,12 +2909,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
     this._bindLinks(box);
 
     // -- Layout: Spalte je Ebene, Unterbäume untereinander, Wolken unter der Station -----------
-    const HUB_W = 168;
+    const HUB_W = 208;
     const HUB_H = 64;
     const CL_W = 116;
     const CL_H = 52;
     const ROW = 64;
-    const COL = 290;
+    const COL = 330;
     const rowsOf = (hub) => Math.ceil(groupsOf(hub).length / 2);
     const blockH = (hub) => HUB_H + (rowsOf(hub) ? 16 + rowsOf(hub) * ROW : 0) + 16;
     const subH = new Map();
@@ -2736,8 +2954,19 @@ class FritzboxNetzwerkCard extends HTMLElement {
       const textX = w > 120 ? 38 : 28;
       const avail = w - textX - 6;
       const ys = lines.length > 2 ? [20, 35, 50] : [22, 38];
+      // 2.0.2: Passt eine Zeile nicht, wird sie auf die Breite gestaucht (textLength) statt
+      // abgeschnitten; erst bei sehr langen Namen kürzt ein "…". Der volle Text steht im Tooltip.
       const text = lines
-        .map((line, i) => `<text x="${textX}" y="${ys[i]}" class="${i === 0 ? "fbn-mm-t" : "fbn-mm-s"}">${escapeHtml(String(line).slice(0, Math.floor(avail / (i === 0 ? 6.4 : 5.3))))}</text>`)
+        .map((line, i) => {
+          const full = String(line);
+          const charW = i === 0 ? 6.4 : 5.3;
+          const fits = full.length * charW <= avail;
+          const maxChars = Math.floor((avail * 1.3) / charW);
+          const shown = full.length > maxChars ? `${full.slice(0, Math.max(1, maxChars - 1))}…` : full;
+          const fit = fits ? "" : ` textLength="${Math.round(Math.min(avail, shown.length * charW))}" lengthAdjust="spacingAndGlyphs"`;
+          const tip = shown !== full || !fits ? `<title>${escapeHtml(full)}</title>` : "";
+          return `<text x="${textX}" y="${ys[i]}" class="${i === 0 ? "fbn-mm-t" : "fbn-mm-s"}"${fit}>${escapeHtml(shown)}${tip}</text>`;
+        })
         .join("");
       const icoSize = w > 120 ? 24 : 18;
       return `
@@ -3322,6 +3551,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         if (host.guest) badges.push(`<span class="fbn-badge fbn-badge-guest">${escapeHtml(this._t("badge.guest"))}</span>`);
         if (host.vpn) badges.push(`<span class="fbn-badge">${escapeHtml(this._t("badge.vpn"))}</span>`);
         if (host.priority) badges.push(`<span class="fbn-badge">${escapeHtml(this._t("badge.priority"))}</span>`);
+        if (host.lost) badges.push(`<span class="fbn-badge fbn-badge-lost">${escapeHtml(this._t("badge.lost"))}</span>`);
         return `
           <div class="fbn-namecell">
             <ha-icon class="fbn-rowicon" icon="${connectionIcon(host)}"></ha-icon>
@@ -3719,6 +3949,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
           label: host.label || "",
           note: host.note || "",
           reserved: !!host.reserved,
+          lost_ignore: !!host.lost_ignore,
         };
         this._renderPopupContent(host);
         const input = this._popup.querySelector(".fbn-note-label-input");
@@ -3741,6 +3972,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (noteReservedInput) {
       noteReservedInput.addEventListener("change", () => {
         this._popupNoteDraft.reserved = noteReservedInput.checked;
+      });
+    }
+    const noteLostInput = this._popup.querySelector(".fbn-note-lost-input");
+    if (noteLostInput) {
+      noteLostInput.addEventListener("change", () => {
+        this._popupNoteDraft.lost_ignore = noteLostInput.checked;
       });
     }
     const noteSaveBtn = this._popup.querySelector(".fbn-note-save");
@@ -3877,6 +4114,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         label: draft.label,
         note: draft.note,
         reserved: !!draft.reserved,
+        lost_ignore: !!draft.lost_ignore,
       })
       .then(() => {
         this._popupEditingNote = false;
@@ -3885,6 +4123,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
         host.label = String(draft.label || "").trim();
         host.note = String(draft.note || "").trim();
         host.reserved = !!draft.reserved;
+        host.lost_ignore = !!draft.lost_ignore;
+        if (host.lost_ignore) host.lost = false;
         this._renderPopupContent(host);
       })
       .catch(() => {
@@ -4053,6 +4293,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (!this._hass || !realMac(host) || this._config.show_static_ip === false) return "";
     const t = (key, params) => escapeHtml(this._t(key, params));
     const st = this._staticIp && this._staticIp.mac === host.mac ? this._staticIp : null;
+    // 2.0.2: Meldet das Gerät oder die FRITZ!Box bereits eine feste IP, gibt es nichts
+    // festzulegen - die Zeile entfällt. Eine nur in Home Assistant gesetzte Markierung
+    // "reserviert" zählt nicht (die Box kennt sie nicht). Läuft gerade eine Eingabe, bleibt sie.
+    if (!st && host.ip_class === "fixed" && !host.reserved) return "";
     const row = (inner) =>
       `<div class="fbn-drow fbn-prof-row"><div class="fbn-dt">${t("sip.title")}</div><div class="fbn-dd fbn-prof-box">${inner}</div></div>`;
     const warn = `<div class="fbn-prof-hint">${t("sip.warn")}</div>`;
@@ -4147,6 +4391,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
               <span>${t("note.reserved")}</span>
             </label>
             <div class="fbn-note-hint">${t("note.reserved_hint")}</div>
+            ${
+              this._lostEnabled()
+                ? `<label class="fbn-note-reserved">
+              <input class="fbn-note-lost-input" type="checkbox"${d.lost_ignore ? " checked" : ""}>
+              <span>${t("note.lost_ignore")}</span>
+            </label>`
+                : ""
+            }
             <div class="fbn-note-actions">
               <button class="fbn-namebtn fbn-note-save" type="button"
                       title="${t("btn.save")}" aria-label="${t("btn.save")}">
@@ -4172,10 +4424,15 @@ class FritzboxNetzwerkCard extends HTMLElement {
           "note.reserved_yes"
         )}</div></div>`
       : "";
+    const lostIgnore = host.lost_ignore
+      ? `<div class="fbn-drow"><div class="fbn-dt">${t("field.lost_ignore")}</div><div class="fbn-dd">${t(
+          "note.lost_ignore_yes"
+        )}</div></div>`
+      : "";
     return `
       <div class="fbn-drow"><div class="fbn-dt">${t("field.label")}</div><div class="fbn-dd">${label}${edit}</div></div>
       <div class="fbn-drow"><div class="fbn-dt">${t("field.note")}</div><div class="fbn-dd">${note}</div></div>
-      ${reserved}`;
+      ${reserved}${lostIgnore}`;
   }
 
   /**
@@ -4305,6 +4562,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
       this._t("field.last_seen"),
       host.active ? this._t("state.now_online") : escapeHtml(formatLastSeen(host.last_seen, this._lang()))
     );
+    if (host.lost) {
+      add(
+        this._t("field.lost"),
+        escapeHtml(
+          host.lost_days != null ? this._t("lost.since", { n: host.lost_days }) : this._t("badge.lost")
+        )
+      );
+    }
 
     if (host.traffic_week !== undefined && host.traffic_week !== null) {
       add(
@@ -4720,6 +4985,24 @@ class FritzboxNetzwerkCard extends HTMLElement {
   _styles() {
     return `
       .fbn-root { padding: 0 0 8px; color: var(--fbn-row-text); }
+      .fbn-titlebar {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px;
+        padding: 16px 16px 8px;
+        font-family: var(--ha-card-header-font-family, inherit);
+        font-size: var(--ha-card-header-font-size, 24px);
+        color: var(--ha-card-header-color, var(--primary-text-color));
+      }
+      .fbn-titlebar[hidden] { display: none; }
+      .fbn-tb-icon { width: 28px; height: 28px; object-fit: contain; flex: 0 0 auto; }
+      .fbn-tb-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .fbn-tb-rates {
+        margin-left: auto; display: inline-flex; gap: 14px; white-space: nowrap;
+        font-size: 14px; color: var(--secondary-text-color);
+      }
+      .fbn-tb-rate { display: inline-flex; align-items: center; gap: 2px; }
+      .fbn-tb-rate ha-icon { --mdc-icon-size: 18px; width: 18px; height: 18px; }
+      .fbn-tb-down ha-icon { color: var(--fbn-active); }
+      .fbn-tb-up ha-icon { color: var(--fbn-accent); }
       /* Das hidden-Attribut muss staerker sein als die display-Regeln
          weiter unten (.fbn-toolbar/.fbn-controls/... setzen display:flex,
          was die Browser-Regel [hidden]{display:none} ueberstimmt). Ohne
@@ -5048,6 +5331,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         font-size: 0.72em; border: 1px solid var(--fbn-border); white-space: nowrap;
       }
       .fbn-badge-guest { color: var(--fbn-guest); border-color: var(--fbn-guest); }
+      .fbn-badge-lost { color: var(--fbn-lost); border-color: var(--fbn-lost); }
       .fbn-badge-static { color: var(--fbn-static); border-color: var(--fbn-static); }
       .fbn-icon-blocked { color: var(--fbn-blocked); --mdc-icon-size: 18px; width: 18px; height: 18px; }
       .fbn-icon-update { color: var(--fbn-update); --mdc-icon-size: 18px; width: 18px; height: 18px; }
@@ -5223,6 +5507,8 @@ const EDITOR_SCHEMA = [
   { name: "entity", required: true, selector: { entity: { domain: "sensor" } } },
   { name: "title", selector: { text: {} } },
   { name: "show_title", selector: { boolean: {} } },
+  { name: "show_icon", selector: { boolean: {} } },
+  { name: "show_rates", selector: { boolean: {} } },
   { name: "ip_filter", selector: { text: {} } },
   {
     name: "language",
@@ -5260,6 +5546,7 @@ const EDITOR_SCHEMA = [
       { name: "show_search", selector: { boolean: {} } },
       { name: "show_filter", selector: { boolean: {} } },
       { name: "show_controls", selector: { boolean: {} } },
+      { name: "show_cleanup", selector: { boolean: {} } },
       { name: "show_version", selector: { boolean: {} } },
       { name: "show_parental", selector: { boolean: {} } },
       { name: "show_static_ip", selector: { boolean: {} } },
@@ -5320,6 +5607,7 @@ const EDITOR_SCHEMA = [
       { name: "filter_vpn", selector: { boolean: {} } },
       { name: "filter_neu", selector: { boolean: {} } },
       { name: "filter_lange_offline", selector: { boolean: {} } },
+      { name: "filter_verloren", selector: { boolean: {} } },
       {
         name: "default_filter",
         selector: {
@@ -5370,6 +5658,9 @@ const EDITOR_LABELS = {
   entity: "Sensor mit der Geräteliste",
   title: "Titel",
   show_title: "Titel anzeigen",
+  show_icon: "Icon vor dem Titel anzeigen",
+  show_rates: "Down-/Upload der FRITZ!Box anzeigen",
+  show_cleanup: "Knopf „Ungenutzte IPs freigeben“",
   ip_filter: "IP-Filter (Platzhalter erlaubt)",
   language: "Sprache der Karte",
   show_status: "Status",
@@ -5416,6 +5707,7 @@ const EDITOR_LABELS = {
   filter_vpn: "Button „VPN“",
   filter_neu: "Button „Neu (7 Tage)“",
   filter_lange_offline: "Button „Lange offline“",
+  filter_verloren: "Button „Verloren“",
   hide_inactive: "Nicht verbundene Geräte ausblenden",
   compact: "Kompakte Zeilen",
   show_details_popup: "Klick öffnet ein Detail-Popup",
@@ -5441,7 +5733,11 @@ const EDITOR_HELPERS = {
   hide_inactive: "Blendet Geräte aus, die gerade nicht verbunden sind. Die Ansichten „Inaktiv“ und „Lange offline“ zeigen sie trotzdem. Fehlen Offline-Geräte in der Liste, zuerst prüfen, ob dieser Schalter an ist und welcher Filter („Aktiv“, „Alle“) beim Laden gewählt wird.",
   default_filter: "Welcher Filter aktiv ist, wenn die Karte geladen oder neu geöffnet wird (z. B. „Aktiv“). Nach einem Refresh wird nicht mehr auf „Alle“ zurückgesetzt.",
   language: "Sprache der Beschriftungen in der Karte. „Automatisch“ folgt der in Home Assistant eingestellten Sprache (Deutsch, Englisch, Niederländisch).",
-  show_title: "Blendet die Kopfzeile der Karte aus, z. B. für ein Popup oder eine kompakte Ansicht.",
+  show_title: "Zeigt den Titel in der Kopfzeile der Karte. Standard: „FRITZ!Box Netzwerk“. Ist auch Icon und Down-/Upload aus, entfällt die Kopfzeile (z. B. für ein Popup oder eine kompakte Ansicht).",
+  show_icon: "Zeigt das Icon der Integration (256 × 256 px, wird mit 28 px dargestellt) vor dem Titel.",
+  show_rates: "Zeigt rechts neben dem Titel den aktuellen Download (Pfeil nach unten) und Upload (Pfeil nach oben) der FRITZ!Box. Braucht die Verbindungsdaten der Integration.",
+  show_cleanup: "Zeigt in der Werkzeugleiste den Knopf „Ungenutzte IPs freigeben“. Er erscheint nur, wenn „Ungenutzte Verbindungen entfernen erlauben“ in den Integrationsoptionen eingeschaltet ist, und fragt vor dem Ausführen nach.",
+  filter_verloren: "Zeigt Geräte, die offline sind und länger als „Verloren nach (Tagen)“ in den Integrationsoptionen keine Nachricht gesendet haben. Der Button erscheint nur, wenn dort ein Wert über 0 steht.",
   ip_filter: "Zeigt nur Geräte, deren IP-Adresse passt – so lässt sich das Netz auf mehrere Karten verteilen (z. B. eine Karte „192.168.2.*“ für Drucker, eine „192.168.3.*“ für Lichter). „*“ steht für beliebig viele, „?“ für genau ein Zeichen. Mehrere Muster mit Komma oder Leerzeichen trennen; ein „!“ davor schließt aus (z. B. „192.168.1.* !192.168.1.1“). Leer = alle Geräte. Geräte ohne IP-Adresse werden bei gesetztem Filter nicht angezeigt. Die Zusammenfassung zählt dann nur diese Geräte.",
   show_ip_type: "Braucht die eingeschaltete IP-Typ-Erfassung in den Einstellungen der Integration.",
   show_ha_name: "Zeigt den Gerätenamen aus Home Assistant, sofern das Gerät dort eine MAC-Adresse hinterlegt hat. Ein Klick auf den Namen führt direkt zum Gerät.",
@@ -5478,7 +5774,7 @@ const EDITOR_TX = {
     lang_auto: "Automatisch (Home Assistant)",
   },
   en: {
-    entity: "Sensor with the device list", title: "Title", show_title: "Show title",
+    entity: "Sensor with the device list", title: "Title", show_title: "Show title", show_icon: "Show icon before the title", show_rates: "Show FRITZ!Box download/upload", show_cleanup: "\"Release unused IPs\" button", filter_verloren: '"Lost" button',
     language: "Card language",
     ip_filter: "IP filter (wildcards allowed)",
     help_ip_filter: "Shows only devices whose IP address matches, so the network can be split across several cards (e.g. one card \"192.168.2.*\" for printers, one \"192.168.3.*\" for lights). \"*\" stands for any number of characters, \"?\" for exactly one. Separate several patterns with a comma or space; a leading \"!\" excludes (e.g. \"192.168.1.* !192.168.1.1\"). Empty = all devices. With a filter set, devices without an IP address are not shown. The summary then counts only these devices.",
@@ -5540,7 +5836,11 @@ const EDITOR_TX = {
     help_hide_inactive: "Hides devices that are not connected right now. The \"Inactive\" and \"Long offline\" views still show them. If offline devices are missing from the list, first check whether this switch is on and which filter (\"Active\", \"All\") is selected on load.",
     help_default_filter: "Which filter is active when the card loads or is reopened (e.g. \"Active\"). After a refresh it no longer resets to \"All\".",
     help_language: 'Language of the card labels. "Automatic" follows the language configured in Home Assistant (German, English, Dutch).',
-    help_show_title: "Hides the card header, e.g. for a popup or a compact view.",
+    help_show_title: "Shows the title in the card header. Default: \"FRITZ!Box Netzwerk\". If icon and download/upload are off too, the header disappears (e.g. for a popup or a compact view).",
+    help_show_icon: "Shows the integration icon (256 × 256 px, displayed at 28 px) before the title.",
+    help_show_rates: "Shows the FRITZ!Box's current download (arrow down) and upload (arrow up) to the right of the title. Needs the integration's connection data.",
+    help_show_cleanup: "Shows the \"Release unused IPs\" button in the toolbar. It only appears when \"Allow removing unused connections\" is enabled in the integration options, and asks for confirmation before running.",
+    help_filter_verloren: "Shows devices that are offline and have not sent a message for longer than \"Lost after (days)\" in the integration options. The button only appears when that value is above 0.",
     help_show_ip_type: "Requires IP type tracking enabled in the integration settings.",
     help_show_ha_name: "Shows the device name from Home Assistant if the device has a MAC address there. Clicking the name goes straight to the device.",
     help_show_traffic: "Estimated data volume per device over the last 7 days. Only shown when \"Record data usage per device\" is enabled in the integration options and the box delivers values. Click the column header to sort by the biggest consumer.",
@@ -5564,12 +5864,12 @@ const EDITOR_TX = {
     color_row_text: "Row text", color_row_alt_bg: "Every other row",
     color_border: "Divider lines", color_active: "Active",
     color_inactive: "Inactive", color_guest: "Guest network",
-    color_blocked: "Blocked", color_update: "Update available",
+    color_blocked: "Blocked", color_lost: "Lost", color_update: "Update available",
     color_static: "Static IP", color_accent: "Accent (sorting, filter)",
     color_cat_alle: "Icon category \"All\"", color_cat_aktiv: "Icon category \"Active\"", color_cat_inaktiv: "Icon category \"Inactive\"", color_cat_gast: "Icon category \"Guest\"", color_cat_gesperrt: "Icon category \"Blocked\"", color_cat_update: "Icon category \"Update\"", color_cat_fest: "Icon category \"Fixed IP\"", color_cat_vpn: "Icon category \"VPN\"",
   },
   nl: {
-    entity: "Sensor met de apparaatlijst", title: "Titel", show_title: "Titel tonen",
+    entity: "Sensor met de apparaatlijst", title: "Titel", show_title: "Titel tonen", show_icon: "Pictogram voor de titel tonen", show_rates: "Download/upload van de FRITZ!Box tonen", show_cleanup: "Knop \"Ongebruikte IP's vrijgeven\"", filter_verloren: 'Knop "Verloren"',
     language: "Taal van de kaart",
     ip_filter: "IP-filter (jokertekens toegestaan)",
     help_ip_filter: "Toont alleen apparaten waarvan het IP-adres overeenkomt, zodat het netwerk over meerdere kaarten kan worden verdeeld (bijv. een kaart \"192.168.2.*\" voor printers, een kaart \"192.168.3.*\" voor lampen). \"*\" staat voor een willekeurig aantal tekens, \"?\" voor precies één teken. Scheid meerdere patronen met een komma of spatie; een \"!\" ervoor sluit uit (bijv. \"192.168.1.* !192.168.1.1\"). Leeg = alle apparaten. Bij een ingesteld filter worden apparaten zonder IP-adres niet getoond. De samenvatting telt dan alleen deze apparaten.",
@@ -5631,7 +5931,11 @@ const EDITOR_TX = {
     help_hide_inactive: "Verbergt apparaten die nu niet verbonden zijn. De weergaven \"Inactief\" en \"Lang offline\" tonen ze toch. Ontbreken offline-apparaten in de lijst, controleer dan eerst of deze schakelaar aan staat en welk filter (\"Actief\", \"Alle\") bij het laden is gekozen.",
     help_default_filter: "Welk filter actief is als de kaart wordt geladen of opnieuw geopend (bijv. \"Actief\"). Na een refresh wordt niet meer teruggezet naar \"Alle\".",
     help_language: 'Taal van de kaartlabels. "Automatisch" volgt de in Home Assistant ingestelde taal (Duits, Engels, Nederlands).',
-    help_show_title: "Verbergt de kop van de kaart, bijv. voor een pop-up of een compacte weergave.",
+    help_show_title: "Toont de titel in de kop van de kaart. Standaard: \"FRITZ!Box Netzwerk\". Zijn ook pictogram en download/upload uit, dan verdwijnt de kop (bijv. voor een pop-up of een compacte weergave).",
+    help_show_icon: "Toont het pictogram van de integratie (256 × 256 px, weergegeven met 28 px) voor de titel.",
+    help_show_rates: "Toont rechts van de titel de huidige download (pijl omlaag) en upload (pijl omhoog) van de FRITZ!Box. Heeft de verbindingsgegevens van de integratie nodig.",
+    help_show_cleanup: "Toont de knop \"Ongebruikte IP's vrijgeven\" in de werkbalk. Verschijnt alleen als \"Ongebruikte verbindingen verwijderen toestaan\" in de integratieopties aan staat en vraagt om bevestiging.",
+    help_filter_verloren: "Toont apparaten die offline zijn en langer dan \"Verloren na (dagen)\" in de integratieopties geen bericht hebben gestuurd. De knop verschijnt alleen bij een waarde boven 0.",
     help_show_ip_type: "Vereist dat het bijhouden van het IP-type is ingeschakeld in de integratie-instellingen.",
     help_show_ha_name: "Toont de apparaatnaam uit Home Assistant als het apparaat daar een MAC-adres heeft. Klikken op de naam gaat direct naar het apparaat.",
     help_show_traffic: "Geschat datavolume per apparaat over de afgelopen 7 dagen. Alleen zichtbaar als \"Dataverbruik per apparaat vastleggen\" in de integratie-opties aan staat en de box waarden levert. Klik op de kolomkop om op de grootste verbruiker te sorteren.",
@@ -5655,7 +5959,7 @@ const EDITOR_TX = {
     color_row_text: "Rij-tekst", color_row_alt_bg: "Elke tweede rij",
     color_border: "Scheidingslijnen", color_active: "Actief",
     color_inactive: "Inactief", color_guest: "Gastnetwerk",
-    color_blocked: "Geblokkeerd", color_update: "Update beschikbaar",
+    color_blocked: "Geblokkeerd", color_lost: "Verloren", color_update: "Update beschikbaar",
     color_static: "Statisch IP", color_accent: "Accent (sorteren, filter)",
     color_cat_alle: "Pictogram categorie \"Alle\"", color_cat_aktiv: "Pictogram categorie \"Actief\"", color_cat_inaktiv: "Pictogram categorie \"Inactief\"", color_cat_gast: "Pictogram categorie \"Gast\"", color_cat_gesperrt: "Pictogram categorie \"Geblokkeerd\"", color_cat_update: "Pictogram categorie \"Update\"", color_cat_fest: "Pictogram categorie \"Vast IP\"", color_cat_vpn: "Pictogram categorie \"VPN\"",
   },
@@ -5701,7 +6005,7 @@ class FritzboxNetzwerkCardEditor extends HTMLElement {
    * hat (das Flag bleibt auch dann true, wenn der String selbst schon
    * leer ist). Nur bei einer bereits gerenderten Karte greift der Schutz,
    * damit eine wirklich neue Karte (noch kein Titel je gesetzt) weiterhin
-   * "Netzwerkgeräte" als Startwert zeigt.
+   * "FRITZ!Box Netzwerk" als Startwert zeigt.
    */
   _preserveClearedTitle(config) {
     const incoming = { ...(config || {}) };

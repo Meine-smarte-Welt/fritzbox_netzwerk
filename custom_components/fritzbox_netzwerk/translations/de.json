@@ -81,7 +81,9 @@
           "enable_dns_settings": "DNS-Einstellungen der Box ändern (experimentell)",
           "enable_static_ip": "Statische IP-Adresse setzen (experimentell)",
           "nc_enabled": "Meldungen an das Notification Center senden",
-          "nc_types": "Gesendete Meldungsarten"
+          "nc_types": "Gesendete Meldungsarten",
+          "lost_after_days": "„Verloren“ nach (Tagen)",
+          "enable_cleanup": "Ungenutzte Verbindungen entfernen erlauben (experimentell)"
         },
         "data_description": {
           "track_address_source": "Diese Angabe steht nicht in der Geräteliste und kostet einen zusätzlichen Aufruf pro Gerät. Sie ändert sich selten, deshalb läuft sie in einem eigenen, langsameren Takt.",
@@ -103,7 +105,9 @@
           "enable_dns_settings": "Erlaubt dem Dienst „DNS-Einstellungen ändern“, DNS-Server der FRITZ!Box zu schreiben (Internet IPv4/IPv6, lokaler DNS im Heimnetz). Nutzt die REST-Schnittstelle der Weboberfläche, nicht TR-064 – von AVM nicht dokumentiert, FRITZ!OS-abhängig, ohne Test an echter Hardware beim Schreiben. Lesen und die Vorschau (dry_run) gehen immer. Standardmäßig aus.",
           "enable_static_ip": "Erlaubt dem Dienst „Statische IP setzen“, einem Gerät eine feste IPv4-Adresse zuzuweisen (Heimnetz → Netzwerk → Gerät bearbeiten). Nutzt die REST-Schnittstelle der Weboberfläche (FRITZ!OS 8), nicht TR-064 – laut einem Fremdprojekt so vorgesehen, in dieser Integration an keiner Box geprüft. Die Vorschau (dry_run) geht immer. Standardmäßig aus.",
           "nc_enabled": "Optional: Ist das Notification Center installiert, meldet diese Integration Verbindungsverlust, ausgefallene überwachte Geräte und neue Geräte dorthin. Ohne Notification Center passiert nichts.",
-          "nc_types": "Nur die angehakten Meldungsarten werden gesendet. Überwacht sind Repeater (Option „Repeater als eigene Geräte anlegen“) und die per IP-Muster ausgewählten Netzwerkgeräte."
+          "nc_types": "Nur die angehakten Meldungsarten werden gesendet. Überwacht sind Repeater (Option „Repeater als eigene Geräte anlegen“) und die per IP-Muster ausgewählten Netzwerkgeräte.",
+          "lost_after_days": "Ein Gerät, das offline ist und seit mehr als so vielen Tagen nicht mehr gesehen wurde, gilt als „verloren“ (Filter und Kennzeichnung in der Karte, Sensor „Verlorene Geräte“). 0 = Funktion aus. Grundlage ist der Zeitpunkt „zuletzt online“, den die Integration selbst mitschreibt; Geräte ohne diesen Zeitpunkt gelten nie als verloren. Je Gerät lässt sich das im Popup mit „Offline-Status ignorieren“ abschalten. Standard: 7.",
+          "enable_cleanup": "Erlaubt dem Dienst „Ungenutzte Verbindungen entfernen“ und dem Knopf in der Karte, in der FRITZ!Box „Alle ungenutzten Verbindungen entfernen“ auszulösen (Heimnetz → Netzwerk → Netzwerkverbindungen). Die Box behält dabei Geräte mit individuellen Einstellungen; entfernte Einträge lassen sich nicht wiederherstellen. Nutzt die REST-Schnittstelle der Weboberfläche (FRITZ!OS 8), nicht TR-064 – die Anfrage wurde an einer FRITZ!Box 5690 Pro beobachtet, die Ausführung ist ungeprüft. Standardmäßig aus."
         }
       }
     }
@@ -212,6 +216,10 @@
       },
       "traffic_top": {
         "name": "Größter Datenverbraucher (7 Tage)"
+      },
+      "verloren": {
+        "name": "Verlorene Geräte",
+        "unit_of_measurement": "Geräte"
       }
     },
     "binary_sensor": {
@@ -404,6 +412,10 @@
         "config_entry": {
           "name": "FRITZ!Box (Config Entry)",
           "description": "Nur nötig, wenn mehrere FRITZ!Boxen eingerichtet sind: legt fest, auf welche sich dieser Dienst bezieht. Ohne Angabe wirkt der Dienst auf die zuerst geladene Box."
+        },
+        "lost_ignore": {
+          "name": "Offline-Status ignorieren",
+          "description": "Schaltet die Kennzeichnung „verloren“ für dieses Gerät ab (z. B. für ein Gerät, das nur selten im Haus ist)."
         }
       }
     },
@@ -574,6 +586,20 @@
         "dry_run": {
           "name": "Nur Vorschau",
           "description": "Zeigt nur, welche Geräte betroffen wären, und ändert nichts."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bei mehreren Boxen: welche Box gemeint ist."
+        }
+      }
+    },
+    "remove_unused_connections": {
+      "name": "Ungenutzte Verbindungen entfernen",
+      "description": "Löst in der FRITZ!Box „Alle ungenutzten Verbindungen entfernen“ aus (Heimnetz → Netzwerk → Netzwerkverbindungen) und meldet, welche Einträge danach fehlen. Geräte mit individuellen Einstellungen bleiben bestehen, entfernte Einträge sind nicht wiederherstellbar. Nur für Administratoren. Experimentell, Option nötig (die Vorschau mit dry_run geht immer).",
+      "fields": {
+        "dry_run": {
+          "name": "Nur Vorschau",
+          "description": "Zählt nur die inaktiven Einträge der Geräteliste und ändert nichts."
         },
         "config_entry": {
           "name": "FRITZ!Box",

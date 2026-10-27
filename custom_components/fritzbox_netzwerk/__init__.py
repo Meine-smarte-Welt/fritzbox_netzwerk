@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 1b6377e6b9b6b88a06abbdd7b2679577035ae8c9ec94ae781e0dd990dea54543
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): eef224d93896e9fbf685fa91d540847ffecb33a7c013879db6a8b7c1d47a865a
 """Die Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady,
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.service import async_register_admin_service
 
 from .auth_guard import AUTH_FAILURE_LIMIT, AuthFailureGuard
 from .connection import create_connection
@@ -38,6 +39,7 @@ from .const import (
     ATTR_IP_FILTER,
     ATTR_SERVICE,
     SERVICE_MARK_RESERVED,
+    SERVICE_REMOVE_UNUSED,
     ATTR_ENABLED,
     ATTR_LABEL,
     ATTR_MAC,
@@ -46,6 +48,7 @@ from .const import (
     ATTR_NOTE,
     ATTR_OVERWRITE,
     ATTR_PROFILE,
+    ATTR_LOST_IGNORE,
     ATTR_RESERVED,
     CARD_FILENAME,
     CARD_URL,
@@ -74,6 +77,7 @@ from .const import (
     SERVICE_UPDATE_OUI,
     SERVICE_WAKE_ON_LAN,
     URL_BASE,
+    URL_BRAND,
     VERSION,
 )
 from .coordinator import FritzboxNetzwerkCoordinator
@@ -152,6 +156,7 @@ DEVICE_NOTE_SCHEMA = vol.Schema(
         vol.Optional(ATTR_LABEL): cv.string,
         vol.Optional(ATTR_NOTE): cv.string,
         vol.Optional(ATTR_RESERVED): cv.boolean,
+        vol.Optional(ATTR_LOST_IGNORE): cv.boolean,
         vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
     }
 )
@@ -196,6 +201,14 @@ SET_DNS_SCHEMA = vol.Schema(
     }
 )
 
+
+# Ungenutzte Verbindungen entfernen (seit 2.0.2, experimentell), siehe cleanup.py.
+REMOVE_UNUSED_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_DRY_RUN, default=False): cv.boolean,
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+    }
+)
 
 # Feste IPv4-Adresse (experimentell): Pruefung gegen Doppelvergabe, siehe static_ip.py.
 SET_STATIC_IP_SCHEMA = vol.Schema(
@@ -332,6 +345,7 @@ async def async_unload_entry(
             SERVICE_GAST_WLAN_INFO,
             SERVICE_SET_DEVICE_NOTE,
             SERVICE_MARK_RESERVED,
+            SERVICE_REMOVE_UNUSED,
             SERVICE_UPDATE_OUI,
             SERVICE_LIST_ACCESS_PROFILES,
             SERVICE_GET_ACCESS_PROFILE,
@@ -366,6 +380,14 @@ async def _async_register_card(hass: HomeAssistant) -> None:
             ]
         )
         hass.data[f"{DOMAIN}_static_paths"].add(URL_BASE)
+
+    # Das Symbol der Integration fuer die Titelzeile der Karte (nur Bilder aus brand/).
+    brand_dir = os.path.join(os.path.dirname(__file__), "brand")
+    if os.path.isdir(brand_dir) and URL_BRAND not in hass.data[f"{DOMAIN}_static_paths"]:
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(URL_BRAND, brand_dir, False)]
+        )
+        hass.data[f"{DOMAIN}_static_paths"].add(URL_BRAND)
 
     await _async_ensure_lovelace_resource(hass)
 
@@ -625,6 +647,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
             label=call.data.get(ATTR_LABEL),
             note=call.data.get(ATTR_NOTE),
             reserved=call.data.get(ATTR_RESERVED),
+            lost_ignore=call.data.get(ATTR_LOST_IGNORE),
         )
 
     async def _handle_mark_reserved(call: ServiceCall) -> dict[str, Any]:
@@ -675,6 +698,12 @@ def _async_register_services(hass: HomeAssistant) -> None:
             call.data[ATTR_MAC], call.data["ip"], bool(call.data.get(ATTR_DRY_RUN, False))
         )
 
+    async def _handle_remove_unused(call: ServiceCall) -> dict[str, Any]:
+        """Entfernt die ungenutzten Verbindungen der Box (experimentell, Option noetig)."""
+        return await _resolve_coordinator(call.data).async_remove_unused_connections(
+            bool(call.data.get(ATTR_DRY_RUN, False))
+        )
+
     async def _handle_install_blueprints(call: ServiceCall) -> dict[str, Any]:
         """Kopiert die mitgelieferten Blueprints in das Konfigurationsverzeichnis."""
         return await _resolve_coordinator(call.data).async_install_blueprints(
@@ -695,6 +724,17 @@ def _async_register_services(hass: HomeAssistant) -> None:
             hass.services.async_register(
                 DOMAIN, name, handler, schema=schema, supports_response=response
             )
+
+    # Loescht Eintraege in der Box: nur fuer Administratoren.
+    if not hass.services.has_service(DOMAIN, SERVICE_REMOVE_UNUSED):
+        async_register_admin_service(
+            hass,
+            DOMAIN,
+            SERVICE_REMOVE_UNUSED,
+            _handle_remove_unused,
+            REMOVE_UNUSED_SCHEMA,
+            supports_response=SupportsResponse.OPTIONAL,
+        )
 
     if not hass.services.has_service(DOMAIN, SERVICE_SET_DEVICE_NAME):
         hass.services.async_register(

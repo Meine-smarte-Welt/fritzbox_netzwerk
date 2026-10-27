@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.0.1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video and guide for the network card (German):** [meinesmartewelt.de – FRITZ!Box Netzwerk for Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -163,6 +163,8 @@ Via *Configure* on the integration:
 | Send messages to the Notification Center (since 2.0.0) | on | Master switch for the optional connection, see [Notification Center](#notification-center-optional) |
 | Message types to send (since 2.0.0) | all | Which message types go to the Notification Center (connection lost, monitored device offline, new device) |
 | Pairing duration | 5 min | How long the MAC filter stays off during pairing (1–120 min) |
+| Mark as “lost” after (days) (since 2.0.2) | 7 | A device that is offline and has not been seen for more than this many days counts as “lost” (filter, mark, sensor). 0 = off. Switch it off per device in the popup with “Ignore offline status” |
+| Allow removing unused connections (experimental, since 2.0.2) | off | Enables the `remove_unused_connections` service and the “Release unused IPs” button in the card |
 
 ---
 
@@ -310,11 +312,22 @@ The card is shipped with the integration (`custom:fritzbox-netzwerk-card`). It h
 
 **Tabs (optional):** with *Show categories as tabs* the card gets a tab bar. **Network** holds the device table. **Online monitor** shows the current rate, load by priority, connection details and online counters; tap a top consumer to open that device's popup. **Mesh** draws the FRITZ!Box, repeaters and their devices: tap the box or a repeater to open its popup, tap “N devices” to expand the node's device list, and tap a device in it for its popup. **Settings** (always the last tab) holds the switches and the expandable sections *App version*, *FRITZ!Box* (model, FRITZ!OS, IP address, uptime, plus temperature, CPU and RAM with the option “Read CPU and RAM of the box”), *Internet connection* and *Home network*. Video and guide (German): [meinesmartewelt.de](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
+**New in 2.0.2 – title bar:** the card header now has an icon (`show_icon`), the title (`show_title`, default **“FRITZ!Box Netzwerk”** instead of “Netzwerkgeräte”; the old default is mapped automatically, custom titles stay) and, on the right, the box's current download ↓ and upload ↑ (`show_rates`). All three can be switched in the editor. The icon is 256 × 256 px (512 × 512 for @2x) and shown at 28 px – nothing needs resizing. Whoever only had `show_title: false` keeps the hidden header.
+
+**New in 2.0.2 – lost devices:** *Mark as “lost” after (days)* in the options (default 7, 0 = off): a device that is offline and has not been seen for longer counts as lost. The card gets a **Lost** filter (`filter_verloren`), a mark behind the name (`color_lost`) and a popup row; per device *Ignore offline status* switches it off (also `set_device_note` with `lost_ignore`). Devices without a recorded “last online” time are never lost. Only tested against test data.
+
+**New in 2.0.2 – release unused IPs (experimental):** the toolbar button runs *Remove all unused connections* in the FRITZ!Box (Home network → Network → Network connections). It appears only with the option *Allow removing unused connections* and asks you to click twice. Removed entries cannot be restored. **Test status:** the web UI's request (`PUT /api/v0/generic/landevice`, `{"cleanup_landevices":"1"}`) was observed in the browser on a real FRITZ!Box 5690 Pro (FRITZ!OS 8.40) but intercepted – it never reached the box. Whether the cleanup works on a real box is **untested**.
+
+**Also in 2.0.2:** names and types in the mesh map are no longer cut off (wider nodes, long lines compressed, tooltip with the full name); the “Static IP – Set” row in the popup is hidden when the device or box already reports a fixed IP.
+
 ```yaml
 type: custom:fritzbox-netzwerk-card
 entity: sensor.fritz_box_5690_pro_netzwerk_gerate
 title: Home network
 show_title: true
+show_icon: true
+show_rates: true
+show_cleanup: true
 show_status: true
 show_name: true
 show_ip: true
@@ -350,6 +363,7 @@ If several boxes are set up, all services accept an optional field `config_entry
 | `reboot_mesh` (experimental) | Restart repeaters and box |
 | `gast_wlan_info` | Guest Wi-Fi data (for the QR code); since 1.9.0 the guest service is detected and an optional `service` (1-4) can force it; since 1.9.1 the card passes the known number and the setting “Guest Wi-Fi service” can fix it |
 | `set_device_note` | Label, note and “reserved” marker (stored in Home Assistant only) |
+| `remove_unused_connections` (experimental, since 2.0.2) | Run “Remove all unused connections” in the box; `dry_run` previews. The option *Allow removing unused connections* is required to write. `set_device_note` also takes `lost_ignore` |
 | `mark_devices_reserved` | Mark many devices as “reserved” by IP pattern (stored in Home Assistant only; `dry_run` previews) |
 | `list_access_profiles`, `get_access_profile`, `set_access_profile` (experimental) | Parental-control profiles |
 | `get_dns_settings`, `set_dns_settings` (experimental) | DNS settings of the box |
@@ -378,7 +392,9 @@ Write actions need administrator rights; inputs are validated in the backend; te
 
 ## Known limitations
 
-- **“Remove all unused connections” is missing** – TR-064 has no action for it.
+- **“Remove all unused connections” (since 2.0.2, experimental):** TR-064 has no action for it; the integration uses the web UI's REST interface. The request was observed (not sent) on a real FRITZ!Box 5690 Pro; whether the cleanup works on a real box is **untested**.
+- **“Lost” (since 2.0.2)** is based on the “last online” time the integration records itself; devices without it are never lost. Tested against test data only.
+- **Static IP in the popup:** if the device or box already reports a fixed IP, the row is hidden since 2.0.2. There is no function to change or release an existing reservation.
 - **Notification Center (since 2.0.0)** is only tested against a simulated event bus, not a real Notification Center or real hardware; the switches exist only in the Configure dialog, not in the card, see [Notification Center](#notification-center-optional).
 - **Static IP and DNS write access are experimental** and use the undocumented web interface of the box. Writing is not verified on any real box; the REST route for the static IP follows a third-party description for FRITZ!OS 8.25. They may break with any FRITZ!OS update.
 - **DHCP reservations only partly recognised.** The box does not report reservations *inside* the DHCP range via TR-064. Since 2.0.0 the integration additionally reads them from the web interface (same cycle as the IP type, `query.lua`, otherwise `netDev`); whether your FRITZ!OS delivers the flag is untested. If not, such devices still show as “dynamic” – the diagnostics download (`reservations`) says which way worked. Alternatively mark devices by hand or in bulk (`mark_devices_reserved`).
@@ -411,6 +427,18 @@ The tests for the Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 2.0.2 – Title bar with icon and download/upload, “lost” devices, release unused IPs
+
+Feedback and ideas for 2.0.1. **Tested:** the request of the FRITZ!Box button “Remove all unused connections” was **observed and intercepted** in the browser on a real FRITZ!Box 5690 Pro (FRITZ!OS 8.40) – never sent. The logic and the card run against test data / a simulated browser. **Not tested:** the actual cleanup on a real box, the “lost” function in a running Home Assistant, and the icon in a real browser.
+
+- **New – title bar:** default title **“FRITZ!Box Netzwerk”**, icon before it, download ↓ / upload ↑ of the box on the right; each switchable in the UI (`show_icon`, `show_title`, `show_rates`). The icon (256 × 256 px) is shown at 28 px.
+- **Fixed – cut-off names (mesh map):** names and types were truncated after a fixed number of characters. Nodes are wider, long lines are compressed, very long names get “…” and a tooltip.
+- **Improved – static IP in the popup:** hidden when the device already reports a fixed IP.
+- **New – “lost” devices:** option *Mark as “lost” after (days)* (default 7, 0 = off), filter, mark, popup row, sensor “Lost devices”, per-device *Ignore offline status* (`lost_ignore`).
+- **New – “Release unused IPs”:** toolbar button and service `remove_unused_connections` (`dry_run` preview), behind the option *Allow removing unused connections (experimental)* (off by default).
+
+**Update notes:** update via HACS, restart Home Assistant, clear the browser cache (Ctrl+F5).
 
 ### 2.0.1 – Access profiles with real names, Mesh map with cascade and clouds, FRITZ!Box name
 

@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 6632e4825daf89d32c0fa2a7ee4a4474587880b0769440120b5a7aa4190dec3f
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): a4d9868ec63f69d8f04708f6c8cd54e601cc7e6aeb8d6bf6780da284944877a7
 """Einrichtungsdialog fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -35,7 +35,13 @@ from .const import (
     CONF_ENABLE_HOST_DEVICES,
     CONF_CHECK_UPDATES,
     CONF_ENABLE_DNS_SETTINGS,
+    CONF_ENABLE_CLEANUP,
     CONF_ENABLE_STATIC_IP,
+    CONF_LOST_AFTER_DAYS,
+    DEFAULT_ENABLE_CLEANUP,
+    DEFAULT_LOST_AFTER_DAYS,
+    MAX_LOST_AFTER_DAYS,
+    MIN_LOST_AFTER_DAYS,
     CONF_NC_ENABLED,
     CONF_NC_TYPES,
     DEFAULT_NC_ENABLED,
@@ -481,6 +487,18 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                     CONF_ENABLE_STATIC_IP,
                     default=options.get(CONF_ENABLE_STATIC_IP, DEFAULT_ENABLE_STATIC_IP),
                 ): bool,
+                vol.Optional(
+                    CONF_ENABLE_CLEANUP,
+                    default=options.get(CONF_ENABLE_CLEANUP, DEFAULT_ENABLE_CLEANUP),
+                ): bool,
+                # Seit 2.0.2: "verloren" nach N Tagen offline (0 = aus).
+                vol.Optional(
+                    CONF_LOST_AFTER_DAYS,
+                    default=options.get(CONF_LOST_AFTER_DAYS, DEFAULT_LOST_AFTER_DAYS),
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=MIN_LOST_AFTER_DAYS, max=MAX_LOST_AFTER_DAYS),
+                ),
                 vol.Optional(
                     CONF_HOST_DEVICE_FILTER,
                     default=options.get(

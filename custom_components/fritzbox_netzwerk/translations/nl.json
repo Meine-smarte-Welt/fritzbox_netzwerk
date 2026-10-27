@@ -81,7 +81,9 @@
           "enable_dns_settings": "DNS-instellingen van de box wijzigen (experimenteel)",
           "enable_static_ip": "Statisch IP-adres instellen (experimenteel)",
           "nc_enabled": "Meldingen naar het Notification Center sturen",
-          "nc_types": "Te verzenden soorten meldingen"
+          "nc_types": "Te verzenden soorten meldingen",
+          "lost_after_days": "Als „verloren” markeren na (dagen)",
+          "enable_cleanup": "Ongebruikte verbindingen verwijderen toestaan (experimenteel)"
         },
         "data_description": {
           "track_address_source": "Deze waarde staat niet in de hostlijst en kost één extra verzoek per apparaat. Ze verandert zelden en loopt daarom op een eigen, langzamer schema.",
@@ -103,7 +105,9 @@
           "enable_dns_settings": "Staat de service „DNS-instellingen wijzigen” toe om DNS-servers van de FRITZ!Box te schrijven (internet IPv4/IPv6, lokale DNS in het thuisnetwerk). Gebruikt de REST-interface van de webinterface, niet TR-064 – niet gedocumenteerd door AVM, afhankelijk van FRITZ!OS, schrijven niet getest op echte hardware. Lezen en de voorvertoning (dry_run) werken altijd. Standaard uit.",
           "enable_static_ip": "Staat de service „Statisch IP instellen” toe om een apparaat een vast IPv4-adres te geven (Thuisnetwerk → Netwerk → apparaat bewerken). Gebruikt de REST-interface van de webinterface (FRITZ!OS 8), niet TR-064 – beschreven door een extern project, in deze integratie op geen enkele box getest. De voorvertoning (dry_run) werkt altijd. Standaard uit.",
           "nc_enabled": "Optioneel: is het Notification Center geïnstalleerd, dan meldt deze integratie verbroken verbindingen, uitgevallen bewaakte apparaten en nieuwe apparaten daarheen. Zonder Notification Center gebeurt er niets.",
-          "nc_types": "Alleen de aangevinkte soorten meldingen worden verzonden. Bewaakt worden repeaters (optie \"Repeaters als eigen apparaten aanmaken\") en de via het IP-patroon gekozen netwerkapparaten."
+          "nc_types": "Alleen de aangevinkte soorten meldingen worden verzonden. Bewaakt worden repeaters (optie \"Repeaters als eigen apparaten aanmaken\") en de via het IP-patroon gekozen netwerkapparaten.",
+          "lost_after_days": "Een apparaat dat offline is en al langer dan dit aantal dagen niet is gezien, geldt als „verloren” (filter en markering in de kaart, sensor „Verloren apparaten”). 0 = uit. Gebaseerd op het tijdstip „laatst online”, dat de integratie zelf bijhoudt; apparaten zonder dat tijdstip gelden nooit als verloren. Per apparaat is dit in de pop-up uit te zetten met „Offline-status negeren”. Standaard: 7.",
+          "enable_cleanup": "Staat de dienst „Ongebruikte verbindingen verwijderen” en de knop in de kaart toe om in de FRITZ!Box „Alle ongebruikte verbindingen verwijderen” uit te voeren (Thuisnetwerk → Netwerk → Netwerkverbindingen). De box behoudt apparaten met individuele instellingen; verwijderde items zijn niet te herstellen. Gebruikt de REST-interface van de webinterface (FRITZ!OS 8), niet TR-064 – het verzoek is waargenomen op een FRITZ!Box 5690 Pro, de uitvoering is niet getest. Standaard uit."
         }
       }
     }
@@ -212,6 +216,10 @@
       },
       "traffic_top": {
         "name": "Grootste dataverbruiker (7 dagen)"
+      },
+      "verloren": {
+        "name": "Verloren apparaten",
+        "unit_of_measurement": "apparaten"
       }
     },
     "binary_sensor": {
@@ -404,6 +412,10 @@
         "config_entry": {
           "name": "FRITZ!Box (config entry)",
           "description": "Alleen nodig als meerdere FRITZ!Boxen zijn ingesteld: bepaalt op welke deze service van toepassing is. Zonder opgave werkt de service op de eerst geladen box."
+        },
+        "lost_ignore": {
+          "name": "Offline-status negeren",
+          "description": "Schakelt de markering „verloren” voor dit apparaat uit (bijv. voor een apparaat dat maar zelden thuis is)."
         }
       }
     },
@@ -574,6 +586,20 @@
         "dry_run": {
           "name": "Alleen voorbeeld",
           "description": "Toont alleen welke apparaten geraakt zouden worden en wijzigt niets."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "Bij meerdere boxen: welke box bedoeld is."
+        }
+      }
+    },
+    "remove_unused_connections": {
+      "name": "Ongebruikte verbindingen verwijderen",
+      "description": "Voert in de FRITZ!Box „Alle ongebruikte verbindingen verwijderen” uit (Thuisnetwerk → Netwerk → Netwerkverbindingen) en meldt welke items daarna ontbreken. Apparaten met individuele instellingen blijven bestaan, verwijderde items zijn niet te herstellen. Alleen voor beheerders. Experimenteel, optie vereist (het voorbeeld met dry_run werkt altijd).",
+      "fields": {
+        "dry_run": {
+          "name": "Alleen voorvertoning",
+          "description": "Telt alleen de inactieve items van de apparatenlijst en wijzigt niets."
         },
         "config_entry": {
           "name": "FRITZ!Box",

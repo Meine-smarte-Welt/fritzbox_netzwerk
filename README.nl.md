@@ -7,7 +7,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.0.1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video en handleiding voor de netwerkkaart (Duits):** [meinesmartewelt.de – FRITZ!Box Netzwerk voor Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -164,6 +164,8 @@ Via *Configureren* bij de integratie:
 | Meldingen naar het Notification Center sturen (sinds 2.0.0) | aan | Hoofdschakelaar voor de optionele koppeling, zie [Notification Center](#notification-center-optioneel) |
 | Te verzenden soorten meldingen (sinds 2.0.0) | alle | Welke soorten meldingen naar het Notification Center gaan (verbinding verbroken, bewaakt apparaat offline, nieuw apparaat) |
 | Pairingduur | 5 min | Hoe lang het MAC-filter bij pairing uit blijft (1–120 min) |
+| „Verloren” na (dagen) (sinds 2.0.2) | 7 | Een apparaat dat offline is en al langer dan dit aantal dagen niet is gezien, geldt als „verloren” (filter, markering, sensor). 0 = uit. Per apparaat in de pop-up uit te zetten met „Offline-status negeren” |
+| Ongebruikte verbindingen verwijderen toestaan (experimenteel, sinds 2.0.2) | uit | Schakelt de service `remove_unused_connections` en de knop „Ongebruikte IP's vrijgeven” in de kaart vrij |
 
 ---
 
@@ -313,11 +315,22 @@ De kaart wordt met de integratie meegeleverd (`custom:fritzbox-netzwerk-card`). 
 
 **Tabs (optioneel):** met *Categorieën als tabs tonen* krijgt de kaart een tabbalk. **Netwerk** bevat de apparatentabel. **Online-monitor** toont de actuele snelheid, belasting per prioriteit, verbindingsdetails en online-tellers; tik op een grootste verbruiker om de popup van dat apparaat te openen. **Mesh** tekent de FRITZ!Box, repeaters en hun apparaten: tik op de box of een repeater om de popup te openen, tik op „N apparaten” om de apparatenlijst van het knooppunt uit te klappen en tik op een apparaat daarin voor de popup. **Instellingen** (altijd de laatste tab) bevat de schakelaars en de uitklapbare onderdelen *App-versie*, *FRITZ!Box* (model, FRITZ!OS, IP-adres, looptijd, plus temperatuur, CPU en RAM met de optie „CPU en RAM van de box lezen”), *Internetverbinding* en *Thuisnetwerk*. Video en handleiding (Duits): [meinesmartewelt.de](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
+**Nieuw in 2.0.2 – titelbalk:** de kop van de kaart heeft nu een pictogram (`show_icon`), de titel (`show_title`, standaard **„FRITZ!Box Netzwerk”** in plaats van „Netzwerkgeräte”; de oude standaard wordt automatisch omgezet, eigen titels blijven) en rechts de huidige download ↓ en upload ↑ van de box (`show_rates`). Alle drie zijn in de editor te schakelen. Het pictogram is 256 × 256 px (512 × 512 voor @2x) en wordt met 28 px getoond – verkleinen is niet nodig. Wie alleen `show_title: false` had, houdt de verborgen kop.
+
+**Nieuw in 2.0.2 – verloren apparaten:** *„Verloren” na (dagen)* in de opties (standaard 7, 0 = uit): een apparaat dat offline is en langer niet is gezien, geldt als verloren. De kaart krijgt een filter **Verloren** (`filter_verloren`), een markering achter de naam (`color_lost`) en een rij in de pop-up; per apparaat schakelt *Offline-status negeren* dit uit (ook `set_device_note` met `lost_ignore`). Apparaten zonder vastgelegde tijd „laatst online” zijn nooit verloren. Alleen met testgegevens getest.
+
+**Nieuw in 2.0.2 – ongebruikte IP's vrijgeven (experimenteel):** de knop in de werkbalk voert in de FRITZ!Box *Alle ongebruikte verbindingen verwijderen* uit (Thuisnetwerk → Netwerk → Netwerkverbindingen). Verschijnt alleen met de optie *Ongebruikte verbindingen verwijderen toestaan* en vraagt om twee klikken. Verwijderde items zijn niet te herstellen. **Teststatus:** het verzoek van de webinterface (`PUT /api/v0/generic/landevice`, `{"cleanup_landevices":"1"}`) is in de browser op een echte FRITZ!Box 5690 Pro (FRITZ!OS 8.40) waargenomen maar onderschept – het heeft de box nooit bereikt. Of het opruimen op een echte box werkt, is **niet getest**.
+
+**Ook in 2.0.2:** namen en types in de meshkaart worden niet meer afgekapt (bredere knopen, lange regels samengedrukt, tooltip met de volledige naam); de rij „Statisch IP – Instellen” in de pop-up verdwijnt als apparaat of box al een vast IP meldt.
+
 ```yaml
 type: custom:fritzbox-netzwerk-card
 entity: sensor.fritz_box_5690_pro_netzwerk_gerate
 title: Thuisnetwerk
 show_title: true
+show_icon: true
+show_rates: true
+show_cleanup: true
 show_status: true
 show_name: true
 show_ip: true
@@ -353,6 +366,7 @@ Zijn er meerdere boxen ingesteld, dan accepteren alle services een optioneel vel
 | `reboot_mesh` (experimenteel) | Repeaters en box herstarten |
 | `gast_wlan_info` | Gast-wifigegevens (voor de QR-code); sinds 1.9.0 wordt de gastservice herkend en kan een optionele `service` (1-4) die afdwingen; sinds 1.9.1 geeft de kaart het bekende nummer door en kan de instelling „Gast-wifi-service” het vastleggen |
 | `set_device_note` | Label, notitie en „gereserveerd”-markering (alleen in Home Assistant opgeslagen) |
+| `remove_unused_connections` (experimenteel, sinds 2.0.2) | „Alle ongebruikte verbindingen verwijderen” in de box uitvoeren; `dry_run` toont een voorbeeld. Voor schrijven is de optie *Ongebruikte verbindingen verwijderen toestaan* nodig. `set_device_note` kent ook `lost_ignore` |
 | `mark_devices_reserved` | Veel apparaten tegelijk als „gereserveerd” markeren via IP-patroon (alleen in Home Assistant opgeslagen; `dry_run` toont een voorbeeld) |
 | `list_access_profiles`, `get_access_profile`, `set_access_profile` (experimenteel) | Profielen van ouderlijk toezicht |
 | `get_dns_settings`, `set_dns_settings` (experimenteel) | DNS-instellingen van de box |
@@ -382,7 +396,9 @@ Schrijfacties vereisen beheerdersrechten; invoer wordt in de backend gecontrolee
 ## Bekende beperkingen
 
 - **Notification Center (sinds 2.0.0)** is alleen getest tegen een gesimuleerde gebeurtenisbus, niet tegen een echt Notification Center of echte hardware; de schakelaars bestaan alleen in het dialoogvenster Configureren, niet in de kaart, zie [Notification Center](#notification-center-optioneel).
-- **„Alle ongebruikte verbindingen verwijderen” ontbreekt** – TR-064 heeft daarvoor geen actie.
+- **„Alle ongebruikte verbindingen verwijderen” (sinds 2.0.2, experimenteel):** TR-064 heeft daarvoor geen actie; de integratie gebruikt de REST-interface van de webinterface. Het verzoek is op een echte FRITZ!Box 5690 Pro waargenomen (niet verzonden); of het opruimen op een echte box werkt, is **niet getest**.
+- **„Verloren” (sinds 2.0.2)** berust op de door de integratie zelf vastgelegde tijd „laatst online”; apparaten zonder die tijd zijn nooit verloren. Alleen met testgegevens getest.
+- **Statisch IP in de pop-up:** meldt het apparaat of de box al een vast IP, dan is de rij sinds 2.0.2 verborgen. Een functie om een bestaande reservering te wijzigen of op te heffen bestaat niet.
 - **Statisch IP en DNS schrijven zijn experimenteel** en gebruiken de ongedocumenteerde webinterface van de box. Schrijven is op geen enkele echte box getest; de REST-route voor het statische IP volgt de beschrijving van een extern project voor FRITZ!OS 8.25. Ze kunnen met elke FRITZ!OS-update breken.
 - **DHCP-reserveringen maar deels herkend.** De box meldt reserveringen *binnen* het DHCP-bereik niet via TR-064. Sinds 2.0.0 leest de integratie ze extra uit de webinterface (`query.lua`, anders `netDev`); of jouw FRITZ!OS de markering levert, is ongetest. Zo niet, dan blijven zulke apparaten „dynamisch” – de diagnose-download (`reservations`) toont welke weg werkte. Alternatief: handmatig of in bulk markeren (`mark_devices_reserved`).
 - **Mesh maar gedeeltelijk:** geen signaalsterkte in dBm.
@@ -414,6 +430,18 @@ De tests voor het Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 2.0.2 – Titelbalk met pictogram en download/upload, „verloren” apparaten, ongebruikte IP's vrijgeven
+
+Feedback en ideeën bij 2.0.1. **Getest:** het verzoek van de FRITZ!Box-knop „Alle ongebruikte verbindingen verwijderen” is in de browser op een echte FRITZ!Box 5690 Pro (FRITZ!OS 8.40) **waargenomen en onderschept** – nooit verzonden. Logica en kaart draaien met testgegevens / een gesimuleerde browser. **Niet getest:** het echte opruimen op een box, de functie „verloren” in een draaiende Home Assistant en het pictogram in een echte browser.
+
+- **Nieuw – titelbalk:** standaardtitel **„FRITZ!Box Netzwerk”**, pictogram ervoor, download ↓ / upload ↑ van de box rechts; elk apart schakelbaar in de UI (`show_icon`, `show_title`, `show_rates`). Het pictogram (256 × 256 px) wordt met 28 px getoond.
+- **Opgelost – afgekapte namen (meshkaart):** namen en types werden na een vast aantal tekens afgekapt. Knopen zijn breder, lange regels worden samengedrukt, zeer lange namen krijgen „…” en een tooltip.
+- **Verbeterd – statisch IP in de pop-up:** verborgen als het apparaat al een vast IP meldt.
+- **Nieuw – „verloren” apparaten:** optie *„Verloren” na (dagen)* (standaard 7, 0 = uit), filter, markering, pop-uprij, sensor „Verloren apparaten”, per apparaat *Offline-status negeren* (`lost_ignore`).
+- **Nieuw – „Ongebruikte IP's vrijgeven”:** knop in de werkbalk en service `remove_unused_connections` (`dry_run`-voorbeeld), achter de optie *Ongebruikte verbindingen verwijderen toestaan (experimenteel)* (standaard uit).
+
+**Update-instructies:** bijwerken via HACS, Home Assistant herstarten, browsercache wissen (Ctrl+F5).
 
 ### 2.0.1 – Toegangsprofielen met echte namen, Meshkaart met cascade en wolken, naam van de FRITZ!Box
 

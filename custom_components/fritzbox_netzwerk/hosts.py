@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 1beeb0c0846bcec5de72dbc2c8f3a7f2400163a18c19ac51545dfa7cdfbce59f
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 35a8a7262f282f273b4b8a9ed84b0bf8850344dacba2b530c0e3094828ae32da
 """Aufbereitung der FRITZ!Box-Hostliste.
 
 Dieses Modul enthaelt bewusst KEINE Home-Assistant- und keine
@@ -26,6 +26,7 @@ import csv
 import io
 import re
 import sys
+from datetime import datetime, timezone
 from typing import Any, Final
 from xml.etree import ElementTree
 
@@ -415,6 +416,13 @@ def normalize_host(raw: dict[str, Any]) -> dict[str, Any]:
         # dem Geraet eine feste Adresse zugewiesen hat ("Diesem Netzwerkgeraet
         # immer die gleiche IPv4-Adresse zuweisen"). ``None`` = nicht ermittelt.
         "box_reserved": None,
+        # Wird in ``apply_lost()`` ergaenzt (seit 2.0.2): "verloren" = offline und
+        # seit mehr als N Tagen nicht mehr gesehen. ``lost_days`` = volle Tage seit
+        # dem letzten Sehen (None, solange unbekannt). ``lost_ignore`` ist die
+        # Markierung "Verloren-Status ignorieren" (apply_notes).
+        "lost": False,
+        "lost_days": None,
+        "lost_ignore": False,
     }
 
 
@@ -585,6 +593,48 @@ def apply_last_seen(
     return hosts
 
 
+def _parse_stamp(value: Any) -> datetime | None:
+    """ISO-Zeitstempel als aware ``datetime`` (UTC, wenn ohne Zone); ``None`` bei Unlesbarem."""
+    if not value:
+        return None
+    try:
+        stamp = datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+    return stamp if stamp.tzinfo else stamp.replace(tzinfo=timezone.utc)
+
+
+def apply_lost(
+    hosts: list[dict[str, Any]],
+    after_days: Any,
+    now: datetime | None = None,
+) -> list[dict[str, Any]]:
+    """Kennzeichnet "verlorene" Geraete (seit 2.0.2).
+
+    Verloren = offline UND ``last_seen`` liegt mehr als ``after_days`` Tage zurueck.
+    ``after_days`` <= 0 schaltet die Funktion aus. Geraete ohne bekannten
+    ``last_seen`` (die Integration schreibt ihn erst seit ihrer Installation mit)
+    gelten NIE als verloren - sonst waere nach der Installation alles "verloren".
+    Mit ``lost_ignore`` (Markierung je Geraet) bleibt ``lost`` immer ``False``;
+    ``lost_days`` wird trotzdem gefuellt, damit die Karte die Dauer zeigen kann.
+    Aktive Geraete haben nie einen Wert.
+    """
+    days = as_int(after_days, default=0)
+    current = now or datetime.now(timezone.utc)
+    for host in hosts:
+        host["lost"] = False
+        host["lost_days"] = None
+        if days <= 0 or host.get("active"):
+            continue
+        stamp = _parse_stamp(host.get("last_seen"))
+        if stamp is None:
+            continue
+        age = (current - stamp).total_seconds() / 86400
+        host["lost_days"] = max(0, int(age))
+        host["lost"] = age > days and not host.get("lost_ignore")
+    return hosts
+
+
 def apply_first_seen(
     hosts: list[dict[str, Any]], first_seen: dict[str, str] | None
 ) -> list[dict[str, Any]]:
@@ -734,6 +784,7 @@ def build_hosts(
     mesh_links: dict[str, dict[str, Any]] | None = None,
     notes: dict[str, dict[str, Any]] | None = None,
     reservations: dict[str, bool] | None = None,
+    lost_after_days: Any = 0,
 ) -> list[dict[str, Any]]:
     """Baut die vollstaendige, sortierte Hostliste fuer das Sensorattribut.
 
@@ -763,6 +814,7 @@ def build_hosts(
     apply_bands(hosts, bands)
     apply_mesh_links(hosts, mesh_links)
     apply_notes(hosts, notes)
+    apply_lost(hosts, lost_after_days)
     for host in hosts:
         host["ip_class"] = classify_ip_with_reserved(host, pool)
     hosts.sort(key=lambda host: ip_sort_key(host["ip"]))
@@ -782,6 +834,8 @@ def summarize(hosts: list[dict[str, Any]]) -> dict[str, int]:
         # "static" bleibt als Attributname erhalten, zaehlt aber jetzt die
         # fest zugewiesenen Adressen (fest/reserviert).
         "static": sum(1 for host in hosts if host.get("ip_class") == "fixed"),
+        # Seit 2.0.2: verlorene Geraete (offline, laenger als N Tage nicht gesehen).
+        "lost": sum(1 for host in hosts if host.get("lost")),
     }
 
 
@@ -1410,7 +1464,7 @@ def clean_text(value: Any, limit: int) -> str:
 
 
 def make_note_entry(
-    label: Any = None, note: Any = None, reserved: Any = None
+    label: Any = None, note: Any = None, reserved: Any = None, lost_ignore: Any = None
 ) -> dict[str, Any] | None:
     """Baut einen Speichereintrag; ``None``, wenn nichts (mehr) zu merken ist.
 
@@ -1419,9 +1473,13 @@ def make_note_entry(
     clean_label = clean_text(str(label or "").replace("\n", " "), MAX_LABEL_LENGTH)
     clean_note = clean_text(note, MAX_NOTE_LENGTH)
     flag = as_bool(reserved)
-    if not clean_label and not clean_note and not flag:
+    ignore = as_bool(lost_ignore)
+    if not clean_label and not clean_note and not flag and not ignore:
         return None
-    return {"label": clean_label, "note": clean_note, "reserved": flag}
+    entry: dict[str, Any] = {"label": clean_label, "note": clean_note, "reserved": flag}
+    if ignore:
+        entry["lost_ignore"] = True
+    return entry
 
 
 def apply_notes(
@@ -1437,6 +1495,7 @@ def apply_notes(
         host["label"] = str(entry.get("label") or "")
         host["note"] = str(entry.get("note") or "")
         host["reserved"] = bool(entry.get("reserved"))
+        host["lost_ignore"] = bool(entry.get("lost_ignore"))
     return hosts
 
 
@@ -1450,7 +1509,7 @@ def load_notes(stored: Any) -> dict[str, dict[str, Any]]:
         if not isinstance(value, dict) or not re.fullmatch(r"[0-9a-f]{12}", normalized):
             continue
         entry = make_note_entry(
-            value.get("label"), value.get("note"), value.get("reserved")
+            value.get("label"), value.get("note"), value.get("reserved"), value.get("lost_ignore")
         )
         if entry:
             notes[normalized] = entry

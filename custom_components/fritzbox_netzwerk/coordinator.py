@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 81e37ce7b9a35fe4e10e19e01c05653324a5cd15d8d001aecf6c59728502cde2
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 87dbd4887f69797035bd580916071430b35bcf882711cabe53b0b6f09165443c
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -44,7 +44,9 @@ from .const import (
     GAST_WLAN_SERVICE_INDEX,
     CONF_CHECK_UPDATES,
     CONF_ENABLE_DNS_SETTINGS,
+    CONF_ENABLE_CLEANUP,
     CONF_ENABLE_STATIC_IP,
+    CONF_LOST_AFTER_DAYS,
     CONF_ENABLE_PARENTAL,
     DEFAULT_CHECK_UPDATES,
     GITHUB_LATEST_RELEASE_URL,
@@ -60,7 +62,10 @@ from .const import (
     TRAFFIC_SOURCES_INTERVAL_SECONDS,
     TRAFFIC_STORAGE_VERSION,
     DEFAULT_ENABLE_DNS_SETTINGS,
+    DEFAULT_ENABLE_CLEANUP,
     DEFAULT_ENABLE_STATIC_IP,
+    DEFAULT_LOST_AFTER_DAYS,
+    MAX_LOST_AFTER_DAYS,
     DEFAULT_ENABLE_PARENTAL,
     PROFILE_REVERT_STORAGE_VERSION,
     CONF_REMOTE_ACCESS,
@@ -93,7 +98,9 @@ from .const import (
     USER_DATA_DIRNAME,
 )
 from .hosts import (
+    apply_lost,
     apply_mesh_repeaters,
+    as_int,
     as_bool,
     build_hosts,
     classify_ip_with_reserved,
@@ -163,6 +170,7 @@ from .nc_catalog import (
 from .notification_bridge import NotificationBridge
 from .repeater import repeater_hosts, repeaters_enabled, selected_host_devices
 from .dns_settings import change_dns_settings, read_dns_settings
+from .cleanup import CleanupError, remove_unused_connections
 from .static_ip import NEEDS_RESTART, StaticIpError, plan_static_ip, set_static_ip
 from .webui import (
     assign_profile,
@@ -1880,6 +1888,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             mesh_links,
             self._notes,
             self._reservations,
+            self.lost_after_days,
         )
         _LOGGER.debug(
             "Geraeteliste: %s Eintraege (%s aktiv, %s inaktiv); Box lieferte %s "
@@ -2358,6 +2367,31 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self.async_request_refresh()
         return result
 
+    # -- Ungenutzte Verbindungen entfernen (seit 2.0.2, experimentell) ------
+
+    async def async_remove_unused_connections(self, dry_run: bool = False) -> dict[str, Any]:
+        """Loest "Alle ungenutzten Verbindungen entfernen" der Box aus.
+
+        ``dry_run`` aendert nichts: gemeldet wird nur, wie viele inaktive Eintraege die
+        Geraeteliste hat (die Box behaelt davon jene mit individuellen Einstellungen).
+        """
+        hosts = list((self.data or {}).get("hosts", []))
+        inactive = sum(1 for host in hosts if not host.get("active"))
+        if dry_run:
+            return {"dry_run": True, "inaktive_eintraege": inactive, "geschrieben": False}
+        if not self.cleanup_enabled:
+            raise HomeAssistantError(
+                "Das Entfernen ungenutzter Verbindungen ist aus - in den Optionen "
+                "'Ungenutzte Verbindungen entfernen erlauben (experimentell)' einschalten "
+                "(oder mit dry_run nur die Zahl der inaktiven Einträge abrufen)."
+            )
+        try:
+            result = await self.hass.async_add_executor_job(self._run_web, remove_unused_connections)
+        except (CleanupError, ValueError, RequestException) as err:
+            raise HomeAssistantError(f"Ungenutzte Verbindungen: {err}") from err
+        await self.async_request_refresh()
+        return {"dry_run": False, "geschrieben": True, "inaktive_eintraege": inactive, **result}
+
     # -- Kindersicherung: Zugangsprofile (Idee 22, experimentell) ---------
 
     @property
@@ -2462,12 +2496,27 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Laedt die gespeicherten Notizen/Etiketten beim Start."""
         self._notes = load_notes(await self._notes_store.async_load())
 
+    @property
+    def lost_after_days(self) -> int:
+        """Nach wie vielen Tagen ohne Lebenszeichen ein Geraet als "verloren" gilt (0 = aus)."""
+        value = as_int(
+            self.entry.options.get(CONF_LOST_AFTER_DAYS, DEFAULT_LOST_AFTER_DAYS),
+            default=DEFAULT_LOST_AFTER_DAYS,
+        )
+        return min(max(value, 0), MAX_LOST_AFTER_DAYS)
+
+    @property
+    def cleanup_enabled(self) -> bool:
+        """Ob "Ungenutzte Verbindungen entfernen" freigeschaltet ist."""
+        return bool(self.entry.options.get(CONF_ENABLE_CLEANUP, DEFAULT_ENABLE_CLEANUP))
+
     async def async_set_note(
         self,
         mac: str,
         label: Any = None,
         note: Any = None,
         reserved: Any = None,
+        lost_ignore: Any = None,
     ) -> dict[str, Any] | None:
         """Setzt Etikett, Notiz und "reserviert" eines Geraets (alles leer = loeschen).
 
@@ -2482,6 +2531,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             current.get("label") if label is None else label,
             current.get("note") if note is None else note,
             current.get("reserved") if reserved is None else reserved,
+            current.get("lost_ignore") if lost_ignore is None else lost_ignore,
         )
         if entry:
             self._notes[key] = entry
@@ -2498,6 +2548,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 host["label"] = (entry or {}).get("label", "")
                 host["note"] = (entry or {}).get("note", "")
                 host["reserved"] = bool((entry or {}).get("reserved"))
+                host["lost_ignore"] = bool((entry or {}).get("lost_ignore"))
+                apply_lost([host], self.lost_after_days)
                 host["ip_class"] = classify_ip_with_reserved(host, pool)
             self.async_set_updated_data(
                 {**self.data, "hosts": hosts, "summary": summarize(hosts)}
@@ -2535,7 +2587,9 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for host in changes:
             key = mac_key(host.get("mac"))
             current = self._notes.get(key, {})
-            entry = make_note_entry(current.get("label"), current.get("note"), reserved)
+            entry = make_note_entry(
+                current.get("label"), current.get("note"), reserved, current.get("lost_ignore")
+            )
             if entry:
                 self._notes[key] = entry
             else:

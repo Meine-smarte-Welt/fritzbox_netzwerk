@@ -81,7 +81,9 @@
           "enable_dns_settings": "Change DNS settings of the box (experimental)",
           "enable_static_ip": "Set static IP address (experimental)",
           "nc_enabled": "Send messages to the Notification Center",
-          "nc_types": "Message types to send"
+          "nc_types": "Message types to send",
+          "lost_after_days": "Mark as “lost” after (days)",
+          "enable_cleanup": "Allow removing unused connections (experimental)"
         },
         "data_description": {
           "track_address_source": "This value is not part of the host list and costs one extra request per device. It rarely changes, so it runs on its own slower schedule.",
@@ -103,7 +105,9 @@
           "enable_dns_settings": "Allows the “Change DNS settings” service to write DNS servers of the FRITZ!Box (internet IPv4/IPv6, local DNS in the home network). Uses the web interface REST API, not TR-064 – undocumented by AVM, FRITZ!OS dependent, writing not tested on real hardware. Reading and the preview (dry_run) always work. Off by default.",
           "enable_static_ip": "Allows the “Set static IP” service to assign a fixed IPv4 address to a device (Home Network → Network → edit device). Uses the REST interface of the web interface (FRITZ!OS 8), not TR-064 – documented by a third-party project, not verified on any box in this integration. The preview (dry_run) always works. Off by default.",
           "nc_enabled": "Optional: if the Notification Center is installed, this integration reports lost connections, monitored devices going offline and new devices to it. Nothing happens without the Notification Center.",
-          "nc_types": "Only the ticked message types are sent. Monitored are repeaters (option \"Create repeaters as their own devices\") and the network devices selected by the IP pattern."
+          "nc_types": "Only the ticked message types are sent. Monitored are repeaters (option \"Create repeaters as their own devices\") and the network devices selected by the IP pattern.",
+          "lost_after_days": "A device that is offline and has not been seen for more than this many days counts as “lost” (filter and mark in the card, sensor “Lost devices”). 0 = off. Based on the “last online” time the integration records itself; devices without that time never count as lost. Per device this can be switched off in the popup with “Ignore offline status”. Default: 7.",
+          "enable_cleanup": "Allows the service “Remove unused connections” and the button in the card to trigger “Remove all unused connections” in the FRITZ!Box (Home network → Network → Network connections). The box keeps devices with individual settings; removed entries cannot be restored. Uses the REST interface of the web UI (FRITZ!OS 8), not TR-064 – the request was observed on a FRITZ!Box 5690 Pro, the execution is unverified. Off by default."
         }
       }
     }
@@ -212,6 +216,10 @@
       },
       "traffic_top": {
         "name": "Biggest data consumer (7 days)"
+      },
+      "verloren": {
+        "name": "Lost devices",
+        "unit_of_measurement": "devices"
       }
     },
     "binary_sensor": {
@@ -404,6 +412,10 @@
         "config_entry": {
           "name": "FRITZ!Box (config entry)",
           "description": "Only needed if several FRITZ!Boxes are set up: selects which one this service applies to. Without it, the service acts on the first loaded box."
+        },
+        "lost_ignore": {
+          "name": "Ignore offline status",
+          "description": "Switches off the “lost” mark for this device (e.g. for a device that is only rarely at home)."
         }
       }
     },
@@ -578,6 +590,20 @@
         "config_entry": {
           "name": "FRITZ!Box",
           "description": "With several boxes: which box is meant."
+        }
+      }
+    },
+    "remove_unused_connections": {
+      "name": "Remove unused connections",
+      "description": "Triggers “Remove all unused connections” in the FRITZ!Box (Home network → Network → Network connections) and reports which entries are gone afterwards. Devices with individual settings stay, removed entries cannot be restored. Administrators only. Experimental, option required (the preview with dry_run always works).",
+      "fields": {
+        "dry_run": {
+          "name": "Preview only",
+          "description": "Only counts the inactive entries of the device list and changes nothing."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box",
+          "description": "With several boxes: which one is meant."
         }
       }
     }

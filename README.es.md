@@ -7,7 +7,7 @@
 
 Una integración de Home Assistant que muestra todos los dispositivos de la red doméstica de la FRITZ!Box en tu panel como una tabla ordenable – con dirección IP, dirección MAC, tipo de conexión y el nombre del dispositivo de Home Assistant correspondiente.
 
-![Version](https://img.shields.io/badge/Version-2.0.1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Vídeo y guía de la tarjeta de red (en alemán):** [meinesmartewelt.de – FRITZ!Box Netzwerk para Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -163,6 +163,8 @@ Mediante *Configurar* en la integración:
 | Enviar mensajes al centro de notificaciones (desde 2.0.0) | activado | Interruptor principal de la conexión opcional, véase [Centro de notificaciones](#centro-de-notificaciones-opcional) |
 | Tipos de mensaje a enviar (desde 2.0.0) | todos | Qué tipos de mensaje van al centro de notificaciones (conexión perdida, dispositivo vigilado sin conexión, dispositivo nuevo) |
 | Duración del emparejamiento | 5 min | Cuánto tiempo permanece desactivado el filtro MAC durante el emparejamiento (1–120 min) |
+| «Perdido» tras (días) (desde 2.0.2) | 7 | Un dispositivo sin conexión y no visto desde hace más de estos días se considera «perdido» (filtro, marca, sensor). 0 = desactivado. Se puede desactivar por dispositivo en la ventana con «Ignorar estado sin conexión» |
+| Permitir eliminar conexiones no utilizadas (experimental, desde 2.0.2) | desactivado | Habilita el servicio `remove_unused_connections` y el botón «Liberar IP no utilizadas» de la tarjeta |
 
 ---
 
@@ -293,11 +295,22 @@ La tarjeta se entrega con la integración (`custom:fritzbox-netzwerk-card`). Tie
 
 **Pestañas (opcional):** con *Mostrar categorías como pestañas* la tarjeta recibe una barra de pestañas. **Red** contiene la tabla de dispositivos. **Monitor en línea** muestra la velocidad actual, la carga por prioridad, los detalles de conexión y los contadores en línea; toca un gran consumidor para abrir la ventana de ese dispositivo. **Mesh** dibuja la FRITZ!Box, los repetidores y sus dispositivos: toca la caja o un repetidor para abrir su ventana, toca «N dispositivos» para desplegar la lista de dispositivos del nodo y toca un dispositivo para su ventana. **Ajustes** (siempre la última pestaña) contiene los interruptores y las secciones desplegables *Versión de la app*, *FRITZ!Box* (modelo, FRITZ!OS, dirección IP, tiempo de actividad, más temperatura, CPU y RAM con la opción «Leer CPU y RAM de la caja»), *Conexión a Internet* y *Red doméstica*. Vídeo y guía (en alemán): [meinesmartewelt.de](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/).
 
+**Novedad en 2.0.2 – barra de título:** el encabezado de la tarjeta tiene un icono (`show_icon`), el título (`show_title`, por defecto **«FRITZ!Box Netzwerk»** en lugar de «Netzwerkgeräte»; el título anterior por defecto se sustituye automáticamente, los títulos propios se conservan) y, a la derecha, la descarga ↓ y la subida ↑ actuales de la caja (`show_rates`). Los tres se ajustan en el editor. El icono mide 256 × 256 px (512 × 512 en @2x) y se muestra a 28 px – no hay que reducirlo.
+
+**Novedad en 2.0.2 – dispositivos perdidos:** *«Perdido» tras (días)* en las opciones (por defecto 7, 0 = desactivado). La tarjeta recibe un filtro **Perdido** (`filter_verloren`), una marca tras el nombre (`color_lost`) y una fila en la ventana; *Ignorar estado sin conexión* lo desactiva por dispositivo (también `set_device_note` con `lost_ignore`). Probado solo con datos de prueba.
+
+**Novedad en 2.0.2 – liberar IP no utilizadas (experimental):** el botón de la barra de herramientas ejecuta en la FRITZ!Box *Eliminar todas las conexiones no utilizadas* (Red doméstica → Red → Conexiones de red). Solo aparece con la opción *Permitir eliminar conexiones no utilizadas* y pide dos clics. Las entradas eliminadas no se pueden recuperar. **Estado de las pruebas:** la petición de la interfaz web (`PUT /api/v0/generic/landevice`, `{"cleanup_landevices":"1"}`) se observó en el navegador en una FRITZ!Box 5690 Pro real (FRITZ!OS 8.40) pero se interceptó – nunca llegó a la caja. Que la limpieza funcione en una caja real **no está probado**.
+
+**También en 2.0.2:** los nombres y tipos del mapa Mesh ya no se cortan; la fila «IP estática – Definir» se oculta si el dispositivo o la caja ya informa de una IP fija.
+
 ```yaml
 type: custom:fritzbox-netzwerk-card
 entity: sensor.fritz_box_5690_pro_netzwerk_gerate
 title: Red doméstica
 show_title: true
+show_icon: true
+show_rates: true
+show_cleanup: true
 show_status: true
 show_name: true
 show_ip: true
@@ -333,6 +346,7 @@ Si hay varias cajas configuradas, todos los servicios aceptan un campo opcional 
 | `reboot_mesh` (experimental) | Reiniciar repetidores y caja |
 | `gast_wlan_info` | Datos del Wi-Fi de invitados (para el código QR); desde 1.9.0 se detecta el servicio de invitados y un `service` opcional (1-4) puede forzarlo; desde 1.9.1 la tarjeta transmite el número conocido y el ajuste «Servicio Wi-Fi de invitados» puede fijarlo |
 | `set_device_note` | Etiqueta, nota y marca «reservado» (solo se guarda en Home Assistant) |
+| `remove_unused_connections` (experimental, desde 2.0.2) | Ejecuta «Eliminar todas las conexiones no utilizadas» en la caja; `dry_run` muestra una vista previa. Para escribir hace falta la opción *Permitir eliminar conexiones no utilizadas*. `set_device_note` también admite `lost_ignore` |
 | `mark_devices_reserved` | Marcar muchos dispositivos como «reservados» por patrón de IP (solo en Home Assistant; `dry_run` muestra una vista previa) |
 | `list_access_profiles`, `get_access_profile`, `set_access_profile` (experimental) | Perfiles del control parental |
 | `get_dns_settings`, `set_dns_settings` (experimental) | Ajustes DNS de la caja |
@@ -361,7 +375,9 @@ Las acciones de escritura requieren derechos de administrador; las entradas se v
 
 ## Limitaciones conocidas
 
-- **Falta «Eliminar todas las conexiones no utilizadas»** – TR-064 no tiene una acción para ello.
+- **«Eliminar todas las conexiones no utilizadas» (desde 2.0.2, experimental):** TR-064 no tiene una acción para ello; la integración usa la interfaz REST de la interfaz web. La petición se observó (sin enviarla) en una FRITZ!Box 5690 Pro real; que la limpieza funcione en una caja real **no está probado**.
+- **«Perdido» (desde 2.0.2)** se basa en la hora «última conexión» que la propia integración registra; sin ella un dispositivo nunca está perdido. Probado solo con datos de prueba.
+- **IP estática en la ventana:** desde 2.0.2 se oculta si el dispositivo o la caja ya informa de una IP fija. No existe una función para cambiar o liberar una reserva existente.
 - **Centro de notificaciones (desde 2.0.0)** solo está probado contra un bus de eventos simulado, no contra un centro de notificaciones real ni hardware real; los interruptores existen solo en el diálogo Configurar, no en la tarjeta, véase [Centro de notificaciones](#centro-de-notificaciones-opcional).
 - **La IP estática y la escritura de DNS son experimentales** y usan la interfaz web no documentada de la caja. La escritura no está verificada en ninguna caja real; la ruta REST de la IP estática sigue la descripción de un proyecto de terceros para FRITZ!OS 8.25. Pueden dejar de funcionar con cualquier actualización de FRITZ!OS.
 - **Reservas DHCP reconocidas solo en parte.** La caja no notifica por TR-064 las reservas *dentro* del rango DHCP. Desde 2.0.0 la integración las lee además de la interfaz web (mismo ciclo que el tipo de IP, `query.lua`, si no `netDev`); que tu FRITZ!OS entregue el indicador no está probado. Si no, esos dispositivos siguen apareciendo como «dinámicos» – la descarga de diagnóstico (`reservations`) indica qué vía funcionó. Como alternativa, márcalos a mano o en bloque (`mark_devices_reserved`).
@@ -394,6 +410,18 @@ Las pruebas del centro de notificaciones en 2.0.0 (`test_notification_bridge.py`
 El repositorio contiene las pruebas de 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); se ejecutan con datos sintéticos, no con hardware real. Las pruebas de 1.8.0 para `dns_settings.py` y `static_ip.py` no están incluidas.
 
 ## Historial de versiones
+
+### 2.0.2 – Barra de título con icono y descarga/subida, dispositivos «perdidos», liberar IP no utilizadas
+
+Comentarios e ideas para 2.0.1. **Probado:** la petición del botón «Eliminar todas las conexiones no utilizadas» se **observó e interceptó** en el navegador en una FRITZ!Box 5690 Pro real (FRITZ!OS 8.40) – nunca se envió. La lógica y la tarjeta se ejecutan con datos de prueba / un navegador simulado. **No probado:** la limpieza real en una caja, la función «perdido» en un Home Assistant en funcionamiento y el icono en un navegador real.
+
+- **Nuevo – barra de título:** título por defecto **«FRITZ!Box Netzwerk»**, icono delante, descarga ↓ / subida ↑ de la caja a la derecha; cada uno ajustable (`show_icon`, `show_title`, `show_rates`).
+- **Corregido – nombres cortados (mapa Mesh):** nodos más anchos, líneas largas comprimidas, información emergente con el nombre completo.
+- **Mejorado – IP estática en la ventana:** oculta si el dispositivo ya informa de una IP fija.
+- **Nuevo – dispositivos «perdidos»:** opción *«Perdido» tras (días)* (7, 0 = desactivado), filtro, marca, sensor, *Ignorar estado sin conexión* (`lost_ignore`).
+- **Nuevo – «Liberar IP no utilizadas»:** botón y servicio `remove_unused_connections` (vista previa `dry_run`), tras la opción *Permitir eliminar conexiones no utilizadas (experimental)* (desactivada por defecto).
+
+**Actualización:** mediante HACS, reiniciar Home Assistant, vaciar la caché del navegador (Ctrl+F5).
 
 ### 2.0.1 – Perfiles de acceso con sus nombres reales, mapa Mesh con cascada y nubes, nombre de la FRITZ!Box
 

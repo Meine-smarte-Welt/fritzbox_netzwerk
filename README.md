@@ -13,7 +13,7 @@ passenden Home-Assistant-Gerätenamen
   <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=Meine-smarte-Welt&amp;repository=fritzbox_netzwerk&amp;category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Repository in Home Assistant öffnen" height="32"></a>
 </p>
 
-![Version](https://img.shields.io/badge/Version-2.0.1-blue)
+![Version](https://img.shields.io/badge/Version-2.0.2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video und Anleitung zur Netzwerkkarte:** [meinesmartewelt.de – FRITZ!Box Netzwerk für Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -237,6 +237,8 @@ Nicht alle lokalen Funktionen sind dadurch aus der Ferne erreichbar: Insbesonder
 | Meldungen an das Notification Center senden (seit 2.0.0) | an | Hauptschalter für die optionale Anbindung, siehe [Notification Center](#notification-center-optional) |
 | Gesendete Meldungsarten (seit 2.0.0) | alle | Welche Meldungsarten ans Notification Center gehen (Verbindung verloren, überwachtes Gerät offline, neues Gerät) |
 | Pairing-Dauer | 5 min | Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt (1–120 min), siehe [MAC-Filter und Pairing](#mac-filter-und-pairing) |
+| „Verloren“ nach (Tagen) (seit 2.0.2) | 7 | Ein Gerät, das offline ist und seit mehr als so vielen Tagen nicht mehr gesehen wurde, gilt als „verloren“ (Filter, Kennzeichen, Sensor). 0 = aus. Je Gerät im Popup mit „Offline-Status ignorieren“ abschaltbar, siehe [Verlorene Geräte](#verlorene-geräte-seit-202) |
+| Ungenutzte Verbindungen entfernen erlauben (experimentell, seit 2.0.2) | aus | Schaltet den Dienst `remove_unused_connections` und den Knopf „Ungenutzte IPs freigeben“ in der Karte frei, siehe [Ungenutzte IPs freigeben](#ungenutzte-ips-freigeben-experimentell-seit-202) |
 
 **Warum zwei Intervalle?** Die komplette Geräteliste kommt mit einem einzigen Aufruf von
 der FRITZ!Box. Die Angabe, ob eine IP-Adresse fest zugewiesen ist, steht dort aber nicht
@@ -997,6 +999,35 @@ Setzt – wie der Gast-WLAN-Schalter selbst – ein separates Gast-WLAN voraus (
 WLAN-Diensten für 2,4 GHz, 5 GHz und Gast). Auf Boxen ohne eigenes Gast-WLAN erscheint der
 Button nicht.
 
+### Titelzeile mit Icon und Down-/Upload (seit 2.0.2)
+
+Die Kopfzeile der Karte besteht aus drei einzeln schaltbaren Teilen:
+
+| Schlüssel | Standard | Wirkung |
+| --- | --- | --- |
+| `show_icon` | an | Icon der Integration vor dem Titel. Die Bilddatei ist 256 × 256 px (`icon@2x.png`: 512 × 512 px) und wird mit 28 px dargestellt – du musst nichts verkleinern. |
+| `show_title` | an | Der Titel. **Standard: „FRITZ!Box Netzwerk“** (bis 2.0.1: „Netzwerkgeräte“). Wer den alten Standardtitel noch eingetragen hatte, sieht automatisch den neuen; ein selbst gewählter Titel bleibt, auch ein leerer. |
+| `show_rates` | an | Rechts neben dem Titel der aktuelle **Download** (Pfeil nach unten) und **Upload** (Pfeil nach oben) der FRITZ!Box. Die Werte kommen aus den Verbindungsdaten der Integration; fehlen sie, entfällt die Anzeige. |
+
+Wer bisher nur `show_title: false` gesetzt hatte (Popup, kompakte Ansicht), behält die ausgeblendete Kopfzeile. Sind alle drei Teile aus, entfällt die Zeile ganz.
+
+### Verlorene Geräte (seit 2.0.2)
+
+In den Optionen legt „Verloren“ nach (Tagen) fest (Standard **7**, **0 = aus**), ab wann ein Gerät als verloren gilt: offline **und** seit mehr als dieser Zeit nicht mehr gesehen. Grundlage ist der Zeitpunkt „zuletzt online“, den die Integration selbst mitschreibt; Geräte ohne diesen Zeitpunkt gelten nie als verloren (sonst wäre nach der Installation alles verloren). Gespeicherte Werte zählen nicht als neue Nachricht, und ein aktives Gerät ist nie verloren.
+
+- **Karte:** Filterknopf **Verloren** (`filter_verloren: false` blendet ihn aus, Symbolfarbe `color_cat_verloren`), Kennzeichen „Verloren“ hinter dem Namen (Farbe `color_lost`) und im Popup die Zeile „Verloren – seit N Tagen keine Nachricht“. Der Filterknopf erscheint nur, wenn der Wert in den Optionen über 0 liegt.
+- **Je Gerät abschaltbar:** Im Popup beim Bearbeiten von Etikett und Notiz gibt es **„Offline-Status ignorieren (nie als verloren markieren)“**; auch über den Dienst `set_device_note` (`lost_ignore: true`).
+- **Sensor:** „Verlorene Geräte“ (Anzahl), nur angelegt, wenn die Funktion eingeschaltet ist. Je Gerät gibt es die Felder `lost`, `lost_days` und `lost_ignore`.
+- **Ungeprüft:** Die Funktion lief nur gegen Testdaten, nicht in einem laufenden Home Assistant über Wochen.
+
+### Ungenutzte IPs freigeben (experimentell, seit 2.0.2)
+
+Der Knopf **„Ungenutzte IPs freigeben“** in der Werkzeugleiste der Karte löst in der FRITZ!Box „Alle ungenutzten Verbindungen entfernen“ aus (Heimnetz → Netzwerk → Netzwerkverbindungen, ganz unten). Die Box gibt damit die IP-Adressen alter Einträge wieder frei; Geräte mit individuellen Einstellungen bleiben nach Angabe der Box erhalten, **entfernte Einträge lassen sich nicht wiederherstellen**.
+
+- Der Knopf erscheint nur, wenn **„Ungenutzte Verbindungen entfernen erlauben (experimentell)“** in den Optionen an ist (Standard: aus) und `show_cleanup` nicht abgeschaltet wurde. Ausgeführt wird erst beim **zweiten Klick** innerhalb von 6 Sekunden; danach zeigt der Knopf, wie viele Einträge verschwunden sind.
+- Der Dienst `remove_unused_connections` macht dasselbe und bietet eine Vorschau (`dry_run`), siehe [Dienste](#fritzbox_netzwerkremove_unused_connections-experimentell).
+- **Teststand:** Die Anfrage der Weboberfläche (`PUT /api/v0/generic/landevice` mit `{"cleanup_landevices":"1"}`) wurde an einer FRITZ!Box 5690 Pro (FRITZ!OS 8.40) im Browser **beobachtet, aber abgefangen** – sie hat die Box nie erreicht. Ob das Aufräumen auf deiner Box so funktioniert, ist **ungeprüft**. Lehnt die Box die Anfrage ab, wird nichts geändert und der Fehler gemeldet.
+
 ### Version und Update-Hinweis
 
 In den Einstellungen (Steuerungsleiste, bei Tabs der Tab „Einstellungen“) zeigt die Karte die
@@ -1107,6 +1138,9 @@ type: custom:fritzbox-netzwerk-card
 entity: sensor.fritz_box_5690_pro_netzwerk_gerate
 title: Heimnetz
 show_title: true
+show_icon: true         # Icon der Integration vor dem Titel (seit 2.0.2)
+show_rates: true        # Down-/Upload der Box rechts neben dem Titel (seit 2.0.2)
+show_cleanup: true      # Knopf „Ungenutzte IPs freigeben“ (seit 2.0.2)
 
 # Spalten
 show_status: true
@@ -1138,6 +1172,7 @@ filter_gesperrt: true
 filter_update: true
 filter_fest: true       # Feste IP
 filter_vpn: true        # VPN (seit 2.0.0)
+filter_verloren: true   # Verloren (seit 2.0.2, nur mit „Verloren“ nach (Tagen) > 0)
 default_filter: aktiv   # alle | aktiv | inaktiv | gast | gesperrt | update | fest | vpn
 hide_inactive: false
 ip_filter: ""           # z. B. "192.168.2.*"; mehrere Muster mit Komma/Leerzeichen, ! schließt aus
@@ -1327,6 +1362,7 @@ data:
   label: Kinderzimmer
   note: Gehört Anna
   reserved: true
+  lost_ignore: false   # seit 2.0.2: true = nie als „verloren“ markieren
 ```
 
 Das Feld `minutes` bei `set_internet_access` (seit 1.7.0) gibt den Zugang nach der angegebenen
@@ -1394,6 +1430,19 @@ data:
   internet_ipv4_dns2: "149.112.112.112"
   dry_run: true
 ```
+
+### `fritzbox_netzwerk.remove_unused_connections` (experimentell)
+
+Löst in der FRITZ!Box „Alle ungenutzten Verbindungen entfernen“ aus (seit 2.0.2). Nur für Administratoren; das Schreiben braucht die Option „Ungenutzte Verbindungen entfernen erlauben (experimentell)“. Mit `dry_run: true` (geht immer) wird nichts geändert; die Antwort nennt nur die Zahl der inaktiven Einträge der Geräteliste.
+
+```yaml
+action: fritzbox_netzwerk.remove_unused_connections
+data:
+  dry_run: true
+response_variable: ergebnis
+```
+
+Die Antwort enthält bei echter Ausführung `vorher`, `nachher`, `entfernt` und `geraete` (Namen der verschwundenen Einträge), jeweils aus dem Vergleich der Geräteliste vor und nach dem Aufräumen. Ist der Vergleich nicht möglich, steht `geprueft: false` mit einem Hinweis. Die Ausführung ist an keiner Box geprüft.
 
 ### `fritzbox_netzwerk.install_blueprints`
 
@@ -1468,14 +1517,14 @@ Update die Seite einmal hart neu laden (Strg+F5), damit der Browser die neue Kar
 zwischengespeicherten lädt.
 
 **Im Karten-Editor springt der Titel beim Löschen des letzten Buchstabens zurück auf
-„Netzwerkgeräte".**
+„FRITZ!Box Netzwerk" (bis 2.0.1: „Netzwerkgeräte").**
 Home Assistant entfernt ein leeres, optionales Textfeld beim Zwischenspeichern aus der
 Kartenkonfiguration (um keine leeren Strings in der YAML zu hinterlassen) und ruft danach den
 Editor erneut mit dieser bereinigten Konfiguration auf. Bis 1.6.1 trug der Editor dann wieder
-den Standardwert „Netzwerkgeräte" ein, sobald der Titel dadurch komplett fehlte – das Feld
+den Standardwert (damals „Netzwerkgeräte") ein, sobald der Titel dadurch komplett fehlte – das Feld
 sprang sichtbar zurück, sobald der letzte Buchstabe gelöscht wurde. Seit 1.6.2 erkennt der
 Editor diesen Fall und lässt das Feld leer, statt den Standardtitel wieder einzutragen. Eine
-komplett neu hinzugefügte Karte zeigt „Netzwerkgeräte" weiterhin als Startwert.
+komplett neu hinzugefügte Karte zeigt „FRITZ!Box Netzwerk" als Startwert.
 
 **Die Spalte *Funkband* zeigt nur „—".**
 Prüfen: (1) In den Einstellungen der Integration ist *WLAN-Band je Gerät erfassen* eingeschaltet.
@@ -1699,11 +1748,9 @@ language: nl   # "" = automatisch, sonst de | en | nl
 
 ## Bekannte Einschränkungen
 
-- **„Alle ungenutzten Verbindungen entfernen" fehlt.** Diese Funktion der FRITZ!Box-Oberfläche
-  (Heimnetz → Netzwerk) hat keine Entsprechung in TR-064: Der Hosts-Dienst von AVM kennt weder
-  eine Aktion zum Löschen eines Eintrags noch eine zum Aufräumen. Über die undokumentierte
-  Weboberfläche wäre es nur mit ungeprüften Annahmen möglich und würde bei jedem
-  FRITZ!OS-Update riskieren zu brechen. Bewusst nicht Teil dieser Version.
+- **„Alle ungenutzten Verbindungen entfernen“ (seit 2.0.2, experimentell).** TR-064 kennt keine Aktion dafür. Die Integration nutzt die REST-Schnittstelle der Weboberfläche (FRITZ!OS 8). Die Anfrage wurde an einer FRITZ!Box 5690 Pro im Browser beobachtet, aber **nicht abgesendet**; ob das Aufräumen auf einer echten Box funktioniert, ist **ungeprüft**. Ältere FRITZ!OS-Stände kennen die Route womöglich nicht – dann wird nichts geändert und der Fehler gemeldet.
+- **„Verloren“ (seit 2.0.2)** beruht auf dem von der Integration selbst geschriebenen Zeitpunkt „zuletzt online“; Geräte ohne diesen Zeitpunkt gelten nie als verloren. Nur gegen Testdaten geprüft.
+- **Statische IP im Popup:** Meldet das Gerät oder die Box schon eine feste IP, blendet die Karte die Zeile „Statische IP – Festlegen“ seit 2.0.2 aus. Eine Funktion zum Ändern oder Aufheben einer bestehenden Reservierung gibt es nicht (der Schreibweg dafür ist nicht eingebaut und an keiner Box geprüft).
 - **Statische IP nur über die Weboberfläche.** TR-064 kennt dafür keine Aktion. Seit 1.8.0 gibt es den
   experimentellen Dienst `set_static_ip` über die undokumentierte Weboberfläche (seit 2.0.0 über deren REST-Schnittstelle, nach
   Beschreibung eines Drittprojekts für FRITZ!OS 8.25); an keiner Box geprüft, siehe [Statische IP-Adresse](#statische-ip-adresse-experimentell).
@@ -1769,11 +1816,11 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `da77eb12678747a77189fbec6cc985e896052c33271735c956db905deb7cd7f1` |
-| `custom_components/fritzbox_netzwerk/strings.json` | `eba3c30deb99cf0b7fdd02db735a87a626ca4783c2c355fcc8203ac7ef1deb49` |
-| `custom_components/fritzbox_netzwerk/translations/de.json` | `c855d21892eef9e2db423dbe075b49f954d5a9199f94201dfbebcaa8336a0699` |
-| `custom_components/fritzbox_netzwerk/translations/en.json` | `b7612495e4bd9251381269008685314e3ec98b577c167a254cca8e3a4e697d6d` |
-| `custom_components/fritzbox_netzwerk/translations/nl.json` | `9ae717b560087e3ac70c4107ee5f08bb96cf89520d31c6d852c24f058c13ed38` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `cf54f467bd55cf19168ec50656159471f2cdbc08d22a8feef1e5e1ea9fd59ceb` |
+| `custom_components/fritzbox_netzwerk/strings.json` | `74f8576bfdc915f89c5aded00b569ef106ad0cf5e5e27c54d3b5cb839df6e9f8` |
+| `custom_components/fritzbox_netzwerk/translations/de.json` | `a130e30aadb44d081aa539730d64410092b61c81d44db24099084e5aa09de451` |
+| `custom_components/fritzbox_netzwerk/translations/en.json` | `3f15d2d39581109ec00279bcd835b7b1e531ce2875b0e6c1dad0531948964d84` |
+| `custom_components/fritzbox_netzwerk/translations/nl.json` | `26db55c927875cc5f3f6c82f60391f80a09114224202c8e9cd8e1daf84377104` |
 
 ## Entwicklung und Tests
 
@@ -1811,6 +1858,29 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.0.2 – Titelzeile mit Icon und Down-/Upload, „Verloren“-Geräte, Ungenutzte IPs freigeben
+
+Rückmeldungen und Ideen zu 2.0.1. **Geprüft:** die Anfrage des FRITZ!Box-Knopfes „Alle ungenutzten Verbindungen entfernen“ wurde an einer echten FRITZ!Box 5690 Pro (FRITZ!OS 8.40) im Browser **beobachtet und abgefangen** (nie abgesendet); die Logik („Verloren“, Zusammenfassung des Aufräumens) und die Karte laufen gegen Testdaten bzw. in einem simulierten Browser. **Nicht geprüft:** das tatsächliche Aufräumen an einer echten Box, die Verloren-Funktion in einem laufenden Home Assistant und die Darstellung des Icons in einem echten Browser.
+
+**Karte**
+
+- **Neu – Titelzeile:** Standardtitel jetzt **„FRITZ!Box Netzwerk“** (statt „Netzwerkgeräte“), davor das **Icon** der Integration, rechts daneben **Download ↓ und Upload ↑** der Box. Icon, Titel und Down-/Upload sind in der Oberfläche einzeln ein- und ausschaltbar (`show_icon`, `show_title`, `show_rates`). Das Icon (256 × 256 px) wird mit 28 px dargestellt; verkleinern musst du nichts. Der alte Standardtitel wird automatisch auf den neuen abgebildet, eigene Titel bleiben.
+- **Behoben – abgeschnittene Namen (Mesh-Karte):** Gerätename und -typ in den Knoten wurden nach einer festen Zeichenzahl abgeschnitten („FR-Repeater-DG_Buer“). Die Knoten sind breiter, zu lange Zeilen werden gestaucht statt abgeschnitten, und erst bei sehr langen Namen steht „…“ – der volle Name erscheint dann als Tooltip.
+- **Verbessert – Statische IP im Popup:** Meldet das Gerät eine feste IP (IP-Typ „fest“), entfällt die Zeile „Statische IP – Festlegen“. Eine nur in Home Assistant gesetzte Markierung „reserviert“ zählt nicht, weil die Box sie nicht kennt.
+- **Neu – „Verloren“:** Filterknopf, Kennzeichen am Namen und Zeile im Popup; je Gerät „Offline-Status ignorieren“ (siehe unten).
+- **Neu – Knopf „Ungenutzte IPs freigeben“** in der Werkzeugleiste (nur mit eingeschalteter Option, Ausführung erst beim zweiten Klick).
+
+**Integration**
+
+- **Neu – Option „Verloren“ nach (Tagen):** Standard 7, 0 = aus. Ein Gerät, das offline ist und länger nicht gesehen wurde, gilt als verloren. Neuer Sensor „Verlorene Geräte“ (nur bei eingeschalteter Funktion), neue Gerätefelder `lost`, `lost_days`, `lost_ignore`.
+- **Neu – „Offline-Status ignorieren“ je Gerät** (Popup oder Dienst `set_device_note` mit `lost_ignore`).
+- **Neu – Dienst `remove_unused_connections`** mit Vorschau (`dry_run`) und die Option „Ungenutzte Verbindungen entfernen erlauben (experimentell)“ (Standard aus). Nutzt `PUT /api/v0/generic/landevice` der Weboberfläche.
+- **Neu – Marken-Bilder** werden unter `/fritzbox_netzwerk_brand/` ausgeliefert (für das Icon in der Titelzeile).
+
+**Hinweise zum Update:** Über HACS aktualisieren, Home Assistant neu starten, Browser-Cache leeren (Strg+F5).
+
+**Bekannt:** Das Aufräumen ist an keiner echten Box ausgeführt worden – die Anfrage wurde nur beobachtet. Auf älterem FRITZ!OS kann die Route fehlen; dann wird nichts geändert. Für eine bestehende feste Zuweisung gibt es kein „ändern/aufheben“ im Popup.
 
 ### 2.0.1 – Zugangsprofile mit echten Namen, Mesh-Karte mit Kaskade und Wolken, Name der FRITZ!Box
 

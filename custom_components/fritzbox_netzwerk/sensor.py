@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 78d05728143b97080210f4fbc3518552dcabf6adfd4d069022b21b43ddb7cf39
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 0afc3095d86e5abf787de22bf618fba3bf1337c237389e271c2befb41273d0bc
 """Sensoren der Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -110,6 +110,11 @@ async def async_setup_entry(
             )
         ]
     )
+
+    # Seit 2.0.2: Zaehler "Verlorene Geraete" - nur mit eingeschalteter Funktion
+    # (Option "verloren nach N Tagen" > 0; eine Aenderung laedt die Integration neu).
+    if coordinator.lost_after_days > 0:
+        async_add_entities([FritzboxNetzwerkKennzahlSensor(coordinator, entry, "lost", "verloren")])
 
     # Idee 21 (experimentell): CPU/RAM/Temperatur aus der Weboberflaeche - nur
     # auf ausdruecklichen Wunsch (Option), siehe webui.py.
@@ -333,6 +338,10 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             "parental": self.coordinator.parental_enabled,
             # Ob der Button "Statische IP" im Popup freigeschaltet ist.
             "static_ip": self.coordinator.static_ip_enabled,
+            # Seit 2.0.2: Schwelle fuer "verloren" (0 = aus) und ob der Knopf
+            # "Ungenutzte Verbindungen entfernen" freigeschaltet ist.
+            "lost_after_days": self.coordinator.lost_after_days,
+            "cleanup": self.coordinator.cleanup_enabled,
         }
         return attributes
 
@@ -481,6 +490,7 @@ class FritzboxNetzwerkKennzahlSensor(FritzboxNetzwerkBase):
     _ICONS = {
         "updates": "mdi:package-down",
         "blocked": "mdi:web-off",
+        "lost": "mdi:lan-disconnect",
     }
 
     def __init__(self, coordinator, entry, key: str, slug: str) -> None:
