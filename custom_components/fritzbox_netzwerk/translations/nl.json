@@ -146,6 +146,10 @@
         "name": "Apparaten met update",
         "unit_of_measurement": "apparaten"
       },
+      "geraete_gesamt": {
+        "name": "Apparaten totaal",
+        "unit_of_measurement": "apparaten"
+      },
       "gesperrt": {
         "name": "Geblokkeerde apparaten",
         "unit_of_measurement": "apparaten"

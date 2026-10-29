@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.0.2-blue)
+![Version](https://img.shields.io/badge/Version-2.0.3-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video and guide for the network card (German):** [meinesmartewelt.de – FRITZ!Box Netzwerk for Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -174,6 +174,7 @@ Via *Configure* on the integration:
 | --- | --- | --- |
 | `sensor.<name>_gerate` | Number of connected devices | Carries the full device list in the attribute `hosts`; data source of the card |
 | `sensor.<name>_gerate_mit_update` | Count | Automation “new firmware available” |
+| `sensor.<name>_gerate_gesamt` | Count | All known devices (active and inactive) – the same number as “Devices in total” under Home network in the card (since 2.0.3) |
 | `sensor.<name>_gesperrte_gerate` | Count | Parental-control monitoring |
 | `sensor.<name>_download` / `_upload` | kB/s | Current transfer rate |
 | `sensor.<name>_mesh` | Count online | FRITZ! devices reachable (box + repeaters); only with repeaters |
@@ -427,6 +428,17 @@ The tests for the Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 2.0.3 – Vendor list download works again, “Devices total” sensor
+
+**Integration**
+
+- **Fixed – update vendor list (issue #33):** the IEEE register download failed with “HTTP 418” because `standards-oui.ieee.org` rejects Home Assistant's default User-Agent. The download now sends its own User-Agent `fritzbox_netzwerk/<version>` (as the GitHub version check already did).
+- **New – “Devices total” sensor (issue #34):** number of all known devices, active and inactive – the same number as “Devices in total” under Home network in the card.
+
+**Update notes:** update via HACS, restart Home Assistant, clear the browser cache (Ctrl+F5).
+
+**Known:** the download with the new User-Agent has not been tested against the real IEEE server; the fix relies on the measurement in the issue (plain `curl` and `fritzbox_netzwerk/2.0.2` got 200, the Home Assistant User-Agent got 418).
 
 ### 2.0.2 – Title bar with icon and download/upload, “lost” devices, release unused IPs
 

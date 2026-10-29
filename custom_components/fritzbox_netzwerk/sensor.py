@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 0afc3095d86e5abf787de22bf618fba3bf1337c237389e271c2befb41273d0bc
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): b14bc20e59ff7f701b51ec74befbea7ed160b6f51d3f5060cae4aef4f929fc36
 """Sensoren der Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -76,6 +76,9 @@ async def async_setup_entry(
     async_add_entities(
         [
             FritzboxNetzwerkGeraeteSensor(coordinator, entry),
+            # Seit 2.0.3 (Issue #34): Gesamtzahl aller bekannten Geraete - dieselbe
+            # Zahl wie "Geraete gesamt" unter Heimnetz in der Karte.
+            FritzboxNetzwerkKennzahlSensor(coordinator, entry, "total", "geraete_gesamt"),
             FritzboxNetzwerkKennzahlSensor(coordinator, entry, "updates", "updates"),
             FritzboxNetzwerkKennzahlSensor(coordinator, entry, "blocked", "gesperrt"),
             # Down/Up: aktuelle Rate (kByte/s) und Leitungs-Sync-Rate (Mbit/s).
@@ -488,6 +491,7 @@ class FritzboxNetzwerkKennzahlSensor(FritzboxNetzwerkBase):
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     _ICONS = {
+        "total": "mdi:devices",
         "updates": "mdi:package-down",
         "blocked": "mdi:web-off",
         "lost": "mdi:lan-disconnect",

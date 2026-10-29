@@ -7,7 +7,7 @@
 
 Une intégration Home Assistant qui affiche tous les appareils du réseau domestique FRITZ!Box sur votre tableau de bord sous forme de tableau triable – avec adresse IP, adresse MAC, type de connexion et nom de l'appareil Home Assistant correspondant.
 
-![Version](https://img.shields.io/badge/Version-2.0.2-blue)
+![Version](https://img.shields.io/badge/Version-2.0.3-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Vidéo et guide de la carte réseau (en allemand) :** [meinesmartewelt.de – FRITZ!Box Netzwerk pour Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -174,6 +174,7 @@ Via *Configurer* sur l'intégration :
 | --- | --- | --- |
 | `sensor.<name>_gerate` | Nombre d'appareils connectés | Porte la liste complète des appareils dans l'attribut `hosts` ; source de données de la carte |
 | `sensor.<name>_gerate_mit_update` | Nombre | Automatisation « nouveau firmware disponible » |
+| `sensor.<name>_gerate_gesamt` | Nombre | Tous les appareils connus (actifs et inactifs) – même nombre que « Appareils au total » sous Réseau domestique dans la carte (depuis 2.0.3) |
 | `sensor.<name>_gesperrte_gerate` | Nombre | Surveillance du contrôle parental |
 | `sensor.<name>_download` / `_upload` | kB/s | Débit de transfert actuel |
 | `sensor.<name>_mesh` | Nombre en ligne | Appareils FRITZ! joignables (box + répéteurs) ; uniquement avec des répéteurs |
@@ -410,6 +411,17 @@ Les tests du centre de notifications dans 2.0.0 (`test_notification_bridge.py`, 
 Le dépôt contient les tests pour 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`) ; ils s'exécutent sur des données synthétiques, pas sur du matériel réel. Les tests de 1.8.0 pour `dns_settings.py` et `static_ip.py` ne sont pas versionnés.
 
 ## Historique des versions
+
+### 2.0.3 – La liste des fabricants se télécharge de nouveau, capteur « Appareils au total »
+
+**Intégration**
+
+- **Corrigé – mise à jour de la liste des fabricants (issue #33) :** le téléchargement des registres IEEE échouait avec « HTTP 418 », car `standards-oui.ieee.org` refuse le User-Agent par défaut de Home Assistant. Le téléchargement envoie désormais son propre User-Agent `fritzbox_netzwerk/<version>` (comme le faisait déjà la vérification de version sur GitHub).
+- **Nouveau – capteur « Appareils au total » (issue #34) :** nombre de tous les appareils connus, actifs et inactifs – même nombre que « Appareils au total » sous Réseau domestique dans la carte.
+
+**Notes de mise à jour :** mettre à jour via HACS, redémarrer Home Assistant, vider le cache du navigateur (Ctrl+F5).
+
+**Connu :** le téléchargement avec le nouveau User-Agent n'a pas été testé sur le vrai serveur IEEE ; la correction repose sur la mesure du issue (`curl` standard et `fritzbox_netzwerk/2.0.2` ont reçu 200, le User-Agent de Home Assistant 418).
 
 ### 2.0.2 – Barre de titre avec icône et débit, appareils « perdus », libérer les IP inutilisées
 

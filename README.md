@@ -13,7 +13,7 @@ passenden Home-Assistant-Gerätenamen
   <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=Meine-smarte-Welt&amp;repository=fritzbox_netzwerk&amp;category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Repository in Home Assistant öffnen" height="32"></a>
 </p>
 
-![Version](https://img.shields.io/badge/Version-2.0.2-blue)
+![Version](https://img.shields.io/badge/Version-2.0.3-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video und Anleitung zur Netzwerkkarte:** [meinesmartewelt.de – FRITZ!Box Netzwerk für Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -255,6 +255,7 @@ spart die Aufrufe vollständig.
 | --- | --- | --- |
 | `sensor.<name>_gerate` | Anzahl verbundener Geräte | Trägt die komplette Geräteliste im Attribut `hosts`; Datenquelle der Karte |
 | `sensor.<name>_gerate_mit_update` | Anzahl | Automatisierung „neue Firmware verfügbar" |
+| `sensor.<name>_gerate_gesamt` | Anzahl | Alle bekannten Geräte (aktiv und inaktiv) – dieselbe Zahl wie „Geräte gesamt“ unter Heimnetz in der Karte (seit 2.0.3) |
 | `sensor.<name>_gesperrte_gerate` | Anzahl | Überwachung der Kindersicherung |
 | `sensor.<name>_download` | kB/s | Aktuelle Download-Rate der Internetverbindung |
 | `sensor.<name>_upload` | kB/s | Aktuelle Upload-Rate der Internetverbindung |
@@ -1816,11 +1817,11 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `cf54f467bd55cf19168ec50656159471f2cdbc08d22a8feef1e5e1ea9fd59ceb` |
-| `custom_components/fritzbox_netzwerk/strings.json` | `74f8576bfdc915f89c5aded00b569ef106ad0cf5e5e27c54d3b5cb839df6e9f8` |
-| `custom_components/fritzbox_netzwerk/translations/de.json` | `a130e30aadb44d081aa539730d64410092b61c81d44db24099084e5aa09de451` |
-| `custom_components/fritzbox_netzwerk/translations/en.json` | `3f15d2d39581109ec00279bcd835b7b1e531ce2875b0e6c1dad0531948964d84` |
-| `custom_components/fritzbox_netzwerk/translations/nl.json` | `26db55c927875cc5f3f6c82f60391f80a09114224202c8e9cd8e1daf84377104` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `2a525ae3dbf9add81f18d34f7c33858fd7bd8ac90167c529dd913ba1ee128cd0` |
+| `custom_components/fritzbox_netzwerk/strings.json` | `39f99606e782b84402a9e5ed6edc65f8097c320eeb98705797e4ed91fb176cf6` |
+| `custom_components/fritzbox_netzwerk/translations/de.json` | `2af3f4aa4869337405bbaba5fc61bc8f4f0da61f59630cd8ff791fe3bd8b4855` |
+| `custom_components/fritzbox_netzwerk/translations/en.json` | `ea4c3ed3aed6576932b768275c919942f763e0a27dc6137b70a8ef30aa4a10be` |
+| `custom_components/fritzbox_netzwerk/translations/nl.json` | `9349615ec13df7177319819f64ff57412e70c354fd03489587c5026773c4c926` |
 
 ## Entwicklung und Tests
 
@@ -1858,6 +1859,17 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.0.3 – Herstellerliste wieder abrufbar, Sensor „Geräte gesamt“
+
+**Integration**
+
+- **Behoben – Herstellerliste aktualisieren (Issue #33):** Der Abruf der IEEE-Register brach mit „HTTP 418“ ab, weil `standards-oui.ieee.org` den Standard-User-Agent von Home Assistant abweist. Der Abruf sendet jetzt den eigenen User-Agent `fritzbox_netzwerk/<Version>` (wie schon die Versionsprüfung bei GitHub).
+- **Neu – Sensor „Geräte gesamt“ (Issue #34):** Anzahl aller bekannten Geräte, aktiv und inaktiv – dieselbe Zahl wie „Geräte gesamt“ unter Heimnetz in der Karte.
+
+**Hinweise zum Update:** Über HACS aktualisieren, Home Assistant neu starten, Browser-Cache leeren (Strg+F5).
+
+**Bekannt:** Der Abruf mit dem neuen User-Agent ist nicht gegen den echten IEEE-Server geprüft; die Wirkung stützt sich auf die Messung im Issue (Standard-`curl` und `fritzbox_netzwerk/2.0.2` bekamen 200, der Home-Assistant-User-Agent 418).
 
 ### 2.0.2 – Titelzeile mit Icon und Down-/Upload, „Verloren“-Geräte, Ungenutzte IPs freigeben
 

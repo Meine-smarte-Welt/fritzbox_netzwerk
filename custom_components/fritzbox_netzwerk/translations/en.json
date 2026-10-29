@@ -146,6 +146,10 @@
         "name": "Devices with update",
         "unit_of_measurement": "devices"
       },
+      "geraete_gesamt": {
+        "name": "Devices total",
+        "unit_of_measurement": "devices"
+      },
       "gesperrt": {
         "name": "Blocked devices",
         "unit_of_measurement": "devices"

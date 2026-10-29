@@ -7,7 +7,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.0.2-blue)
+![Version](https://img.shields.io/badge/Version-2.0.3-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video en handleiding voor de netwerkkaart (Duits):** [meinesmartewelt.de – FRITZ!Box Netzwerk voor Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -175,6 +175,7 @@ Via *Configureren* bij de integratie:
 | --- | --- | --- |
 | `sensor.<name>_gerate` | Aantal verbonden apparaten | Bevat de volledige apparatenlijst in het attribuut `hosts`; gegevensbron van de kaart |
 | `sensor.<name>_gerate_mit_update` | Aantal | Automatisering „nieuwe firmware beschikbaar” |
+| `sensor.<name>_gerate_gesamt` | Aantal | Alle bekende apparaten (actief en inactief) – hetzelfde getal als „Apparaten totaal“ onder Thuisnetwerk in de kaart (sinds 2.0.3) |
 | `sensor.<name>_gesperrte_gerate` | Aantal | Bewaking van ouderlijk toezicht |
 | `sensor.<name>_download` / `_upload` | kB/s | Actuele overdrachtssnelheid |
 | `sensor.<name>_mesh` | Aantal online | Bereikbare FRITZ!-apparaten (box + repeaters); alleen met repeaters |
@@ -430,6 +431,17 @@ De tests voor het Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 2.0.3 – Fabrikantenlijst weer op te halen, sensor „Apparaten totaal“
+
+**Integratie**
+
+- **Opgelost – fabrikantenlijst bijwerken (issue #33):** het ophalen van de IEEE-registers brak af met „HTTP 418”, omdat `standards-oui.ieee.org` de standaard-User-Agent van Home Assistant weigert. Het ophalen stuurt nu een eigen User-Agent `fritzbox_netzwerk/<versie>` (zoals de versiecontrole bij GitHub al deed).
+- **Nieuw – sensor „Apparaten totaal” (issue #34):** aantal van alle bekende apparaten, actief en inactief – hetzelfde getal als „Apparaten totaal” onder Thuisnetwerk in de kaart.
+
+**Updatetips:** bijwerken via HACS, Home Assistant herstarten, browsercache legen (Ctrl+F5).
+
+**Bekend:** het ophalen met de nieuwe User-Agent is niet getest tegen de echte IEEE-server; de oplossing steunt op de meting in het issue (gewone `curl` en `fritzbox_netzwerk/2.0.2` kregen 200, de Home Assistant-User-Agent 418).
 
 ### 2.0.2 – Titelbalk met pictogram en download/upload, „verloren” apparaten, ongebruikte IP's vrijgeven
 

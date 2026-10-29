@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 87dbd4887f69797035bd580916071430b35bcf882711cabe53b0b6f09165443c
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 085fe4a14e6e3fd3cbaf402566ef30a658ec2dfe1a28adc0a679d3973ec79920
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -2074,10 +2074,17 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         async with self._oui_update_lock:
             session = async_get_clientsession(self.hass)
             tables: dict[str, dict[str, str]] = {}
+            # Seit 2.0.3 (Issue #33): standards-oui.ieee.org antwortet auf den
+            # Standard-User-Agent von Home Assistant mit HTTP 418. Mit einem
+            # eigenen User-Agent, der die Integration benennt, kommt die Liste.
+            ieee_headers = {
+                "User-Agent": f"fritzbox_netzwerk/{VERSION}",
+                "Accept": "text/csv, text/plain, */*",
+            }
             for name, url, length in IEEE_REGISTER_URLS:
                 try:
                     async with asyncio.timeout(90):
-                        response = await session.get(url)
+                        response = await session.get(url, headers=ieee_headers)
                         if response.status != 200:
                             raise HomeAssistantError(
                                 f"IEEE-Register {name} nicht abrufbar (HTTP {response.status})."

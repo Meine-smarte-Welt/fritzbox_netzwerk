@@ -146,6 +146,10 @@
         "name": "Geräte mit Update",
         "unit_of_measurement": "Geräte"
       },
+      "geraete_gesamt": {
+        "name": "Geräte gesamt",
+        "unit_of_measurement": "Geräte"
+      },
       "gesperrt": {
         "name": "Gesperrte Geräte",
         "unit_of_measurement": "Geräte"
