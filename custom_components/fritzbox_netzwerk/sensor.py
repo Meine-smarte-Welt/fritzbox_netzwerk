@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): b14bc20e59ff7f701b51ec74befbea7ed160b6f51d3f5060cae4aef4f929fc36
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): b123935cc6708354bc27d013aff3f0e2df782b83cefddc465cff5d6089981912
 """Sensoren der Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -101,6 +101,7 @@ async def async_setup_entry(
             # Seit 1.6.2: externe IP und Online-Zeit der Internetverbindung
             # (Standard-TR-064, derselbe Dienst wie die Down-/Upload-Raten).
             FritzboxNetzwerkExternalIpSensor(coordinator, entry),
+            FritzboxNetzwerkExternalIpv6Sensor(coordinator, entry),
             FritzboxNetzwerkOnlineSinceSensor(coordinator, entry),
         ]
         # Idee 7 aus feature-ideen.md: ein Zaehler je benanntem IP-Bereich aus
@@ -593,6 +594,39 @@ class FritzboxNetzwerkExternalIpSensor(FritzboxNetzwerkBase):
         """Aktuelle externe IPv4-Adresse, oder ``None``."""
         connection = (self.coordinator.data or {}).get("connection")
         return (connection or {}).get("external_ip")
+
+
+class FritzboxNetzwerkExternalIpv6Sensor(FritzboxNetzwerkBase):
+    """Oeffentliche IPv6-Adresse der FRITZ!Box (2.1.0, Issue #36).
+
+    ``WANIPConn``/``X_AVM_DE_GetExternalIPv6Address``; das delegierte Praefix steht
+    als Attribut daneben. Bleibt ``None`` ohne IPv6-Anschluss.
+    """
+
+    _attr_translation_key = "externe_ipv6"
+    _attr_icon = "mdi:ip-network-outline"
+
+    def __init__(self, coordinator, entry) -> None:
+        """Initialisiert den Sensor."""
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_external_ipv6"
+
+    def _connection(self) -> dict:
+        return (self.coordinator.data or {}).get("connection") or {}
+
+    @property
+    def native_value(self) -> str | None:
+        """Aktuelle externe IPv6-Adresse, oder ``None``."""
+        return self._connection().get("external_ipv6")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Delegiertes IPv6-Praefix samt Laenge."""
+        connection = self._connection()
+        return {
+            "prefix": connection.get("ipv6_prefix"),
+            "prefix_length": connection.get("ipv6_prefix_length"),
+        }
 
 
 class FritzboxNetzwerkOnlineSinceSensor(FritzboxNetzwerkBase):

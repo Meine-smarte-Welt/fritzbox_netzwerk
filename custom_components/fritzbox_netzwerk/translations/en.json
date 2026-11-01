@@ -170,6 +170,9 @@
         "name": "Mesh",
         "unit_of_measurement": "devices"
       },
+      "externe_ipv6": {
+        "name": "External IPv6"
+      },
       "externe_ip": {
         "name": "External IP"
       },

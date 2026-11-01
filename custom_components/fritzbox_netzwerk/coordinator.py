@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 085fe4a14e6e3fd3cbaf402566ef30a658ec2dfe1a28adc0a679d3973ec79920
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 85af10013fb03705c0b0b844cc5add67ed171b67710e09b88d83f8408f2bf4fc
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -100,6 +100,7 @@ from .const import (
 from .hosts import (
     apply_lost,
     apply_mesh_repeaters,
+    apply_mesh_switches,
     as_int,
     as_bool,
     build_hosts,
@@ -175,6 +176,7 @@ from .static_ip import NEEDS_RESTART, StaticIpError, plan_static_ip, set_static_
 from .webui import (
     assign_profile,
     base_url,
+    close_session,
     fetch_monitor,
     fetch_online_extras,
     fetch_reservations,
@@ -304,11 +306,14 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._mesh_links_cache: dict[str, dict[str, Any]] = {}
         self._max_rates_cache: tuple[Any, Any] | None = None
         self._external_ip_cache: str | None = None
+        self._external_ipv6_cache: dict[str, Any] = {}
         # FRITZ!-Geraete laut Mesh-Topologie (MAC-Schluessel -> Name/Modell);
         # erkennt auch Repeater, deren Modellname nicht "Repeater" enthaelt.
         self._mesh_repeaters: dict[str, dict[str, str]] = {}
         # Angaben der Hauptbox aus der Mesh-Topologie (``id``, ``name``, ``model``).
         self._mesh_master: dict[str, Any] = {}
+        # Switches laut Mesh-Topologie (2.1.0, Issue #37): Kabel-Zwischenstationen.
+        self._mesh_switches: list[dict[str, Any]] = []
         # Anonymisierte Beschreibung der zuletzt gelesenen Mesh-Topologie (nur fuer den Diagnose-Export).
         self._mesh_debug: dict[str, Any] = {}
 
@@ -837,6 +842,13 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 *args,
             )
 
+    async def async_close_web_session(self) -> None:
+        """Meldet die gemerkte Weboberflaechen-Sitzung ab (beim Entladen, Issue #35)."""
+        try:
+            await self.hass.async_add_executor_job(self._run_web, close_session)
+        except Exception as err:  # noqa: BLE001 - Aufraeumen darf das Entladen nie stoeren
+            _LOGGER.debug("Weboberflaechen-Sitzung nicht abgemeldet: %s", err)
+
     def _fetch_box_info(self) -> None:
         """Liest Laufzeit und Softwarestand der Box (TR-064 ``DeviceInfo``, blockierend).
 
@@ -990,7 +1002,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not self._mesh_topology_supported:
             return {}
         try:
-            links, self._mesh_repeaters, self._mesh_master = fetch_mesh(
+            links, self._mesh_repeaters, self._mesh_master, self._mesh_switches = fetch_mesh(
                 self.fritz_hosts.fc, self._mesh_debug
             )
             return links
@@ -1204,6 +1216,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             box_model=model or str(self._mesh_master.get("model") or ""),
             box_ip=box_ip,
             box_id=str(self._mesh_master.get("id") or ""),
+            switches=self._mesh_switches,
         )
 
     def reboot_mesh(self, targets: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1607,6 +1620,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "down_max": to_mbit_per_s(down_max_bits),
             "up_max": to_mbit_per_s(up_max_bits),
             "external_ip": self._external_ip(),
+            **self._external_ipv6(),
             "online": self._fetch_is_connected(),
             "uptime": self._fetch_connection_uptime(),
         }
@@ -1630,6 +1644,35 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.debug("Externe IP momentan nicht abrufbar: %s", err)
             return None
         return ip or None
+
+    def _external_ipv6(self) -> dict[str, Any]:
+        """Oeffentliche IPv6-Adresse und Praefix der Box (2.1.0, Issue #36), wie die IPv4 gepuffert."""
+        if not self._external_ipv6_cache or self._slow_due("external_ipv6"):
+            self._external_ipv6_cache = self._fetch_external_ipv6()
+        return self._external_ipv6_cache
+
+    def _fetch_external_ipv6(self) -> dict[str, Any]:
+        """``WANIPConn``: ``X_AVM_DE_GetExternalIPv6Address`` und ``X_AVM_DE_GetIPv6Prefix``.
+
+        Jeder Aufruf einzeln abgesichert: Boxen ohne IPv6 oder ohne diese Aktion liefern
+        leere Werte, ohne die uebrigen Verbindungsdaten zu beeintraechtigen.
+        """
+        result: dict[str, Any] = {"external_ipv6": None, "ipv6_prefix": None, "ipv6_prefix_length": None}
+        try:
+            info = self._fritz_status.external_ipv6_info
+            address = str(info.get("NewExternalIPv6Address") or "").strip()
+            result["external_ipv6"] = address or None
+        except Exception as err:  # noqa: BLE001 - jede Box-Antwort darf hier scheitern
+            _LOGGER.debug("Externe IPv6 momentan nicht abrufbar: %s", err)
+        try:
+            info = self._fritz_status.ipv6_prefix_info
+            prefix = str(info.get("NewIPv6Prefix") or "").strip()
+            result["ipv6_prefix"] = prefix or None
+            length = info.get("NewPrefixLength")
+            result["ipv6_prefix_length"] = int(length) if prefix and length not in (None, "") else None
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("IPv6-Praefix momentan nicht abrufbar: %s", err)
+        return result
 
     def _fetch_is_connected(self) -> bool | None:
         """Ob die FRITZ!Box aktuell eine Internetverbindung aufgebaut hat."""
@@ -1916,6 +1959,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             str(self.entry.data.get(CONF_HOST, "")),
             self._mesh_links_cache,
         )
+        # Switches der Mesh-Topologie (Issue #37) als solche kennzeichnen.
+        apply_mesh_switches(hosts, self._mesh_switches)
         # Fuer den NAECHSTEN Zyklus: ob sich eine Mesh-Topologie-Abfrage
         # ueberhaupt lohnt (siehe ``_fetch``/``_fetch_mesh_topology``). Auch
         # "meshfaehige" Geraete zaehlen: ein Repeater mit unerwartetem Modell

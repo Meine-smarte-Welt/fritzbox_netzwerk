@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 46a22f078eb7470e112b884579c2451636cd3fbc68d405beaef0f8ef356c1c04
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): de23b01e449dbdff846e510df1323cd7729b218da84922178315bf93d801d44b
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,13 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "2.0.3";
+const FBN_VERSION = "2.1.0";
+// Merker, dass der Hinweis auf weitere Bereiche (Tabs/Einstellungen) ausgeblendet wurde.
+const MORE_HINT_KEY = "fbn-hint-more-areas";
+// Zoom der Mesh-Karte (Faktor; 1 = Originalgröße), wie in der Zigbee2MQTT-Manager-Karte.
+const MESH_ZOOM_MIN = 0.15;
+const MESH_ZOOM_MAX = 3;
+const MESH_ZOOM_KEY = "fritzbox_netzwerk_mesh_zoom";
 
 /* ------------------------------------------------------------------ */
 /* Konfiguration                                                       */
@@ -87,6 +93,8 @@ const CONFIG_DEFAULTS = {
   show_parental: true,
   show_static_ip: true,
   show_tabs: false,
+  // 2.1.0: Hinweiszeile "Weitere Bereiche verfügbar", solange Tabs/Einstellungen aus sind.
+  show_more_hint: true,
   // Einzelne Filter-Buttons an/aus (nur wirksam, wenn show_filter an ist).
   filter_alle: true,
   filter_aktiv: true,
@@ -321,13 +329,13 @@ const I18N = {
     "arrow.left": "Nach links blättern", "arrow.right": "Nach rechts blättern",
     "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} von {total} online", "ctl.mesh_reboot": "Alle neu starten", "ctl.mesh_reboot_confirm": "Alle wirklich neu starten?", "ctl.mesh_reboot_tip": "FRITZ!Box und alle Repeater neu starten (erst die Repeater, dann die Box)", "ctl.throughput": "Aktueller Durchsatz (Download / Upload)", "ctl.wlan_24": "WLAN 2,4 GHz", "ctl.wlan_5": "WLAN 5 GHz", "ctl.wlan_guest": "Gast-WLAN", "ctl.reconnect": "Neu verbinden", "ctl.reconnect_confirm": "Wirklich neu verbinden?", "ctl.reboot": "Neustart", "ctl.reboot_confirm": "Wirklich neu starten?", "ctl.mac_filter": "MAC-Filter", "ctl.mac_filter_tip": "WLAN-Zugang auf bekannte Geräte beschränken", "ctl.pairing": "Pairing starten", "ctl.pairing_confirm": "Wirklich starten?", "ctl.pairing_tip": "MAC-Filter kurz ausschalten, damit sich ein neues Gerät anmelden kann", "ctl.pairing_until": "Pairing bis {time}", "ctl.pairing_end_tip": "Klicken: Filter sofort wieder einschalten", "ctl.gast_wlan_qr": "QR-Code", "ctl.gast_wlan_qr_tip": "Gast-WLAN: SSID, Passwort und QR-Code zum Verbinden anzeigen", "gwlan.title": "Gast-WLAN", "gwlan.loading": "Lade Zugangsdaten …", "gwlan.ssid": "Netzwerkname (SSID)", "gwlan.password": "Passwort", "gwlan.open_network": "Offenes Netz – kein Passwort nötig", "gwlan.scan_hint": "Mit der Smartphone-Kamera scannen, um sich automatisch mit dem Gast-WLAN zu verbinden.", "gwlan.disabled_hint": "Das Gast-WLAN ist derzeit ausgeschaltet. Der QR-Code funktioniert, sobald es wieder eingeschaltet ist.", "gwlan.error": "Zugangsdaten konnten nicht geladen werden: {error}",
     "ver.title": "Installierte Version der Integration", "ver.update": "Update {version}", "ver.update_tip": "Neue Version {version} verfügbar – klicken für die Release-Notizen", "ver.update_plain_tip": "Neue Version {version} verfügbar", "ver.card_mismatch": "Karte {card} ≠ Integration {integration} – Seite neu laden (Strg+F5)", "ver.checked": "Zuletzt geprüft: {time}",
-    "sip.title": "Statische IP", "sip.open": "Festlegen", "sip.open_tip": "Diesem Gerät immer die gleiche IPv4-Adresse zuweisen (Box-Weboberfläche, experimentell)", "sip.check": "Prüfen", "sip.apply": "Übernehmen", "sip.cancel": "Abbrechen", "sip.placeholder": "z. B. 192.168.178.50", "sip.busy": "Prüfe …", "sip.ok_check": "Adresse {ip} ist frei.", "sip.saved": "Statische IP {ip} gesetzt.", "sip.restart": "Gilt erst nach Neustart bzw. erneutem Verbinden des Geräts.", "sip.error": "Statische IP: {error}", "sip.off": "Zum Übernehmen die Option „Statische IP-Adresse setzen“ in den Integrationsoptionen einschalten.", "sip.warn": "Experimentell – an keiner Box geprüft",
+    "sip.title": "Statische IP", "sip.change": "Ändern", "sip.change_tip": "Die feste IPv4-Adresse dieses Geräts ändern (Box-Weboberfläche, experimentell)", "sip.current": "Aktuell: {ip}", "sip.open": "Festlegen", "sip.open_tip": "Diesem Gerät immer die gleiche IPv4-Adresse zuweisen (Box-Weboberfläche, experimentell)", "sip.check": "Prüfen", "sip.apply": "Übernehmen", "sip.cancel": "Abbrechen", "sip.placeholder": "z. B. 192.168.178.50", "sip.busy": "Prüfe …", "sip.ok_check": "Adresse {ip} ist frei.", "sip.saved": "Statische IP {ip} gesetzt.", "sip.restart": "Gilt erst nach Neustart bzw. erneutem Verbinden des Geräts.", "sip.error": "Statische IP: {error}", "sip.off": "Zum Übernehmen die Option „Statische IP-Adresse setzen“ in den Integrationsoptionen einschalten.", "sip.warn": "Experimentell – an keiner Box geprüft",
     "prof.title": "Zugangsprofil", "prof.load": "Anzeigen", "prof.load_tip": "Aktuelles Zugangsprofil aus der FRITZ!Box laden (Kindersicherung, experimentell)", "prof.loading": "Lade …", "prof.current": "Aktuell: {name}", "prof.apply": "Übernehmen", "prof.apply_tip": "Ausgewähltes Zugangsprofil dem Gerät zuweisen", "prof.minutes": "Minuten (optional)", "prof.minutes_hint": "Mit Minuten gilt das Profil nur so lange, danach wird das bisherige Profil wiederhergestellt.", "prof.revert": "Zurück auf {name} um {time}", "prof.error": "Zugangsprofil: {error}", "prof.saved": "Zugangsprofil geändert: {name}", "prof.warn": "Experimentell – läuft über die Weboberfläche der Box", "prof.unknown": "unbekannt", "prof.retry": "Erneut versuchen",
     "field.tracker": "Anwesenheit", "tracker.home": "zuhause", "tracker.away": "abwesend", "tracker.open": "Tracker öffnen",
     "tracker.unknown": "unbekannt", "tracker.disabled": "Entität deaktiviert",
     "tracker.disabled_hint": "Die Tracker-Entität ist in Home Assistant deaktiviert – hier klicken und im Zahnrad-Dialog aktivieren.",
     "tracker.off": "nicht aktiviert",
-    "tracker.off_hint": "Device Tracker einschalten unter: Einstellungen → Geräte & Dienste → FRITZ!Box Netzwerk → Konfigurieren.", "tab.network": "Netzwerk", "tab.controls": "Einstellungen", "tab.online": "Online-Monitor", "tab.mesh": "Mesh", "ver.accordion": "App-Version", "ver.integration": "Integration", "ver.card": "Karte", "om.monitor": "Online-Monitor", "om.connection": "Verbindungsdetails", "om.counters": "Online-Zähler", "om.categories": "Nach Priorität", "om.top": "Größte Verbraucher (aktuell)", "om.no_rates": "Keine Datenraten verfügbar – ist die Datenverbrauchs-Erfassung in den Optionen an?", "om.no_connection": "Keine Verbindungsdetails gelesen.", "om.no_counters": "Keine Zähler erkannt – der Aufbau der Antwort ist unbekannt. Die Diagnose der Integration zeigt ihn.", "om.experimental": "Experimentell: Werte stammen aus der Weboberfläche der Box und sind nur an wenigen Boxen geprüft.", "om.since": "Online seit", "om.gateway": "Gateway", "om.prefix": "IPv6-Präfix", "om.max_down": "Max. Download", "om.max_up": "Max. Upload", "om.cat.realtime": "Echtzeit", "om.cat.prioritized": "Bevorzugt", "om.cat.normal": "Normal", "om.cat.background": "Hintergrund", "om.cat.guest": "Gast", "om.p.today": "Heute", "om.p.yesterday": "Gestern", "om.p.this_week": "Diese Woche", "om.p.last_week": "Letzte Woche", "om.p.this_month": "Dieser Monat", "om.p.last_month": "Letzter Monat", "om.p.total": "Gesamt", "mm.devices": "{n} Geräte", "mm.slowest": "langsamstes {v} Mbit/s", "mm.loose": "{n} aktive Geräte ohne eindeutige Mesh-Zuordnung (hier der Box zugeordnet).",
+    "tracker.off_hint": "Device Tracker einschalten unter: Einstellungen → Geräte & Dienste → FRITZ!Box Netzwerk → Konfigurieren.", "tab.network": "Netzwerk", "hint.more_areas": "Weitere Bereiche sind verfügbar: {areas}. Schalte im Karteneditor „Kategorien als Tabs anzeigen“ und „Einstellungen (Steuerungsleiste) anzeigen“ ein.", "hint.more_hide": "Ausblenden", "hint.more_hide_tip": "Diesen Hinweis in diesem Browser nicht mehr zeigen", "tab.controls": "Einstellungen", "tab.online": "Online-Monitor", "tab.mesh": "Mesh", "ver.accordion": "App-Version", "ver.integration": "Integration", "ver.card": "Karte", "om.monitor": "Online-Monitor", "om.connection": "Verbindungsdetails", "om.counters": "Online-Zähler", "om.categories": "Nach Priorität", "om.top": "Größte Verbraucher (aktuell)", "om.no_rates": "Keine Datenraten verfügbar – ist die Datenverbrauchs-Erfassung in den Optionen an?", "om.no_connection": "Keine Verbindungsdetails gelesen.", "om.no_counters": "Keine Zähler erkannt – der Aufbau der Antwort ist unbekannt. Die Diagnose der Integration zeigt ihn.", "om.experimental": "Experimentell: Werte stammen aus der Weboberfläche der Box und sind nur an wenigen Boxen geprüft.", "om.since": "Online seit", "om.gateway": "Gateway", "om.prefix": "IPv6-Präfix", "om.max_down": "Max. Download", "om.max_up": "Max. Upload", "om.cat.realtime": "Echtzeit", "om.cat.prioritized": "Bevorzugt", "om.cat.normal": "Normal", "om.cat.background": "Hintergrund", "om.cat.guest": "Gast", "om.p.today": "Heute", "om.p.yesterday": "Gestern", "om.p.this_week": "Diese Woche", "om.p.last_week": "Letzte Woche", "om.p.this_month": "Dieser Monat", "om.p.last_month": "Letzter Monat", "om.p.total": "Gesamt", "mm.devices": "{n} Geräte", "mm.zoom_label": "Zoom der Mesh-Karte", "mm.zoom_out": "Verkleinern", "mm.zoom_in": "Vergrößern", "mm.zoom_fit": "Einpassen", "mm.zoom_reset": "Auf 100 % zurücksetzen", "mm.zoom_hint": "Zoom: Regler oder Knöpfe; am Smartphone mit zwei Fingern auseinanderziehen bzw. zusammenschieben, am Desktop Strg + Mausrad. Mit gedrückter Maustaste verschiebst du die Karte in alle Richtungen.", "mm.switch_hint": "Switches sind Knoten mit mehreren Kabelverbindungen in den Mesh-Daten der Box und werden daraus abgeleitet; die Erkennung ist an keiner echten Box geprüft.", "mm.slowest": "langsamstes {v} Mbit/s", "mm.loose": "{n} aktive Geräte ohne eindeutige Mesh-Zuordnung (hier der Box zugeordnet).",
     "field.band": "Funkband", "band.24": "2,4 GHz", "band.5": "5 GHz", "band.6": "6 GHz",
     "field.connected_via": "Verbunden über",
     "field.vendor": "Hersteller", "vendor.random": "Zufällige MAC",
@@ -342,7 +350,7 @@ const I18N = {
     "box.system_error": "Temperatur, CPU und RAM konnten nicht gelesen werden (Details im Protokoll von Home Assistant).",
     "box.system_wait": "Temperatur, CPU und RAM sind noch nicht gelesen worden.",
     "net.accordion": "Internetverbindung", "net.state": "Status", "net.online": "Online", "net.offline": "Offline",
-    "net.external_ip": "Externe IP", "net.online_for": "Online seit", "net.down": "Download", "net.up": "Upload",
+    "net.external_ip": "Externe IP", "net.external_ipv6": "Externe IPv6", "net.ipv6_prefix": "IPv6-Präfix", "net.online_for": "Online seit", "net.down": "Download", "net.up": "Upload",
     "net.max_down": "Max. Download", "net.max_up": "Max. Upload",
     "home.accordion": "Heimnetz", "home.total": "Geräte gesamt", "home.active": "Aktiv", "home.inactive": "Inaktiv",
     "home.guests": "Gastnetz", "home.blocked": "Gesperrt", "home.mesh": "Mesh", "home.mesh_value": "{online} von {total} online",
@@ -440,13 +448,13 @@ const I18N = {
     "arrow.left": "Scroll left", "arrow.right": "Scroll right",
     "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} of {total} online", "ctl.mesh_reboot": "Restart all", "ctl.mesh_reboot_confirm": "Really restart all?", "ctl.mesh_reboot_tip": "Restart the FRITZ!Box and all repeaters (repeaters first, then the box)", "ctl.throughput": "Current throughput (download / upload)", "ctl.wlan_24": "Wi-Fi 2.4 GHz", "ctl.wlan_5": "Wi-Fi 5 GHz", "ctl.wlan_guest": "Guest Wi-Fi", "ctl.reconnect": "Reconnect", "ctl.reconnect_confirm": "Really reconnect?", "ctl.reboot": "Reboot", "ctl.reboot_confirm": "Really reboot?", "ctl.mac_filter": "MAC filter", "ctl.mac_filter_tip": "Restrict Wi-Fi access to known devices", "ctl.pairing": "Start pairing", "ctl.pairing_confirm": "Really start?", "ctl.pairing_tip": "Turn the MAC filter off briefly so a new device can join", "ctl.pairing_until": "Pairing until {time}", "ctl.pairing_end_tip": "Click: turn the filter back on now", "ctl.gast_wlan_qr": "QR code", "ctl.gast_wlan_qr_tip": "Guest Wi-Fi: show SSID, password and a QR code to connect", "gwlan.title": "Guest Wi-Fi", "gwlan.loading": "Loading credentials …", "gwlan.ssid": "Network name (SSID)", "gwlan.password": "Password", "gwlan.open_network": "Open network – no password needed", "gwlan.scan_hint": "Scan with your phone's camera to connect to the guest Wi-Fi automatically.", "gwlan.disabled_hint": "The guest Wi-Fi is currently switched off. The QR code will work again once it's switched back on.", "gwlan.error": "Could not load the guest Wi-Fi credentials: {error}",
     "ver.title": "Installed version of the integration", "ver.update": "Update {version}", "ver.update_tip": "New version {version} available – click for the release notes", "ver.update_plain_tip": "New version {version} available", "ver.card_mismatch": "Card {card} ≠ integration {integration} – reload the page (Ctrl+F5)", "ver.checked": "Last checked: {time}",
-    "sip.title": "Static IP", "sip.open": "Set", "sip.open_tip": "Always assign this device the same IPv4 address (box web interface, experimental)", "sip.check": "Check", "sip.apply": "Apply", "sip.cancel": "Cancel", "sip.placeholder": "e.g. 192.168.178.50", "sip.busy": "Checking …", "sip.ok_check": "Address {ip} is free.", "sip.saved": "Static IP {ip} set.", "sip.restart": "Only applies after the device restarts or reconnects.", "sip.error": "Static IP: {error}", "sip.off": "To apply, enable the option “Set static IP address” in the integration options.", "sip.warn": "Experimental – not verified on any box",
+    "sip.title": "Static IP", "sip.change": "Change", "sip.change_tip": "Change the fixed IPv4 address of this device (box web interface, experimental)", "sip.current": "Current: {ip}", "sip.open": "Set", "sip.open_tip": "Always assign this device the same IPv4 address (box web interface, experimental)", "sip.check": "Check", "sip.apply": "Apply", "sip.cancel": "Cancel", "sip.placeholder": "e.g. 192.168.178.50", "sip.busy": "Checking …", "sip.ok_check": "Address {ip} is free.", "sip.saved": "Static IP {ip} set.", "sip.restart": "Only applies after the device restarts or reconnects.", "sip.error": "Static IP: {error}", "sip.off": "To apply, enable the option “Set static IP address” in the integration options.", "sip.warn": "Experimental – not verified on any box",
     "prof.title": "Access profile", "prof.load": "Show", "prof.load_tip": "Load the current access profile from the FRITZ!Box (parental control, experimental)", "prof.loading": "Loading …", "prof.current": "Current: {name}", "prof.apply": "Apply", "prof.apply_tip": "Assign the selected access profile to the device", "prof.minutes": "Minutes (optional)", "prof.minutes_hint": "With minutes the profile only applies that long, then the previous profile is restored.", "prof.revert": "Back to {name} at {time}", "prof.error": "Access profile: {error}", "prof.saved": "Access profile changed: {name}", "prof.warn": "Experimental – uses the box web interface", "prof.unknown": "unknown", "prof.retry": "Try again",
     "field.tracker": "Presence", "tracker.home": "home", "tracker.away": "away", "tracker.open": "Open tracker",
     "tracker.unknown": "unknown", "tracker.disabled": "entity disabled",
     "tracker.disabled_hint": "The tracker entity is disabled in Home Assistant – click here and enable it in the settings dialog.",
     "tracker.off": "not enabled",
-    "tracker.off_hint": "Enable the device tracker under: Settings → Devices & services → FRITZ!Box Netzwerk → Configure.", "tab.network": "Network", "tab.controls": "Settings", "tab.online": "Online monitor", "tab.mesh": "Mesh", "ver.accordion": "App version", "ver.integration": "Integration", "ver.card": "Card", "om.monitor": "Online monitor", "om.connection": "Connection details", "om.counters": "Online counter", "om.categories": "By priority", "om.top": "Top consumers (now)", "om.no_rates": "No data rates available – is data-usage capture enabled in the options?", "om.no_connection": "No connection details read.", "om.no_counters": "No counters recognised – the response layout is unknown. The integration diagnostics show it.", "om.experimental": "Experimental: values come from the box web UI and were checked on few boxes only.", "om.since": "Online since", "om.gateway": "gateway", "om.prefix": "IPv6 prefix", "om.max_down": "Max. download", "om.max_up": "Max. upload", "om.cat.realtime": "Real-time", "om.cat.prioritized": "Prioritised", "om.cat.normal": "Normal", "om.cat.background": "Background", "om.cat.guest": "Guest", "om.p.today": "Today", "om.p.yesterday": "Yesterday", "om.p.this_week": "This week", "om.p.last_week": "Last week", "om.p.this_month": "This month", "om.p.last_month": "Last month", "om.p.total": "Total", "mm.devices": "{n} devices", "mm.slowest": "slowest {v} Mbit/s", "mm.loose": "{n} active devices without a clear mesh assignment (shown under the box).",
+    "tracker.off_hint": "Enable the device tracker under: Settings → Devices & services → FRITZ!Box Netzwerk → Configure.", "tab.network": "Network", "hint.more_areas": "More areas are available: {areas}. Turn on \"Show categories as tabs\" and \"Show settings (controls bar)\" in the card editor.", "hint.more_hide": "Hide", "hint.more_hide_tip": "Do not show this hint again in this browser", "tab.controls": "Settings", "tab.online": "Online monitor", "tab.mesh": "Mesh", "ver.accordion": "App version", "ver.integration": "Integration", "ver.card": "Card", "om.monitor": "Online monitor", "om.connection": "Connection details", "om.counters": "Online counter", "om.categories": "By priority", "om.top": "Top consumers (now)", "om.no_rates": "No data rates available – is data-usage capture enabled in the options?", "om.no_connection": "No connection details read.", "om.no_counters": "No counters recognised – the response layout is unknown. The integration diagnostics show it.", "om.experimental": "Experimental: values come from the box web UI and were checked on few boxes only.", "om.since": "Online since", "om.gateway": "gateway", "om.prefix": "IPv6 prefix", "om.max_down": "Max. download", "om.max_up": "Max. upload", "om.cat.realtime": "Real-time", "om.cat.prioritized": "Prioritised", "om.cat.normal": "Normal", "om.cat.background": "Background", "om.cat.guest": "Guest", "om.p.today": "Today", "om.p.yesterday": "Yesterday", "om.p.this_week": "This week", "om.p.last_week": "Last week", "om.p.this_month": "This month", "om.p.last_month": "Last month", "om.p.total": "Total", "mm.devices": "{n} devices", "mm.zoom_label": "Mesh map zoom", "mm.zoom_out": "Zoom out", "mm.zoom_in": "Zoom in", "mm.zoom_fit": "Fit", "mm.zoom_reset": "Reset to 100 %", "mm.zoom_hint": "Zoom: slider or buttons; on a phone pinch with two fingers, on desktop Ctrl + mouse wheel. Hold the mouse button and drag to move the map in any direction.", "mm.switch_hint": "Switches are nodes with several wired connections in the box's mesh data and are derived from it; the detection has not been verified on a real box.", "mm.slowest": "slowest {v} Mbit/s", "mm.loose": "{n} active devices without a clear mesh assignment (shown under the box).",
     "field.band": "Wi-Fi band", "band.24": "2.4 GHz", "band.5": "5 GHz", "band.6": "6 GHz",
     "field.connected_via": "Connected via",
     "field.vendor": "Manufacturer", "vendor.random": "Random MAC",
@@ -461,7 +469,7 @@ const I18N = {
     "box.system_error": "Temperature, CPU and RAM could not be read (details in the Home Assistant log).",
     "box.system_wait": "Temperature, CPU and RAM have not been read yet.",
     "net.accordion": "Internet connection", "net.state": "Status", "net.online": "Online", "net.offline": "Offline",
-    "net.external_ip": "External IP", "net.online_for": "Online for", "net.down": "Download", "net.up": "Upload",
+    "net.external_ip": "External IP", "net.external_ipv6": "External IPv6", "net.ipv6_prefix": "IPv6 prefix", "net.online_for": "Online for", "net.down": "Download", "net.up": "Upload",
     "net.max_down": "Max. download", "net.max_up": "Max. upload",
     "home.accordion": "Home network", "home.total": "Devices in total", "home.active": "Active", "home.inactive": "Inactive",
     "home.guests": "Guest network", "home.blocked": "Blocked", "home.mesh": "Mesh", "home.mesh_value": "{online} of {total} online",
@@ -559,13 +567,13 @@ const I18N = {
     "arrow.left": "Naar links bladeren", "arrow.right": "Naar rechts bladeren",
     "ctl.mesh": "Mesh", "ctl.mesh_online": "{online} van {total} online", "ctl.mesh_reboot": "Alles herstarten", "ctl.mesh_reboot_confirm": "Echt alles herstarten?", "ctl.mesh_reboot_tip": "FRITZ!Box en alle repeaters herstarten (eerst de repeaters, dan de box)", "ctl.throughput": "Huidige doorvoer (download / upload)", "ctl.wlan_24": "Wifi 2,4 GHz", "ctl.wlan_5": "Wifi 5 GHz", "ctl.wlan_guest": "Gast-wifi", "ctl.reconnect": "Opnieuw verbinden", "ctl.reconnect_confirm": "Echt opnieuw verbinden?", "ctl.reboot": "Herstart", "ctl.reboot_confirm": "Echt herstarten?", "ctl.mac_filter": "MAC-filter", "ctl.mac_filter_tip": "Wifi-toegang beperken tot bekende apparaten", "ctl.pairing": "Koppelen starten", "ctl.pairing_confirm": "Echt starten?", "ctl.pairing_tip": "MAC-filter kort uitschakelen zodat een nieuw apparaat zich kan aanmelden", "ctl.pairing_until": "Koppelen tot {time}", "ctl.pairing_end_tip": "Klik: filter meteen weer inschakelen", "ctl.gast_wlan_qr": "QR-code", "ctl.gast_wlan_qr_tip": "Gast-wifi: SSID, wachtwoord en een QR-code om te verbinden tonen", "gwlan.title": "Gast-wifi", "gwlan.loading": "Gegevens laden …", "gwlan.ssid": "Netwerknaam (SSID)", "gwlan.password": "Wachtwoord", "gwlan.open_network": "Open netwerk – geen wachtwoord nodig", "gwlan.scan_hint": "Scan met de camera van je telefoon om automatisch met het gastennetwerk te verbinden.", "gwlan.disabled_hint": "Het gastennetwerk staat momenteel uit. De QR-code werkt weer zodra het is ingeschakeld.", "gwlan.error": "Gegevens konden niet worden geladen: {error}",
     "ver.title": "Geïnstalleerde versie van de integratie", "ver.update": "Update {version}", "ver.update_tip": "Nieuwe versie {version} beschikbaar – klik voor de release-notities", "ver.update_plain_tip": "Nieuwe versie {version} beschikbaar", "ver.card_mismatch": "Kaart {card} ≠ integratie {integration} – pagina opnieuw laden (Ctrl+F5)", "ver.checked": "Laatst gecontroleerd: {time}",
-    "sip.title": "Statisch IP", "sip.open": "Instellen", "sip.open_tip": "Dit apparaat altijd hetzelfde IPv4-adres geven (webinterface van de box, experimenteel)", "sip.check": "Controleren", "sip.apply": "Toepassen", "sip.cancel": "Annuleren", "sip.placeholder": "bijv. 192.168.178.50", "sip.busy": "Controleren …", "sip.ok_check": "Adres {ip} is vrij.", "sip.saved": "Statisch IP {ip} ingesteld.", "sip.restart": "Geldt pas na herstart of opnieuw verbinden van het apparaat.", "sip.error": "Statisch IP: {error}", "sip.off": "Schakel om toe te passen de optie „Statisch IP-adres instellen” in bij de integratieopties.", "sip.warn": "Experimenteel – op geen enkele box getest",
+    "sip.title": "Statisch IP", "sip.change": "Wijzigen", "sip.change_tip": "Het vaste IPv4-adres van dit apparaat wijzigen (webinterface van de box, experimenteel)", "sip.current": "Huidig: {ip}", "sip.open": "Instellen", "sip.open_tip": "Dit apparaat altijd hetzelfde IPv4-adres geven (webinterface van de box, experimenteel)", "sip.check": "Controleren", "sip.apply": "Toepassen", "sip.cancel": "Annuleren", "sip.placeholder": "bijv. 192.168.178.50", "sip.busy": "Controleren …", "sip.ok_check": "Adres {ip} is vrij.", "sip.saved": "Statisch IP {ip} ingesteld.", "sip.restart": "Geldt pas na herstart of opnieuw verbinden van het apparaat.", "sip.error": "Statisch IP: {error}", "sip.off": "Schakel om toe te passen de optie „Statisch IP-adres instellen” in bij de integratieopties.", "sip.warn": "Experimenteel – op geen enkele box getest",
     "prof.title": "Toegangsprofiel", "prof.load": "Tonen", "prof.load_tip": "Huidig toegangsprofiel uit de FRITZ!Box laden (ouderlijk toezicht, experimenteel)", "prof.loading": "Laden …", "prof.current": "Huidig: {name}", "prof.apply": "Toepassen", "prof.apply_tip": "Geselecteerd toegangsprofiel aan het apparaat toewijzen", "prof.minutes": "Minuten (optioneel)", "prof.minutes_hint": "Met minuten geldt het profiel slechts zo lang, daarna wordt het vorige profiel hersteld.", "prof.revert": "Terug naar {name} om {time}", "prof.error": "Toegangsprofiel: {error}", "prof.saved": "Toegangsprofiel gewijzigd: {name}", "prof.warn": "Experimenteel – via de webinterface van de box", "prof.unknown": "onbekend", "prof.retry": "Opnieuw proberen",
     "field.tracker": "Aanwezigheid", "tracker.home": "thuis", "tracker.away": "afwezig", "tracker.open": "Tracker openen",
     "tracker.unknown": "onbekend", "tracker.disabled": "entiteit uitgeschakeld",
     "tracker.disabled_hint": "De trackerentiteit is uitgeschakeld in Home Assistant – klik hier en schakel deze in via het instellingenvenster.",
     "tracker.off": "niet ingeschakeld",
-    "tracker.off_hint": "Device tracker inschakelen via: Instellingen → Apparaten & diensten → FRITZ!Box Netzwerk → Configureren.", "tab.network": "Netwerk", "tab.controls": "Instellingen", "tab.online": "Online-monitor", "tab.mesh": "Mesh", "ver.accordion": "App-versie", "ver.integration": "Integratie", "ver.card": "Kaart", "om.monitor": "Online-monitor", "om.connection": "Verbindingsdetails", "om.counters": "Online-teller", "om.categories": "Op prioriteit", "om.top": "Grootste verbruikers (nu)", "om.no_rates": "Geen datasnelheden beschikbaar – staat de gegevensverbruik-registratie aan in de opties?", "om.no_connection": "Geen verbindingsdetails gelezen.", "om.no_counters": "Geen tellers herkend – de opbouw van het antwoord is onbekend. De diagnose van de integratie toont die.", "om.experimental": "Experimenteel: waarden komen uit de webinterface van de box en zijn op weinig boxen getest.", "om.since": "Online sinds", "om.gateway": "gateway", "om.prefix": "IPv6-prefix", "om.max_down": "Max. download", "om.max_up": "Max. upload", "om.cat.realtime": "Realtime", "om.cat.prioritized": "Voorrang", "om.cat.normal": "Normaal", "om.cat.background": "Achtergrond", "om.cat.guest": "Gast", "om.p.today": "Vandaag", "om.p.yesterday": "Gisteren", "om.p.this_week": "Deze week", "om.p.last_week": "Vorige week", "om.p.this_month": "Deze maand", "om.p.last_month": "Vorige maand", "om.p.total": "Totaal", "mm.devices": "{n} apparaten", "mm.slowest": "traagste {v} Mbit/s", "mm.loose": "{n} actieve apparaten zonder duidelijke mesh-toewijzing (onder de box getoond).",
+    "tracker.off_hint": "Device tracker inschakelen via: Instellingen → Apparaten & diensten → FRITZ!Box Netzwerk → Configureren.", "tab.network": "Netwerk", "hint.more_areas": "Er zijn meer onderdelen beschikbaar: {areas}. Schakel in de kaarteditor \"Categorieën als tabs tonen\" en \"Instellingen (bedieningsbalk) tonen\" in.", "hint.more_hide": "Verbergen", "hint.more_hide_tip": "Deze tip in deze browser niet meer tonen", "tab.controls": "Instellingen", "tab.online": "Online-monitor", "tab.mesh": "Mesh", "ver.accordion": "App-versie", "ver.integration": "Integratie", "ver.card": "Kaart", "om.monitor": "Online-monitor", "om.connection": "Verbindingsdetails", "om.counters": "Online-teller", "om.categories": "Op prioriteit", "om.top": "Grootste verbruikers (nu)", "om.no_rates": "Geen datasnelheden beschikbaar – staat de gegevensverbruik-registratie aan in de opties?", "om.no_connection": "Geen verbindingsdetails gelezen.", "om.no_counters": "Geen tellers herkend – de opbouw van het antwoord is onbekend. De diagnose van de integratie toont die.", "om.experimental": "Experimenteel: waarden komen uit de webinterface van de box en zijn op weinig boxen getest.", "om.since": "Online sinds", "om.gateway": "gateway", "om.prefix": "IPv6-prefix", "om.max_down": "Max. download", "om.max_up": "Max. upload", "om.cat.realtime": "Realtime", "om.cat.prioritized": "Voorrang", "om.cat.normal": "Normaal", "om.cat.background": "Achtergrond", "om.cat.guest": "Gast", "om.p.today": "Vandaag", "om.p.yesterday": "Gisteren", "om.p.this_week": "Deze week", "om.p.last_week": "Vorige week", "om.p.this_month": "Deze maand", "om.p.last_month": "Vorige maand", "om.p.total": "Totaal", "mm.devices": "{n} apparaten", "mm.zoom_label": "Zoom van de meshkaart", "mm.zoom_out": "Uitzoomen", "mm.zoom_in": "Inzoomen", "mm.zoom_fit": "Passend maken", "mm.zoom_reset": "Terugzetten op 100 %", "mm.zoom_hint": "Zoom: schuifregelaar of knoppen; op een smartphone met twee vingers knijpen, op desktop Ctrl + muiswiel. Houd de muisknop ingedrukt en sleep om de kaart in elke richting te verschuiven.", "mm.switch_hint": "Switches zijn knooppunten met meerdere bekabelde verbindingen in de meshgegevens van de box en worden daaruit afgeleid; de herkenning is op geen echte box getest.", "mm.slowest": "traagste {v} Mbit/s", "mm.loose": "{n} actieve apparaten zonder duidelijke mesh-toewijzing (onder de box getoond).",
     "field.band": "Wifi-band", "band.24": "2,4 GHz", "band.5": "5 GHz", "band.6": "6 GHz",
     "field.connected_via": "Verbonden via",
     "field.vendor": "Fabrikant", "vendor.random": "Willekeurig MAC",
@@ -580,7 +588,7 @@ const I18N = {
     "box.system_error": "Temperatuur, CPU en RAM konden niet worden gelezen (details in het logboek van Home Assistant).",
     "box.system_wait": "Temperatuur, CPU en RAM zijn nog niet gelezen.",
     "net.accordion": "Internetverbinding", "net.state": "Status", "net.online": "Online", "net.offline": "Offline",
-    "net.external_ip": "Extern IP", "net.online_for": "Online sinds", "net.down": "Download", "net.up": "Upload",
+    "net.external_ip": "Extern IP", "net.external_ipv6": "Extern IPv6", "net.ipv6_prefix": "IPv6-prefix", "net.online_for": "Online sinds", "net.down": "Download", "net.up": "Upload",
     "net.max_down": "Max. download", "net.max_up": "Max. upload",
     "home.accordion": "Thuisnetwerk", "home.total": "Apparaten totaal", "home.active": "Actief", "home.inactive": "Inactief",
     "home.guests": "Gastnetwerk", "home.blocked": "Geblokkeerd", "home.mesh": "Mesh", "home.mesh_value": "{online} van {total} online",
@@ -1257,7 +1265,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const entity =
       ids.find((id) => Array.isArray(states[id].attributes && states[id].attributes.hosts)) ||
       ids.find((id) => /gerate|devices|apparaten/.test(id));
-    return { type: "custom:fritzbox-netzwerk-card", entity: entity || "" };
+    // 2.1.0 (Issue #39): Neu angelegte Karten zeigen Tabs (Netzwerk, Online-Monitor, Mesh,
+    // Einstellungen) und die Steuerungsleiste; bestehende Karten behalten ihre Einstellung.
+    return { type: "custom:fritzbox-netzwerk-card", entity: entity || "", show_tabs: true, show_controls: true };
   }
 
   connectedCallback() {
@@ -1728,6 +1738,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     }">
         <div class="fbn-titlebar" hidden></div>
         <div class="fbn-tabbar" role="tablist" hidden></div>
+        <div class="fbn-moretabs" hidden></div>
         <div class="fbn-toolbar" data-tab="network">
           <div class="fbn-filters"></div>
           <div class="fbn-searchwrap"></div>
@@ -2655,6 +2666,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const lines = [
       this._kvLine(this._t("net.state"), state),
       this._kvLine(this._t("net.external_ip"), connection.external_ip),
+      this._kvLine(this._t("net.external_ipv6"), connection.external_ipv6),
+      this._kvLine(this._t("net.ipv6_prefix"), connection.ipv6_prefix ? `${connection.ipv6_prefix}${connection.ipv6_prefix_length ? "/" + connection.ipv6_prefix_length : ""}` : ""),
       this._kvLine(this._t("net.online_for"), connection.uptime != null ? formatDuration(connection.uptime) : ""),
       this._kvLine(this._t("net.down"), connection.down_rate != null ? formatRate(connection.down_rate) : ""),
       this._kvLine(this._t("net.up"), connection.up_rate != null ? formatRate(connection.up_rate) : ""),
@@ -2880,7 +2893,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const clients = new Map(hubs.map((h) => [h, []]));
     let loose = 0;
     for (const host of hosts) {
-      if (!host.active || host.repeater || host.is_repeater || host.mac_synthetic) continue;
+      if (!host.active || host.repeater || host.is_repeater || host.switch || host.mac_synthetic) continue;
       if (host.ip && root.ip && host.ip === root.ip) continue;
       let hub = (host.via_id && byId.get(host.via_id)) || (host.connected_via && byName.get(host.connected_via)) || null;
       if (!hub) {
@@ -2898,7 +2911,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // Das Popup einer Mesh-Station: Repeater über die MAC, die Box über ihre IP-Adresse.
     const hubTarget = (m) => (m.role === "box" ? this._hostByIp(m.ip) : this._hostByMac(m.mac));
     const sig = JSON.stringify([
-      hubs.map((h) => [h.name, h.online, h.model, h.mac, h.ip, h.mesh_id, h.via_id, h.connected_via, h.link_mbit, hubTarget(h) ? 1 : 0]),
+      hubs.map((h) => [h.name, h.role, h.online, h.model, h.mac, h.ip, h.mesh_id, h.via_id, h.connected_via, h.link_mbit, hubTarget(h) ? 1 : 0]),
       hubs.map((h) => (clients.get(h) || []).map((x) => [x.mac, x.link_mbit, x.label || x.name, x.band, x.link_type, x.connection])),
       total,
       loose,
@@ -3034,18 +3047,20 @@ class FritzboxNetzwerkCard extends HTMLElement {
         );
       });
       const isBox = hub === root;
-      const sub = hub.model && hub.model !== hub.name ? hub.model : isBox ? "FRITZ!Box" : "Repeater";
+      const isSwitch = !isBox && hub.role === "switch";
+      const kindName = isBox ? "FRITZ!Box" : isSwitch ? "Switch" : "Repeater";
+      const sub = hub.model && hub.model !== hub.name ? hub.model : kindName;
       const count = isBox ? this._t("mm.total", { n: total }) : this._t("mm.devices", { n: (clients.get(hub) || []).length });
       nodes += node(
         x,
         top,
         HUB_W,
         HUB_H,
-        isBox ? "mdi:router-wireless" : off ? "mdi:access-point-network-off" : "mdi:access-point-network",
-        [hub.name || (isBox ? "FRITZ!Box" : "Repeater"), sub, count],
-        off ? "fbn-mm-off" : isBox ? "fbn-mm-box" : "fbn-mm-rep",
+        isBox ? "mdi:router-wireless" : isSwitch ? "mdi:switch" : off ? "mdi:access-point-network-off" : "mdi:access-point-network",
+        [hub.name || kindName, sub, count],
+        off ? "fbn-mm-off" : isBox ? "fbn-mm-box" : isSwitch ? "fbn-mm-sw" : "fbn-mm-rep",
         targetAttrs(hub),
-        this._t("mm.open_tip", { name: hub.name || (isBox ? "FRITZ!Box" : "Repeater") })
+        this._t("mm.open_tip", { name: hub.name || kindName })
       );
     }
 
@@ -3071,18 +3086,38 @@ class FritzboxNetzwerkCard extends HTMLElement {
           .join("");
         const body = `<div class="fbn-mm-list">${kidRows}${list.map((h) => row(h.mac, h.label || h.name || h.mac, valueOf(h))).join("")}</div>`;
         const meta = hub === root ? this._t("mm.direct_total", { d: list.length, t: total }) : this._t("mm.devices", { n: list.length });
-        return this._accordion(`mesh:${hubKey(hub)}`, hub === root ? "mdi:router-wireless" : "mdi:access-point-network", hub.name || "", meta, body, "", idx === 0);
+        return this._accordion(`mesh:${hubKey(hub)}`, hub === root ? "mdi:router-wireless" : hub.role === "switch" ? "mdi:switch" : "mdi:access-point-network", hub.name || "", meta, body, "", idx === 0);
       })
       .join("");
-    const svgStyle = `max-width:${width}px;min-width:${Math.min(width, 760)}px`;
+    // 2.1.0: Zoom und Verschieben wie in der Zigbee2MQTT-Manager-Karte. Die Breite der Zeichnung
+    // kommt aus dem Zoomfaktor (Pixel); ohne gemerkten Zoom wird nach dem Zeichnen eingepasst.
+    const zoom = this._meshZoomValue();
+    const svgStyle = zoom ? `width:${Math.round(width * zoom)}px` : `width:${width}px`;
+    const switchCount = hubs.filter((h) => h.role === "switch").length;
+    const oldWrap = box.querySelector(".fbn-mm-wrap");
+    const keepLeft = oldWrap ? oldWrap.scrollLeft : 0;
+    const keepTop = oldWrap ? oldWrap.scrollTop : 0;
     box.innerHTML = `
+      ${this._meshZoomBar(zoom)}
       <div class="fbn-mm-wrap">
         <svg class="fbn-mm-svg" style="${svgStyle}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(this._t("tab.mesh"))}">${edges}${nodes}</svg>
       </div>
       <p class="fbn-om-hint">${escapeHtml(this._t("mm.hint"))}</p>
       <p class="fbn-om-hint">${escapeHtml(this._t("mm.hint2"))}</p>
+      ${switchCount ? `<p class="fbn-om-hint">${escapeHtml(this._t("mm.switch_hint"))}</p>` : ""}
       ${loose ? `<p class="fbn-om-hint">${escapeHtml(this._t("mm.loose", { n: loose }))}</p>` : ""}
       ${detail}`;
+    const newWrap = box.querySelector(".fbn-mm-wrap");
+    if (newWrap && oldWrap) {
+      newWrap.scrollLeft = keepLeft;
+      newWrap.scrollTop = keepTop;
+    }
+    this._bindMeshZoom(box);
+    if (!zoom) {
+      // Noch kein gemerkter Zoom: auf die Kartenbreite einpassen (ohne zu speichern).
+      this._meshZoomFit(false);
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => this._meshZoomFit(false));
+    }
     if (!box.dataset.bound) {
       box.dataset.bound = "1";
       box.addEventListener(
@@ -3099,6 +3134,220 @@ class FritzboxNetzwerkCard extends HTMLElement {
     }
   }
 
+  /* -- Zoom und Verschieben der Mesh-Karte (2.1.0) ----------------------- */
+
+  /** Gemerkter Zoomfaktor oder ``null`` (dann wird auf die Kartenbreite eingepasst). */
+  _meshZoomValue() {
+    if (this._meshZoom === undefined) {
+      let z = null;
+      try {
+        const stored = parseFloat(window.localStorage.getItem(MESH_ZOOM_KEY));
+        if (Number.isFinite(stored)) z = Math.min(MESH_ZOOM_MAX, Math.max(MESH_ZOOM_MIN, stored));
+      } catch (_e) {
+        /* Speicher nicht verfügbar */
+      }
+      this._meshZoom = z;
+    }
+    return this._meshZoom;
+  }
+
+  _meshZoomBar(zoom) {
+    const t = (k) => escapeHtml(this._t(k));
+    const shown = Math.round((zoom || 1) * 100);
+    return `<div class="fbn-mm-zoom" role="group" aria-label="${t("mm.zoom_label")}">
+      <button class="fbn-ctl-btn fbn-mm-zbtn" type="button" data-mz="out" title="${t("mm.zoom_out")}" aria-label="${t("mm.zoom_out")}"><ha-icon icon="mdi:magnify-minus-outline"></ha-icon></button>
+      <input type="range" data-mzoom min="${Math.round(MESH_ZOOM_MIN * 100)}" max="${Math.round(MESH_ZOOM_MAX * 100)}" step="5" value="${shown}" aria-label="${t("mm.zoom_label")}">
+      <button class="fbn-ctl-btn fbn-mm-zbtn" type="button" data-mz="in" title="${t("mm.zoom_in")}" aria-label="${t("mm.zoom_in")}"><ha-icon icon="mdi:magnify-plus-outline"></ha-icon></button>
+      <span class="fbn-mm-zoomval" data-mzoomval>${shown} %</span>
+      <button class="fbn-ctl-btn fbn-mm-zbtn" type="button" data-mz="fit" title="${t("mm.zoom_fit")}"><ha-icon icon="mdi:fit-to-page-outline"></ha-icon>${t("mm.zoom_fit")}</button>
+      <button class="fbn-ctl-btn fbn-mm-zbtn" type="button" data-mz="reset" title="${t("mm.zoom_reset")}">100 %</button>
+    </div><p class="fbn-om-hint fbn-mm-zoomhint">${t("mm.zoom_hint")}</p>`;
+  }
+
+  /** Breite des viewBox der Zeichnung (aus dem Attribut, unabhängig vom Browser). */
+  _meshViewWidth(svg) {
+    const parts = String(svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+    return parts.length === 4 && parts[2] > 0 ? parts[2] : 0;
+  }
+
+  /**
+   * Zoom setzen, ohne neu zu zeichnen (flüssig). ``anchorX/anchorY`` = Bildschirmposition
+   * (clientX/clientY), die beim Zoomen an derselben Stelle bleibt.
+   */
+  _setMeshZoom(value, anchorX, anchorY, persist = true) {
+    const z = Math.min(MESH_ZOOM_MAX, Math.max(MESH_ZOOM_MIN, Number(value) || 1));
+    const box = this.querySelector(".fbn-meshmap");
+    if (!box) return;
+    const svg = box.querySelector(".fbn-mm-svg");
+    const wrap = box.querySelector(".fbn-mm-wrap");
+    const old = this._meshZoomValue() || (svg && wrap && this._meshViewWidth(svg) ? (parseFloat(svg.style.width) || 0) / this._meshViewWidth(svg) : 1) || 1;
+    this._meshZoom = z;
+    if (svg) {
+      const vbw = this._meshViewWidth(svg);
+      let focus = null;
+      if (wrap && vbw) {
+        const rect = wrap.getBoundingClientRect();
+        const ax = anchorX === undefined ? rect.left + wrap.clientWidth / 2 : anchorX;
+        const ay = anchorY === undefined ? rect.top + wrap.clientHeight / 2 : anchorY;
+        focus = {
+          off: ax - rect.left,
+          content: (wrap.scrollLeft + ax - rect.left) / old,
+          offY: ay - rect.top,
+          contentY: (wrap.scrollTop + ay - rect.top) / old,
+        };
+      }
+      if (vbw) svg.style.width = `${Math.round(vbw * z)}px`;
+      if (wrap && focus) {
+        wrap.scrollLeft = Math.max(0, focus.content * z - focus.off);
+        wrap.scrollTop = Math.max(0, focus.contentY * z - focus.offY);
+      }
+    }
+    const slider = box.querySelector("[data-mzoom]");
+    if (slider) slider.value = String(Math.round(z * 100));
+    const label = box.querySelector("[data-mzoomval]");
+    if (label) label.textContent = `${Math.round(z * 100)} %`;
+    if (persist) {
+      try {
+        window.localStorage.setItem(MESH_ZOOM_KEY, String(z));
+      } catch (_e) {
+        /* Speicher nicht verfügbar */
+      }
+    }
+  }
+
+  /** Auf die Breite des Kartenbereichs einpassen (höchstens Originalgröße). */
+  _meshZoomFit(persist = true) {
+    const box = this.querySelector(".fbn-meshmap");
+    const svg = box && box.querySelector(".fbn-mm-svg");
+    const wrap = box && box.querySelector(".fbn-mm-wrap");
+    if (!svg || !wrap) return;
+    const vbw = this._meshViewWidth(svg);
+    const avail = wrap.clientWidth - 32;
+    if (!vbw || avail <= 0) return;
+    const fit = Math.min(1, Math.max(MESH_ZOOM_MIN, avail / vbw));
+    this._setMeshZoom(fit, wrap.getBoundingClientRect().left, undefined, persist);
+    wrap.scrollLeft = 0;
+    wrap.scrollTop = 0;
+  }
+
+  /**
+   * Bedienung: Knöpfe und Regler, Strg + Mausrad, Zwei-Finger-Geste (Smartphone) und Ziehen mit
+   * gedrückter Maustaste in alle Richtungen. Einmalig je Karte verkabelt.
+   */
+  _bindMeshZoom(box) {
+    if (box.dataset.zoomBound) return;
+    box.dataset.zoomBound = "1";
+    box.addEventListener("click", (event) => {
+      const button = event.target.closest && event.target.closest("[data-mz]");
+      if (!button) return;
+      const act = button.getAttribute("data-mz");
+      const cur = this._meshZoomValue() || 1;
+      if (act === "out") this._setMeshZoom(cur / 1.2);
+      else if (act === "in") this._setMeshZoom(cur * 1.2);
+      else if (act === "fit") this._meshZoomFit(true);
+      else if (act === "reset") this._setMeshZoom(1);
+    });
+    box.addEventListener("input", (event) => {
+      const slider = event.target.closest && event.target.closest("[data-mzoom]");
+      if (slider) this._setMeshZoom(Number(slider.value) / 100);
+    });
+    const inWrap = (event) => event.target.closest && event.target.closest(".fbn-mm-wrap");
+    box.addEventListener(
+      "wheel",
+      (event) => {
+        if (!(event.ctrlKey || event.metaKey) || !inWrap(event)) return;
+        event.preventDefault();
+        this._setMeshZoom((this._meshZoomValue() || 1) * (event.deltaY < 0 ? 1.1 : 1 / 1.1), event.clientX, event.clientY);
+      },
+      { passive: false }
+    );
+    let pinch = null;
+    const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    box.addEventListener(
+      "touchstart",
+      (event) => {
+        if (event.touches.length !== 2 || !inWrap(event)) return;
+        pinch = { d0: dist(event.touches[0], event.touches[1]), z0: this._meshZoomValue() || 1 };
+      },
+      { passive: true }
+    );
+    box.addEventListener(
+      "touchmove",
+      (event) => {
+        if (!pinch || event.touches.length !== 2) return;
+        event.preventDefault();
+        const d = dist(event.touches[0], event.touches[1]);
+        if (pinch.d0 > 0) {
+          this._setMeshZoom(
+            pinch.z0 * (d / pinch.d0),
+            (event.touches[0].clientX + event.touches[1].clientX) / 2,
+            (event.touches[0].clientY + event.touches[1].clientY) / 2
+          );
+        }
+      },
+      { passive: false }
+    );
+    const endPinch = (event) => {
+      if (pinch && event.touches.length < 2) pinch = null;
+    };
+    box.addEventListener("touchend", endPinch, { passive: true });
+    box.addEventListener("touchcancel", endPinch, { passive: true });
+
+    // Ziehen mit der Maus (Touch scrollt nativ). Erst ab 4 px Bewegung gilt es als Ziehen, ein
+    // einfacher Klick auf eine Station öffnet weiter ihr Popup; nach dem Ziehen entfällt der Klick.
+    let drag = null;
+    const endDrag = (event) => {
+      if (!drag || (event && event.pointerId !== undefined && event.pointerId !== drag.id)) return;
+      if (drag.moved) {
+        this._meshDragEndedAt = Date.now();
+        drag.wrap.classList.remove("fbn-mm-dragging");
+        try {
+          drag.wrap.releasePointerCapture(drag.id);
+        } catch (_e) {
+          /* schon freigegeben */
+        }
+      }
+      drag = null;
+    };
+    box.addEventListener("pointerdown", (event) => {
+      if (event.pointerType !== "mouse" || event.button !== 0) return;
+      const wrap = inWrap(event);
+      if (!wrap) return;
+      drag = { wrap, id: event.pointerId, x: event.clientX, y: event.clientY, sl: wrap.scrollLeft, st: wrap.scrollTop, moved: false };
+    });
+    box.addEventListener("pointermove", (event) => {
+      if (!drag || event.pointerId !== drag.id) return;
+      if (event.buttons === 0) return endDrag(event);
+      const dx = event.clientX - drag.x;
+      const dy = event.clientY - drag.y;
+      if (!drag.moved) {
+        if (Math.hypot(dx, dy) < 4) return;
+        drag.moved = true;
+        drag.wrap.classList.add("fbn-mm-dragging");
+        try {
+          drag.wrap.setPointerCapture(drag.id);
+        } catch (_e) {
+          /* ohne Pointer-Capture: Ziehen geht weiter, solange die Maus über der Karte bleibt */
+        }
+      }
+      drag.wrap.scrollLeft = drag.sl - dx;
+      drag.wrap.scrollTop = drag.st - dy;
+      event.preventDefault();
+    });
+    box.addEventListener("pointerup", endDrag);
+    box.addEventListener("pointercancel", endDrag);
+    box.addEventListener(
+      "click",
+      (event) => {
+        if (Date.now() - (this._meshDragEndedAt || 0) < 80) {
+          event.stopPropagation();
+          event.preventDefault();
+        }
+      },
+      true
+    );
+  }
+
   /**
    * Mesh-Gruppe: die FRITZ!Box und ihre Repeater als eine Einheit, mit
    * Online-Zaehler, den einzelnen Mitgliedern und - wenn die Steuerung
@@ -3106,6 +3355,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
    */
   _renderMesh(mesh, controls) {
     const members = mesh.members
+      .filter((m) => m.role !== "switch")
       .map((m) => {
         const box = m.role === "box";
         const on = m.online !== false;
@@ -3152,10 +3402,60 @@ class FritzboxNetzwerkCard extends HTMLElement {
     return tabs;
   }
 
+  /**
+   * 2.1.0 (Issue #39): Ohne Tabs und ohne Steuerungsleiste (beides standardmaessig aus) bleiben
+   * Online-Monitor, Mesh und Einstellungen unsichtbar - wer die Karte neu anlegt, sieht nur die
+   * Geraeteliste und vermutet die Funktionen fehlten. Diese Zeile nennt die vorhandenen
+   * Bereiche und was im Karteneditor einzuschalten ist; sie laesst sich ausblenden.
+   */
+  _renderMoreHint() {
+    const box = this.querySelector(".fbn-moretabs");
+    if (!box) return;
+    const hide = () => {
+      box.hidden = true;
+      box.innerHTML = "";
+    };
+    if (this._config.show_tabs || this._config.show_more_hint === false) return hide();
+    const state = this._stateObj();
+    const attributes = (state && state.attributes) || {};
+    const hasSettings =
+      !this._config.show_controls &&
+      !!(attributes.connection || attributes.controls || attributes.box || (attributes.version && attributes.version.installed));
+    const areas = [];
+    if (this._hasOnline) areas.push(this._t("tab.online"));
+    if (this._hasMesh) areas.push(this._t("tab.mesh"));
+    if (hasSettings) areas.push(this._t("tab.controls"));
+    if (!areas.length) return hide();
+    try {
+      if (window.localStorage.getItem(MORE_HINT_KEY) === "1") return hide();
+    } catch (_e) {
+      /* Speicher nicht verfügbar: Hinweis bleibt sichtbar */
+    }
+    const text = this._t("hint.more_areas", { areas: areas.join(", ") });
+    const sig = `${text}|${this._lang()}`;
+    box.hidden = false;
+    if (box.dataset.sig === sig) return;
+    box.dataset.sig = sig;
+    box.innerHTML = `<ha-icon icon="mdi:information-outline"></ha-icon><span class="fbn-moretabs-text">${escapeHtml(text)}</span>
+      <button class="fbn-ctl-btn fbn-moretabs-close" type="button" title="${escapeHtml(this._t("hint.more_hide_tip"))}">${escapeHtml(this._t("hint.more_hide"))}</button>`;
+    const close = box.querySelector(".fbn-moretabs-close");
+    if (close) {
+      close.addEventListener("click", () => {
+        try {
+          window.localStorage.setItem(MORE_HINT_KEY, "1");
+        } catch (_e) {
+          /* Speicher nicht verfügbar */
+        }
+        hide();
+      });
+    }
+  }
+
   /** Baut die Tab-Leiste (einmalig verkabelt). */
   _renderTabs() {
     const bar = this.querySelector(".fbn-tabbar");
     if (!bar) return;
+    this._renderMoreHint();
     const tabs = this._tabList();
     // Nur zeigen, wenn Tabs eingeschaltet UND mehr als eine Kategorie da ist.
     if (!this._config.show_tabs || tabs.length < 2) {
@@ -4293,17 +4593,21 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (!this._hass || !realMac(host) || this._config.show_static_ip === false) return "";
     const t = (key, params) => escapeHtml(this._t(key, params));
     const st = this._staticIp && this._staticIp.mac === host.mac ? this._staticIp : null;
-    // 2.0.2: Meldet das Gerät oder die FRITZ!Box bereits eine feste IP, gibt es nichts
-    // festzulegen - die Zeile entfällt. Eine nur in Home Assistant gesetzte Markierung
-    // "reserviert" zählt nicht (die Box kennt sie nicht). Läuft gerade eine Eingabe, bleibt sie.
-    if (!st && host.ip_class === "fixed" && !host.reserved) return "";
+    // 2.1.0 (Issue #38): Die Zeile erscheint wieder für JEDES Gerät. In 2.0.2 war sie bei
+    // Geräten mit fester IP ausgeblendet worden - dann ließ sich eine bereits festgelegte
+    // Adresse nicht mehr ändern. Hat das Gerät schon eine feste IP (Box-Angabe), heißt der
+    // Knopf "Ändern", sonst "Festlegen"; der Dienst selbst behandelt beides gleich.
+    const alreadyFixed = host.ip_class === "fixed" && !host.reserved;
     const row = (inner) =>
       `<div class="fbn-drow fbn-prof-row"><div class="fbn-dt">${t("sip.title")}</div><div class="fbn-dd fbn-prof-box">${inner}</div></div>`;
     const warn = `<div class="fbn-prof-hint">${t("sip.warn")}</div>`;
     if (!st) {
+      const current = alreadyFixed && host.ip
+        ? `<div class="fbn-prof-current">${t("sip.current", { ip: host.ip })}</div>`
+        : "";
       return row(
-        `<button class="fbn-prof-btn fbn-sip-open" type="button" title="${t("sip.open_tip")}">
-           <ha-icon icon="mdi:ip-network-outline"></ha-icon>${t("sip.open")}</button>${warn}`
+        `${current}<button class="fbn-prof-btn fbn-sip-open" type="button" title="${t(alreadyFixed ? "sip.change_tip" : "sip.open_tip")}">
+           <ha-icon icon="mdi:ip-network-outline"></ha-icon>${t(alreadyFixed ? "sip.change" : "sip.open")}</button>${warn}`
       );
     }
     const busy = st.status === "busy";
@@ -5140,6 +5444,14 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-mm-list { display: flex; flex-direction: column; gap: 2px; max-height: 320px; overflow-y: auto; }
       .fbn-box-hint { margin: 6px 0 0 !important; }
       .fbn-online, .fbn-meshmap { padding: 4px 0 10px; }
+      .fbn-moretabs {
+        display: flex; align-items: center; gap: 8px; margin: 6px 16px;
+        padding: 8px 12px; border: 1px solid var(--fbn-border); border-radius: 10px;
+        font-size: 0.85em; color: var(--fbn-header-text);
+      }
+      .fbn-moretabs[hidden] { display: none; }
+      .fbn-moretabs ha-icon { --mdc-icon-size: 20px; width: 20px; height: 20px; color: var(--fbn-accent); flex: none; }
+      .fbn-moretabs-text { flex: 1 1 auto; }
       .fbn-om-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; padding: 0 16px; }
       .fbn-om-card { border: 1px solid var(--divider-color, rgba(127,127,127,.3)); border-radius: 12px; padding: 10px 12px; }
       .fbn-om-card h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 0.95em; }
@@ -5159,8 +5471,15 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-om-hint { margin: 8px 16px 0; font-size: 0.8em; color: var(--fbn-header-text); }
       .fbn-om-card .fbn-om-hint { margin: 0; }
       .fbn-om-err { color: var(--error-color, #db4437); display: flex; gap: 4px; align-items: center; }
-      .fbn-mm-wrap { padding: 0 16px; overflow-x: auto; }
-      .fbn-mm-svg { width: 100%; max-width: 680px; height: auto; display: block; margin: 0 auto; }
+      .fbn-mm-wrap { padding: 0 16px; overflow: auto; max-height: 75vh; touch-action: pan-x pan-y; cursor: grab; }
+      .fbn-mm-wrap.fbn-mm-dragging { cursor: grabbing; user-select: none; }
+      .fbn-mm-svg { max-width: none; height: auto; display: block; margin: 0; }
+      .fbn-mm-zoom { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 16px 2px; }
+      .fbn-mm-zoom input[type=range] { flex: 1 1 120px; min-width: 90px; max-width: 320px; accent-color: var(--fbn-accent); }
+      .fbn-mm-zoomval { min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; }
+      .fbn-mm-zbtn ha-icon { --mdc-icon-size: 18px; width: 18px; height: 18px; }
+      .fbn-mm-zoomhint { margin: 2px 16px 6px; }
+      .fbn-mm-node.fbn-mm-sw rect { stroke: var(--fbn-accent); stroke-dasharray: 6 2; }
       .fbn-mm-node rect { fill: var(--card-background-color, #fff); stroke: var(--fbn-accent); stroke-width: 1.5; }
       .fbn-mm-node.fbn-mm-cl rect { stroke: var(--divider-color, #999); stroke-dasharray: 4 3; }
       .fbn-mm-node.fbn-mm-off rect { stroke: var(--fbn-blocked, #db4437); opacity: .6; }

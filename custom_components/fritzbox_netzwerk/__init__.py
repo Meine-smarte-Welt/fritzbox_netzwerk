@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): eef224d93896e9fbf685fa91d540847ffecb33a7c013879db6a8b7c1d47a865a
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f9f03a1961f75ecc9f7a4c375a17aa8426f14b5adea9608c9140506e8e16e4b4
 """Die Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -334,6 +334,13 @@ async def async_unload_entry(
     """Entlaedt einen Konfigurationseintrag."""
     ir.async_delete_issue(hass, DOMAIN, _remote_access_issue_id(entry))
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        # 2.1.0 (Issue #35): die zur Wiederverwendung gemerkte Sitzung der Weboberflaeche
+        # ordentlich beenden, damit sie nicht bis zum Zeitlimit der Box offen bleibt.
+        coordinator = getattr(entry, "runtime_data", None)
+        close = getattr(coordinator, "async_close_web_session", None)
+        if close is not None:
+            await close()
     if unloaded and not hass.config_entries.async_loaded_entries(DOMAIN):
         for service in (
             SERVICE_SET_DEVICE_NAME,

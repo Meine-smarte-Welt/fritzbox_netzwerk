@@ -7,7 +7,7 @@
 
 Una integración de Home Assistant que muestra todos los dispositivos de la red doméstica de la FRITZ!Box en tu panel como una tabla ordenable – con dirección IP, dirección MAC, tipo de conexión y el nombre del dispositivo de Home Assistant correspondiente.
 
-![Version](https://img.shields.io/badge/Version-2.0.3-blue)
+![Version](https://img.shields.io/badge/Version-2.1.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Vídeo y guía de la tarjeta de red (en alemán):** [meinesmartewelt.de – FRITZ!Box Netzwerk para Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -180,6 +180,7 @@ Mediante *Configurar* en la integración:
 | `sensor.<name>_mesh` | Cantidad en línea | Dispositivos FRITZ! accesibles (caja + repetidores); solo con repetidores |
 | `sensor.<name>_download_leitungsrate` / `_upload_leitungsrate` | Mbit/s | Velocidad máxima de sincronización de la línea |
 | `sensor.<name>_externe_ip` | Dirección IPv4 | IP pública actual |
+| `sensor.<name>_externe_ipv6` | Dirección IPv6 | Dirección IPv6 pública de la caja; atributos `prefix`, `prefix_length` (desde 2.1.0) |
 | `sensor.<name>_online_seit` | Marca de tiempo | Desde cuándo está activa la conexión |
 | `binary_sensor.<name>_internet_verbunden` | Conectado/No conectado | ¿Está la caja en línea? |
 
@@ -411,6 +412,24 @@ Las pruebas del centro de notificaciones en 2.0.0 (`test_notification_bridge.py`
 El repositorio contiene las pruebas de 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); se ejecutan con datos sintéticos, no con hardware real. Las pruebas de 1.8.0 para `dns_settings.py` y `static_ip.py` no están incluidas.
 
 ## Historial de versiones
+
+### 2.1.0 – Vuelve el cambio de IP, tarjeta de red con zoom, switches en el mapa mesh, menos correos de inicio de sesión
+
+**Integración**
+
+- **Corregido – «Nota de cambio – inicio de sesión» repetida (issue #35):** el inicio de sesión web se reutiliza (hasta 15 minutos, comprobado antes con `login_sid.lua`) y se cierra al descargar la integración. El diagnóstico muestra en `web_sessions` cuántas veces se inició sesión o se reutilizó.
+- **Nuevo – sensor «IPv6 externa» (issue #36):** dirección IPv6 pública de la caja con prefijo (atributos), también en Internet de la tarjeta.
+- **Nuevo – switches en el mesh (issue #37):** los nodos con varias conexiones por cable en los datos mesh (segundo switch, conexión en cadena) se reconocen como «Switch» y se dibujan como cadena en el mapa mesh. No cuentan como repetidores.
+
+**Tarjeta**
+
+- **Corregido – cambiar la IP (issue #38):** la fila «IP fija» vuelve a verse en todos los dispositivos; con IP fija el botón dice «Cambiar».
+- **Corregido – tarjeta sin pestañas/ajustes (issue #39):** las tarjetas nuevas empiezan con pestañas y barra de control; con las opciones desactivadas, un aviso cerrable indica las áreas (`show_more_hint: false` lo oculta).
+- **Nuevo – zoom y desplazamiento en el mapa mesh** como en la tarjeta Zigbee2MQTT Manager: control 15–300 %, botones, Ctrl + rueda, pellizco, arrastrar con el ratón; el zoom se recuerda en el navegador.
+
+**Notas de actualización:** actualizar con HACS, reiniciar Home Assistant, vaciar la caché del navegador (Ctrl+F5).
+
+**Conocido:** la caja no ofrece por TR-064 las IPv6 de cada dispositivo. La detección de switches, la reutilización de sesión y la consulta IPv6 solo se probaron con simulaciones, no en una caja real; la tarjeta no se probó en un navegador.
 
 ### 2.0.3 – La lista de fabricantes vuelve a descargarse, sensor «Dispositivos en total»
 

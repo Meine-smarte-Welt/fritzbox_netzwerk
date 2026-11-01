@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): eafa06ff874ac68d20b3615f9c045710d3dab84e5cc37a6bab166f374eb5f3c9
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): cab0eac6880c08468779791338b930c3e50b4057c0078268abb904cd9dbaf049
 """Konstanten der Integration fritzbox_netzwerk."""
 
 from typing import Final
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "2.0.3"
+VERSION: Final = "2.1.0"
 
 PLATFORMS: Final = [
     Platform.SENSOR,

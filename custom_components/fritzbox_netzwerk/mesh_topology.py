@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 71cdd99b17961dfc6e713a16a03095d0ca7c60e1e36acdb6b5b8e54578344862
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 518546e99487a95b6b51f9bd69635460aec1e45c60b892393ba07db6272cc293
 """Mesh-Topologie ueber ``fritzconnection.lib.fritztopology`` (Idee 5 aus feature-ideen.md).
 
 Eigenes, von Home Assistant unabhaengiges Modul - wie ``connection.py`` -
@@ -23,8 +23,10 @@ from .hosts import BAND_2_4, BAND_5, BAND_6, band_from_channel, mac_key, mesh_li
 
 def fetch_mesh(
     fc: Any, debug: dict[str, Any] | None = None
-) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, str]], dict[str, Any]]:
-    """Laedt die Mesh-Topologie einmal und liefert (Verbindungen, Mesh-Geraete, Hauptbox).
+) -> tuple[
+    dict[str, dict[str, Any]], dict[str, dict[str, str]], dict[str, Any], list[dict[str, Any]]
+]:
+    """Laedt die Mesh-Topologie einmal und liefert (Verbindungen, Mesh-Geraete, Hauptbox, Switches).
 
     Wie ``fetch_mesh_links``, gibt aber zusaetzlich die FRITZ!-Geraete im Mesh
     zurueck (siehe ``repeaters_from_topology``) - damit auch ein Repeater
@@ -43,10 +45,12 @@ def fetch_mesh(
             description = {"error": "Beschreibung der Topologie nicht moeglich"}
         debug.clear()
         debug.update(description)
+    links = links_from_topology(topology)
     return (
-        links_from_topology(topology),
+        links,
         repeaters_from_topology(topology),
         master_from_topology(topology),
+        switches_from_topology(topology, links),
     )
 
 
@@ -134,15 +138,50 @@ def _strict_mesh_flags(topology: FritzMeshTopology) -> bool:
     return any(getattr(d, "is_meshed", False) and _role(d) != "master" for d in topology.devices)
 
 
-def _is_hub(device: Any, strict: bool) -> bool:
-    """Ob ein Knoten Verkehr weiterleiten kann (Hauptbox, Repeater) - Clients sind nur Endpunkte.
+def _lan_neighbors(topology: FritzMeshTopology) -> dict[str, set[str]]:
+    """Je Knoten die Nachbarn ueber aktive Kabelverbindungen (in beiden Richtungen gezaehlt)."""
+    result: dict[str, set[str]] = {}
+    for device in topology.devices:
+        for connection in _connected(device):
+            if str(getattr(connection, "type", "") or "").upper() != "LAN":
+                continue
+            target = connection.target
+            result.setdefault(device.uid, set()).add(target.uid)
+            result.setdefault(target.uid, set()).add(device.uid)
+    return result
+
+
+def _switch_uids(topology: FritzMeshTopology) -> set[str]:
+    """Knoten, die als (nicht verwaltete) Switches gelten: Kabel-Zwischenstationen im Heimnetz.
+
+    ANNAHME (Issue #37, nicht an echter Hardware geprueft): Ein Knoten, der weder Hauptbox noch
+    Repeater ist (kein ``is_meshed``, keine Mesh-Rolle) und ueber mindestens ZWEI aktive
+    Kabelverbindungen mit anderen Knoten verbunden ist, leitet Verkehr weiter - er hat einen
+    Uplink und mindestens ein Geraet dahinter. Ein gewoehnliches Geraet hat nur den einen Uplink.
+    """
+    neighbors = _lan_neighbors(topology)
+    found: set[str] = set()
+    for device in topology.devices:
+        if getattr(device, "is_meshed", False) or _role(device) in ("master", "slave"):
+            continue
+        if len(neighbors.get(device.uid, ())) >= 2:
+            found.add(device.uid)
+    return found
+
+
+def _is_hub(device: Any, strict: bool, switches: Any = frozenset()) -> bool:
+    """Ob ein Knoten Verkehr weiterleiten kann (Hauptbox, Repeater, Switch) - Clients sind nur Endpunkte.
 
     Ohne verlaessliche ``is_meshed``-Angaben (``strict`` falsch) gilt jeder Knoten als moeglicher
     Zwischenpunkt, wie bisher.
     """
     if not strict:
         return True
-    return bool(getattr(device, "is_meshed", False)) or _role(device) in ("master", "slave")
+    return (
+        bool(getattr(device, "is_meshed", False))
+        or _role(device) in ("master", "slave")
+        or getattr(device, "uid", None) in switches
+    )
 
 
 def _has_current_rate(connection: Any) -> bool:
@@ -164,6 +203,7 @@ def _mesh_paths(
     if master is None:
         return None, {}, {}
     strict = _strict_mesh_flags(topology)
+    switches = _switch_uids(topology)
     adjacency: dict[str, list[tuple[Any, Any]]] = {}
     for device in topology.devices:
         for connection in _connected(device):
@@ -177,7 +217,7 @@ def _mesh_paths(
     counter = 1
     while heap:
         dist, _order, current = heapq.heappop(heap)
-        if dist > distance.get(current.uid, float("inf")) or not _is_hub(current, strict):
+        if dist > distance.get(current.uid, float("inf")) or not _is_hub(current, strict, switches):
             continue
         for neighbor, connection in adjacency.get(current.uid, []):
             if neighbor.uid == master.uid:
@@ -244,7 +284,8 @@ def describe_topology(topology: FritzMeshTopology) -> dict[str, Any]:
     """
     master, distance, parent = _mesh_paths(topology)
     strict = _strict_mesh_flags(topology)
-    hubs = [d for d in topology.devices if _is_hub(d, strict)]
+    switches = _switch_uids(topology)
+    hubs = [d for d in topology.devices if _is_hub(d, strict, switches)]
     index = {d.uid: number for number, d in enumerate(hubs, 1)}
     nodes: list[dict[str, Any]] = []
     for device in hubs:
@@ -252,7 +293,7 @@ def describe_topology(topology: FritzMeshTopology) -> dict[str, Any]:
         nodes.append(
             {
                 "node": index[device.uid],
-                "role": _role(device) or "?",
+                "role": "switch" if device.uid in switches else (_role(device) or "?"),
                 "model": str(getattr(device, "model", "") or ""),
                 "meshed": bool(getattr(device, "is_meshed", False)),
                 "distance": distance.get(device.uid),
@@ -290,10 +331,45 @@ def describe_topology(topology: FritzMeshTopology) -> dict[str, Any]:
     return {
         "master_found": master is not None,
         "meshed_flags_reliable": strict,
+        "switches": len(switches),
         "nodes": nodes,
         "links": links,
         "clients": len(topology.devices) - len(hubs),
     }
+
+
+def switches_from_topology(
+    topology: FritzMeshTopology, links: dict[str, dict[str, Any]] | None = None
+) -> list[dict[str, Any]]:
+    """Switches im Heimnetz (siehe ``_switch_uids``): Kennung, Name, Modell, MAC und Uplink.
+
+    ``links`` ist das Ergebnis von ``links_from_topology``; daraus kommen "verbunden ueber"
+    (``connected_via``, ``via_id``), Verbindungsrate und Art. Ein Switch ohne bekannten Uplink
+    wird trotzdem gemeldet (die Karte haengt ihn dann unter die Hauptbox).
+    """
+    uids = _switch_uids(topology)
+    if links is None:
+        links = links_from_topology(topology)
+    found: list[dict[str, Any]] = []
+    for device in topology.devices:
+        if device.uid not in uids:
+            continue
+        keys = _device_keys(device)
+        record = next((links[k] for k in keys if k in links), {})
+        found.append(
+            {
+                "id": device_id(device),
+                "name": str(getattr(device, "name", "") or "").strip(),
+                "model": str(getattr(device, "model", "") or "").strip(),
+                "mac": str(getattr(device, "mac", "") or "").strip(),
+                "keys": keys,
+                "via_id": record.get("via_id") or "",
+                "connected_via": record.get("connected_via") or "",
+                "link_mbit": record.get("link_mbit"),
+                "type": record.get("type") or "",
+            }
+        )
+    return found
 
 
 def master_from_topology(topology: FritzMeshTopology) -> dict[str, Any]:

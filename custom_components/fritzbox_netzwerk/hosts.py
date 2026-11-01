@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 35a8a7262f282f273b4b8a9ed84b0bf8850344dacba2b530c0e3094828ae32da
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 9c544f3a2227627a802f86017ab526cef56d3eb6b33f0e596faaa3ac03fd813e
 """Aufbereitung der FRITZ!Box-Hostliste.
 
 Dieses Modul enthaelt bewusst KEINE Home-Assistant- und keine
@@ -1078,8 +1078,13 @@ def mesh_members(
     box_model: str = "",
     box_ip: str = "",
     box_id: str = "",
+    switches: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Die FRITZ!-Geraete des Heimnetzes: zuerst die Box, dann die Repeater.
+    """Die Geraete des Heimnetzes: zuerst die Box, dann die Repeater, zuletzt Switches.
+
+    Switches (2.1.0, Issue #37) sind Kabel-Zwischenstationen, die die Mesh-Topologie meldet
+    (``mesh_topology.switches_from_topology``). Sie haben die Rolle ``switch``, zaehlen aber
+    weder in ``mesh_summary`` noch beim Neustart ("Alle neu starten").
 
     ``mesh_id`` ist die Kennung im Mesh (Box: ``box_id``), ``via_id`` bei einem
     Repeater die Kennung seines Uplinks - daraus baut die Karte auch kaskadierte
@@ -1124,11 +1129,54 @@ def mesh_members(
                 "link_type": host.get("link_type") or "",
             }
         )
+    for switch in sorted(
+        switches or [], key=lambda s: (str(s.get("name") or "").lower(), str(s.get("id") or ""))
+    ):
+        keys = set(switch.get("keys") or [])
+        host = next((h for h in hosts if mac_key(h.get("mac")) in keys), None) if keys else None
+        members.append(
+            {
+                "role": "switch",
+                "name": switch.get("name") or (host or {}).get("name") or "Switch",
+                "model": switch.get("model") or "",
+                "ip": (host or {}).get("ip") or "",
+                "mac": (host or {}).get("mac"),
+                "online": True,
+                "mesh_id": switch.get("id") or "",
+                "via_id": switch.get("via_id") or "",
+                "connected_via": switch.get("connected_via") or "",
+                "link_mbit": switch.get("link_mbit"),
+                "link_type": switch.get("type") or "LAN",
+            }
+        )
     return members
 
 
+def apply_mesh_switches(
+    hosts: list[dict[str, Any]], switches: list[dict[str, Any]] | None
+) -> list[dict[str, Any]]:
+    """Markiert Hosts, die die Mesh-Topologie als Switch kennt (``switch``, ``mesh_id``).
+
+    Ein Switch mit eigener Adresse steht auch in der Hostliste; die Karte zeigt ihn dann als
+    Station und nicht zusaetzlich als Geraet in der Wolke seiner Gegenstelle.
+    """
+    if not switches:
+        return hosts
+    by_key: dict[str, dict[str, Any]] = {}
+    for switch in switches:
+        for key in switch.get("keys") or []:
+            by_key[key] = switch
+    for host in hosts:
+        switch = by_key.get(mac_key(host.get("mac")))
+        if switch:
+            host["switch"] = True
+            host["mesh_id"] = switch.get("id") or ""
+    return hosts
+
+
 def mesh_summary(members: list[dict[str, Any]]) -> dict[str, Any]:
-    """Anzahl und Vollstaendigkeit der Mesh-Gruppe (Box zaehlt mit)."""
+    """Anzahl und Vollstaendigkeit der Mesh-Gruppe (Box und Repeater; Switches zaehlen nicht)."""
+    members = [member for member in members if member.get("role") != "switch"]
     online = sum(1 for member in members if member.get("online"))
     return {
         "total": len(members),

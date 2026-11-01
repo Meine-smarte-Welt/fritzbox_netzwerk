@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): fa15ccd1042bc9d0e2b30dfd3ff11209c0460cfd3382d5c1d63580263fbc43d1
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 9fff8b2f2f196b8f84bcb616c6d9dc0a051f19e4afa64988838ba1a1bb117611
 """Inoffizieller Zugriff auf die FRITZ!Box-Weboberfläche (nur lesend).
 
 ACHTUNG - EXPERIMENTELL: Dieses Modul spricht NICHT TR-064, sondern die
@@ -19,12 +19,27 @@ import html
 import json
 import logging
 import re
+import threading
+import time
 import xml.etree.ElementTree as ET
 from typing import Any
 from urllib.parse import urlsplit
 
 EMPTY_SID = "0000000000000000"
 TIMEOUT = 10
+# Wiederverwendung der Sitzung (2.1.0, Issue #35): Jede neue Anmeldung an der
+# Weboberflaeche meldet die FRITZ!Box als "Aenderungsnotiz - Anmeldung" (Push
+# Service, E-Mail). Bis 2.0.3 meldete sich jede Abfrage einzeln an und danach
+# wieder ab - bis zu vier Mal je Abfragerunde. Jetzt wird die Sitzungs-ID je
+# Box und Benutzer behalten und vor jeder Nutzung ueber ``login_sid.lua``
+# geprueft; erst wenn die Box sie nicht mehr kennt, folgt eine neue Anmeldung.
+# Die Box beendet ungenutzte Sitzungen nach 20 Minuten, darunter bleibt die
+# Wiederverwendung (die Pruefung selbst sagt, ob die Sitzung noch gilt).
+SESSION_REUSE_SECONDS = 15 * 60
+_SESSIONS: dict[tuple[str, str], dict[str, Any]] = {}
+_SESSIONS_LOCK = threading.Lock()
+# Zaehler fuer die Diagnose: wie oft wirklich angemeldet bzw. wiederverwendet wurde.
+LOGIN_STATS: dict[str, int] = {"logins": 0, "reused": 0}
 # Lesezeit fuer die schweren Seiten der Weboberflaeche (``netDev`` mit allen
 # Geraeten, ``edit_device``, ``kidPro``): Boxen mit vielen Geraeten brauchen dafuer
 # laenger als 10 s (Rueckmeldung zu 2.0.0: "Read timed out (read timeout=10)").
@@ -78,8 +93,72 @@ def parse_session_info(text: str) -> dict[str, str]:
     return {tag: (root.findtext(tag) or "").strip() for tag in ("SID", "Challenge", "BlockTime")}
 
 
+def _sid_still_valid(session: Any, base: str, sid: str) -> bool:
+    """Fragt ``login_sid.lua``, ob die Box die Sitzungs-ID noch kennt (ohne Anmeldung)."""
+    response = session.get(
+        f"{base}/login_sid.lua", params={"version": "2", "sid": sid}, timeout=TIMEOUT
+    )
+    if not response.ok:
+        return False
+    try:
+        return parse_session_info(response.text)["SID"] == sid
+    except ValueError:
+        return False
+
+
 def login(session: Any, base: str, user: str, password: str) -> str:
-    """Meldet sich an und liefert die Session-ID (``ValueError`` bei Fehlschlag)."""
+    """Liefert eine gueltige Session-ID: die gemerkte, sonst eine frische Anmeldung.
+
+    Wiederverwendung siehe ``SESSION_REUSE_SECONDS``. Wirft ``ValueError`` bei
+    abgelehnter Anmeldung und die Netzwerkfehler des uebergebenen Objekts.
+    """
+    key = (base, user)
+    now = time.monotonic()
+    with _SESSIONS_LOCK:
+        cached = _SESSIONS.get(key)
+        if cached and now - cached["seen"] >= SESSION_REUSE_SECONDS:
+            _SESSIONS.pop(key, None)
+            cached = None
+    if cached:
+        if _sid_still_valid(session, base, cached["sid"]):
+            with _SESSIONS_LOCK:
+                entry = _SESSIONS.get(key)
+                if entry and entry["sid"] == cached["sid"]:
+                    entry["seen"] = time.monotonic()
+                LOGIN_STATS["reused"] += 1
+            return cached["sid"]
+        with _SESSIONS_LOCK:
+            entry = _SESSIONS.get(key)
+            if entry and entry["sid"] == cached["sid"]:
+                _SESSIONS.pop(key, None)
+    sid = _login_fresh(session, base, user, password)
+    with _SESSIONS_LOCK:
+        _SESSIONS[key] = {"sid": sid, "seen": time.monotonic()}
+        LOGIN_STATS["logins"] += 1
+    return sid
+
+
+def close_session(session: Any, base: str, user: str, password: str = "") -> None:
+    """Meldet die gemerkte Sitzung wirklich ab (beim Entladen der Integration).
+
+    Gleiche Signatur wie die Abruffunktionen, damit ``coordinator._run_web`` sie
+    aufrufen kann. Ohne gemerkte Sitzung passiert nichts.
+    """
+    with _SESSIONS_LOCK:
+        cached = _SESSIONS.pop((base, user), None)
+    if cached:
+        _logout_now(session, base, cached["sid"])
+
+
+def reset_sessions() -> None:
+    """Vergisst alle gemerkten Sitzungen (fuer Tests)."""
+    with _SESSIONS_LOCK:
+        _SESSIONS.clear()
+        LOGIN_STATS.update({"logins": 0, "reused": 0})
+
+
+def _login_fresh(session: Any, base: str, user: str, password: str) -> str:
+    """Meldet sich neu an und liefert die Session-ID (``ValueError`` bei Fehlschlag)."""
     first = session.get(f"{base}/login_sid.lua", params={"version": "2"}, timeout=TIMEOUT)
     if not first.ok:
         raise ValueError(f"login_sid.lua: HTTP {first.status_code}")
@@ -159,7 +238,20 @@ def parse_eco_stat(payload: Any) -> dict[str, float | None]:
 
 
 def logout(session: Any, base: str, sid: str) -> None:
-    """Meldet die Sitzung ab (best effort - die Box räumt sie sonst selbst auf)."""
+    """Beendet die Nutzung einer Sitzung.
+
+    Seit 2.1.0 bleibt eine mit ``login`` gemerkte Sitzung angemeldet (sie wird
+    wiederverwendet, siehe ``SESSION_REUSE_SECONDS``); abgemeldet wird nur eine
+    unbekannte Sitzungs-ID sofort. Die Box räumt ungenutzte Sitzungen selbst auf.
+    """
+    with _SESSIONS_LOCK:
+        if any(entry["sid"] == sid for entry in _SESSIONS.values()):
+            return
+    _logout_now(session, base, sid)
+
+
+def _logout_now(session: Any, base: str, sid: str) -> None:
+    """Meldet die Sitzung tatsaechlich ab (best effort)."""
     try:
         session.get(f"{base}/home/home.lua", params={"sid": sid, "logout": "1"}, timeout=TIMEOUT)
     except Exception:  # noqa: BLE001 - Abmelden darf nie ein Ergebnis kippen

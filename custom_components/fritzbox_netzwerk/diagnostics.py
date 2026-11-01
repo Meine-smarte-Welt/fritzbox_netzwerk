@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 670de274d62a13df581e0f332c2e90ba8b5047b825d8a5d81bb38e78fd5572e8
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 527be6ae2d0ae6378d975ce6fddff48772b4dea9a02ad9237677177eec1d8675
 """Diagnose-Export fuer fritzbox_netzwerk (Idee 15 aus feature-ideen.md).
 
 Liefert die Angaben, die zur Fehlersuche bei einer GitHub-Issue-Meldung am
@@ -20,6 +20,7 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 
 from .const import VERSION
+from .webui import LOGIN_STATS
 
 # Konfigurationsfelder, die nie im Klartext in einem Diagnose-Export landen
 # duerfen. CONF_HOST wird mitgeschwaerzt, weil er bei aktivem Fernzugriff
@@ -46,8 +47,9 @@ TO_REDACT_HOST_FIELDS = {
 }
 
 # "connection" (siehe coordinator._async_update_data) enthaelt die externe
-# IPv4-Adresse der Box - das verraet indirekt den ungefaehren Wohnort.
-TO_REDACT_CONNECTION_FIELDS = {"external_ip"}
+# IPv4-/IPv6-Adresse und das IPv6-Praefix der Box - das verraet indirekt den
+# ungefaehren Wohnort bzw. den Anschluss.
+TO_REDACT_CONNECTION_FIELDS = {"external_ip", "external_ipv6", "ipv6_prefix"}
 
 TO_REDACT = TO_REDACT_CONFIG | TO_REDACT_HOST_FIELDS | TO_REDACT_CONNECTION_FIELDS
 
@@ -192,6 +194,11 @@ async def async_get_config_entry_diagnostics(
                 ),
                 "oui_entries": getattr(coordinator, "oui_stats", {}),
                 "traffic": getattr(coordinator, "traffic_diagnostics", {}),
+                # 2.1.0 (Issue #35): wie oft sich die Integration an der Weboberflaeche
+                # wirklich angemeldet bzw. eine Sitzung wiederverwendet hat (seit Start
+                # von Home Assistant). Jede echte Anmeldung loest bei der Box eine
+                # "Aenderungsnotiz - Anmeldung" aus.
+                "web_sessions": dict(LOGIN_STATS),
                 "system_stats_enabled": getattr(coordinator, "system_stats_enabled", False),
                 "system_stats_error": getattr(coordinator, "system_stats_error", None),
                 "parental_enabled": getattr(coordinator, "parental_enabled", False),

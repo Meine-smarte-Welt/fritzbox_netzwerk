@@ -7,7 +7,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.0.3-blue)
+![Version](https://img.shields.io/badge/Version-2.1.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video en handleiding voor de netwerkkaart (Duits):** [meinesmartewelt.de – FRITZ!Box Netzwerk voor Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -181,6 +181,7 @@ Via *Configureren* bij de integratie:
 | `sensor.<name>_mesh` | Aantal online | Bereikbare FRITZ!-apparaten (box + repeaters); alleen met repeaters |
 | `sensor.<name>_download_leitungsrate` / `_upload_leitungsrate` | Mbit/s | Maximale lijnsnelheid (sync) |
 | `sensor.<name>_externe_ip` | IPv4-adres | Actueel publiek IP |
+| `sensor.<name>_externe_ipv6` | IPv6-adres | Openbaar IPv6-adres van de box; attributen `prefix`, `prefix_length` (sinds 2.1.0) |
 | `sensor.<name>_online_seit` | Tijdstempel | Sinds wanneer de verbinding actief is |
 | `binary_sensor.<name>_internet_verbunden` | Verbonden/Niet verbonden | Is de box online? |
 
@@ -431,6 +432,24 @@ De tests voor het Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 2.1.0 – IP-wijziging terug, netwerkkaart met zoom, switches in de meshkaart, minder inlogmails
+
+**Integratie**
+
+- **Opgelost – herhaalde „Wijzigingsmelding – aanmelding” (issue #35):** de webaanmelding wordt hergebruikt (tot 15 minuten, eerst gecontroleerd via `login_sid.lua`) en bij het uitladen van de integratie afgemeld. De diagnose toont onder `web_sessions` hoe vaak is aangemeld of hergebruikt.
+- **Nieuw – sensor „Extern IPv6” (issue #36):** openbaar IPv6-adres van de box met prefix (attributen), ook onder Internet in de kaart.
+- **Nieuw – switches in de mesh (issue #37):** knooppunten met meerdere bekabelde verbindingen in de meshgegevens (tweede switch, serieschakeling) worden als „Switch” herkend en als keten in de meshkaart getekend. Ze tellen niet als repeater.
+
+**Kaart**
+
+- **Opgelost – IP wijzigen (issue #38):** de rij „Vast IP” is weer zichtbaar voor alle apparaten; bij een vast IP heet de knop „Wijzigen”.
+- **Opgelost – kaart zonder tabs/instellingen (issue #39):** nieuwe kaarten starten met tabs en bedieningsbalk; bij uitgeschakelde opties wijst een sluitbare tip op de gebieden (`show_more_hint: false` verbergt die).
+- **Nieuw – zoomen en verschuiven op de meshkaart** zoals in de Zigbee2MQTT Manager-kaart: schuifregelaar 15–300 %, knoppen, Ctrl + muiswiel, knijpen, slepen met de muis; de zoom wordt in de browser onthouden.
+
+**Update-opmerkingen:** bijwerken via HACS, Home Assistant herstarten, browsercache legen (Ctrl+F5).
+
+**Bekend:** de box levert via TR-064 geen IPv6-adressen per apparaat. Switchherkenning, sessiehergebruik en de IPv6-opvraag zijn alleen tegen simulaties getest, niet op een echte box; de kaart is niet in een browser getest.
 
 ### 2.0.3 – Fabrikantenlijst weer op te halen, sensor „Apparaten totaal“
 

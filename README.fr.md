@@ -7,7 +7,7 @@
 
 Une intégration Home Assistant qui affiche tous les appareils du réseau domestique FRITZ!Box sur votre tableau de bord sous forme de tableau triable – avec adresse IP, adresse MAC, type de connexion et nom de l'appareil Home Assistant correspondant.
 
-![Version](https://img.shields.io/badge/Version-2.0.3-blue)
+![Version](https://img.shields.io/badge/Version-2.1.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Vidéo et guide de la carte réseau (en allemand) :** [meinesmartewelt.de – FRITZ!Box Netzwerk pour Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -180,6 +180,7 @@ Via *Configurer* sur l'intégration :
 | `sensor.<name>_mesh` | Nombre en ligne | Appareils FRITZ! joignables (box + répéteurs) ; uniquement avec des répéteurs |
 | `sensor.<name>_download_leitungsrate` / `_upload_leitungsrate` | Mbit/s | Débit de synchronisation maximal de la ligne |
 | `sensor.<name>_externe_ip` | Adresse IPv4 | IP publique actuelle |
+| `sensor.<name>_externe_ipv6` | Adresse IPv6 | Adresse IPv6 publique de la box ; attributs `prefix`, `prefix_length` (depuis 2.1.0) |
 | `sensor.<name>_online_seit` | Horodatage | Depuis quand la connexion est établie |
 | `binary_sensor.<name>_internet_verbunden` | Connecté/Non connecté | La box est-elle en ligne ? |
 
@@ -411,6 +412,24 @@ Les tests du centre de notifications dans 2.0.0 (`test_notification_bridge.py`, 
 Le dépôt contient les tests pour 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`) ; ils s'exécutent sur des données synthétiques, pas sur du matériel réel. Les tests de 1.8.0 pour `dns_settings.py` et `static_ip.py` ne sont pas versionnés.
 
 ## Historique des versions
+
+### 2.1.0 – Retour du changement d'IP, carte réseau avec zoom, switchs dans la carte mesh, moins d'e-mails de connexion
+
+**Intégration**
+
+- **Corrigé – « Note de modification – connexion » répétée (issue #35) :** la connexion web est réutilisée (jusqu'à 15 minutes, vérifiée d'abord via `login_sid.lua`) et fermée au déchargement de l'intégration. Le diagnostic indique sous `web_sessions` combien de connexions et de réutilisations ont eu lieu.
+- **Nouveau – capteur « IPv6 externe » (issue #36) :** adresse IPv6 publique de la box avec préfixe (attributs), aussi affichée sous Internet dans la carte.
+- **Nouveau – switchs dans le mesh (issue #37) :** les nœuds ayant plusieurs liaisons filaires dans les données mesh (deuxième switch, montage en chaîne) sont reconnus comme « Switch » et dessinés en chaîne dans la carte mesh. Ils ne comptent pas comme répéteurs.
+
+**Carte**
+
+- **Corrigé – changer l'IP (issue #38) :** la ligne « IP fixe » est de nouveau visible pour tous les appareils ; pour une IP fixe, le bouton indique « Modifier ».
+- **Corrigé – carte sans onglets/réglages (issue #39) :** les nouvelles cartes démarrent avec onglets et barre de commande ; options désactivées, un indice fermable signale les zones (`show_more_hint: false` le masque).
+- **Nouveau – zoom et déplacement dans la carte mesh** comme dans la carte Zigbee2MQTT Manager : curseur 15–300 %, boutons, Ctrl + molette, pincement, glisser à la souris ; le zoom est mémorisé dans le navigateur.
+
+**Remarques de mise à jour :** mettre à jour via HACS, redémarrer Home Assistant, vider le cache du navigateur (Ctrl+F5).
+
+**Connu :** la box ne fournit pas par TR-064 les IPv6 des appareils. La détection des switchs, la réutilisation de session et l'interrogation IPv6 ne sont testées que sur des simulations, pas sur une vraie box ; la carte n'a pas été testée dans un navigateur.
 
 ### 2.0.3 – La liste des fabricants se télécharge de nouveau, capteur « Appareils au total »
 

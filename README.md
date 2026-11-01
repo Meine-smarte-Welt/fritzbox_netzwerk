@@ -13,7 +13,7 @@ passenden Home-Assistant-Gerätenamen
   <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=Meine-smarte-Welt&amp;repository=fritzbox_netzwerk&amp;category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Repository in Home Assistant öffnen" height="32"></a>
 </p>
 
-![Version](https://img.shields.io/badge/Version-2.0.3-blue)
+![Version](https://img.shields.io/badge/Version-2.1.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video und Anleitung zur Netzwerkkarte:** [meinesmartewelt.de – FRITZ!Box Netzwerk für Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -263,6 +263,7 @@ spart die Aufrufe vollständig.
 | `sensor.<name>_download_leitungsrate` | Mbit/s | Maximale Downstream-Rate der Leitung (Sync) |
 | `sensor.<name>_upload_leitungsrate` | Mbit/s | Maximale Upstream-Rate der Leitung (Sync) |
 | `sensor.<name>_externe_ip` | IPv4-Adresse | Aktuelle öffentliche IP der Internetverbindung |
+| `sensor.<name>_externe_ipv6` | IPv6-Adresse | Öffentliche IPv6-Adresse der Box; Attribute `prefix`, `prefix_length` (seit 2.1.0) |
 | `sensor.<name>_online_seit` | Zeitstempel | Seit wann die aktuelle Internetverbindung steht |
 | `binary_sensor.<name>_internet_verbunden` | Verbunden/Nicht verbunden | Hat die FRITZ!Box aktuell eine Internetverbindung aufgebaut? |
 
@@ -1817,11 +1818,11 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `2a525ae3dbf9add81f18d34f7c33858fd7bd8ac90167c529dd913ba1ee128cd0` |
-| `custom_components/fritzbox_netzwerk/strings.json` | `39f99606e782b84402a9e5ed6edc65f8097c320eeb98705797e4ed91fb176cf6` |
-| `custom_components/fritzbox_netzwerk/translations/de.json` | `2af3f4aa4869337405bbaba5fc61bc8f4f0da61f59630cd8ff791fe3bd8b4855` |
-| `custom_components/fritzbox_netzwerk/translations/en.json` | `ea4c3ed3aed6576932b768275c919942f763e0a27dc6137b70a8ef30aa4a10be` |
-| `custom_components/fritzbox_netzwerk/translations/nl.json` | `9349615ec13df7177319819f64ff57412e70c354fd03489587c5026773c4c926` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `1506ecb118a8cdf77328cd1d72aec2d65b76d84180e78b1028d6d342af5c9c3e` |
+| `custom_components/fritzbox_netzwerk/strings.json` | `a9f71d2913c744f63af788dbfa4963b40755757208b4c7bacaacdd7748555ece` |
+| `custom_components/fritzbox_netzwerk/translations/de.json` | `4d87393dbb7bc28b5253edbf2e181343e277165074e54520d5a4e098c5947c73` |
+| `custom_components/fritzbox_netzwerk/translations/en.json` | `1ba4257cd257bd966246df75fb9e21468dab13ffc8e42dae50ffad3393ca47f2` |
+| `custom_components/fritzbox_netzwerk/translations/nl.json` | `349366c812129d6790d7f3fd8f0e8bf6fa85ee42aeae096843357072ac9834c9` |
 
 ## Entwicklung und Tests
 
@@ -1859,6 +1860,24 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.1.0 – IP-Änderung zurück, Netzwerkkarte mit Zoom, Switches in der Mesh-Karte, weniger Anmelde-Mails
+
+**Integration**
+
+- **Behoben – wiederholte „Änderungsnotiz – Anmeldung“ (Issue #35):** Die Web-Anmeldung an der Box wird jetzt wiederverwendet (bis 15 Minuten, vorher per `login_sid.lua` geprüft) und beim Entladen der Integration abgemeldet. Die Diagnose zeigt unter `web_sessions`, wie oft angemeldet bzw. wiederverwendet wurde.
+- **Neu – Sensor „Externe IPv6“ (Issue #36):** öffentliche IPv6-Adresse der Box samt Präfix (Attribute) und Anzeige unter Internet in der Karte.
+- **Neu – Switches im Mesh (Issue #37):** Knoten mit mehreren Kabelverbindungen in den Mesh-Daten (zweiter Switch, Reihenschaltung) werden als „Switch“ erkannt und in der Mesh-Karte als Kette gezeigt. Sie zählen nicht als Repeater (kein Einfluss auf „Alle neu starten“).
+
+**Karte**
+
+- **Behoben – IP ändern (Issue #38):** Die Zeile „Feste IP“ ist wieder für alle Geräte sichtbar; bei Geräten mit fester IP heißt der Knopf „Ändern“.
+- **Behoben – Karte ohne Tabs/Einstellungen (Issue #39):** Neue Karten starten mit Tabs und Steuerungsleiste; bei ausgeschalteten Optionen weist ein schließbarer Hinweis auf die Bereiche hin (`show_more_hint: false` blendet ihn aus).
+- **Neu – Zoom und Verschieben der Mesh-Karte** wie in der Zigbee2MQTT-Manager-Karte: Regler 15–300 %, Knöpfe Verkleinern/Vergrößern/Einpassen/100 %, Strg + Mausrad, Zwei-Finger-Zoom, Ziehen mit der Maus; der Zoom wird im Browser gemerkt.
+
+**Hinweise zum Update:** Über HACS aktualisieren, Home Assistant neu starten, Browser-Cache leeren (Strg+F5).
+
+**Bekannt:** IPv6-Adressen einzelner Geräte liefert die Box über TR-064 nicht; sie werden nicht angezeigt. Switch-Erkennung, Sitzungswiederverwendung und IPv6-Abruf sind nur gegen Simulationen geprüft, nicht an einer echten Box; die Karte ist nicht in einem Browser getestet.
 
 ### 2.0.3 – Herstellerliste wieder abrufbar, Sensor „Geräte gesamt“
 

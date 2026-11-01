@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.0.3-blue)
+![Version](https://img.shields.io/badge/Version-2.1.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video and guide for the network card (German):** [meinesmartewelt.de – FRITZ!Box Netzwerk for Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -180,6 +180,7 @@ Via *Configure* on the integration:
 | `sensor.<name>_mesh` | Count online | FRITZ! devices reachable (box + repeaters); only with repeaters |
 | `sensor.<name>_download_leitungsrate` / `_upload_leitungsrate` | Mbit/s | Maximum line sync rate |
 | `sensor.<name>_externe_ip` | IPv4 address | Current public IP |
+| `sensor.<name>_externe_ipv6` | IPv6 address | Public IPv6 address of the box; attributes `prefix`, `prefix_length` (since 2.1.0) |
 | `sensor.<name>_online_seit` | Timestamp | Since when the connection is up |
 | `binary_sensor.<name>_internet_verbunden` | Connected/Not connected | Is the box online? |
 
@@ -428,6 +429,24 @@ The tests for the Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 2.1.0 – IP change is back, network card with zoom, switches in the mesh map, fewer login emails
+
+**Integration**
+
+- **Fixed – repeated “Change notice – login” (issue #35):** the web login is now reused (up to 15 minutes, checked via `login_sid.lua` first) and logged out when the integration unloads. Diagnostics show under `web_sessions` how often it logged in or reused a session.
+- **New – “External IPv6” sensor (issue #36):** public IPv6 address of the box with prefix (attributes), also shown under Internet in the card.
+- **New – switches in the mesh (issue #37):** nodes with several wired connections in the mesh data (second switch, daisy chain) are recognised as “Switch” and drawn as a chain in the mesh map. They do not count as repeaters (no effect on “Restart all”).
+
+**Card**
+
+- **Fixed – changing the IP (issue #38):** the “Fixed IP” row is visible again for all devices; for devices with a fixed IP the button reads “Change”.
+- **Fixed – card without tabs/settings (issue #39):** new cards start with tabs and the control bar; when the options are off, a dismissible hint points to the areas (`show_more_hint: false` hides it).
+- **New – zoom and pan on the mesh map** like the Zigbee2MQTT Manager card: slider 15–300 %, buttons zoom out/in/fit/100 %, Ctrl + wheel, pinch, mouse drag; the zoom is remembered in the browser.
+
+**Update notes:** update via HACS, restart Home Assistant, clear the browser cache (Ctrl+F5).
+
+**Known:** the box does not provide per-device IPv6 addresses via TR-064; they are not shown. Switch detection, session reuse and the IPv6 query are only tested against simulations, not on a real box; the card has not been tested in a browser.
 
 ### 2.0.3 – Vendor list download works again, “Devices total” sensor
 
