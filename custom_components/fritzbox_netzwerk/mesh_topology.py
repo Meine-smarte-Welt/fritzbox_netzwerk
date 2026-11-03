@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 518546e99487a95b6b51f9bd69635460aec1e45c60b892393ba07db6272cc293
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 8eacd582a32f0144d2240997ab0d63c1ee9f356fa5398f8225df4f9e2a322f50
 """Mesh-Topologie ueber ``fritzconnection.lib.fritztopology`` (Idee 5 aus feature-ideen.md).
 
 Eigenes, von Home Assistant unabhaengiges Modul - wie ``connection.py`` -
@@ -164,9 +164,20 @@ def _switch_uids(topology: FritzMeshTopology) -> set[str]:
     for device in topology.devices:
         if getattr(device, "is_meshed", False) or _role(device) in ("master", "slave"):
             continue
-        if len(neighbors.get(device.uid, ())) >= 2:
+        count = len(neighbors.get(device.uid, ()))
+        # 2.1.1 (Issue #41, ANNAHME, nicht an echter Hardware geprueft): Eine FRITZ!Box, die als
+        # eigener Router hinter einer anderen haengt (Kaskade), ist kein Mesh-Geraet, leitet aber
+        # Verkehr weiter. Sie zaehlt schon mit einer Kabelverbindung als Zwischenstation - sonst
+        # erschiene das letzte Glied der Kette nur als Geraet in der LAN-Wolke seiner Vorgaengerin.
+        if count >= 2 or (count >= 1 and _is_fritzbox_model(device)):
             found.add(device.uid)
     return found
+
+
+def _is_fritzbox_model(device: Any) -> bool:
+    """Ob das Geraet laut gemeldetem Modell eine FRITZ!Box ist (kein Repeater, Powerline o. ae.)."""
+    model = str(getattr(device, "model", "") or "").lower()
+    return model.startswith("fritz!box") or model.startswith("fritzbox")
 
 
 def _is_hub(device: Any, strict: bool, switches: Any = frozenset()) -> bool:

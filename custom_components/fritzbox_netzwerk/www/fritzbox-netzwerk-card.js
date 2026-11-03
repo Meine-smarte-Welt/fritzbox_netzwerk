@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): de23b01e449dbdff846e510df1323cd7729b218da84922178315bf93d801d44b
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 0023844cee6e37ac8a7ab08964c8051a9457f6962a41f842cc656f63eafc20a4
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "2.1.0";
+const FBN_VERSION = "2.1.1";
 // Merker, dass der Hinweis auf weitere Bereiche (Tabs/Einstellungen) ausgeblendet wurde.
 const MORE_HINT_KEY = "fbn-hint-more-areas";
 // Zoom der Mesh-Karte (Faktor; 1 = Originalgröße), wie in der Zigbee2MQTT-Manager-Karte.
@@ -3048,6 +3048,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
       });
       const isBox = hub === root;
       const isSwitch = !isBox && hub.role === "switch";
+      // 2.1.1 (#41): eine kaskadierte FRITZ!Box (Modell "FRITZ!Box ...") bekommt das Router-Symbol statt des Switch-Symbols
+      const isCascade = isSwitch && /^fritz!?box/i.test(String(hub.model || ""));
       const kindName = isBox ? "FRITZ!Box" : isSwitch ? "Switch" : "Repeater";
       const sub = hub.model && hub.model !== hub.name ? hub.model : kindName;
       const count = isBox ? this._t("mm.total", { n: total }) : this._t("mm.devices", { n: (clients.get(hub) || []).length });
@@ -3056,7 +3058,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         top,
         HUB_W,
         HUB_H,
-        isBox ? "mdi:router-wireless" : isSwitch ? "mdi:switch" : off ? "mdi:access-point-network-off" : "mdi:access-point-network",
+        isBox ? "mdi:router-wireless" : isCascade ? "mdi:router-network" : isSwitch ? "mdi:switch" : off ? "mdi:access-point-network-off" : "mdi:access-point-network",
         [hub.name || kindName, sub, count],
         off ? "fbn-mm-off" : isBox ? "fbn-mm-box" : isSwitch ? "fbn-mm-sw" : "fbn-mm-rep",
         targetAttrs(hub),
@@ -3086,7 +3088,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
           .join("");
         const body = `<div class="fbn-mm-list">${kidRows}${list.map((h) => row(h.mac, h.label || h.name || h.mac, valueOf(h))).join("")}</div>`;
         const meta = hub === root ? this._t("mm.direct_total", { d: list.length, t: total }) : this._t("mm.devices", { n: list.length });
-        return this._accordion(`mesh:${hubKey(hub)}`, hub === root ? "mdi:router-wireless" : hub.role === "switch" ? "mdi:switch" : "mdi:access-point-network", hub.name || "", meta, body, "", idx === 0);
+        return this._accordion(`mesh:${hubKey(hub)}`, hub === root ? "mdi:router-wireless" : hub.role === "switch" ? (/^fritz!?box/i.test(String(hub.model || "")) ? "mdi:router-network" : "mdi:switch") : "mdi:access-point-network", hub.name || "", meta, body, "", idx === 0);
       })
       .join("");
     // 2.1.0: Zoom und Verschieben wie in der Zigbee2MQTT-Manager-Karte. Die Breite der Zeichnung

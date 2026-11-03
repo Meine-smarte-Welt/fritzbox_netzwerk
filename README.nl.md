@@ -7,7 +7,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.1.0-blue)
+![Version](https://img.shields.io/badge/Version-2.1.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video en handleiding voor de netwerkkaart (Duits):** [meinesmartewelt.de – FRITZ!Box Netzwerk voor Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -397,6 +397,8 @@ Schrijfacties vereisen beheerdersrechten; invoer wordt in de backend gecontrolee
 
 ## Bekende beperkingen
 
+Ongeteste functies met teststappen staan in [EXPERIMENTELL.md](EXPERIMENTELL.md) (Duits).
+
 - **Notification Center (sinds 2.0.0)** is alleen getest tegen een gesimuleerde gebeurtenisbus, niet tegen een echt Notification Center of echte hardware; de schakelaars bestaan alleen in het dialoogvenster Configureren, niet in de kaart, zie [Notification Center](#notification-center-optioneel).
 - **„Alle ongebruikte verbindingen verwijderen” (sinds 2.0.2, experimenteel):** TR-064 heeft daarvoor geen actie; de integratie gebruikt de REST-interface van de webinterface. Het verzoek is op een echte FRITZ!Box 5690 Pro waargenomen (niet verzonden); of het opruimen op een echte box werkt, is **niet getest**.
 - **„Verloren” (sinds 2.0.2)** berust op de door de integratie zelf vastgelegde tijd „laatst online”; apparaten zonder die tijd zijn nooit verloren. Alleen met testgegevens getest.
@@ -432,6 +434,17 @@ De tests voor het Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 2.1.1 – Kaart opgeruimd na deactiveren, gecascadeerde FRITZ!Boxen in de meshkaart
+
+**Integratie**
+
+- **Opgelost – fout in de browser na deactiveren (issue #40):** Wordt de (laatste) box gedeactiveerd of verwijderd, dan verwijdert de integratie ook de kaart uit de Lovelace-resources. Eerder bleef de invoer staan, werd het bestand niet meer geleverd en meldde de browser bij elke keer laden "Failed to load Lovelace resource". Opnieuw laden van de integratie of herstarten van Home Assistant wijzigt de resources niet. Bij opnieuw activeren wordt de invoer weer aangemaakt. In YAML-modus blijft alles onaangeroerd.
+- **Gewijzigd – gecascadeerde FRITZ!Boxen (issue #41):** Een FRITZ!Box die als eigen router achter een andere hangt (geen mesh-apparaat) telt nu al met één kabelverbinding als tussenstation. Een keten box → box → box verschijnt daardoor als keten in de meshkaart (routersymbool), in plaats van dat de laatste schakel alleen als apparaat in de LAN-wolk van de vorige staat. Net als switches tellen deze boxen niet als repeaters (geen invloed op "Alles herstarten").
+
+**Updateopmerkingen:** Werk bij via HACS, start Home Assistant opnieuw op en leeg de browsercache (Ctrl+F5). Een verouderde kaartinvoer die na een eerdere deactivering is blijven staan, wordt niet automatisch verwijderd: verwijder hem onder Instellingen → Dashboards → Resources (of activeer de integratie eenmaal en deactiveer haar weer).
+
+**Bekend:** De cascadedetectie is een aanname en alleen getest met een nagebouwde topologie, niet op een echte cascade; de kaart is niet in een browser getest. Issue #35 (inlogmails) blijft open tot er een reactie op 2.1.0 is.
 
 ### 2.1.0 – IP-wijziging terug, netwerkkaart met zoom, switches in de meshkaart, minder inlogmails
 

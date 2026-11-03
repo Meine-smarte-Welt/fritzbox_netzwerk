@@ -13,7 +13,7 @@ passenden Home-Assistant-Gerätenamen
   <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=Meine-smarte-Welt&amp;repository=fritzbox_netzwerk&amp;category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Repository in Home Assistant öffnen" height="32"></a>
 </p>
 
-![Version](https://img.shields.io/badge/Version-2.1.0-blue)
+![Version](https://img.shields.io/badge/Version-2.1.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video und Anleitung zur Netzwerkkarte:** [meinesmartewelt.de – FRITZ!Box Netzwerk für Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -1750,6 +1750,8 @@ language: nl   # "" = automatisch, sonst de | en | nl
 
 ## Bekannte Einschränkungen
 
+Ungeprüfte Funktionen mit Testschritten stehen in [EXPERIMENTELL.md](EXPERIMENTELL.md).
+
 - **„Alle ungenutzten Verbindungen entfernen“ (seit 2.0.2, experimentell).** TR-064 kennt keine Aktion dafür. Die Integration nutzt die REST-Schnittstelle der Weboberfläche (FRITZ!OS 8). Die Anfrage wurde an einer FRITZ!Box 5690 Pro im Browser beobachtet, aber **nicht abgesendet**; ob das Aufräumen auf einer echten Box funktioniert, ist **ungeprüft**. Ältere FRITZ!OS-Stände kennen die Route womöglich nicht – dann wird nichts geändert und der Fehler gemeldet.
 - **„Verloren“ (seit 2.0.2)** beruht auf dem von der Integration selbst geschriebenen Zeitpunkt „zuletzt online“; Geräte ohne diesen Zeitpunkt gelten nie als verloren. Nur gegen Testdaten geprüft.
 - **Statische IP im Popup:** Meldet das Gerät oder die Box schon eine feste IP, blendet die Karte die Zeile „Statische IP – Festlegen“ seit 2.0.2 aus. Eine Funktion zum Ändern oder Aufheben einer bestehenden Reservierung gibt es nicht (der Schreibweg dafür ist nicht eingebaut und an keiner Box geprüft).
@@ -1818,7 +1820,7 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `1506ecb118a8cdf77328cd1d72aec2d65b76d84180e78b1028d6d342af5c9c3e` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `f93f8df26a29126166fac2f9aafd37ad1b181effb897b19a9c791e0290335dac` |
 | `custom_components/fritzbox_netzwerk/strings.json` | `a9f71d2913c744f63af788dbfa4963b40755757208b4c7bacaacdd7748555ece` |
 | `custom_components/fritzbox_netzwerk/translations/de.json` | `4d87393dbb7bc28b5253edbf2e181343e277165074e54520d5a4e098c5947c73` |
 | `custom_components/fritzbox_netzwerk/translations/en.json` | `1ba4257cd257bd966246df75fb9e21468dab13ffc8e42dae50ffad3393ca47f2` |
@@ -1860,6 +1862,17 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.1.1 – Karte nach dem Deaktivieren aufgeräumt, kaskadierte FRITZ!Boxen in der Mesh-Karte
+
+**Integration**
+
+- **Behoben – Fehler im Browser nach dem Deaktivieren (Issue #40):** Wird die (letzte) Box deaktiviert oder gelöscht, entfernt die Integration auch den Eintrag der Karte aus den Lovelace-Ressourcen. Vorher blieb er stehen, die Datei wurde nicht mehr ausgeliefert, und der Browser meldete bei jedem Laden „Failed to load Lovelace resource“. Ein Neuladen der Integration oder ein Neustart von Home Assistant ändert die Ressourcen nicht. Beim erneuten Aktivieren wird der Eintrag wieder angelegt. Im YAML-Modus bleibt alles unberührt.
+- **Geändert – kaskadierte FRITZ!Boxen (Issue #41):** Eine FRITZ!Box, die als eigener Router hinter einer anderen hängt (kein Mesh-Gerät), gilt jetzt schon mit einer Kabelverbindung als Zwischenstation. Eine Kette Box → Box → Box erscheint damit als Kette in der Mesh-Karte (Symbol „Router“), statt dass das letzte Glied nur als Gerät in der LAN-Wolke der Vorgängerin steht. Wie Switches zählen diese Boxen nicht als Repeater (kein Einfluss auf „Alle neu starten“).
+
+**Hinweise zum Update:** Über HACS aktualisieren, Home Assistant neu starten, Browser-Cache leeren (Strg+F5). Ein bereits vorhandener, veralteter Karteneintrag nach einem früheren Deaktivieren wird nicht automatisch gelöscht: unter Einstellungen → Dashboards → Ressourcen entfernen (oder die Integration einmal aktivieren und wieder deaktivieren).
+
+**Bekannt:** Die Kaskaden-Erkennung ist eine Annahme und nur gegen eine nachgebaute Topologie geprüft, nicht an einer echten Kaskade; die Karte ist nicht in einem Browser getestet. Issue #35 (Anmelde-Mails) bleibt offen, bis eine Rückmeldung zu 2.1.0 vorliegt.
 
 ### 2.1.0 – IP-Änderung zurück, Netzwerkkarte mit Zoom, Switches in der Mesh-Karte, weniger Anmelde-Mails
 

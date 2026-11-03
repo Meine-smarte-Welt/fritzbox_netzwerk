@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): f9f03a1961f75ecc9f7a4c375a17aa8426f14b5adea9608c9140506e8e16e4b4
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 653f9c1fb69f7079e3addfd03fb24bd0a3ab2ec5e16f90489fba2de889f9f2c7
 """Die Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -341,6 +341,16 @@ async def async_unload_entry(
         close = getattr(coordinator, "async_close_web_session", None)
         if close is not None:
             await close()
+    if (
+        unloaded
+        and entry.disabled_by is not None
+        and not hass.config_entries.async_loaded_entries(DOMAIN)
+    ):
+        # 2.1.1 (Issue #40): Wird die letzte Box deaktiviert, liefert Home Assistant die
+        # Karten-Datei nicht mehr aus - die Lovelace-Ressource muss mit, sonst meldet der
+        # Browser bei jedem Laden "Failed to load Lovelace resource". Ein Neuladen oder der
+        # Neustart von Home Assistant laesst die Ressource unberuehrt (nur bei "deaktiviert").
+        await _async_remove_lovelace_resource(hass)
     if unloaded and not hass.config_entries.async_loaded_entries(DOMAIN):
         for service in (
             SERVICE_SET_DEVICE_NAME,
@@ -364,6 +374,19 @@ async def async_unload_entry(
         ):
             hass.services.async_remove(DOMAIN, service)
     return unloaded
+
+
+async def async_remove_entry(
+    hass: HomeAssistant, entry: FritzboxNetzwerkConfigEntry
+) -> None:
+    """Raeumt beim Loeschen der letzten Box die Lovelace-Ressource der Karte auf (Issue #40)."""
+    others = [
+        other
+        for other in hass.config_entries.async_entries(DOMAIN)
+        if other.entry_id != entry.entry_id and other.disabled_by is None
+    ]
+    if not others:
+        await _async_remove_lovelace_resource(hass)
 
 
 # ---------------------------------------------------------------------------
@@ -443,6 +466,32 @@ async def _async_ensure_lovelace_resource(hass: HomeAssistant) -> None:
 
     await resources.async_create_item({"res_type": "module", "url": versioned_url})
     _LOGGER.debug("Lovelace-Ressource %s angelegt", versioned_url)
+
+
+async def _async_remove_lovelace_resource(hass: HomeAssistant) -> None:
+    """Entfernt die Karte aus den Lovelace-Ressourcen (Gegenstueck zu ``_async_ensure_lovelace_resource``).
+
+    Im YAML-Modus bleibt alles unberuehrt (dort verwaltet der Nutzer die Ressourcen selbst).
+    Fehler werden nur protokolliert: das Aufraeumen darf Deaktivieren/Loeschen nie verhindern.
+    """
+    try:
+        lovelace = hass.data.get("lovelace")
+        if lovelace is None:
+            return
+        resources = getattr(lovelace, "resources", None)
+        if resources is None and isinstance(lovelace, dict):
+            resources = lovelace.get("resources")
+        if resources is None or getattr(resources, "store", None) is None:
+            return
+        if not getattr(resources, "loaded", False):
+            await resources.async_load()
+            resources.loaded = True
+        for item in list(resources.async_items()):
+            if str(item.get("url", "")).split("?")[0] == CARD_URL:
+                await resources.async_delete_item(item["id"])
+                _LOGGER.debug("Lovelace-Ressource %s entfernt", item.get("url"))
+    except Exception:  # noqa: BLE001 - reines Aufraeumen, darf nie scheitern lassen
+        _LOGGER.debug("Lovelace-Ressource konnte nicht entfernt werden", exc_info=True)
 
 
 # ---------------------------------------------------------------------------

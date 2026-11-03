@@ -7,7 +7,7 @@
 
 Une intégration Home Assistant qui affiche tous les appareils du réseau domestique FRITZ!Box sur votre tableau de bord sous forme de tableau triable – avec adresse IP, adresse MAC, type de connexion et nom de l'appareil Home Assistant correspondant.
 
-![Version](https://img.shields.io/badge/Version-2.1.0-blue)
+![Version](https://img.shields.io/badge/Version-2.1.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Vidéo et guide de la carte réseau (en allemand) :** [meinesmartewelt.de – FRITZ!Box Netzwerk pour Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -377,6 +377,8 @@ Les actions d'écriture exigent des droits d'administrateur ; les saisies sont v
 
 ## Limites connues
 
+Les fonctions non vérifiées, avec étapes de test, sont listées dans [EXPERIMENTELL.md](EXPERIMENTELL.md) (allemand).
+
 - **« Supprimer toutes les connexions inutilisées » (depuis 2.0.2, expérimental) :** TR-064 n'a pas d'action pour cela ; l'intégration utilise l'interface REST de l'interface web. La requête a été observée (non envoyée) sur une vraie FRITZ!Box 5690 Pro ; le fonctionnement sur une vraie box est **non testé**.
 - **« Perdu » (depuis 2.0.2)** repose sur l'heure « dernière connexion » enregistrée par l'intégration ; sans elle, un appareil n'est jamais perdu. Testé avec des données de test uniquement.
 - **IP statique dans la fenêtre :** masquée depuis 2.0.2 si l'appareil ou la box signale déjà une IP fixe. Il n'existe pas de fonction pour modifier ou lever une réservation existante.
@@ -412,6 +414,17 @@ Les tests du centre de notifications dans 2.0.0 (`test_notification_bridge.py`, 
 Le dépôt contient les tests pour 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`) ; ils s'exécutent sur des données synthétiques, pas sur du matériel réel. Les tests de 1.8.0 pour `dns_settings.py` et `static_ip.py` ne sont pas versionnés.
 
 ## Historique des versions
+
+### 2.1.1 – Carte nettoyée après désactivation, FRITZ!Box en cascade dans la carte mesh
+
+**Intégration**
+
+- **Corrigé – erreur dans le navigateur après désactivation (issue #40) :** Quand la (dernière) box est désactivée ou supprimée, l'intégration retire aussi la carte des ressources Lovelace. Auparavant l'entrée restait, le fichier n'était plus servi et le navigateur affichait « Failed to load Lovelace resource » à chaque chargement. Recharger l'intégration ou redémarrer Home Assistant ne modifie pas les ressources. En la réactivant, l'entrée est recréée. En mode YAML, rien n'est touché.
+- **Modifié – FRITZ!Box en cascade (issue #41) :** Une FRITZ!Box branchée derrière une autre comme routeur propre (pas un appareil mesh) compte désormais comme station intermédiaire dès une seule liaison filaire. Une chaîne box → box → box apparaît ainsi comme chaîne dans la carte mesh (icône de routeur), au lieu que le dernier maillon n'apparaisse que comme appareil dans le nuage LAN de la précédente. Comme les switchs, ces box ne comptent pas comme répéteurs (aucun effet sur « Tout redémarrer »).
+
+**Notes de mise à jour :** Mettez à jour via HACS, redémarrez Home Assistant, videz le cache du navigateur (Ctrl+F5). Une entrée de carte obsolète laissée par une désactivation antérieure n'est pas supprimée automatiquement : supprimez-la sous Paramètres → Tableaux de bord → Ressources (ou activez l'intégration une fois puis désactivez-la de nouveau).
+
+**Connu :** La détection des cascades est une hypothèse, vérifiée uniquement sur une topologie reconstituée, pas sur une vraie cascade ; la carte n'a pas été testée dans un navigateur. L'issue #35 (e-mails de connexion) reste ouverte jusqu'à un retour sur 2.1.0.
 
 ### 2.1.0 – Retour du changement d'IP, carte réseau avec zoom, switchs dans la carte mesh, moins d'e-mails de connexion
 

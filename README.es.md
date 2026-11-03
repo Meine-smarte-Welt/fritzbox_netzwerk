@@ -7,7 +7,7 @@
 
 Una integración de Home Assistant que muestra todos los dispositivos de la red doméstica de la FRITZ!Box en tu panel como una tabla ordenable – con dirección IP, dirección MAC, tipo de conexión y el nombre del dispositivo de Home Assistant correspondiente.
 
-![Version](https://img.shields.io/badge/Version-2.1.0-blue)
+![Version](https://img.shields.io/badge/Version-2.1.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Vídeo y guía de la tarjeta de red (en alemán):** [meinesmartewelt.de – FRITZ!Box Netzwerk para Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -377,6 +377,8 @@ Las acciones de escritura requieren derechos de administrador; las entradas se v
 
 ## Limitaciones conocidas
 
+Las funciones sin verificar, con pasos de prueba, figuran en [EXPERIMENTELL.md](EXPERIMENTELL.md) (alemán).
+
 - **«Eliminar todas las conexiones no utilizadas» (desde 2.0.2, experimental):** TR-064 no tiene una acción para ello; la integración usa la interfaz REST de la interfaz web. La petición se observó (sin enviarla) en una FRITZ!Box 5690 Pro real; que la limpieza funcione en una caja real **no está probado**.
 - **«Perdido» (desde 2.0.2)** se basa en la hora «última conexión» que la propia integración registra; sin ella un dispositivo nunca está perdido. Probado solo con datos de prueba.
 - **IP estática en la ventana:** desde 2.0.2 se oculta si el dispositivo o la caja ya informa de una IP fija. No existe una función para cambiar o liberar una reserva existente.
@@ -412,6 +414,17 @@ Las pruebas del centro de notificaciones en 2.0.0 (`test_notification_bridge.py`
 El repositorio contiene las pruebas de 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); se ejecutan con datos sintéticos, no con hardware real. Las pruebas de 1.8.0 para `dns_settings.py` y `static_ip.py` no están incluidas.
 
 ## Historial de versiones
+
+### 2.1.1 – Tarjeta limpiada tras desactivar, FRITZ!Box en cascada en el mapa mesh
+
+**Integración**
+
+- **Corregido – error en el navegador tras desactivar (issue #40):** Al desactivar o eliminar la (última) caja, la integración también quita la tarjeta de los recursos de Lovelace. Antes la entrada permanecía, el archivo ya no se servía y el navegador mostraba «Failed to load Lovelace resource» en cada carga. Recargar la integración o reiniciar Home Assistant no cambia los recursos. Al activarla de nuevo se vuelve a crear la entrada. En modo YAML no se toca nada.
+- **Cambiado – FRITZ!Box en cascada (issue #41):** Una FRITZ!Box que cuelga de otra como router propio (no es un dispositivo mesh) cuenta ahora como estación intermedia con una sola conexión por cable. Una cadena caja → caja → caja aparece así como cadena en el mapa mesh (icono de router), en lugar de que el último eslabón figure solo como dispositivo en la nube LAN de la anterior. Como los switches, estas cajas no cuentan como repetidores (sin efecto en «Reiniciar todo»).
+
+**Notas de actualización:** Actualiza con HACS, reinicia Home Assistant y vacía la caché del navegador (Ctrl+F5). Una entrada de tarjeta obsoleta que quedó de una desactivación anterior no se elimina automáticamente: bórrala en Ajustes → Paneles → Recursos (o activa la integración una vez y desactívala de nuevo).
+
+**Conocido:** La detección de cascadas es una suposición y solo se ha comprobado con una topología simulada, no en una cascada real; la tarjeta no se ha probado en un navegador. La issue #35 (correos de inicio de sesión) sigue abierta hasta que haya respuesta sobre 2.1.0.
 
 ### 2.1.0 – Vuelve el cambio de IP, tarjeta de red con zoom, switches en el mapa mesh, menos correos de inicio de sesión
 

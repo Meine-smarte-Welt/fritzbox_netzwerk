@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.1.0-blue)
+![Version](https://img.shields.io/badge/Version-2.1.1-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video and guide for the network card (German):** [meinesmartewelt.de – FRITZ!Box Netzwerk for Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -394,6 +394,8 @@ Write actions need administrator rights; inputs are validated in the backend; te
 
 ## Known limitations
 
+Unverified features with test steps are listed in [EXPERIMENTELL.md](EXPERIMENTELL.md) (German).
+
 - **“Remove all unused connections” (since 2.0.2, experimental):** TR-064 has no action for it; the integration uses the web UI's REST interface. The request was observed (not sent) on a real FRITZ!Box 5690 Pro; whether the cleanup works on a real box is **untested**.
 - **“Lost” (since 2.0.2)** is based on the “last online” time the integration records itself; devices without it are never lost. Tested against test data only.
 - **Static IP in the popup:** if the device or box already reports a fixed IP, the row is hidden since 2.0.2. There is no function to change or release an existing reservation.
@@ -429,6 +431,17 @@ The tests for the Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 2.1.1 – Card cleaned up after deactivation, cascaded FRITZ!Boxes in the mesh map
+
+**Integration**
+
+- **Fixed – browser error after deactivating (issue #40):** When the (last) box is deactivated or deleted, the integration now also removes the card from the Lovelace resources. Before, the entry stayed, the file was no longer served, and the browser reported "Failed to load Lovelace resource" on every load. Reloading the integration or restarting Home Assistant leaves the resources unchanged. Activating again creates the entry again. In YAML mode nothing is touched.
+- **Changed – cascaded FRITZ!Boxes (issue #41):** A FRITZ!Box that hangs behind another one as its own router (not a mesh device) now counts as an intermediate station with a single cable link. A chain box → box → box therefore appears as a chain in the mesh map (router icon) instead of the last link showing up only as a device in the LAN cloud of the previous box. Like switches, these boxes do not count as repeaters (no effect on "Restart all").
+
+**Update notes:** Update via HACS, restart Home Assistant, clear the browser cache (Ctrl+F5). A stale card entry left behind by an earlier deactivation is not removed automatically: delete it under Settings → Dashboards → Resources (or activate the integration once and deactivate it again).
+
+**Known:** The cascade detection is an assumption and only checked against a rebuilt topology, not on a real cascade; the card is not tested in a browser. Issue #35 (login emails) stays open until feedback on 2.1.0 arrives.
 
 ### 2.1.0 – IP change is back, network card with zoom, switches in the mesh map, fewer login emails
 
