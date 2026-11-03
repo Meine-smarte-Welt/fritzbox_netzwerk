@@ -7,7 +7,7 @@
 
 Une intégration Home Assistant qui affiche tous les appareils du réseau domestique FRITZ!Box sur votre tableau de bord sous forme de tableau triable – avec adresse IP, adresse MAC, type de connexion et nom de l'appareil Home Assistant correspondant.
 
-![Version](https://img.shields.io/badge/Version-2.1.1-blue)
+![Version](https://img.shields.io/badge/Version-2.1.2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Vidéo et guide de la carte réseau (en allemand) :** [meinesmartewelt.de – FRITZ!Box Netzwerk pour Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -165,6 +165,7 @@ Via *Configurer* sur l'intégration :
 | Durée d'appairage | 5 min | Durée pendant laquelle le filtre MAC reste désactivé lors de l'appairage (1–120 min) |
 | « Perdu » après (jours) (depuis 2.0.2) | 7 | Un appareil hors ligne et non vu depuis plus de ce nombre de jours est « perdu » (filtre, marque, capteur). 0 = désactivé. Désactivable par appareil dans la fenêtre avec « Ignorer l'état hors ligne » |
 | Autoriser la suppression des connexions inutilisées (expérimental, depuis 2.0.2) | désactivé | Active le service `remove_unused_connections` et le bouton « Libérer les IP inutilisées » de la carte |
+| Détecter les FRITZ!Box en cascade comme station intermédiaire (expérimental, depuis 2.1.2) | désactivé | Une FRITZ!Box reliée par câble derrière une autre compte dans la carte mesh comme station intermédiaire avec une seule liaison câblée (symbole routeur). Non vérifié ; sans l'option, la détection des switches fonctionne comme en 2.1.0 |
 
 ---
 
@@ -414,6 +415,17 @@ Les tests du centre de notifications dans 2.0.0 (`test_notification_bridge.py`, 
 Le dépôt contient les tests pour 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`) ; ils s'exécutent sur des données synthétiques, pas sur du matériel réel. Les tests de 1.8.0 pour `dns_settings.py` et `static_ip.py` ne sont pas versionnés.
 
 ## Historique des versions
+
+### 2.1.2 – Détection des switches comme en 2.1.0, détection en cascade seulement en option
+
+**Intégration**
+
+- **Corrigé – switch n'est plus détecté dans la carte mesh (après 2.1.1) :** La règle de cascade de 2.1.1 (issue #41) s'appliquait toujours et classait comme switch toute FRITZ!Box reliée par câble, même un simple terminal, de sorte que la liste des switches et les liaisons différaient de 2.1.0. Elle n'est désormais active qu'avec la nouvelle option **« Détecter les FRITZ!Box en cascade comme station intermédiaire (expérimental) »** (par défaut : désactivée). Sans l'option, la détection des switches se comporte exactement comme en 2.1.0, et les switches avec un modèle FRITZ!Box affichent de nouveau le symbole de switch.
+- **Nouveau – option « Détecter les FRITZ!Box en cascade comme station intermédiaire (expérimental) » :** Avec elle, une FRITZ!Box branchée derrière une autre comme routeur propre compte comme station intermédiaire avec une seule liaison câblée (symbole routeur), comme en 2.1.1. L'export de diagnostic indique si l'option est activée (`cascade_enabled`).
+
+**Remarques de mise à jour :** Mettre à jour via HACS, redémarrer Home Assistant, vider le cache du navigateur (Ctrl+F5). Pour continuer à utiliser la détection en cascade de 2.1.1, activer l'option sous Paramètres → Appareils et services → FRITZ!Box Netzwerk → Configurer.
+
+**Connu :** Avec l'option désactivée, la détection des switches et les liaisons donnent le même résultat que 2.1.0 dans des topologies simulées ; ce n'est pas confirmé sur une vraie box, seul un test montrera si ton switch est de nouveau détecté. La détection en cascade reste non vérifiée. L'issue #35 (e-mails de connexion) reste ouverte jusqu'à un retour sur 2.1.0.
 
 ### 2.1.1 – Carte nettoyée après désactivation, FRITZ!Box en cascade dans la carte mesh
 

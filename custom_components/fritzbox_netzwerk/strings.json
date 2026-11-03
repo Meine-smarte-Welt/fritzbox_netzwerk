@@ -83,7 +83,8 @@
           "nc_enabled": "Meldungen an das Notification Center senden",
           "nc_types": "Gesendete Meldungsarten",
           "lost_after_days": "„Verloren“ nach (Tagen)",
-          "enable_cleanup": "Ungenutzte Verbindungen entfernen erlauben (experimentell)"
+          "enable_cleanup": "Ungenutzte Verbindungen entfernen erlauben (experimentell)",
+          "enable_cascade_detection": "Kaskadierte FRITZ!Boxen als Zwischenstation erkennen (experimentell)"
         },
         "data_description": {
           "track_address_source": "Diese Angabe steht nicht in der Geräteliste und kostet einen zusätzlichen Aufruf pro Gerät. Sie ändert sich selten, deshalb läuft sie in einem eigenen, langsameren Takt.",
@@ -107,7 +108,8 @@
           "nc_enabled": "Optional: Ist das Notification Center installiert, meldet diese Integration Verbindungsverlust, ausgefallene überwachte Geräte und neue Geräte dorthin. Ohne Notification Center passiert nichts.",
           "nc_types": "Nur die angehakten Meldungsarten werden gesendet. Überwacht sind Repeater (Option „Repeater als eigene Geräte anlegen“) und die per IP-Muster ausgewählten Netzwerkgeräte.",
           "lost_after_days": "Ein Gerät, das offline ist und seit mehr als so vielen Tagen nicht mehr gesehen wurde, gilt als „verloren“ (Filter und Kennzeichnung in der Karte, Sensor „Verlorene Geräte“). 0 = Funktion aus. Grundlage ist der Zeitpunkt „zuletzt online“, den die Integration selbst mitschreibt; Geräte ohne diesen Zeitpunkt gelten nie als verloren. Je Gerät lässt sich das im Popup mit „Offline-Status ignorieren“ abschalten. Standard: 7.",
-          "enable_cleanup": "Erlaubt dem Dienst „Ungenutzte Verbindungen entfernen“ und dem Knopf in der Karte, in der FRITZ!Box „Alle ungenutzten Verbindungen entfernen“ auszulösen (Heimnetz → Netzwerk → Netzwerkverbindungen). Die Box behält dabei Geräte mit individuellen Einstellungen; entfernte Einträge lassen sich nicht wiederherstellen. Nutzt die REST-Schnittstelle der Weboberfläche (FRITZ!OS 8), nicht TR-064 – die Anfrage wurde an einer FRITZ!Box 5690 Pro beobachtet, die Ausführung ist ungeprüft. Standardmäßig aus."
+          "enable_cleanup": "Erlaubt dem Dienst „Ungenutzte Verbindungen entfernen“ und dem Knopf in der Karte, in der FRITZ!Box „Alle ungenutzten Verbindungen entfernen“ auszulösen (Heimnetz → Netzwerk → Netzwerkverbindungen). Die Box behält dabei Geräte mit individuellen Einstellungen; entfernte Einträge lassen sich nicht wiederherstellen. Nutzt die REST-Schnittstelle der Weboberfläche (FRITZ!OS 8), nicht TR-064 – die Anfrage wurde an einer FRITZ!Box 5690 Pro beobachtet, die Ausführung ist ungeprüft. Standardmäßig aus.",
+          "enable_cascade_detection": "Eine FRITZ!Box, die per Kabel hinter einer anderen hängt (Router-Betrieb), zählt in der Mesh-Karte schon mit einer Kabelverbindung als Zwischenstation und bekommt das Router-Symbol. Ungeprüft: nur gegen nachgebaute Daten getestet. In 2.1.1 galt diese Regel immer und stufte dabei jede per Kabel angeschlossene FRITZ!Box als Switch ein, auch reine Endgeräte; seit 2.1.2 ist sie nur noch mit dieser Option aktiv. Standardmäßig aus."
         }
       }
     }

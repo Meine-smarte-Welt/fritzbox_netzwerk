@@ -83,7 +83,8 @@
           "nc_enabled": "Meldingen naar het Notification Center sturen",
           "nc_types": "Te verzenden soorten meldingen",
           "lost_after_days": "Als „verloren” markeren na (dagen)",
-          "enable_cleanup": "Ongebruikte verbindingen verwijderen toestaan (experimenteel)"
+          "enable_cleanup": "Ongebruikte verbindingen verwijderen toestaan (experimenteel)",
+          "enable_cascade_detection": "Gecascadeerde FRITZ!Boxen als tussenstation herkennen (experimenteel)"
         },
         "data_description": {
           "track_address_source": "Deze waarde staat niet in de hostlijst en kost één extra verzoek per apparaat. Ze verandert zelden en loopt daarom op een eigen, langzamer schema.",
@@ -107,7 +108,8 @@
           "nc_enabled": "Optioneel: is het Notification Center geïnstalleerd, dan meldt deze integratie verbroken verbindingen, uitgevallen bewaakte apparaten en nieuwe apparaten daarheen. Zonder Notification Center gebeurt er niets.",
           "nc_types": "Alleen de aangevinkte soorten meldingen worden verzonden. Bewaakt worden repeaters (optie \"Repeaters als eigen apparaten aanmaken\") en de via het IP-patroon gekozen netwerkapparaten.",
           "lost_after_days": "Een apparaat dat offline is en al langer dan dit aantal dagen niet is gezien, geldt als „verloren” (filter en markering in de kaart, sensor „Verloren apparaten”). 0 = uit. Gebaseerd op het tijdstip „laatst online”, dat de integratie zelf bijhoudt; apparaten zonder dat tijdstip gelden nooit als verloren. Per apparaat is dit in de pop-up uit te zetten met „Offline-status negeren”. Standaard: 7.",
-          "enable_cleanup": "Staat de dienst „Ongebruikte verbindingen verwijderen” en de knop in de kaart toe om in de FRITZ!Box „Alle ongebruikte verbindingen verwijderen” uit te voeren (Thuisnetwerk → Netwerk → Netwerkverbindingen). De box behoudt apparaten met individuele instellingen; verwijderde items zijn niet te herstellen. Gebruikt de REST-interface van de webinterface (FRITZ!OS 8), niet TR-064 – het verzoek is waargenomen op een FRITZ!Box 5690 Pro, de uitvoering is niet getest. Standaard uit."
+          "enable_cleanup": "Staat de dienst „Ongebruikte verbindingen verwijderen” en de knop in de kaart toe om in de FRITZ!Box „Alle ongebruikte verbindingen verwijderen” uit te voeren (Thuisnetwerk → Netwerk → Netwerkverbindingen). De box behoudt apparaten met individuele instellingen; verwijderde items zijn niet te herstellen. Gebruikt de REST-interface van de webinterface (FRITZ!OS 8), niet TR-064 – het verzoek is waargenomen op een FRITZ!Box 5690 Pro, de uitvoering is niet getest. Standaard uit.",
+          "enable_cascade_detection": "Een FRITZ!Box die via een kabel achter een andere hangt (routermodus) telt in de meshkaart al met één kabelverbinding als tussenstation en krijgt het routersymbool. Niet getest: alleen gecontroleerd met nagebouwde gegevens. In 2.1.1 gold deze regel altijd en behandelde elke via kabel aangesloten FRITZ!Box als switch, ook gewone eindapparaten; sinds 2.1.2 is hij alleen actief met deze optie. Standaard uit."
         }
       }
     }

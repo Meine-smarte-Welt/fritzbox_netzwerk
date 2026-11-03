@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 85af10013fb03705c0b0b844cc5add67ed171b67710e09b88d83f8408f2bf4fc
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 5aeac3dd3c64217168a447ff8b57c857b87220cd0a6621bc07de5e0875dc125c
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -44,6 +44,7 @@ from .const import (
     GAST_WLAN_SERVICE_INDEX,
     CONF_CHECK_UPDATES,
     CONF_ENABLE_DNS_SETTINGS,
+    CONF_ENABLE_CASCADE,
     CONF_ENABLE_CLEANUP,
     CONF_ENABLE_STATIC_IP,
     CONF_LOST_AFTER_DAYS,
@@ -62,6 +63,7 @@ from .const import (
     TRAFFIC_SOURCES_INTERVAL_SECONDS,
     TRAFFIC_STORAGE_VERSION,
     DEFAULT_ENABLE_DNS_SETTINGS,
+    DEFAULT_ENABLE_CASCADE,
     DEFAULT_ENABLE_CLEANUP,
     DEFAULT_ENABLE_STATIC_IP,
     DEFAULT_LOST_AFTER_DAYS,
@@ -1003,7 +1005,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return {}
         try:
             links, self._mesh_repeaters, self._mesh_master, self._mesh_switches = fetch_mesh(
-                self.fritz_hosts.fc, self._mesh_debug
+                self.fritz_hosts.fc, self._mesh_debug, cascade=self.cascade_enabled
             )
             return links
         except (FritzConnectionException, RequestException) as err:
@@ -2556,6 +2558,11 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             default=DEFAULT_LOST_AFTER_DAYS,
         )
         return min(max(value, 0), MAX_LOST_AFTER_DAYS)
+
+    @property
+    def cascade_enabled(self) -> bool:
+        """Ob die experimentelle Kaskaden-Erkennung (Issue #41) eingeschaltet ist."""
+        return bool(self.entry.options.get(CONF_ENABLE_CASCADE, DEFAULT_ENABLE_CASCADE))
 
     @property
     def cleanup_enabled(self) -> bool:

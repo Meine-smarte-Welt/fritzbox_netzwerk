@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 8eacd582a32f0144d2240997ab0d63c1ee9f356fa5398f8225df4f9e2a322f50
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 1dce9e1993f14d0ff5dfc720114967330bef324f22de3f719e7717395b71e3fa
 """Mesh-Topologie ueber ``fritzconnection.lib.fritztopology`` (Idee 5 aus feature-ideen.md).
 
 Eigenes, von Home Assistant unabhaengiges Modul - wie ``connection.py`` -
@@ -22,7 +22,7 @@ from .hosts import BAND_2_4, BAND_5, BAND_6, band_from_channel, mac_key, mesh_li
 
 
 def fetch_mesh(
-    fc: Any, debug: dict[str, Any] | None = None
+    fc: Any, debug: dict[str, Any] | None = None, cascade: bool = False
 ) -> tuple[
     dict[str, dict[str, Any]], dict[str, dict[str, str]], dict[str, Any], list[dict[str, Any]]
 ]:
@@ -35,22 +35,26 @@ def fetch_mesh(
 
     Ist ``debug`` ein Dict, wird es mit der anonymisierten Beschreibung der
     Topologie gefuellt (``describe_topology``) - fuer den Diagnose-Export.
+
+    ``cascade`` schaltet die experimentelle Kaskaden-Erkennung ein (Issue #41, seit 2.1.2
+    Standard aus): eine kaskadierte FRITZ!Box zaehlt dann schon mit einer Kabelverbindung
+    als Switch.
     """
     topology = FritzMeshTopology(fc)
     topology.load_topology()
     if debug is not None:
         try:
-            description = describe_topology(topology)
+            description = describe_topology(topology, cascade)
         except Exception:  # noqa: BLE001 - reine Diagnose, darf die Auswertung nie kippen
             description = {"error": "Beschreibung der Topologie nicht moeglich"}
         debug.clear()
         debug.update(description)
-    links = links_from_topology(topology)
+    links = links_from_topology(topology, cascade)
     return (
         links,
         repeaters_from_topology(topology),
         master_from_topology(topology),
-        switches_from_topology(topology, links),
+        switches_from_topology(topology, links, cascade),
     )
 
 
@@ -151,13 +155,17 @@ def _lan_neighbors(topology: FritzMeshTopology) -> dict[str, set[str]]:
     return result
 
 
-def _switch_uids(topology: FritzMeshTopology) -> set[str]:
+def _switch_uids(topology: FritzMeshTopology, cascade: bool = False) -> set[str]:
     """Knoten, die als (nicht verwaltete) Switches gelten: Kabel-Zwischenstationen im Heimnetz.
 
     ANNAHME (Issue #37, nicht an echter Hardware geprueft): Ein Knoten, der weder Hauptbox noch
     Repeater ist (kein ``is_meshed``, keine Mesh-Rolle) und ueber mindestens ZWEI aktive
     Kabelverbindungen mit anderen Knoten verbunden ist, leitet Verkehr weiter - er hat einen
     Uplink und mindestens ein Geraet dahinter. Ein gewoehnliches Geraet hat nur den einen Uplink.
+
+    Mit ``cascade`` (experimentell, seit 2.1.2 Standard aus) gilt zusaetzlich eine FRITZ!Box schon
+    mit einer Kabelverbindung als Zwischenstation (Issue #41). Ohne ``cascade`` bleibt die
+    Erkennung genau wie in 2.1.0 (in 2.1.1 galt die Kaskaden-Regel immer).
     """
     neighbors = _lan_neighbors(topology)
     found: set[str] = set()
@@ -169,7 +177,9 @@ def _switch_uids(topology: FritzMeshTopology) -> set[str]:
         # eigener Router hinter einer anderen haengt (Kaskade), ist kein Mesh-Geraet, leitet aber
         # Verkehr weiter. Sie zaehlt schon mit einer Kabelverbindung als Zwischenstation - sonst
         # erschiene das letzte Glied der Kette nur als Geraet in der LAN-Wolke seiner Vorgaengerin.
-        if count >= 2 or (count >= 1 and _is_fritzbox_model(device)):
+        # 2.1.2: nur noch mit der experimentellen Option (``cascade``), weil die Regel in 2.1.1
+        # jede per Kabel angeschlossene FRITZ!Box als Switch einstufte, auch reine Endgeraete.
+        if count >= 2 or (cascade and count >= 1 and _is_fritzbox_model(device)):
             found.add(device.uid)
     return found
 
@@ -201,6 +211,7 @@ def _has_current_rate(connection: Any) -> bool:
 
 def _mesh_paths(
     topology: FritzMeshTopology,
+    cascade: bool = False,
 ) -> tuple[Any, dict[str, float], dict[str, tuple[Any, Any]]]:
     """Guenstigster Weg von der Hauptbox zu jedem Geraet: ``(master, abstand, vorgaenger)``.
 
@@ -214,7 +225,7 @@ def _mesh_paths(
     if master is None:
         return None, {}, {}
     strict = _strict_mesh_flags(topology)
-    switches = _switch_uids(topology)
+    switches = _switch_uids(topology, cascade)
     adjacency: dict[str, list[tuple[Any, Any]]] = {}
     for device in topology.devices:
         for connection in _connected(device):
@@ -244,7 +255,9 @@ def _mesh_paths(
     return master, distance, parent
 
 
-def links_from_topology(topology: FritzMeshTopology) -> dict[str, dict[str, Any]]:
+def links_from_topology(
+    topology: FritzMeshTopology, cascade: bool = False
+) -> dict[str, dict[str, Any]]:
     """Baut "verbunden ueber" + Verbindungsrate je Geraet aus einer geladenen Topologie.
 
     Der Uplink eines Geraets ist der Vorgaenger auf dem guenstigsten Weg von der Hauptbox
@@ -261,7 +274,7 @@ def links_from_topology(topology: FritzMeshTopology) -> dict[str, dict[str, Any]
     testen laesst, ohne eine echte FRITZ!Box zu brauchen.
     """
     links: dict[str, dict[str, Any]] = {}
-    master, _distance, parent = _mesh_paths(topology)
+    master, _distance, parent = _mesh_paths(topology, cascade)
     for device in topology.devices:
         keys = _device_keys(device)
         if not keys or (master is not None and device.uid == master.uid):
@@ -285,7 +298,7 @@ def links_from_topology(topology: FritzMeshTopology) -> dict[str, dict[str, Any]
     return links
 
 
-def describe_topology(topology: FritzMeshTopology) -> dict[str, Any]:
+def describe_topology(topology: FritzMeshTopology, cascade: bool = False) -> dict[str, Any]:
     """Anonymisierte Beschreibung der Mesh-Topologie fuer den Diagnose-Export.
 
     Ohne Namen und MAC-Adressen: Hauptbox und Repeater als durchnummerierte Knoten
@@ -293,9 +306,9 @@ def describe_topology(topology: FritzMeshTopology) -> dict[str, Any]:
     Verbindungen zwischen ihnen (Art, Zustand, aktuelle/maximale Rate). Clients werden
     nur gezaehlt. Damit laesst sich aus einer Meldung ablesen, was die Box wirklich liefert.
     """
-    master, distance, parent = _mesh_paths(topology)
+    master, distance, parent = _mesh_paths(topology, cascade)
     strict = _strict_mesh_flags(topology)
-    switches = _switch_uids(topology)
+    switches = _switch_uids(topology, cascade)
     hubs = [d for d in topology.devices if _is_hub(d, strict, switches)]
     index = {d.uid: number for number, d in enumerate(hubs, 1)}
     nodes: list[dict[str, Any]] = []
@@ -343,6 +356,7 @@ def describe_topology(topology: FritzMeshTopology) -> dict[str, Any]:
         "master_found": master is not None,
         "meshed_flags_reliable": strict,
         "switches": len(switches),
+        "cascade_enabled": bool(cascade),
         "nodes": nodes,
         "links": links,
         "clients": len(topology.devices) - len(hubs),
@@ -350,7 +364,9 @@ def describe_topology(topology: FritzMeshTopology) -> dict[str, Any]:
 
 
 def switches_from_topology(
-    topology: FritzMeshTopology, links: dict[str, dict[str, Any]] | None = None
+    topology: FritzMeshTopology,
+    links: dict[str, dict[str, Any]] | None = None,
+    cascade: bool = False,
 ) -> list[dict[str, Any]]:
     """Switches im Heimnetz (siehe ``_switch_uids``): Kennung, Name, Modell, MAC und Uplink.
 
@@ -358,9 +374,9 @@ def switches_from_topology(
     (``connected_via``, ``via_id``), Verbindungsrate und Art. Ein Switch ohne bekannten Uplink
     wird trotzdem gemeldet (die Karte haengt ihn dann unter die Hauptbox).
     """
-    uids = _switch_uids(topology)
+    uids = _switch_uids(topology, cascade)
     if links is None:
-        links = links_from_topology(topology)
+        links = links_from_topology(topology, cascade)
     found: list[dict[str, Any]] = []
     for device in topology.devices:
         if device.uid not in uids:
@@ -378,6 +394,8 @@ def switches_from_topology(
                 "connected_via": record.get("connected_via") or "",
                 "link_mbit": record.get("link_mbit"),
                 "type": record.get("type") or "",
+                # 2.1.2: Router-Symbol nur mit der experimentellen Kaskaden-Erkennung.
+                "cascade": bool(cascade and _is_fritzbox_model(device)),
             }
         )
     return found

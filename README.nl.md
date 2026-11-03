@@ -7,7 +7,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.1.1-blue)
+![Version](https://img.shields.io/badge/Version-2.1.2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video en handleiding voor de netwerkkaart (Duits):** [meinesmartewelt.de – FRITZ!Box Netzwerk voor Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -166,6 +166,7 @@ Via *Configureren* bij de integratie:
 | Pairingduur | 5 min | Hoe lang het MAC-filter bij pairing uit blijft (1–120 min) |
 | „Verloren” na (dagen) (sinds 2.0.2) | 7 | Een apparaat dat offline is en al langer dan dit aantal dagen niet is gezien, geldt als „verloren” (filter, markering, sensor). 0 = uit. Per apparaat in de pop-up uit te zetten met „Offline-status negeren” |
 | Ongebruikte verbindingen verwijderen toestaan (experimenteel, sinds 2.0.2) | uit | Schakelt de service `remove_unused_connections` en de knop „Ongebruikte IP's vrijgeven” in de kaart vrij |
+| Gecascadeerde FRITZ!Boxen als tussenstation herkennen (experimenteel, sinds 2.1.2) | uit | Een FRITZ!Box die via een kabel achter een andere hangt telt in de meshkaart als tussenstation met één kabelverbinding (routersymbool). Niet getest; zonder de optie werkt de switchherkenning zoals in 2.1.0 |
 
 ---
 
@@ -434,6 +435,17 @@ De tests voor het Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 2.1.2 – Switchherkenning zoals in 2.1.0, cascadeherkenning alleen nog als optie
+
+**Integratie**
+
+- **Opgelost – switch niet meer herkend in de meshkaart (na 2.1.1):** De cascaderegel uit 2.1.1 (issue #41) gold altijd en behandelde elke via kabel aangesloten FRITZ!Box als switch, ook gewone eindapparaten, waardoor switchlijst en verbindingen afweken van 2.1.0. Ze is nu alleen actief met de nieuwe optie **„Gecascadeerde FRITZ!Boxen als tussenstation herkennen (experimenteel)”** (standaard: uit). Zonder de optie gedraagt de switchherkenning zich precies als in 2.1.0, en switches met een FRITZ!Box-model tonen weer het switchsymbool.
+- **Nieuw – optie „Gecascadeerde FRITZ!Boxen als tussenstation herkennen (experimenteel)”:** Hiermee telt een FRITZ!Box die als eigen router achter een andere hangt al met één kabelverbinding als tussenstation (routersymbool), zoals in 2.1.1. De diagnose-export meldt of de optie aan staat (`cascade_enabled`).
+
+**Updateopmerkingen:** Updaten via HACS, Home Assistant herstarten, browsercache legen (Ctrl+F5). Wie de cascadeherkenning uit 2.1.1 wil blijven gebruiken, zet de optie aan onder Instellingen → Apparaten & services → FRITZ!Box Netzwerk → Configureren.
+
+**Bekend:** Met de optie uit geven switchherkenning en verbindingen in nagebouwde topologieën hetzelfde resultaat als 2.1.0; dit is niet bevestigd op een echte box, pas een test laat zien of je switch weer wordt herkend. De cascadeherkenning blijft ongetest. Issue #35 (inlogmails) blijft open tot er feedback op 2.1.0 is.
 
 ### 2.1.1 – Kaart opgeruimd na deactiveren, gecascadeerde FRITZ!Boxen in de meshkaart
 

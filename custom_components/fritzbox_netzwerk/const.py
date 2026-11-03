@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): da23a8629e5999817c0b7b83947665fefc1fc008a5507fb9cfe427e603be3c52
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 2cb446faea4d654296b9d86f362431a0e55bf6e968f561b4a24c68e9f0c33a1d
 """Konstanten der Integration fritzbox_netzwerk."""
 
 from typing import Final
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "2.1.1"
+VERSION: Final = "2.1.2"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -62,6 +62,8 @@ CONF_ENABLE_STATIC_IP: Final = "enable_static_ip"
 # Ungenutzte Verbindungen aus der Geraeteliste der Box entfernen (seit 2.0.2,
 # experimentell, siehe cleanup.py). Standardmaessig aus.
 CONF_ENABLE_CLEANUP: Final = "enable_cleanup"
+# Seit 2.1.2 (Issue #41): Kaskadierte FRITZ!Boxen als Zwischenstation erkennen (experimentell, Standard aus).
+CONF_ENABLE_CASCADE: Final = "enable_cascade_detection"
 # "Verloren" (seit 2.0.2): ein Geraet, das offline ist und seit mehr als N Tagen
 # nicht mehr gesehen wurde. 0 = Funktion aus.
 CONF_LOST_AFTER_DAYS: Final = "lost_after_days"
@@ -93,6 +95,7 @@ DEFAULT_CHECK_UPDATES: Final = True
 DEFAULT_ENABLE_DNS_SETTINGS: Final = False
 DEFAULT_ENABLE_STATIC_IP: Final = False
 DEFAULT_ENABLE_CLEANUP: Final = False
+DEFAULT_ENABLE_CASCADE: Final = False
 DEFAULT_LOST_AFTER_DAYS: Final = 7
 MIN_LOST_AFTER_DAYS: Final = 0
 MAX_LOST_AFTER_DAYS: Final = 365

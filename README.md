@@ -13,7 +13,7 @@ passenden Home-Assistant-Gerätenamen
   <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=Meine-smarte-Welt&amp;repository=fritzbox_netzwerk&amp;category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Repository in Home Assistant öffnen" height="32"></a>
 </p>
 
-![Version](https://img.shields.io/badge/Version-2.1.1-blue)
+![Version](https://img.shields.io/badge/Version-2.1.2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video und Anleitung zur Netzwerkkarte:** [meinesmartewelt.de – FRITZ!Box Netzwerk für Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -239,6 +239,7 @@ Nicht alle lokalen Funktionen sind dadurch aus der Ferne erreichbar: Insbesonder
 | Pairing-Dauer | 5 min | Wie lange der MAC-Filter beim Pairing ausgeschaltet bleibt (1–120 min), siehe [MAC-Filter und Pairing](#mac-filter-und-pairing) |
 | „Verloren“ nach (Tagen) (seit 2.0.2) | 7 | Ein Gerät, das offline ist und seit mehr als so vielen Tagen nicht mehr gesehen wurde, gilt als „verloren“ (Filter, Kennzeichen, Sensor). 0 = aus. Je Gerät im Popup mit „Offline-Status ignorieren“ abschaltbar, siehe [Verlorene Geräte](#verlorene-geräte-seit-202) |
 | Ungenutzte Verbindungen entfernen erlauben (experimentell, seit 2.0.2) | aus | Schaltet den Dienst `remove_unused_connections` und den Knopf „Ungenutzte IPs freigeben“ in der Karte frei, siehe [Ungenutzte IPs freigeben](#ungenutzte-ips-freigeben-experimentell-seit-202) |
+| Kaskadierte FRITZ!Boxen als Zwischenstation erkennen (experimentell, seit 2.1.2) | aus | Eine FRITZ!Box, die per Kabel hinter einer anderen hängt, zählt in der Mesh-Karte schon mit einer Kabelverbindung als Zwischenstation (Router-Symbol). Ungeprüft; ohne die Option gilt die Switch-Erkennung wie in 2.1.0 |
 
 **Warum zwei Intervalle?** Die komplette Geräteliste kommt mit einem einzigen Aufruf von
 der FRITZ!Box. Die Angabe, ob eine IP-Adresse fest zugewiesen ist, steht dort aber nicht
@@ -1820,11 +1821,11 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `f93f8df26a29126166fac2f9aafd37ad1b181effb897b19a9c791e0290335dac` |
-| `custom_components/fritzbox_netzwerk/strings.json` | `a9f71d2913c744f63af788dbfa4963b40755757208b4c7bacaacdd7748555ece` |
-| `custom_components/fritzbox_netzwerk/translations/de.json` | `4d87393dbb7bc28b5253edbf2e181343e277165074e54520d5a4e098c5947c73` |
-| `custom_components/fritzbox_netzwerk/translations/en.json` | `1ba4257cd257bd966246df75fb9e21468dab13ffc8e42dae50ffad3393ca47f2` |
-| `custom_components/fritzbox_netzwerk/translations/nl.json` | `349366c812129d6790d7f3fd8f0e8bf6fa85ee42aeae096843357072ac9834c9` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `bc56ac680d80d0549b2de8ee38529484c5373723fd99b72cb0b17a2640808c48` |
+| `custom_components/fritzbox_netzwerk/strings.json` | `326b4ea8334334ddf6cab77b7b25b45031ad5b14162fa3385df1baf725fbcc0f` |
+| `custom_components/fritzbox_netzwerk/translations/de.json` | `dd8e49873354c8128c0e2527ea5308ca19707a6583e08d75aec5888477fc5efd` |
+| `custom_components/fritzbox_netzwerk/translations/en.json` | `efdbcb537d433a1f847550c2875dbb9636cf1a5f689f4e13faa175e6f96f93cf` |
+| `custom_components/fritzbox_netzwerk/translations/nl.json` | `c6e0610ba5cd47abdf29d1edd9c65eb57af1d03b27d9af7da137ef239a160f9f` |
 
 ## Entwicklung und Tests
 
@@ -1862,6 +1863,17 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.1.2 – Switch-Erkennung wie in 2.1.0, Kaskaden-Erkennung nur noch als Option
+
+**Integration**
+
+- **Behoben – Switch in der Mesh-Karte nicht mehr erkannt (nach 2.1.1):** Die Kaskaden-Regel aus 2.1.1 (Issue #41) galt immer und stufte jede per Kabel angeschlossene FRITZ!Box als Switch ein, auch reine Endgeräte; Switch-Liste und Verbindungen wichen dadurch von 2.1.0 ab. Sie ist jetzt nur noch aktiv, wenn die neue Option **„Kaskadierte FRITZ!Boxen als Zwischenstation erkennen (experimentell)“** eingeschaltet ist (Standard: aus). Ohne die Option verhält sich die Switch-Erkennung genau wie in 2.1.0, und Switches mit FRITZ!Box-Modell zeigen wieder das Switch-Symbol.
+- **Neu – Option „Kaskadierte FRITZ!Boxen als Zwischenstation erkennen (experimentell)“:** Mit ihr zählt eine FRITZ!Box, die als eigener Router hinter einer anderen hängt, schon mit einer Kabelverbindung als Zwischenstation (Router-Symbol), wie in 2.1.1. Der Diagnose-Export meldet, ob die Option an ist (`cascade_enabled`).
+
+**Hinweise zum Update:** Über HACS aktualisieren, Home Assistant neu starten, Browser-Cache leeren (Strg+F5). Wer die Kaskaden-Erkennung aus 2.1.1 weiter nutzen möchte, schaltet die Option unter Einstellungen → Geräte & Dienste → FRITZ!Box Netzwerk → Konfigurieren ein.
+
+**Bekannt:** Mit ausgeschalteter Option liefern Switch-Erkennung und Verbindungen in nachgebauten Topologien dasselbe wie 2.1.0; an einer echten Box ist das nicht bestätigt, ob dein Switch wieder erkannt wird, zeigt erst der Test. Die Kaskaden-Erkennung bleibt ungeprüft. Issue #35 (Anmelde-Mails) bleibt offen, bis eine Rückmeldung zu 2.1.0 vorliegt.
 
 ### 2.1.1 – Karte nach dem Deaktivieren aufgeräumt, kaskadierte FRITZ!Boxen in der Mesh-Karte
 

@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): a4d9868ec63f69d8f04708f6c8cd54e601cc7e6aeb8d6bf6780da284944877a7
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 260df767bfaf23d88bb76a19c84c90b98e4ec47e3aa701fb41735bc1d8ed3df9
 """Einrichtungsdialog fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -35,9 +35,11 @@ from .const import (
     CONF_ENABLE_HOST_DEVICES,
     CONF_CHECK_UPDATES,
     CONF_ENABLE_DNS_SETTINGS,
+    CONF_ENABLE_CASCADE,
     CONF_ENABLE_CLEANUP,
     CONF_ENABLE_STATIC_IP,
     CONF_LOST_AFTER_DAYS,
+    DEFAULT_ENABLE_CASCADE,
     DEFAULT_ENABLE_CLEANUP,
     DEFAULT_LOST_AFTER_DAYS,
     MAX_LOST_AFTER_DAYS,
@@ -490,6 +492,11 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                 vol.Optional(
                     CONF_ENABLE_CLEANUP,
                     default=options.get(CONF_ENABLE_CLEANUP, DEFAULT_ENABLE_CLEANUP),
+                ): bool,
+                # Seit 2.1.2: Kaskaden-Erkennung (Issue #41), experimentell, Standard aus.
+                vol.Optional(
+                    CONF_ENABLE_CASCADE,
+                    default=options.get(CONF_ENABLE_CASCADE, DEFAULT_ENABLE_CASCADE),
                 ): bool,
                 # Seit 2.0.2: "verloren" nach N Tagen offline (0 = aus).
                 vol.Optional(

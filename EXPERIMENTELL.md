@@ -1,17 +1,19 @@
 # Experimentelle Funktionen – FRITZ!Box Netzwerk
 
-Stand: 2026-11-03 · Version: 2.1.1
+Stand: 2026-11-03 · Version: 2.1.2
 
 Diese Funktionen sind **ungeprüft**: Sie wurden nur gegen nachgebaute Daten getestet, nicht an einer echten FRITZ!Box. Bestätigt Thorsten eine Funktion, wandert sie in die Historie unten.
 
 **Hinweis zum Stand:** Einen Hauptschalter „Experimentelle Funktionen anzeigen“ gibt es in dieser Integration noch nicht. Die Funktionen sind deshalb sichtbar bzw. aktiv, aber ausdrücklich ungeprüft.
 
+**Seit 2.1.2:** Die Kaskaden-Erkennung ist die erste Funktion mit eigener Option (Standard aus). Die übrigen sind unverändert sichtbar bzw. aktiv.
+
 ## Offen (noch zu prüfen)
 
 | Funktion | Seit | Warum experimentell | Was zu prüfen ist | Status |
 |---|---|---|---|---|
-| Kaskadierte FRITZ!Boxen als Zwischenstation in der Mesh-Karte (Issue #41) | 2.1.1 | Nur gegen eine nachgebaute Topologie geprüft; der Screenshot aus dem Issue war nicht einsehbar | 1. Zwei bis drei FRITZ!Boxen per Kabel hintereinander (Router-Betrieb) · 2. Mesh-Karte öffnen · 3. Erwartet: Kette Box → Box → Box mit Router-Symbol, Endgeräte an der richtigen Box | offen |
-| Switch-Erkennung in der Mesh-Karte (Issue #37) | 2.1.0 | Heuristik, nicht an echter Box geprüft | Switch im Heimnetz mit Geräten dahinter · Erwartet: Eintrag „Switch“ in der Kette, nicht in den Online-Zahlen | offen |
+| Kaskadierte FRITZ!Boxen als Zwischenstation in der Mesh-Karte (Issue #41), Option „Kaskadierte FRITZ!Boxen als Zwischenstation erkennen (experimentell)“ (`enable_cascade_detection`, Standard aus) | 2.1.1 (Option seit 2.1.2) | Nur gegen eine nachgebaute Topologie geprüft; in 2.1.1 galt die Regel immer und stufte jede per Kabel angeschlossene FRITZ!Box als Switch ein, auch reine Endgeräte | 1. Option einschalten, Home Assistant lädt die Integration neu · 2. Zwei bis drei FRITZ!Boxen per Kabel hintereinander (Router-Betrieb) · 3. Mesh-Karte öffnen · 4. Erwartet: Kette Box → Box → Box mit Router-Symbol, Endgeräte an der richtigen Box; eine FRITZ!Box, die nur Endgerät ist, erscheint nicht als Switch · 5. Option aus: Verhalten wie 2.1.0 | offen |
+| Switch-Erkennung in der Mesh-Karte (Issue #37) | 2.1.0 | Heuristik, nicht an echter Box geprüft; seit 2.1.2 wieder wie in 2.1.0 (ohne die Kaskaden-Option) | Switch im Heimnetz mit Geräten dahinter · Erwartet: Eintrag „Switch“ in der Kette, nicht in den Online-Zahlen | offen |
 | Wiederverwendung der Web-Sitzung (Issue #35) | 2.1.0 | Nur gegen simulierten Server geprüft; Ursache der Mails ungeklärt | Optionale Web-Funktionen einschalten, Abfrageintervall kurz · FRITZ!Box-Ereignisse zählen · Erwartet: deutlich weniger „Anmeldung an der Benutzeroberfläche“ | offen |
 | Sensor „Externe IPv6“ (Issue #36) | 2.1.0 | Nicht an echter Box geprüft | Box mit IPv6 · Sensor und Attribute `prefix`, `prefix_length` ansehen | offen |
 | IP ändern (Issue #38) | 2.1.0 | Nicht an echter Box geprüft | Gerät mit fester IP · „Ändern“ · neue IP wird übernommen | offen |

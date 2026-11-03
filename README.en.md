@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.1.1-blue)
+![Version](https://img.shields.io/badge/Version-2.1.2-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video and guide for the network card (German):** [meinesmartewelt.de – FRITZ!Box Netzwerk for Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -165,6 +165,7 @@ Via *Configure* on the integration:
 | Pairing duration | 5 min | How long the MAC filter stays off during pairing (1–120 min) |
 | Mark as “lost” after (days) (since 2.0.2) | 7 | A device that is offline and has not been seen for more than this many days counts as “lost” (filter, mark, sensor). 0 = off. Switch it off per device in the popup with “Ignore offline status” |
 | Allow removing unused connections (experimental, since 2.0.2) | off | Enables the `remove_unused_connections` service and the “Release unused IPs” button in the card |
+| Detect cascaded FRITZ!Boxes as intermediate stations (experimental, since 2.1.2) | off | A FRITZ!Box connected by cable behind another one counts as an intermediate station in the mesh map with a single cable link (router icon). Unverified; without the option the switch detection works as in 2.1.0 |
 
 ---
 
@@ -431,6 +432,17 @@ The tests for the Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 2.1.2 – Switch detection as in 2.1.0, cascade detection only as an option
+
+**Integration**
+
+- **Fixed – switch no longer detected in the mesh map (after 2.1.1):** The cascade rule from 2.1.1 (issue #41) always applied and classified every cable-connected FRITZ!Box as a switch, even plain end devices, so the switch list and links differed from 2.1.0. It is now only active when the new option **"Detect cascaded FRITZ!Boxes as intermediate stations (experimental)"** is on (default: off). Without the option the switch detection behaves exactly as in 2.1.0, and switches with a FRITZ!Box model show the switch icon again.
+- **New – option "Detect cascaded FRITZ!Boxes as intermediate stations (experimental)":** With it, a FRITZ!Box that hangs behind another one as its own router counts as an intermediate station with a single cable link (router icon), as in 2.1.1. The diagnostics export reports whether the option is on (`cascade_enabled`).
+
+**Update notes:** Update via HACS, restart Home Assistant, clear the browser cache (Ctrl+F5). If you want to keep using the cascade detection from 2.1.1, turn the option on under Settings → Devices & services → FRITZ!Box Netzwerk → Configure.
+
+**Known:** With the option off, switch detection and links give the same result as 2.1.0 in simulated topologies; this is not confirmed on a real box, only a test will show whether your switch is detected again. The cascade detection remains unverified. Issue #35 (login emails) stays open until feedback on 2.1.0 arrives.
 
 ### 2.1.1 – Card cleaned up after deactivation, cascaded FRITZ!Boxes in the mesh map
 

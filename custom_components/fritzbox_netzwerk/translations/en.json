@@ -83,7 +83,8 @@
           "nc_enabled": "Send messages to the Notification Center",
           "nc_types": "Message types to send",
           "lost_after_days": "Mark as “lost” after (days)",
-          "enable_cleanup": "Allow removing unused connections (experimental)"
+          "enable_cleanup": "Allow removing unused connections (experimental)",
+          "enable_cascade_detection": "Detect cascaded FRITZ!Boxes as intermediate stations (experimental)"
         },
         "data_description": {
           "track_address_source": "This value is not part of the host list and costs one extra request per device. It rarely changes, so it runs on its own slower schedule.",
@@ -107,7 +108,8 @@
           "nc_enabled": "Optional: if the Notification Center is installed, this integration reports lost connections, monitored devices going offline and new devices to it. Nothing happens without the Notification Center.",
           "nc_types": "Only the ticked message types are sent. Monitored are repeaters (option \"Create repeaters as their own devices\") and the network devices selected by the IP pattern.",
           "lost_after_days": "A device that is offline and has not been seen for more than this many days counts as “lost” (filter and mark in the card, sensor “Lost devices”). 0 = off. Based on the “last online” time the integration records itself; devices without that time never count as lost. Per device this can be switched off in the popup with “Ignore offline status”. Default: 7.",
-          "enable_cleanup": "Allows the service “Remove unused connections” and the button in the card to trigger “Remove all unused connections” in the FRITZ!Box (Home network → Network → Network connections). The box keeps devices with individual settings; removed entries cannot be restored. Uses the REST interface of the web UI (FRITZ!OS 8), not TR-064 – the request was observed on a FRITZ!Box 5690 Pro, the execution is unverified. Off by default."
+          "enable_cleanup": "Allows the service “Remove unused connections” and the button in the card to trigger “Remove all unused connections” in the FRITZ!Box (Home network → Network → Network connections). The box keeps devices with individual settings; removed entries cannot be restored. Uses the REST interface of the web UI (FRITZ!OS 8), not TR-064 – the request was observed on a FRITZ!Box 5690 Pro, the execution is unverified. Off by default.",
+          "enable_cascade_detection": "A FRITZ!Box connected by cable behind another one (router mode) counts as an intermediate station in the mesh map with a single cable link and gets the router icon. Unverified: only tested against simulated data. In 2.1.1 this rule always applied and classified every cable-connected FRITZ!Box as a switch, even plain end devices; since 2.1.2 it is only active with this option. Off by default."
         }
       }
     }

@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 9c544f3a2227627a802f86017ab526cef56d3eb6b33f0e596faaa3ac03fd813e
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 6e8b6c3cc521575355d386295a41430dee0e8f6c605acb703b29a8ddf3c1dc2c
 """Aufbereitung der FRITZ!Box-Hostliste.
 
 Dieses Modul enthaelt bewusst KEINE Home-Assistant- und keine
@@ -1147,6 +1147,8 @@ def mesh_members(
                 "connected_via": switch.get("connected_via") or "",
                 "link_mbit": switch.get("link_mbit"),
                 "link_type": switch.get("type") or "LAN",
+                # 2.1.2: nur gesetzt, wenn die experimentelle Kaskaden-Erkennung an ist (Router-Symbol).
+                "cascade": bool(switch.get("cascade")),
             }
         )
     return members

@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 0023844cee6e37ac8a7ab08964c8051a9457f6962a41f842cc656f63eafc20a4
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): a3f3da8f593e550045e11db211fddb2b6165540b38a299e1d7053c700dbfb565
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,7 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "2.1.1";
+const FBN_VERSION = "2.1.2";
 // Merker, dass der Hinweis auf weitere Bereiche (Tabs/Einstellungen) ausgeblendet wurde.
 const MORE_HINT_KEY = "fbn-hint-more-areas";
 // Zoom der Mesh-Karte (Faktor; 1 = Originalgröße), wie in der Zigbee2MQTT-Manager-Karte.
@@ -2911,7 +2911,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // Das Popup einer Mesh-Station: Repeater über die MAC, die Box über ihre IP-Adresse.
     const hubTarget = (m) => (m.role === "box" ? this._hostByIp(m.ip) : this._hostByMac(m.mac));
     const sig = JSON.stringify([
-      hubs.map((h) => [h.name, h.role, h.online, h.model, h.mac, h.ip, h.mesh_id, h.via_id, h.connected_via, h.link_mbit, hubTarget(h) ? 1 : 0]),
+      hubs.map((h) => [h.name, h.role, h.online, h.model, h.mac, h.ip, h.mesh_id, h.via_id, h.connected_via, h.link_mbit, h.cascade ? 1 : 0, hubTarget(h) ? 1 : 0]),
       hubs.map((h) => (clients.get(h) || []).map((x) => [x.mac, x.link_mbit, x.label || x.name, x.band, x.link_type, x.connection])),
       total,
       loose,
@@ -3048,8 +3048,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
       });
       const isBox = hub === root;
       const isSwitch = !isBox && hub.role === "switch";
-      // 2.1.1 (#41): eine kaskadierte FRITZ!Box (Modell "FRITZ!Box ...") bekommt das Router-Symbol statt des Switch-Symbols
-      const isCascade = isSwitch && /^fritz!?box/i.test(String(hub.model || ""));
+      // 2.1.1 (#41): eine kaskadierte FRITZ!Box bekommt das Router-Symbol statt des Switch-Symbols.
+      // 2.1.2: nur, wenn das Backend sie als Kaskade meldet (experimentelle Option, Standard aus).
+      const isCascade = isSwitch && hub.cascade === true;
       const kindName = isBox ? "FRITZ!Box" : isSwitch ? "Switch" : "Repeater";
       const sub = hub.model && hub.model !== hub.name ? hub.model : kindName;
       const count = isBox ? this._t("mm.total", { n: total }) : this._t("mm.devices", { n: (clients.get(hub) || []).length });
@@ -3088,7 +3089,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
           .join("");
         const body = `<div class="fbn-mm-list">${kidRows}${list.map((h) => row(h.mac, h.label || h.name || h.mac, valueOf(h))).join("")}</div>`;
         const meta = hub === root ? this._t("mm.direct_total", { d: list.length, t: total }) : this._t("mm.devices", { n: list.length });
-        return this._accordion(`mesh:${hubKey(hub)}`, hub === root ? "mdi:router-wireless" : hub.role === "switch" ? (/^fritz!?box/i.test(String(hub.model || "")) ? "mdi:router-network" : "mdi:switch") : "mdi:access-point-network", hub.name || "", meta, body, "", idx === 0);
+        return this._accordion(`mesh:${hubKey(hub)}`, hub === root ? "mdi:router-wireless" : hub.role === "switch" ? (hub.cascade === true ? "mdi:router-network" : "mdi:switch") : "mdi:access-point-network", hub.name || "", meta, body, "", idx === 0);
       })
       .join("");
     // 2.1.0: Zoom und Verschieben wie in der Zigbee2MQTT-Manager-Karte. Die Breite der Zeichnung

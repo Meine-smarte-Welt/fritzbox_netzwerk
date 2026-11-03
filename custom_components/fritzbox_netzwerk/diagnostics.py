@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 527be6ae2d0ae6378d975ce6fddff48772b4dea9a02ad9237677177eec1d8675
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 9d69b9bbe90df0f673b2562d92fd18eb27083dfeda2a5ccfceed9e82225bab54
 """Diagnose-Export fuer fritzbox_netzwerk (Idee 15 aus feature-ideen.md).
 
 Liefert die Angaben, die zur Fehlersuche bei einer GitHub-Issue-Meldung am
@@ -102,6 +102,7 @@ def _mesh_resolution(members: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "via_id_known": bool(via) and via in by_id,
                 "has_uplink_name": bool(via_name),
                 "link_type": member.get("link_type"),
+                "cascade": member.get("cascade"),
                 "link_mbit": member.get("link_mbit"),
                 "uplink": uplink,
             }
