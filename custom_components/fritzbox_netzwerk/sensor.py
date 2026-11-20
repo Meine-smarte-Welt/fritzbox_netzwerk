@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): b123935cc6708354bc27d013aff3f0e2df782b83cefddc465cff5d6089981912
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 551cf4e8bda0d7940cf3d1a2eff9192ed51fa3c157e1cc267d9f1cf23206033b
 """Sensoren der Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -60,7 +60,14 @@ from .hosts import (
     parse_ip_ranges,
     slowest_mesh_link,
 )
-from .repeater import repeater_hosts, repeaters_enabled
+from .repeater import (
+    find_repeater,
+    repeater_device_info,
+    repeater_hosts,
+    repeater_identifier,
+    repeaters_enabled,
+    via_device_info,
+)
 
 if TYPE_CHECKING:
     from . import FritzboxNetzwerkConfigEntry
@@ -251,6 +258,72 @@ async def async_setup_entry(
     _add_mesh()
     entry.async_on_unload(coordinator.async_add_listener(_add_mesh))
 
+    # 2.2.0 (Issue #43): je Repeater die aktuelle Verbindungsrate zu seinem Uplink als Sensor,
+    # z. B. um einen Repeater neu zu starten, wenn er aus dem 5-GHz-Band faellt.
+    rate_known: set[str] = set()
+
+    @callback
+    def _add_link_rates() -> None:
+        new: list[SensorEntity] = []
+        for host in repeater_hosts(coordinator.data):
+            key = mac_key(host["mac"])
+            if key in rate_known:
+                continue
+            rate_known.add(key)
+            new.append(FritzboxNetzwerkRepeaterLinkRate(hass, coordinator, entry, host))
+        if new:
+            async_add_entities(new)
+
+    _add_link_rates()
+    entry.async_on_unload(coordinator.async_add_listener(_add_link_rates))
+
+
+class FritzboxNetzwerkRepeaterLinkRate(CoordinatorEntity[FritzboxNetzwerkCoordinator], SensorEntity):
+    """Verbindungsrate eines Repeaters zu seinem Uplink in Mbit/s (Issue #43).
+
+    Die Rate stammt aus der Mesh-Topologie der FRITZ!Box (aktuelle Rate, sonst die maximale)
+    und wird hoechstens alle ``SLOW_FETCH_INTERVAL`` Sekunden neu gelesen. Ohne Angabe der
+    Box (Repeater ausgeschaltet, Topologie nicht lesbar) ist der Sensor "nicht verfuegbar".
+    """
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "repeater_link_rate"
+    _attr_device_class = SensorDeviceClass.DATA_RATE
+    _attr_native_unit_of_measurement = UnitOfDataRate.MEGABITS_PER_SECOND
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 0
+
+    def __init__(self, hass, coordinator, entry, host: dict[str, Any]) -> None:
+        super().__init__(coordinator)
+        self._key = mac_key(host["mac"])
+        self._attr_unique_id = f"{repeater_identifier(entry, self._key)}_link_rate"
+        self._attr_device_info = repeater_device_info(hass, entry, host)
+
+    def _host(self) -> dict[str, Any] | None:
+        return find_repeater(self.coordinator.data, self._key)
+
+    @property
+    def native_value(self) -> float | None:
+        host = self._host()
+        value = (host or {}).get("link_mbit")
+        return float(value) if isinstance(value, (int, float)) and value > 0 else None
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._host() is not None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        host = self._host() or {}
+        attrs: dict[str, Any] = {}
+        if host.get("connected_via"):
+            attrs["verbunden_ueber"] = host["connected_via"]
+        if host.get("band"):
+            attrs["band"] = host["band"]
+        if host.get("link_type"):
+            attrs["verbindung"] = host["link_type"]
+        return attrs
+
 
 class FritzboxNetzwerkBase(CoordinatorEntity[FritzboxNetzwerkCoordinator], SensorEntity):
     """Gemeinsame Basis aller Sensoren dieser Integration."""
@@ -331,6 +404,8 @@ class FritzboxNetzwerkGeraeteSensor(FritzboxNetzwerkBase):
             "controls": self._controls_attribute(),
             # Mesh-Gruppe (FRITZ!Box + Repeater) fuer die Karte; None ohne Repeater.
             "mesh": self._mesh_attribute(),
+            # 2.2.0: Kennung des Eintrags fuer die Bild-Adresse (/api/fritzbox_netzwerk/image/<entry>/<mac>).
+            "entry_id": self._entry.entry_id,
             "trackers": self._trackers_attribute(),
             # Versionsanzeige und Update-Hinweis der Karte (Steuerungsseite).
             "version": data.get("version"),
@@ -974,11 +1049,14 @@ class FritzboxNetzwerkTrafficDeviceSensor(_TrafficSizeMixin, FritzboxNetzwerkBas
         self._period = period
         self._attr_unique_id = f"{entry.entry_id}_traffic_{period}_{self._key}"
         host = self._host() or {}
-        self._attr_device_info = DeviceInfo(
+        info = DeviceInfo(
             connections={(dr.CONNECTION_NETWORK_MAC, self._mac)},
             name=str(host.get("name") or self._mac),
-            via_device=(DOMAIN, entry.entry_id),
         )
+        # 2.2.0 (Issue #44): ``via_device`` ist veraltet (ab Home Assistant 2027.8 ohne Wirkung);
+        # der Helfer liefert je nach Version ``via_device_id`` oder - bei aelteren Staenden - ``via_device``.
+        info.update(via_device_info(coordinator.hass, entry))  # type: ignore[typeddict-item]
+        self._attr_device_info = info
 
     def _host(self) -> dict[str, Any] | None:
         for host in (self.coordinator.data or {}).get("hosts", []):

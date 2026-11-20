@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 5aeac3dd3c64217168a447ff8b57c857b87220cd0a6621bc07de5e0875dc125c
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 5476edeb93e2690efb15ed9b9520c81e6af81c748e2887549d86c37c436fa3fe
 """Datenabruf fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -98,11 +98,27 @@ from .const import (
     OUI_UPDATE_FILENAME,
     PAIRING_STORAGE_VERSION,
     USER_DATA_DIRNAME,
+    IMAGES_DIRNAME,
+    IMAGE_MAX_EDGE,
+    TOPOLOGY_STORAGE_VERSION,
+)
+from .device_images import (
+    clean_mac,
+    delete_image,
+    read_image,
+    save_image,
+    scan_images,
+)
+from .manual_topology import (
+    apply_manual_topology,
+    dump_overrides,
+    empty_overrides,
+    load_overrides,
+    would_cycle,
 )
 from .hosts import (
     apply_lost,
     apply_mesh_repeaters,
-    apply_mesh_switches,
     as_int,
     as_bool,
     build_hosts,
@@ -316,6 +332,16 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._mesh_master: dict[str, Any] = {}
         # Switches laut Mesh-Topologie (2.1.0, Issue #37): Kabel-Zwischenstationen.
         self._mesh_switches: list[dict[str, Any]] = []
+        # 2.2.0: wirksame Switch-Liste (erkannte + vom Nutzer erklaerte Zwischenstationen,
+        # mit manuellen Mutter-Zuordnungen). Der Cache oben bleibt unveraendert.
+        self._effective_switches: list[dict[str, Any]] = []
+        # 2.2.0: manuelle Mesh-Zuordnung (Drag und Drop), nur hier gespeichert.
+        self._topology: dict[str, Any] = empty_overrides()
+        self._topology_store: Store[dict[str, Any]] = Store(
+            hass, TOPOLOGY_STORAGE_VERSION, f"{DOMAIN}.topology.{entry.entry_id}"
+        )
+        # 2.2.0: Geraetebilder (MAC-Schluessel -> Versionskennung der Bilddatei).
+        self._images: dict[str, str] = {}
         # Anonymisierte Beschreibung der zuletzt gelesenen Mesh-Topologie (nur fuer den Diagnose-Export).
         self._mesh_debug: dict[str, Any] = {}
 
@@ -1198,7 +1224,11 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     # -- Mesh: alle FRITZ!-Geraete gemeinsam ------------------------------
 
-    def _mesh_members(self, hosts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _mesh_members(
+        self,
+        hosts: list[dict[str, Any]],
+        switches: list[dict[str, Any]] | None = None,
+    ) -> list[dict[str, Any]]:
         """FRITZ!Box + Repeater als Gruppe (siehe ``hosts.mesh_members``)."""
         model = self.box_model
         box_ip = str(self.entry.data.get(CONF_HOST, ""))
@@ -1218,7 +1248,7 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             box_model=model or str(self._mesh_master.get("model") or ""),
             box_ip=box_ip,
             box_id=str(self._mesh_master.get("id") or ""),
-            switches=self._mesh_switches,
+            switches=self._effective_switches if switches is None else switches,
         )
 
     def reboot_mesh(self, targets: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1962,7 +1992,8 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._mesh_links_cache,
         )
         # Switches der Mesh-Topologie (Issue #37) als solche kennzeichnen.
-        apply_mesh_switches(hosts, self._mesh_switches)
+        self._apply_topology(hosts)
+        self._apply_images(hosts)
         # Fuer den NAECHSTEN Zyklus: ob sich eine Mesh-Topologie-Abfrage
         # ueberhaupt lohnt (siehe ``_fetch``/``_fetch_mesh_topology``). Auch
         # "meshfaehige" Geraete zaehlen: ein Repeater mit unerwartetem Modell
@@ -2664,6 +2695,154 @@ class FritzboxNetzwerkCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             {**self.data, "hosts": hosts, "summary": summarize(hosts)}
         )
         return result
+
+    # -- Manuelle Mesh-Zuordnung (2.2.0) -------------------------------------
+
+    async def async_load_topology(self) -> None:
+        """Laedt die manuelle Zuordnung und die Liste der Geraetebilder beim Start."""
+        self._topology = load_overrides(await self._topology_store.async_load())
+        self._images = await self.hass.async_add_executor_job(scan_images, self._images_dir)
+
+    def _apply_topology(self, hosts: list[dict[str, Any]]) -> None:
+        """Erkannte Topologie plus manuelle Zuordnung -> wirksame Switch-Liste und Hostfelder."""
+        self._effective_switches = apply_manual_topology(
+            hosts,
+            self._mesh_switches,
+            self._topology,
+            lambda h, sw: self._mesh_members(h, sw),
+        )
+
+    def _publish_topology(self) -> None:
+        """Rechnet die Zuordnung auf der vorhandenen Hostliste neu (ohne Abfrage an der Box)."""
+        if not self.data:
+            return
+        hosts = self.data.get("hosts", [])
+        self._apply_topology(hosts)
+        self.async_set_updated_data(
+            {**self.data, "hosts": hosts, "mesh": self._mesh_members(hosts), "summary": summarize(hosts)}
+        )
+
+    def _save_topology(self) -> None:
+        self._topology_store.async_delay_save(lambda: dump_overrides(self._topology), 1)
+
+    def _resolve_ref(self, value: Any) -> str:
+        """Kennung eines Geraets fuer die Zuordnung: Station der Gruppe oder Geraet (MAC)."""
+        text = str(value or "").strip().lower()
+        if text == "box":
+            return "box"
+        key = mac_key(text)
+        if not key:
+            return ""
+        for member in (self.data or {}).get("mesh") or []:
+            if key in (
+                mac_key(member.get("mesh_id")),
+                mac_key(member.get("mac")),
+                mac_key(member.get("ref")),
+            ):
+                return str(member.get("ref") or key)
+        return key
+
+    async def async_set_mesh_parent(self, child: Any, parent: Any = None) -> dict[str, Any]:
+        """Haengt ein Geraet unter eine Station der Mesh-Gruppe; ohne ``parent`` wieder automatisch.
+
+        Nur in Home Assistant gespeichert - die FRITZ!Box wird nicht veraendert.
+        """
+        child_ref = self._resolve_ref(child)
+        if not child_ref or child_ref == "box":
+            raise HomeAssistantError("Ungueltiges Geraet fuer die Zuordnung")
+        parent_text = str(parent or "").strip()
+        if not parent_text:
+            self._topology["parents"].pop(child_ref, None)
+            self._save_topology()
+            self._publish_topology()
+            return {"child": child_ref, "parent": None}
+        parent_ref = self._resolve_ref(parent_text)
+        members = (self.data or {}).get("mesh") or []
+        if not any(str(m.get("ref") or "") == parent_ref for m in members):
+            raise HomeAssistantError(
+                "Die Zielstation ist keine Station der Mesh-Gruppe (Box, Repeater oder Switch)"
+            )
+        if would_cycle(members, child_ref, parent_ref):
+            raise HomeAssistantError(
+                "Ein Geraet kann nicht unter sich selbst oder unter eines seiner eigenen Kinder haengen"
+            )
+        if len(self._topology["parents"]) >= 500 and child_ref not in self._topology["parents"]:
+            raise HomeAssistantError("Zu viele manuelle Zuordnungen (Grenze: 500)")
+        self._topology["parents"][child_ref] = parent_ref
+        self._save_topology()
+        self._publish_topology()
+        return {"child": child_ref, "parent": parent_ref}
+
+    async def async_set_mesh_hub(self, mac: Any, enabled: bool) -> dict[str, Any]:
+        """Erklaert ein Geraet zur Zwischenstation (Switch, kaskadierte FRITZ!Box) oder nimmt es zurueck."""
+        key = mac_key(mac)
+        host = next(
+            (h for h in (self.data or {}).get("hosts", []) if mac_key(h.get("mac")) == key), None
+        )
+        if len(key) != 12 or host is None:
+            raise HomeAssistantError(f"Unbekanntes Geraet: {mac}")
+        if host.get("repeater") and enabled and not host.get("manual_hub"):
+            raise HomeAssistantError("Repeater sind bereits Stationen der Mesh-Gruppe")
+        hubs: list[str] = self._topology["hubs"]
+        if enabled:
+            if key not in hubs:
+                if len(hubs) >= 500:
+                    raise HomeAssistantError("Zu viele manuelle Zwischenstationen (Grenze: 500)")
+                hubs.append(key)
+        else:
+            if key in hubs:
+                hubs.remove(key)
+            # Kinder dieser Station und ihre eigene Zuordnung entfallen mit ihr.
+            self._topology["parents"].pop(key, None)
+            for child, mother in list(self._topology["parents"].items()):
+                if mother == key:
+                    self._topology["parents"].pop(child, None)
+        self._save_topology()
+        self._publish_topology()
+        return {"mac": key, "hub": bool(enabled)}
+
+    async def async_reset_mesh_topology(self) -> None:
+        """Verwirft alle manuellen Zuordnungen und Zwischenstationen."""
+        self._topology = empty_overrides()
+        self._save_topology()
+        self._publish_topology()
+
+    # -- Geraetebilder (2.2.0) ----------------------------------------------
+
+    @property
+    def _images_dir(self) -> str:
+        return os.path.join(self.user_data_dir, IMAGES_DIRNAME, self.entry.entry_id)
+
+    def _apply_images(self, hosts: list[dict[str, Any]]) -> None:
+        for host in hosts:
+            host["image"] = self._images.get(mac_key(host.get("mac")), "")
+
+    def _publish_images(self) -> None:
+        if not self.data:
+            return
+        hosts = self.data.get("hosts", [])
+        self._apply_images(hosts)
+        self.async_set_updated_data({**self.data, "hosts": hosts})
+
+    async def async_set_device_image(self, mac: str, data: bytes) -> str:
+        """Speichert ein hochgeladenes Bild (wird geprueft und auf ``IMAGE_MAX_EDGE`` verkleinert)."""
+        key = clean_mac(mac)
+        version = await self.hass.async_add_executor_job(
+            save_image, self._images_dir, key, data, IMAGE_MAX_EDGE
+        )
+        self._images[key] = version
+        self._publish_images()
+        return version
+
+    async def async_delete_device_image(self, mac: str) -> bool:
+        key = clean_mac(mac)
+        removed = await self.hass.async_add_executor_job(delete_image, self._images_dir, key)
+        self._images.pop(key, None)
+        self._publish_images()
+        return removed
+
+    async def async_read_device_image(self, mac: str) -> bytes | None:
+        return await self.hass.async_add_executor_job(read_image, self._images_dir, clean_mac(mac))
 
     # -- "Zuletzt gesehen" ------------------------------------------------
 

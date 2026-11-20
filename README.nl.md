@@ -7,7 +7,7 @@
 
 Een Home Assistant-integratie die alle apparaten in het FRITZ!Box-thuisnetwerk als sorteerbare tabel op het dashboard zet – met IP-adres, MAC-adres, verbindingstype en de bijbehorende Home Assistant-apparaatnaam.
 
-![Version](https://img.shields.io/badge/Version-2.1.2-blue)
+![Version](https://img.shields.io/badge/Version-2.2.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video en handleiding voor de netwerkkaart (Duits):** [meinesmartewelt.de – FRITZ!Box Netzwerk voor Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -86,6 +86,7 @@ Meer in de video en handleiding (Duits): [meinesmartewelt.de – FRITZ!Box Netzw
 - **Laatst gezien**, **internettoegang schakelen** (experimenteel), **IP-type** (vast of dynamisch)
 - **Verbindingssensoren** (download-/uploadsnelheid, lijnsnelheid, extern IP, online-tijd, verbindingsstatus) en **gebeurtenissen** („nieuw apparaat”, „extern IP gewijzigd”)
 - **Meshgroep**: FRITZ!Box en repeaters als één eenheid, knop „Alle FRITZ!-apparaten herstarten”
+- **Meshtoewijzing met slepen (sinds 2.2.0):** apparaten, switches en gecascadeerde repeaters/FRITZ!Boxen in de meshkaart aan een ander station hangen – alleen in Home Assistant opgeslagen. **Apparaatfoto's (sinds 2.2.0):** foto per apparaat uploaden of met de telefooncamera maken; verkleind tot 320 px.
 - **Wifi-MAC-filter** aan/uit en tijdelijk vrijgeven („pairing”)
 - **Ouderlijk toezicht** (experimenteel): toegangsprofielen per apparaat wisselen, ook tijdelijk
 - **DNS-instellingen** van de box (experimenteel, sinds 1.8.0): lezen en wijzigen
@@ -167,6 +168,7 @@ Via *Configureren* bij de integratie:
 | „Verloren” na (dagen) (sinds 2.0.2) | 7 | Een apparaat dat offline is en al langer dan dit aantal dagen niet is gezien, geldt als „verloren” (filter, markering, sensor). 0 = uit. Per apparaat in de pop-up uit te zetten met „Offline-status negeren” |
 | Ongebruikte verbindingen verwijderen toestaan (experimenteel, sinds 2.0.2) | uit | Schakelt de service `remove_unused_connections` en de knop „Ongebruikte IP's vrijgeven” in de kaart vrij |
 | Gecascadeerde FRITZ!Boxen als tussenstation herkennen (experimenteel, sinds 2.1.2) | uit | Een FRITZ!Box die via een kabel achter een andere hangt telt in de meshkaart als tussenstation met één kabelverbinding (routersymbool). Niet getest; zonder de optie werkt de switchherkenning zoals in 2.1.0 |
+| Device trackers voor netwerkapparaten (patroon, sinds 2.2.0) | leeg = alle | Zoals bij „Netwerkapparaten als apparaten”: alleen apparaten die bij het patroon passen (IP, MAC, naam, hostnaam, label; `*` jokerteken, `!` sluit uit) krijgen een device tracker. Bestaande trackers blijven (issue #42). |
 
 ---
 
@@ -197,6 +199,21 @@ Sinds 1.6.2: „nieuw apparaat” bij het eerste verschijnen in het thuisnetwerk
 ## Mesh en repeaters
 
 De FRITZ!Box en de AVM-repeaters vormen samen het mesh. De integratie behandelt ze als **één groep**: repeaters verschijnen als eigen apparaten onder de box, er is een online-teller en de knop „Alle FRITZ!-apparaten herstarten” (eerst repeaters, de box als laatste). Sinds 1.6.3 toont de kaart bij „Verbonden via” welke meshbuur een apparaat gebruikt, met de verbindingssnelheid. Geen signaalsterkte in dBm (de meshlijst levert die niet). Sinds 1.9.0 geldt een apparaat ook als repeater als de mesh-topologie van de box het als meshlid vermeldt, wordt de wifi-band van apparaten achter een repeater uit de naam van de mesh-interface gelezen (beide aannames niet op echte hardware getest), worden repeaters met alleen een wachtwoord (zonder gebruikersnaam) opnieuw met een lege gebruikersnaam geprobeerd en kan de lijst op mesh-verbinding worden gegroepeerd (`group_by: mesh`). Details: Duitse README.
+
+## Meshtoewijzing en apparaatfoto's (sinds 2.2.0)
+
+**Meshtoewijzing.** Wordt de topologie niet goed herkend (een switch, een gecascadeerde FRITZ!Box), stel je haar zelf in op de meshkaart. Alleen **in Home Assistant** opgeslagen; de FRITZ!Box wordt niet gewijzigd.
+
+- **Bewerken (alleen beheerders):** open het tabblad *Mesh* en tik op **„Toewijzing bewerken”**. Sleep repeaters, switches en apparaten naar een ander station (box, repeater, switch), in de tekening of in de lijsten. Mogelijke doelen krijgen een gestippelde rand, het doel onder de aanwijzer wordt groen. Op een telefoon: kort ingedrukt houden en dan slepen. **„Klaar”** beëindigt de modus.
+- **Zonder slepen:** het apparaatpopup heeft een sectie **„Mesh-toewijzing”** met een keuzelijst „Hangt aan station” (standaard „Automatisch”).
+- **Tussenstation:** **„Als tussenstation behandelen”** maakt van een apparaat (switch, gecascadeerde FRITZ!Box) een station waaronder andere apparaten kunnen hangen (issue #41). Automatische herkenning van gecascadeerde FRITZ!Boxen blijft een experimentele optie.
+- **Lusbeveiliging:** een station kan niet onder zichzelf of een eigen kind worden gehangen.
+- **Resetten:** „Automatisch” reset één apparaat, **„Alles resetten”** alle handmatige toewijzingen. Handmatige zijn gemarkeerd met „handmatig”.
+- **Services:** `set_mesh_parent`, `set_mesh_hub`, `reset_mesh_topology` (alleen beheerders).
+
+**Apparaatfoto's.** Het apparaatpopup heeft een sectie **„Foto”** (uploaden/verwijderen alleen voor beheerders). De browser verkleint de afbeelding tot maximaal 320 px (langste zijde) en stuurt een JPEG; de server codeert opnieuw en verwijdert EXIF/GPS. Op Android en iOS/iPadOS is er ook een knop **„Camera”** die de camera-app van het apparaat opent (`<input type="file" capture>`) – dat werkt via **http en https**, omdat de pagina zelf geen cameratoegang nodig heeft. Op desktop is er alleen **„Uploaden”**. Opslag: `<config>/fritzbox_netzwerk/images/<entry_id>/<mac>.jpg`.
+
+> **Teststatus:** logica getest met gesimuleerde gegevens en in jsdom. Slepen, foto's en camera zijn **niet getest** op een echte FRITZ!Box, in een echte browser of op een telefoon.
 
 ## MAC-filter en pairing
 
@@ -369,6 +386,7 @@ Zijn er meerdere boxen ingesteld, dan accepteren alle services een optioneel vel
 | `reboot_mesh` (experimenteel) | Repeaters en box herstarten |
 | `gast_wlan_info` | Gast-wifigegevens (voor de QR-code); sinds 1.9.0 wordt de gastservice herkend en kan een optionele `service` (1-4) die afdwingen; sinds 1.9.1 geeft de kaart het bekende nummer door en kan de instelling „Gast-wifi-service” het vastleggen |
 | `set_device_note` | Label, notitie en „gereserveerd”-markering (alleen in Home Assistant opgeslagen) |
+| `set_mesh_parent`, `set_mesh_hub`, `reset_mesh_topology` (sinds 2.2.0) | Handmatige meshtoewijzing (alleen in Home Assistant opgeslagen, beheerders) |
 | `remove_unused_connections` (experimenteel, sinds 2.0.2) | „Alle ongebruikte verbindingen verwijderen” in de box uitvoeren; `dry_run` toont een voorbeeld. Voor schrijven is de optie *Ongebruikte verbindingen verwijderen toestaan* nodig. `set_device_note` kent ook `lost_ignore` |
 | `mark_devices_reserved` | Veel apparaten tegelijk als „gereserveerd” markeren via IP-patroon (alleen in Home Assistant opgeslagen; `dry_run` toont een voorbeeld) |
 | `list_access_profiles`, `get_access_profile`, `set_access_profile` (experimenteel) | Profielen van ouderlijk toezicht |
@@ -406,6 +424,7 @@ Ongeteste functies met teststappen staan in [EXPERIMENTELL.md](EXPERIMENTELL.md)
 - **Statisch IP in de pop-up:** meldt het apparaat of de box al een vast IP, dan is de rij sinds 2.0.2 verborgen. Een functie om een bestaande reservering te wijzigen of op te heffen bestaat niet.
 - **Statisch IP en DNS schrijven zijn experimenteel** en gebruiken de ongedocumenteerde webinterface van de box. Schrijven is op geen enkele echte box getest; de REST-route voor het statische IP volgt de beschrijving van een extern project voor FRITZ!OS 8.25. Ze kunnen met elke FRITZ!OS-update breken.
 - **DHCP-reserveringen maar deels herkend.** De box meldt reserveringen *binnen* het DHCP-bereik niet via TR-064. Sinds 2.0.0 leest de integratie ze extra uit de webinterface (`query.lua`, anders `netDev`); of jouw FRITZ!OS de markering levert, is ongetest. Zo niet, dan blijven zulke apparaten „dynamisch” – de diagnose-download (`reservations`) toont welke weg werkte. Alternatief: handmatig of in bulk markeren (`mark_devices_reserved`).
+- **Meshtoewijzing en foto's (sinds 2.2.0)** zijn alleen getest met gesimuleerde gegevens en in jsdom, niet op een echte FRITZ!Box, browser of telefoon. Automatische switch-/cascadeherkenning blijft een heuristiek; de handmatige toewijzing vervangt haar waar die fout zit.
 - **Mesh maar gedeeltelijk:** geen signaalsterkte in dBm.
 - **Dataverbruik per apparaat** levert de box niet via TR-064.
 - **VPN-apparaten (issue #29):** vermeldingen zonder MAC-adres werden eerder als verlopen weggegooid; gesprekspartners die de box als VPN markeert (markering `X_AVM-DE_VPN` of interfacetype VPN/WireGuard/IPsec) en een IP-adres hebben, blijven sinds 2.0.0 behouden, met de id `VPN:<IP>`. Ze verschijnen in lijst en tellers maar krijgen geen entiteiten en geen acties die een MAC-adres vereisen (wekken, blokkeren, hernoemen, statisch IP). **Of de box WireGuard-gesprekspartners zo meldt, is ongetest**; een gedocumenteerde interface om ze apart op te vragen ken ik niet. De diagnose-download (`box_hosts.without_mac_samples`) toont hoe de box zulke vermeldingen markeert.
@@ -435,6 +454,16 @@ De tests voor het Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 De repository bevat de tests voor 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); ze draaien tegen synthetische gegevens, niet tegen echte hardware. De tests van 1.8.0 voor `dns_settings.py` en `static_ip.py` zijn niet ingecheckt.
 
 ## Versiegeschiedenis
+
+### 2.2.0 – Meshtoewijzing met slepen, apparaatfoto's, CSV-export, issues #42–#44
+
+- **Nieuw – meshtoewijzing met slepen (issue #41):** bewerkmodus in het tabblad *Mesh* (beheerders), keuzelijst en „Als tussenstation behandelen” in het popup, lusbeveiliging, „Alles resetten”. Nieuwe services `set_mesh_parent`, `set_mesh_hub`, `reset_mesh_topology`. Alleen in Home Assistant opgeslagen; automatische herkenning ongewijzigd t.o.v. 2.1.2.
+- **Nieuw – apparaatfoto's:** foto uploaden of maken (camera-app via `capture`, over http en https); in de browser en nogmaals op de server verkleind tot 320 px, EXIF verwijderd. Desktop: alleen uploaden.
+- **Nieuw – optie „Device trackers voor netwerkapparaten” (patroon, issue #42).**
+- **Nieuw – verbindingssnelheidssensor per repeater (issue #43)**, hooguit elke 5 minuten bijgewerkt.
+- **Opgelost – `via_device`-waarschuwing (issue #44).**
+- **Opgelost – CSV-export bij filter „Alle”** bevatte alleen actieve apparaten als „Niet-verbonden apparaten verbergen” (`hide_inactive`) aanstond; de export negeert die instelling nu. Alleen met die instelling nagebootst.
+- **Let op:** niet getest op een echte FRITZ!Box, browser of telefoon (alleen gesimuleerde gegevens en jsdom). Issue #41: de weergave kan nu handmatig worden gecorrigeerd; de automatische herkenning is niet verbeterd.
 
 ### 2.1.2 – Switchherkenning zoals in 2.1.0, cascadeherkenning alleen nog als optie
 

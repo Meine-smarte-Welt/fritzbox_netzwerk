@@ -84,7 +84,8 @@
           "nc_types": "Message types to send",
           "lost_after_days": "Mark as “lost” after (days)",
           "enable_cleanup": "Allow removing unused connections (experimental)",
-          "enable_cascade_detection": "Detect cascaded FRITZ!Boxes as intermediate stations (experimental)"
+          "enable_cascade_detection": "Detect cascaded FRITZ!Boxes as intermediate stations (experimental)",
+          "device_tracker_filter": "Tracker selection (IP, MAC or name)"
         },
         "data_description": {
           "track_address_source": "This value is not part of the host list and costs one extra request per device. It rarely changes, so it runs on its own slower schedule.",
@@ -109,7 +110,8 @@
           "nc_types": "Only the ticked message types are sent. Monitored are repeaters (option \"Create repeaters as their own devices\") and the network devices selected by the IP pattern.",
           "lost_after_days": "A device that is offline and has not been seen for more than this many days counts as “lost” (filter and mark in the card, sensor “Lost devices”). 0 = off. Based on the “last online” time the integration records itself; devices without that time never count as lost. Per device this can be switched off in the popup with “Ignore offline status”. Default: 7.",
           "enable_cleanup": "Allows the service “Remove unused connections” and the button in the card to trigger “Remove all unused connections” in the FRITZ!Box (Home network → Network → Network connections). The box keeps devices with individual settings; removed entries cannot be restored. Uses the REST interface of the web UI (FRITZ!OS 8), not TR-064 – the request was observed on a FRITZ!Box 5690 Pro, the execution is unverified. Off by default.",
-          "enable_cascade_detection": "A FRITZ!Box connected by cable behind another one (router mode) counts as an intermediate station in the mesh map with a single cable link and gets the router icon. Unverified: only tested against simulated data. In 2.1.1 this rule always applied and classified every cable-connected FRITZ!Box as a switch, even plain end devices; since 2.1.2 it is only active with this option. Off by default."
+          "enable_cascade_detection": "A FRITZ!Box connected by cable behind another one (router mode) counts as an intermediate station in the mesh map with a single cable link and gets the router icon. Unverified: only tested against simulated data. In 2.1.1 this rule always applied and classified every cable-connected FRITZ!Box as a switch, even plain end devices; since 2.1.2 it is only active with this option. Off by default.",
+          "device_tracker_filter": "Empty = one tracker for every device. Otherwise only for matching devices: patterns with * and ?, separated by comma, semicolon or space; a leading ! excludes. Examples: 192.168.178.2*  ·  AA:BB:CC:*  ·  phone*,!phone-guest. Trackers that already exist stay and can be deleted in Home Assistant."
         }
       }
     }
@@ -229,6 +231,9 @@
       "verloren": {
         "name": "Lost devices",
         "unit_of_measurement": "devices"
+      },
+      "repeater_link_rate": {
+        "name": "Link rate"
       }
     },
     "binary_sensor": {
@@ -613,6 +618,52 @@
         "config_entry": {
           "name": "FRITZ!Box",
           "description": "With several boxes: which one is meant."
+        }
+      }
+    },
+    "set_mesh_parent": {
+      "name": "Set mesh assignment",
+      "description": "Attaches a device, repeater or switch under a station of the mesh group (box, repeater, switch). Stored in Home Assistant only; the FRITZ!Box is not changed. Administrators only. Without a target the automatic detection applies again.",
+      "fields": {
+        "child": {
+          "name": "Device",
+          "description": "MAC address or mesh ID of the device to move."
+        },
+        "parent": {
+          "name": "Target",
+          "description": "MAC address or mesh ID of the target station; \"box\" stands for the FRITZ!Box. Empty = automatic."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Only needed if several FRITZ!Boxes are set up."
+        }
+      }
+    },
+    "set_mesh_hub": {
+      "name": "Set intermediate station",
+      "description": "Declares a device (e.g. a cascaded FRITZ!Box or a switch with an IP address) a station of the mesh map that devices can be attached to, or reverts it. Stored in Home Assistant only. Administrators only.",
+      "fields": {
+        "mac": {
+          "name": "MAC address",
+          "description": "MAC address of the device."
+        },
+        "enabled": {
+          "name": "Show as station",
+          "description": "On = station, off = a normal device again."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Only needed if several FRITZ!Boxes are set up."
+        }
+      }
+    },
+    "reset_mesh_topology": {
+      "name": "Reset manual mesh assignment",
+      "description": "Discards all manual assignments and intermediate stations; the automatic detection applies again. Administrators only.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Only needed if several FRITZ!Boxes are set up."
         }
       }
     }

@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 653f9c1fb69f7079e3addfd03fb24bd0a3ab2ec5e16f90489fba2de889f9f2c7
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ea5f38da07d88dd7bf879300d75e7bd463c533ff0142d783fc0ed8f1e88f0724
 """Die Integration fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -6,6 +6,7 @@ from __future__ import annotations
 import base64
 import logging
 import os
+import shutil
 from collections.abc import Mapping
 from typing import Any, Final
 
@@ -33,6 +34,8 @@ from homeassistant.helpers.service import async_register_admin_service
 from .auth_guard import AUTH_FAILURE_LIMIT, AuthFailureGuard
 from .connection import create_connection
 from .const import (
+    IMAGES_DIRNAME,
+    USER_DATA_DIRNAME,
     ATTR_BLOCKED_PARAM,
     ATTR_CONFIG_ENTRY,
     ATTR_DRY_RUN,
@@ -40,8 +43,10 @@ from .const import (
     ATTR_SERVICE,
     SERVICE_MARK_RESERVED,
     SERVICE_REMOVE_UNUSED,
+    ATTR_CHILD,
     ATTR_ENABLED,
     ATTR_LABEL,
+    ATTR_PARENT,
     ATTR_MAC,
     ATTR_MINUTES,
     ATTR_NAME,
@@ -67,9 +72,12 @@ from .const import (
     SERVICE_LIST_ACCESS_PROFILES,
     SERVICE_SET_ACCESS_PROFILE,
     SERVICE_REBOOT_MESH,
+    SERVICE_RESET_MESH_TOPOLOGY,
     SERVICE_SET_DEVICE_NAME,
     SERVICE_SET_DEVICE_NOTE,
     SERVICE_SET_DNS_SETTINGS,
+    SERVICE_SET_MESH_HUB,
+    SERVICE_SET_MESH_PARENT,
     SERVICE_SET_STATIC_IP,
     SERVICE_SET_INTERNET_ACCESS,
     SERVICE_SET_MAC_FILTER,
@@ -83,6 +91,7 @@ from .const import (
 from .coordinator import FritzboxNetzwerkCoordinator
 from .dns_settings import CHANGE_FIELDS, FIELD_MAP
 from .hosts import normalize_mac
+from .image_view import DeviceImageView
 
 # Beacontype -> "offenes Netz, kein Passwort noetig". Gespiegelt aus
 # fritzconnection.lib.fritzwlan._BEACONTYPE_TO_QR_SECURITY (Version 1.15.1,
@@ -162,6 +171,23 @@ DEVICE_NOTE_SCHEMA = vol.Schema(
 )
 
 UPDATE_OUI_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY): cv.string})
+
+# 2.2.0: manuelle Mesh-Zuordnung (nur Administratoren). Ohne "parent" gilt wieder die Erkennung.
+SET_MESH_PARENT_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_CHILD): cv.string,
+        vol.Optional(ATTR_PARENT): vol.Any(None, cv.string),
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+    }
+)
+SET_MESH_HUB_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_MAC): cv.string,
+        vol.Required(ATTR_ENABLED): cv.boolean,
+        vol.Optional(ATTR_CONFIG_ENTRY): cv.string,
+    }
+)
+RESET_MESH_SCHEMA = vol.Schema({vol.Optional(ATTR_CONFIG_ENTRY): cv.string})
 
 INSTALL_BLUEPRINTS_SCHEMA = vol.Schema(
     {vol.Optional(ATTR_OVERWRITE, default=False): cv.boolean, vol.Optional(ATTR_CONFIG_ENTRY): cv.string}
@@ -255,6 +281,7 @@ async def async_setup_entry(
     await coordinator.async_load_first_seen()
     await coordinator.async_load_traffic()
     await coordinator.async_load_notes()
+    await coordinator.async_load_topology()
     await coordinator.async_load_blocks()
     await coordinator.async_load_profile_reverts()
     await coordinator.async_load_oui()
@@ -369,6 +396,9 @@ async def async_unload_entry(
             SERVICE_SET_ACCESS_PROFILE,
             SERVICE_GET_DNS_SETTINGS,
             SERVICE_SET_DNS_SETTINGS,
+            SERVICE_SET_MESH_PARENT,
+            SERVICE_SET_MESH_HUB,
+            SERVICE_RESET_MESH_TOPOLOGY,
             SERVICE_SET_STATIC_IP,
             SERVICE_INSTALL_BLUEPRINTS,
         ):
@@ -379,7 +409,10 @@ async def async_unload_entry(
 async def async_remove_entry(
     hass: HomeAssistant, entry: FritzboxNetzwerkConfigEntry
 ) -> None:
-    """Raeumt beim Loeschen der letzten Box die Lovelace-Ressource der Karte auf (Issue #40)."""
+    """Raeumt beim Loeschen einer Box ihre Geraete-Fotos und bei der letzten die Kartenressource auf (Issue #40)."""
+    # 2.2.0: Fotos dieser Box (<config>/fritzbox_netzwerk/images/<entry_id>) entfernen.
+    images_dir = os.path.join(hass.config.path(USER_DATA_DIRNAME), IMAGES_DIRNAME, entry.entry_id)
+    await hass.async_add_executor_job(shutil.rmtree, images_dir, True)
     others = [
         other
         for other in hass.config_entries.async_entries(DOMAIN)
@@ -418,6 +451,11 @@ async def _async_register_card(hass: HomeAssistant) -> None:
             [StaticPathConfig(URL_BRAND, brand_dir, False)]
         )
         hass.data[f"{DOMAIN}_static_paths"].add(URL_BRAND)
+
+    # 2.2.0: Geraetebilder (Abrufen/Hochladen/Entfernen) als angemeldeter Zugang.
+    if "image_view" not in hass.data[f"{DOMAIN}_static_paths"]:
+        hass.http.register_view(DeviceImageView(hass))
+        hass.data[f"{DOMAIN}_static_paths"].add("image_view")
 
     await _async_ensure_lovelace_resource(hass)
 
@@ -706,6 +744,22 @@ def _async_register_services(hass: HomeAssistant) -> None:
             lost_ignore=call.data.get(ATTR_LOST_IGNORE),
         )
 
+    async def _handle_set_mesh_parent(call: ServiceCall) -> dict[str, Any]:
+        """Haengt ein Geraet unter eine Station der Mesh-Gruppe (nur in Home Assistant gespeichert)."""
+        return await _resolve_coordinator(call.data).async_set_mesh_parent(
+            call.data[ATTR_CHILD], call.data.get(ATTR_PARENT)
+        )
+
+    async def _handle_set_mesh_hub(call: ServiceCall) -> dict[str, Any]:
+        """Erklaert ein Geraet zur Zwischenstation (z. B. kaskadierte FRITZ!Box) oder nimmt es zurueck."""
+        return await _resolve_coordinator(call.data).async_set_mesh_hub(
+            call.data[ATTR_MAC], bool(call.data[ATTR_ENABLED])
+        )
+
+    async def _handle_reset_mesh(call: ServiceCall) -> None:
+        """Verwirft alle manuellen Mesh-Zuordnungen."""
+        await _resolve_coordinator(call.data).async_reset_mesh_topology()
+
     async def _handle_mark_reserved(call: ServiceCall) -> dict[str, Any]:
         """Markiert viele Geraete (IP-Muster) auf einmal als "reserviert" (Issue #22/#23).
 
@@ -791,6 +845,18 @@ def _async_register_services(hass: HomeAssistant) -> None:
             REMOVE_UNUSED_SCHEMA,
             supports_response=SupportsResponse.OPTIONAL,
         )
+
+    # 2.2.0: manuelle Mesh-Zuordnung aendert nur die Darstellung in Home Assistant, ist aber
+    # Administratoren vorbehalten (die Karte zeigt die Bedienung nur ihnen).
+    for name, handler, schema, response in (
+        (SERVICE_SET_MESH_PARENT, _handle_set_mesh_parent, SET_MESH_PARENT_SCHEMA, SupportsResponse.OPTIONAL),
+        (SERVICE_SET_MESH_HUB, _handle_set_mesh_hub, SET_MESH_HUB_SCHEMA, SupportsResponse.OPTIONAL),
+        (SERVICE_RESET_MESH_TOPOLOGY, _handle_reset_mesh, RESET_MESH_SCHEMA, SupportsResponse.NONE),
+    ):
+        if not hass.services.has_service(DOMAIN, name):
+            async_register_admin_service(
+                hass, DOMAIN, name, handler, schema, supports_response=response
+            )
 
     if not hass.services.has_service(DOMAIN, SERVICE_SET_DEVICE_NAME):
         hass.services.async_register(

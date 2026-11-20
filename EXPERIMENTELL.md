@@ -1,10 +1,12 @@
 # Experimentelle Funktionen – FRITZ!Box Netzwerk
 
-Stand: 2026-11-03 · Version: 2.1.2
+Stand: 2026-11-20 · Version: 2.2.0
 
 Diese Funktionen sind **ungeprüft**: Sie wurden nur gegen nachgebaute Daten getestet, nicht an einer echten FRITZ!Box. Bestätigt Thorsten eine Funktion, wandert sie in die Historie unten.
 
 **Hinweis zum Stand:** Einen Hauptschalter „Experimentelle Funktionen anzeigen“ gibt es in dieser Integration noch nicht. Die Funktionen sind deshalb sichtbar bzw. aktiv, aber ausdrücklich ungeprüft.
+
+**Seit 2.2.0:** Mesh-Zuordnung per Drag & Drop (Issue #41), Geräte-Fotos mit Kamera-Knopf und die Option für Device Tracker (Issue #42) sind neu und ungeprüft (siehe Tabelle).
 
 **Seit 2.1.2:** Die Kaskaden-Erkennung ist die erste Funktion mit eigener Option (Standard aus). Die übrigen sind unverändert sichtbar bzw. aktiv.
 
@@ -12,6 +14,9 @@ Diese Funktionen sind **ungeprüft**: Sie wurden nur gegen nachgebaute Daten get
 
 | Funktion | Seit | Warum experimentell | Was zu prüfen ist | Status |
 |---|---|---|---|---|
+| Mesh-Zuordnung per Drag & Drop, „Als Zwischenstation behandeln“ (Issue #41), Dienste `set_mesh_parent`, `set_mesh_hub`, `reset_mesh_topology` | 2.2.0 | Logik nur gegen nachgebaute Daten und in jsdom geprüft; Ziehen weder an echter Box noch im echten Browser oder per Touch | Bearbeiten-Modus im Tab Mesh · Switch/Repeater/Gerät auf andere Station ziehen (Maus, Touch) · Anzeige nach Neuladen unverändert · „Alle zurücksetzen“ | offen |
+| Geräte-Fotos: Hochladen, Skalierung auf 320 px, Kamera-Knopf (`capture`) unter http und https | 2.2.0 | Skalierung im Browser (Canvas) und die Kamera-App sind nicht an echten Geräten geprüft; Server-Teil nur mit simulierten Daten | Android und iPhone/iPad: Kamera öffnen, Foto aufnehmen, speichern · Galerie-Upload · Desktop: nur Hochladen · Foto erscheint nach Neustart weiter | offen |
+| Option Device-Tracker-Muster (Issue #42) und Sensor „Verbindungsrate“ je Repeater (Issue #43) | 2.2.0 | Nur gegen nachgebaute Daten geprüft | Muster setzen, Tracker prüfen · Repeater-Sensor in Mbit/s | offen |
 | Kaskadierte FRITZ!Boxen als Zwischenstation in der Mesh-Karte (Issue #41), Option „Kaskadierte FRITZ!Boxen als Zwischenstation erkennen (experimentell)“ (`enable_cascade_detection`, Standard aus) | 2.1.1 (Option seit 2.1.2) | Nur gegen eine nachgebaute Topologie geprüft; in 2.1.1 galt die Regel immer und stufte jede per Kabel angeschlossene FRITZ!Box als Switch ein, auch reine Endgeräte | 1. Option einschalten, Home Assistant lädt die Integration neu · 2. Zwei bis drei FRITZ!Boxen per Kabel hintereinander (Router-Betrieb) · 3. Mesh-Karte öffnen · 4. Erwartet: Kette Box → Box → Box mit Router-Symbol, Endgeräte an der richtigen Box; eine FRITZ!Box, die nur Endgerät ist, erscheint nicht als Switch · 5. Option aus: Verhalten wie 2.1.0 | offen |
 | Switch-Erkennung in der Mesh-Karte (Issue #37) | 2.1.0 | Heuristik, nicht an echter Box geprüft; seit 2.1.2 wieder wie in 2.1.0 (ohne die Kaskaden-Option) | Switch im Heimnetz mit Geräten dahinter · Erwartet: Eintrag „Switch“ in der Kette, nicht in den Online-Zahlen | offen |
 | Wiederverwendung der Web-Sitzung (Issue #35) | 2.1.0 | Nur gegen simulierten Server geprüft; Ursache der Mails ungeklärt | Optionale Web-Funktionen einschalten, Abfrageintervall kurz · FRITZ!Box-Ereignisse zählen · Erwartet: deutlich weniger „Anmeldung an der Benutzeroberfläche“ | offen |

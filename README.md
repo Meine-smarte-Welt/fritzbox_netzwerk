@@ -13,7 +13,7 @@ passenden Home-Assistant-Gerätenamen
   <a href="https://my.home-assistant.io/redirect/hacs_repository/?owner=Meine-smarte-Welt&amp;repository=fritzbox_netzwerk&amp;category=integration"><img src="https://my.home-assistant.io/badges/hacs_repository.svg" alt="Repository in Home Assistant öffnen" height="32"></a>
 </p>
 
-![Version](https://img.shields.io/badge/Version-2.1.2-blue)
+![Version](https://img.shields.io/badge/Version-2.2.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video und Anleitung zur Netzwerkkarte:** [meinesmartewelt.de – FRITZ!Box Netzwerk für Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -32,6 +32,8 @@ passenden Home-Assistant-Gerätenamen
 - [Sensoren](#sensoren)
 - [Mesh: FRITZ!Box und Repeater als Gruppe](#mesh-fritzbox-und-repeater-als-gruppe)
 - [Repeater als eigene Geräte](#repeater-als-eigene-geräte)
+- [Mesh-Zuordnung per Drag & Drop](#mesh-zuordnung-per-drag--drop-seit-220)
+- [Geräte-Fotos](#geräte-fotos-seit-220)
 - [MAC-Filter und Pairing](#mac-filter-und-pairing)
 - [Kindersicherung: Zugangsprofile (experimentell)](#kindersicherung-zugangsprofile-experimentell)
 - [CPU und RAM der Box (experimentell)](#cpu-und-ram-der-box-experimentell)
@@ -131,6 +133,7 @@ Mehr dazu in Video und Anleitung: [meinesmartewelt.de – FRITZ!Box Netzwerk fü
 - **Ereignisse** (seit 1.6.2): „Neues Gerät“ beim ersten Auftauchen im Heimnetz, „Externe IP
   geändert“ – nutzbar in Automationen, ohne zusätzlichen TR-064-Aufruf
 - **Mesh-Gruppe**: FRITZ!Box und Repeater als eine Einheit – mit Online-Zähler in Home Assistant
+- **Mesh-Zuordnung per Drag & Drop (seit 2.2.0):** Geräte, Switches und kaskadierte Repeater/FRITZ!Boxen in der Mesh-Karte per Ziehen an eine andere Station hängen – nur in Home Assistant gespeichert. **Geräte-Fotos (seit 2.2.0):** je Gerät ein Foto hochladen oder (am Smartphone) mit der Kamera aufnehmen; wird auf 320 px verkleinert.
   und in der Karte, dazu ein Button **„Alle FRITZ!-Geräte neu starten“** (Repeater zuerst, Box zuletzt)
 - **WLAN-MAC-Filter** ein-/ausschalten und **temporär freigeben („Pairing“)**: neue Geräte
   für ein paar Minuten ins WLAN lassen, danach schaltet sich der Filter selbst wieder ein
@@ -240,6 +243,7 @@ Nicht alle lokalen Funktionen sind dadurch aus der Ferne erreichbar: Insbesonder
 | „Verloren“ nach (Tagen) (seit 2.0.2) | 7 | Ein Gerät, das offline ist und seit mehr als so vielen Tagen nicht mehr gesehen wurde, gilt als „verloren“ (Filter, Kennzeichen, Sensor). 0 = aus. Je Gerät im Popup mit „Offline-Status ignorieren“ abschaltbar, siehe [Verlorene Geräte](#verlorene-geräte-seit-202) |
 | Ungenutzte Verbindungen entfernen erlauben (experimentell, seit 2.0.2) | aus | Schaltet den Dienst `remove_unused_connections` und den Knopf „Ungenutzte IPs freigeben“ in der Karte frei, siehe [Ungenutzte IPs freigeben](#ungenutzte-ips-freigeben-experimentell-seit-202) |
 | Kaskadierte FRITZ!Boxen als Zwischenstation erkennen (experimentell, seit 2.1.2) | aus | Eine FRITZ!Box, die per Kabel hinter einer anderen hängt, zählt in der Mesh-Karte schon mit einer Kabelverbindung als Zwischenstation (Router-Symbol). Ungeprüft; ohne die Option gilt die Switch-Erkennung wie in 2.1.0 |
+| Netzwerkgeräte als Device Tracker (Muster, seit 2.2.0) | leer = alle | Wie bei „Netzwerkgeräte als eigene Geräte“: nur Geräte, die zum Muster passen (IP, MAC, Name, Host-Name, Etikett; `*` als Platzhalter, `!` schließt aus), bekommen einen Device Tracker. Bereits angelegte Tracker bleiben bestehen (Issue #42). |
 
 **Warum zwei Intervalle?** Die komplette Geräteliste kommt mit einem einzigen Aufruf von
 der FRITZ!Box. Die Angabe, ob eine IP-Adresse fest zugewiesen ist, steht dort aber nicht
@@ -361,6 +365,61 @@ erscheint der Rahmen nicht.
   Box sie so meldet.
 - Die Funktion ist neu und konnte ohne Repeater-Hardware nicht getestet werden –
   Rückmeldungen als GitHub-Issue willkommen.
+
+---
+
+## Mesh-Zuordnung per Drag & Drop (seit 2.2.0)
+
+Erkennt die Integration die Topologie nicht richtig – etwa einen Switch oder eine
+kaskadierte FRITZ!Box hinter einer anderen –, kannst Du sie in der Mesh-Karte selbst festlegen.
+Die Zuordnung wird **nur in Home Assistant** gespeichert, die FRITZ!Box wird nicht verändert.
+Sie gilt auch nach einem Neustart und überschreibt die automatische Erkennung.
+
+- **Bearbeiten (nur Administratoren):** Im Tab *Mesh* auf **„Zuordnung bearbeiten“** tippen.
+  Dann lassen sich Repeater, Switches und Geräte auf eine andere Station (Box, Repeater,
+  Switch) ziehen – in der Zeichnung oder in den aufklappbaren Listen. Mögliche Ziele werden
+  gestrichelt umrandet, das Ziel unter dem Zeiger grün. Am Smartphone: kurz gedrückt halten,
+  dann ziehen. Mit **„Fertig“** wird der Modus beendet.
+- **Ohne Ziehen:** Im Popup eines Geräts gibt es den Abschnitt **„Mesh-Zuordnung“** mit einer
+  Auswahl „Hängt an Station“ (Standard „Automatisch“) – dieselbe Funktion für Tastatur und
+  Bedienhilfen.
+- **Zwischenstation anlegen:** Im selben Abschnitt macht **„Als Zwischenstation behandeln“**
+  aus einem Gerät (Switch, kaskadierte FRITZ!Box) eine Station, unter die sich andere Geräte
+  hängen lassen. Das ist der Weg für Issue #41; die automatische Erkennung kaskadierter
+  FRITZ!Boxen bleibt eine experimentelle Option.
+- **Schutz vor Schleifen:** Eine Station lässt sich nicht unter sich selbst oder unter eines
+  ihrer eigenen Kinder hängen.
+- **Zurücksetzen:** „Automatisch“ im Popup setzt ein einzelnes Gerät zurück, **„Alle
+  zurücksetzen“** in der Mesh-Karte alle manuellen Zuordnungen und Zwischenstationen.
+  Manuell gesetzte Zuordnungen sind mit „manuell“ gekennzeichnet.
+- **Dienste:** `set_mesh_parent`, `set_mesh_hub` und `reset_mesh_topology` (nur Administratoren).
+
+> **Teststand:** Die Logik (Zuordnung, Zyklus-Sperre, Zurücksetzen) ist gegen simulierte
+> Daten und in einer simulierten Browserumgebung (jsdom) geprüft. An einer echten FRITZ!Box,
+> in einem echten Browser und per Touch ist das Ziehen **ungeprüft**.
+
+---
+
+## Geräte-Fotos (seit 2.2.0)
+
+Im Popup eines Geräts gibt es den Abschnitt **„Foto“** (Hochladen und Entfernen nur für
+Administratoren; ansehen dürfen es alle, die die Karte sehen).
+
+- **Hochladen:** Wählt eine Bilddatei aus. Der Browser skaliert sie auf höchstens
+  320 Pixel (längste Kante) und sendet sie als JPEG; der Server skaliert, dreht (EXIF) und
+  speichert sie noch einmal neu und entfernt Metadaten (EXIF/GPS). Mit installiertem `Pillow`
+  (in Home Assistant enthalten) werden JPEG, PNG, WEBP, GIF und BMP akzeptiert, ohne `Pillow`
+  nur ein bereits kleines JPEG (bis 200 KB).
+- **Kamera:** Auf Android und iOS/iPadOS erscheint zusätzlich der Knopf **„Kamera“**. Er öffnet
+  die Kamera-App des Geräts (`<input type="file" capture>`) – das funktioniert unter **http und
+  https**, weil die Seite keinen eigenen Kamerazugriff braucht. Wird sie nicht als mobiles Gerät
+  erkannt (Desktop), gibt es nur **„Hochladen“**. Ob die Kamera in der Home-Assistant-App
+  oder im jeweiligen Mobilbrowser tatsächlich startet, hängt vom Gerät ab und ist **ungeprüft**;
+  sonst wählst Du das Bild über „Hochladen“ aus der Galerie.
+- **Anzeige:** Das Foto erscheint im Popup und als kleines rundes Bild vor dem Namen in der
+  Geräteliste.
+- **Speicherort:** `<config>/fritzbox_netzwerk/images/<entry_id>/<mac>.jpg`. Fotos bleiben
+  nach einem Neustart erhalten und werden mit der Integration entfernt.
 
 ---
 
@@ -1371,6 +1430,22 @@ data:
 Das Feld `minutes` bei `set_internet_access` (seit 1.7.0) gibt den Zugang nach der angegebenen
 Zeit wieder frei (nur beim Sperren; gespeichert, übersteht einen Neustart).
 
+### `fritzbox_netzwerk.set_mesh_parent`, `set_mesh_hub`, `reset_mesh_topology`
+
+Seit 2.2.0, nur Administratoren, nur in Home Assistant gespeichert (die FRITZ!Box bleibt
+unverändert). Das Ziehen in der Mesh-Karte ruft diese Dienste auf.
+
+```yaml
+action: fritzbox_netzwerk.set_mesh_parent
+data:
+  child: "3C:A6:F6:00:11:22"   # Gerät oder Station (MAC bzw. Mesh-ID)
+  parent: "box"                # "box" oder MAC/Mesh-ID einer Station; leer = wieder automatisch
+```
+
+`set_mesh_hub` (`mac`, `enabled`) macht ein Gerät zur Zwischenstation oder nimmt es zurück,
+`reset_mesh_topology` löscht alle manuellen Zuordnungen. Ein Gerät kann nicht unter sich selbst
+oder eines seiner Kinder gehängt werden.
+
 ### `fritzbox_netzwerk.mark_devices_reserved`
 
 Markiert alle Geräte, deren IP-Adresse zu einem Muster passt, auf einmal als „reserviert“ (oder hebt
@@ -1766,6 +1841,7 @@ Ungeprüfte Funktionen mit Testschritten stehen in [EXPERIMENTELL.md](EXPERIMENT
   Umbenennen, statische IP). **Ob die Box WireGuard-Gegenstellen so meldet, ist ungeprüft**; eine dokumentierte
   Schnittstelle zur gesonderten Abfrage gibt es nicht. Der Diagnose-Download (`box_hosts.without_mac_samples`) zeigt,
   wie die Box solche Einträge kennzeichnet.
+- **Mesh-Zuordnung und Fotos (seit 2.2.0)** sind nur gegen simulierte Daten und in jsdom geprüft, nicht an einer echten FRITZ!Box, in einem echten Browser oder auf dem Smartphone. Die automatische Erkennung von Switches und kaskadierten FRITZ!Boxen bleibt eine Heuristik – die manuelle Zuordnung ersetzt sie, wo sie falsch liegt.
 - **Mesh nur in Teilen.** FRITZ!Box und Repeater bilden eine Gruppe (siehe oben); seit 1.6.3
   zeigt die Karte in „Verbunden über“, an welchem Mesh-Nachbarn ein Gerät hängt, samt
   Verbindungsrate. **Keine Signalstärke in dBm** (liefert die Mesh-Liste nicht). Das Funkband
@@ -1821,11 +1897,11 @@ Jede `.py`, `.js` und `.yaml` beginnt mit einer Kopfzeile `SHA256 (Inhalt ab Zei
 
 | Datei | SHA-256 |
 | --- | --- |
-| `custom_components/fritzbox_netzwerk/manifest.json` | `bc56ac680d80d0549b2de8ee38529484c5373723fd99b72cb0b17a2640808c48` |
-| `custom_components/fritzbox_netzwerk/strings.json` | `326b4ea8334334ddf6cab77b7b25b45031ad5b14162fa3385df1baf725fbcc0f` |
-| `custom_components/fritzbox_netzwerk/translations/de.json` | `dd8e49873354c8128c0e2527ea5308ca19707a6583e08d75aec5888477fc5efd` |
-| `custom_components/fritzbox_netzwerk/translations/en.json` | `efdbcb537d433a1f847550c2875dbb9636cf1a5f689f4e13faa175e6f96f93cf` |
-| `custom_components/fritzbox_netzwerk/translations/nl.json` | `c6e0610ba5cd47abdf29d1edd9c65eb57af1d03b27d9af7da137ef239a160f9f` |
+| `custom_components/fritzbox_netzwerk/manifest.json` | `18248940d3f4015be8791e1718585a3d0ea6a554ddd42e865ae2961344af0756` |
+| `custom_components/fritzbox_netzwerk/strings.json` | `e6bc5d86071de18460fa48a01ed4cdeb8682cc1d8da2071652b1fee02813fa37` |
+| `custom_components/fritzbox_netzwerk/translations/de.json` | `a8c2ee1f28a4300f510c7499c6175b98014d072498cd65b3707ae32f04c2aa2f` |
+| `custom_components/fritzbox_netzwerk/translations/en.json` | `ac12b89b1bba6f05d7187415abaada7f45d018c488ec25767c9a4e7d8322da78` |
+| `custom_components/fritzbox_netzwerk/translations/nl.json` | `d452b48814e2595245fe53b2f0bca5dbdf35bc189f07562a9cdf985a78d3e006` |
 
 ## Entwicklung und Tests
 
@@ -1863,6 +1939,26 @@ erfüllt.
 ---
 
 ## Versionshistorie
+
+### 2.2.0 – Mesh-Zuordnung per Drag & Drop, Geräte-Fotos, CSV-Export und Issues #42–#44
+
+**Integration**
+
+- **Neu – Mesh-Zuordnung per Drag & Drop (Issue #41):** Im Tab *Mesh* gibt es einen Bearbeiten-Modus (nur Administratoren). Geräte, Switches und Repeater lassen sich auf eine andere Station ziehen; im Popup gibt es dieselbe Funktion als Auswahl, außerdem „Als Zwischenstation behandeln“ für Switches und kaskadierte FRITZ!Boxen. Gespeichert nur in Home Assistant, mit Schleifenschutz und „Alle zurücksetzen“. Neue Dienste `set_mesh_parent`, `set_mesh_hub`, `reset_mesh_topology`. Die automatische Erkennung bleibt wie in 2.1.2 (kaskadierte FRITZ!Boxen nur mit der experimentellen Option).
+- **Neu – Geräte-Fotos:** Foto je Gerät hochladen oder am Smartphone mit der Kamera-App aufnehmen (`capture`, unter http und https); der Browser skaliert auf 320 px, der Server prüft, skaliert erneut und entfernt EXIF. Ohne Kamera-Unterstützung (Desktop) nur „Hochladen“.
+- **Neu – Option „Netzwerkgeräte als Device Tracker“ (Muster, Issue #42):** Nur passende Geräte bekommen einen Device Tracker (`*`, `!`); leer = alle wie bisher, vorhandene Tracker bleiben.
+- **Neu – Sensor „Verbindungsrate“ je Repeater (Issue #43):** Mbit/s zum Uplink, höchstens alle 5 Minuten aktualisiert (Mesh-Daten werden bis zu 300 s zwischengespeichert).
+- **Behoben – Warnung zu `via_device` (Issue #44):** Die Geräte-Sensoren nutzen `via_device_id`.
+- **Hinweis zu Issue #40:** Das Entfernen der Karte aus den Lovelace-Ressourcen beim Deaktivieren/Löschen kam schon mit 2.1.1; der Melder nutzte noch 2.0.2.
+
+**Karte**
+
+- **Behoben – CSV-Export bei Filter „Alle“:** Der Export enthielt nur aktive Geräte, wenn „Nicht verbundene Geräte ausblenden“ (`hide_inactive`) gesetzt war. Der Export ignoriert diese Einstellung jetzt und liefert alle Geräte des gewählten Filters. Die Ursache wurde nur mit dieser Einstellung nachgestellt; trat der Fehler bei Dir ohne sie auf, bitte melden.
+- **Neu:** Bearbeiten-Modus mit Drag & Drop in der Mesh-Karte, Abschnitte „Mesh-Zuordnung“ und „Foto“ im Popup, Fotos als kleines Bild vor dem Namen.
+
+**Hinweise zum Update:** Über HACS aktualisieren, Home Assistant neu starten, Browser-Cache leeren (Strg+F5).
+
+**Bekannt:** Drag & Drop, Fotos und die Kamera sind an keiner echten FRITZ!Box, keinem echten Browser und keinem Smartphone geprüft (nur simulierte Daten, jsdom). Ob Issue #41 an Deiner Topologie damit gelöst ist, zeigt erst der Einsatz: die Anzeige lässt sich jetzt von Hand korrigieren, die automatische Erkennung ist nicht verbessert.
 
 ### 2.1.2 – Switch-Erkennung wie in 2.1.0, Kaskaden-Erkennung nur noch als Option
 

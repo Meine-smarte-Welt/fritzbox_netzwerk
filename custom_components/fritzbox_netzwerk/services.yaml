@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): ca248896e41c02a917ca9cf678a51dfe88fd9de1ee3d6c71fe49a82efd661dd6
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): c1df9ab0da05288b13f4e2f3e0f16dd737a732324fd8ce3c8cec726d0d346322
 set_device_name:
   fields:
     mac:
@@ -328,6 +328,50 @@ remove_unused_connections:
       default: false
       selector:
         boolean:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+set_mesh_parent:
+  fields:
+    child:
+      required: true
+      example: "3C:A6:F6:00:11:22"
+      selector:
+        text:
+    parent:
+      required: false
+      example: "box"
+      selector:
+        text:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+set_mesh_hub:
+  fields:
+    mac:
+      required: true
+      example: "3C:A6:F6:00:11:22"
+      selector:
+        text:
+    enabled:
+      required: true
+      default: true
+      selector:
+        boolean:
+    config_entry:
+      required: false
+      selector:
+        config_entry:
+          integration: fritzbox_netzwerk
+
+reset_mesh_topology:
+  fields:
     config_entry:
       required: false
       selector:

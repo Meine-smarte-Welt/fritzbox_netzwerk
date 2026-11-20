@@ -1,4 +1,4 @@
-// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): a3f3da8f593e550045e11db211fddb2b6165540b38a299e1d7053c700dbfb565
+// SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 7f7f8166160c018dd96780c236338b2350a0bea02b93e43a5d171d5712ed83f1
 /**
  * FRITZ!Box Netzwerk - Dashboard-Karte
  * Teil der Integration fritzbox_netzwerk (Meine-smarte-Welt).
@@ -18,7 +18,9 @@
  *   eingebundenes Modul beim zweiten define() abbricht.
  */
 
-const FBN_VERSION = "2.1.2";
+const FBN_VERSION = "2.2.0";
+/** Fotos: längste Kante in Pixel (2.2.0), identisch zum Backend (IMAGE_MAX_EDGE). */
+const IMAGE_MAX_EDGE = 320;
 // Merker, dass der Hinweis auf weitere Bereiche (Tabs/Einstellungen) ausgeblendet wurde.
 const MORE_HINT_KEY = "fbn-hint-more-areas";
 // Zoom der Mesh-Karte (Faktor; 1 = Originalgröße), wie in der Zigbee2MQTT-Manager-Karte.
@@ -316,6 +318,9 @@ const I18N = {
     "act.blocking": "Sperre …", "act.unblocking": "Gebe frei …",
     "act.blocked": "Gesperrt", "act.unblocked": "Freigegeben",
     "act.failed": "Fehlgeschlagen", "act.wol_sent": "Signal gesendet",
+    "mm.edit": "Zuordnung bearbeiten", "mm.edit_done": "Fertig", "mm.reset_all": "Alle zurücksetzen", "mm.reset_confirm": "Alle manuellen Zuordnungen und Zwischenstationen zurücksetzen? Die FRITZ!Box wird dabei nicht verändert.", "mm.reset_done": "Manuelle Zuordnungen zurückgesetzt", "mm.edit_hint": "Ziehe eine Station oder ein Gerät auf eine andere Station, um es dort einzuhängen (am Smartphone: kurz gedrückt halten, dann ziehen). Die Zuordnung wird nur in Home Assistant gespeichert, die FRITZ!Box bleibt unverändert.", "mm.pinned": "manuell", "mm.assigned": "Zuordnung gespeichert",
+    "assign.title": "Mesh-Zuordnung", "assign.parent": "Hängt an Station", "assign.auto": "Automatisch (laut FRITZ!Box)", "assign.hub": "Als Zwischenstation behandeln (Switch / kaskadierte FRITZ!Box)", "assign.hub_hint": "Geräte können dann darunter eingehängt werden. Nur in Home Assistant gespeichert.", "assign.saved": "Gespeichert",
+    "photo.title": "Foto", "photo.camera": "Kamera", "photo.upload": "Hochladen", "photo.remove": "Entfernen", "photo.hint": "Wird auf 320 px verkleinert und in Home Assistant gespeichert.", "photo.uploading": "Wird hochgeladen …", "photo.saved": "Foto gespeichert", "photo.removed": "Foto entfernt", "photo.failed": "Foto konnte nicht gespeichert werden", "photo.remove_confirm": "Foto dieses Geräts entfernen?",
     "act.wol_wait": "…", "copy.aria": "{label} kopieren",
     "popup.gone": "Dieses Gerät ist nicht mehr in der Liste.",
     "popup.aria": "Gerätedetails {name}",
@@ -435,6 +440,9 @@ const I18N = {
     "act.blocking": "Blocking …", "act.unblocking": "Allowing …",
     "act.blocked": "Blocked", "act.unblocked": "Allowed",
     "act.failed": "Failed", "act.wol_sent": "Signal sent",
+    "mm.edit": "Edit assignment", "mm.edit_done": "Done", "mm.reset_all": "Reset all", "mm.reset_confirm": "Reset all manual assignments and intermediate stations? The FRITZ!Box is not changed.", "mm.reset_done": "Manual assignments reset", "mm.edit_hint": "Drag a station or device onto another station to attach it there (on a phone: press and hold briefly, then drag). The assignment is stored in Home Assistant only; the FRITZ!Box stays unchanged.", "mm.pinned": "manual", "mm.assigned": "Assignment saved",
+    "assign.title": "Mesh assignment", "assign.parent": "Attached to station", "assign.auto": "Automatic (as reported by the FRITZ!Box)", "assign.hub": "Treat as intermediate station (switch / cascaded FRITZ!Box)", "assign.hub_hint": "Devices can then be attached below it. Stored in Home Assistant only.", "assign.saved": "Saved",
+    "photo.title": "Photo", "photo.camera": "Camera", "photo.upload": "Upload", "photo.remove": "Remove", "photo.hint": "Scaled down to 320 px and stored in Home Assistant.", "photo.uploading": "Uploading …", "photo.saved": "Photo saved", "photo.removed": "Photo removed", "photo.failed": "Could not save the photo", "photo.remove_confirm": "Remove this device's photo?",
     "act.wol_wait": "…", "copy.aria": "Copy {label}",
     "popup.gone": "This device is no longer in the list.",
     "popup.aria": "Device details {name}",
@@ -554,6 +562,9 @@ const I18N = {
     "act.blocking": "Blokkeren …", "act.unblocking": "Toestaan …",
     "act.blocked": "Geblokkeerd", "act.unblocked": "Toegestaan",
     "act.failed": "Mislukt", "act.wol_sent": "Signaal verzonden",
+    "mm.edit": "Toewijzing bewerken", "mm.edit_done": "Klaar", "mm.reset_all": "Alles resetten", "mm.reset_confirm": "Alle handmatige toewijzingen en tussenstations resetten? De FRITZ!Box wordt niet gewijzigd.", "mm.reset_done": "Handmatige toewijzingen gereset", "mm.edit_hint": "Sleep een station of apparaat naar een ander station om het daar aan te hangen (op een telefoon: kort ingedrukt houden en dan slepen). De toewijzing wordt alleen in Home Assistant opgeslagen; de FRITZ!Box blijft ongewijzigd.", "mm.pinned": "handmatig", "mm.assigned": "Toewijzing opgeslagen",
+    "assign.title": "Mesh-toewijzing", "assign.parent": "Hangt aan station", "assign.auto": "Automatisch (volgens de FRITZ!Box)", "assign.hub": "Als tussenstation behandelen (switch / gecascadeerde FRITZ!Box)", "assign.hub_hint": "Apparaten kunnen er dan onder worden gehangen. Alleen in Home Assistant opgeslagen.", "assign.saved": "Opgeslagen",
+    "photo.title": "Foto", "photo.camera": "Camera", "photo.upload": "Uploaden", "photo.remove": "Verwijderen", "photo.hint": "Wordt verkleind tot 320 px en in Home Assistant opgeslagen.", "photo.uploading": "Wordt geüpload …", "photo.saved": "Foto opgeslagen", "photo.removed": "Foto verwijderd", "photo.failed": "Foto kon niet worden opgeslagen", "photo.remove_confirm": "Foto van dit apparaat verwijderen?",
     "act.wol_wait": "…", "copy.aria": "{label} kopiëren",
     "popup.gone": "Dit apparaat staat niet meer in de lijst.",
     "popup.aria": "Apparaatdetails {name}",
@@ -731,6 +742,83 @@ function normalizeHex(value) {
  * MAC (Kennung "VPN:<IP>", ``mac_synthetic``, Issue #29): Aktionen, die eine
  * MAC brauchen (Aufwecken, Sperren, Umbenennen, feste IP, Profil), entfallen.
  */
+/** MAC ohne Trenner, klein - Kennung eines Geräts für Zuordnung und Foto (wie mac_key im Backend). */
+function macKeyOf(mac) {
+  return String(mac || "").toLowerCase().replace(/[^0-9a-f]/g, "");
+}
+
+/**
+ * Kann dieses Gerät die Kamera-App über ein Dateifeld mit ``capture`` öffnen? Das gilt für Android,
+ * iPhone und iPad (auch iPadOS, das sich als Mac meldet). Auf dem Desktop ignoriert der Browser
+ * ``capture`` - dort gibt es nur den Hochladen-Knopf. Funktioniert unter http und https, weil dabei
+ * die App des Systems geöffnet wird und kein Kamerazugriff der Seite (getUserMedia) nötig ist.
+ */
+function cameraCapable() {
+  try {
+    const nav = typeof navigator !== "undefined" ? navigator : {};
+    const ua = String(nav.userAgent || "");
+    if (/Android|iPhone|iPad|iPod/i.test(ua)) return true;
+    return /Macintosh/i.test(ua) && Number(nav.maxTouchPoints || 0) > 1;
+  } catch (_e) {
+    return false;
+  }
+}
+
+/** Skaliert ein Bild auf höchstens ``maxEdge`` Pixel (längste Kante) und liefert ein JPEG-Blob. */
+async function scaleImageFile(file, maxEdge, quality) {
+  let source = null;
+  let url = "";
+  try {
+    let w = 0;
+    let h = 0;
+    if (typeof createImageBitmap === "function") {
+      try {
+        source = await createImageBitmap(file, { imageOrientation: "from-image" });
+      } catch (_e) {
+        source = null;
+      }
+    }
+    if (source) {
+      w = source.width;
+      h = source.height;
+    } else {
+      url = URL.createObjectURL(file);
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = () => reject(new Error("decode"));
+        img.src = url;
+      });
+      source = img;
+      w = img.naturalWidth;
+      h = img.naturalHeight;
+    }
+    if (!w || !h) throw new Error("size");
+    const scale = Math.min(1, maxEdge / Math.max(w, h));
+    const cw = Math.max(1, Math.round(w * scale));
+    const ch = Math.max(1, Math.round(h * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(source, 0, 0, cw, ch);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+    if (!blob) throw new Error("encode");
+    return blob;
+  } finally {
+    if (url) URL.revokeObjectURL(url);
+    if (source && typeof source.close === "function") {
+      try {
+        source.close();
+      } catch (_e) {
+        /* nichts zu tun */
+      }
+    }
+  }
+}
+
 function realMac(host) {
   return host && host.mac && !host.mac_synthetic ? host.mac : "";
 }
@@ -1285,6 +1373,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
     }
     // Ein offenes Popup nicht verwaist am body haengen lassen.
     this._closePopup();
+    if (this._dnd) this._dndEnd(null, false);
+    if (this._imgCache) {
+      for (const url of this._imgCache.values()) URL.revokeObjectURL(url);
+      this._imgCache = null;
+      this._imgLoading = null;
+    }
     this._closeGastWlanPopup();
   }
 
@@ -1524,7 +1618,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // sehen - dort würde das Ausblenden die Liste sonst leer lassen (Issue #24).
     const inactiveView =
       this._filter === "inaktiv" || this._filter === "lange_offline" || this._filter === "verloren";
-    if (this._config.hide_inactive && !inactiveView) {
+    if (this._config.hide_inactive && !inactiveView && !(options && options.ignoreHideInactive)) {
       hosts = hosts.filter((host) => host.active);
     }
 
@@ -2177,7 +2271,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
   _buildCsvText() {
     const columns = this._visibleColumns();
     const header = columns.map((column) => this._t(`col.${column.key}`));
-    const rows = this._filteredHosts({ ignoreLimit: true }).map((host) =>
+    const rows = this._filteredHosts({ ignoreLimit: true, ignoreHideInactive: true }).map((host) =>
       columns.map((column) => this._csvValue(host, column.key))
     );
     // In Deutschland/den Niederlanden erwartet Excel ";" als Trenner.
@@ -2842,6 +2936,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     if (!this._hasMesh) {
       box.innerHTML = "";
       this._meshSig = "";
+      this._meshModel = null;
       return;
     }
     const hosts = this._allHosts();
@@ -2881,6 +2976,10 @@ class FritzboxNetzwerkCard extends HTMLElement {
     }
     const children = new Map(hubs.map((h) => [h, []]));
     for (const h of hubs) if (parents.get(h)) children.get(parents.get(h)).push(h);
+    // 2.2.0: Kennung einer Station für die manuelle Zuordnung (Dienst set_mesh_parent).
+    const refOf = (h) => String(h.ref || (h === root ? "box" : h.mesh_id || macKeyOf(h.mac) || ""));
+    const edit = !!this._meshEdit && this._isAdmin();
+    const clientHub = new Map();
 
     // Geräte den Stationen zuordnen. Die Box selbst und Repeater sind keine "Geräte" in den Wolken.
     const kindOf = (host) => {
@@ -2901,7 +3000,23 @@ class FritzboxNetzwerkCard extends HTMLElement {
         loose += 1;
       }
       clients.get(hub).push(host);
+      clientHub.set(macKeyOf(host.mac), refOf(hub));
     }
+    // Für das Popup (Auswahl "Hängt an") und das Ziehen: Stationen samt Uplink.
+    this._meshModel = {
+      rootIp: root.ip || "",
+      clientHub,
+      hubs: hubs.map((h) => ({
+        ref: refOf(h),
+        name: h.name || "",
+        macKey: macKeyOf(h.mac),
+        parentRef: parents.get(h) ? refOf(parents.get(h)) : "",
+        manual: !!h.manual,
+        isBox: h === root,
+      })),
+    };
+    // Während des Ziehens nicht neu zeichnen - sonst verschwindet das gezogene Element.
+    if (this._dnd && this._dnd.active) return;
     const total = [...clients.values()].reduce((sum, list) => sum + list.length, 0);
     const groupsOf = (hub) => {
       const parts = { WLAN: [], LAN: [], OTHER: [] };
@@ -2911,11 +3026,13 @@ class FritzboxNetzwerkCard extends HTMLElement {
     // Das Popup einer Mesh-Station: Repeater über die MAC, die Box über ihre IP-Adresse.
     const hubTarget = (m) => (m.role === "box" ? this._hostByIp(m.ip) : this._hostByMac(m.mac));
     const sig = JSON.stringify([
-      hubs.map((h) => [h.name, h.role, h.online, h.model, h.mac, h.ip, h.mesh_id, h.via_id, h.connected_via, h.link_mbit, h.cascade ? 1 : 0, hubTarget(h) ? 1 : 0]),
-      hubs.map((h) => (clients.get(h) || []).map((x) => [x.mac, x.link_mbit, x.label || x.name, x.band, x.link_type, x.connection])),
+      hubs.map((h) => [h.name, h.role, h.online, h.model, h.mac, h.ip, h.mesh_id, h.via_id, h.connected_via, h.link_mbit, h.cascade ? 1 : 0, hubTarget(h) ? 1 : 0, h.ref, h.manual ? 1 : 0, h.manual_parent ? 1 : 0]),
+      hubs.map((h) => (clients.get(h) || []).map((x) => [x.mac, x.link_mbit, x.label || x.name, x.band, x.link_type, x.connection, x.manual_parent ? 1 : 0])),
       total,
       loose,
       this._lang(),
+      edit ? 1 : 0,
+      this._isAdmin() ? 1 : 0,
     ]);
     if (sig === this._meshSig) return;
     this._meshSig = sig;
@@ -2997,6 +3114,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
       if (!host) return "";
       return m.role === "box" ? `data-open-ip="${escapeHtml(m.ip)}"` : `data-open-mac="${escapeHtml(host.mac)}"`;
     };
+    // Bearbeiten-Modus: Stationen sind Ablageziel, Repeater/Switches zusätzlich ziehbar.
+    const dropAttr = (h) => (edit ? ` data-droppref="${escapeHtml(refOf(h))}"` : "");
+    const dndAttrs = (h) =>
+      edit
+        ? `${dropAttr(h)}${h === root ? "" : ` data-dragref="${escapeHtml(refOf(h))}" data-dragname="${escapeHtml(h.name || "")}"`}`
+        : "";
     const rateText = (v) => `${String(v).replace(".", ",")} Mbit/s`;
     const cloudMeta = {
       WLAN: { icon: "mdi:wifi", key: "mm.cloud_wlan" },
@@ -3042,7 +3165,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
           cloudMeta[g.kind].icon,
           [title, slow != null ? this._t("mm.min", { v: String(slow).replace(".", ",") }) : ""],
           "fbn-mm-cl",
-          `data-mesh-open="${escapeHtml(hubKey(hub))}"`,
+          `data-mesh-open="${escapeHtml(hubKey(hub))}"${dropAttr(hub)}`,
           `${this._t("mm.show_devices")}: ${hub.name || ""}`
         );
       });
@@ -3053,7 +3176,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
       const isCascade = isSwitch && hub.cascade === true;
       const kindName = isBox ? "FRITZ!Box" : isSwitch ? "Switch" : "Repeater";
       const sub = hub.model && hub.model !== hub.name ? hub.model : kindName;
-      const count = isBox ? this._t("mm.total", { n: total }) : this._t("mm.devices", { n: (clients.get(hub) || []).length });
+      const countBase = isBox ? this._t("mm.total", { n: total }) : this._t("mm.devices", { n: (clients.get(hub) || []).length });
+      const count = hub.manual_parent ? `${countBase} · ${this._t("mm.pinned")}` : countBase;
       nodes += node(
         x,
         top,
@@ -3062,7 +3186,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
         isBox ? "mdi:router-wireless" : isCascade ? "mdi:router-network" : isSwitch ? "mdi:switch" : off ? "mdi:access-point-network-off" : "mdi:access-point-network",
         [hub.name || kindName, sub, count],
         off ? "fbn-mm-off" : isBox ? "fbn-mm-box" : isSwitch ? "fbn-mm-sw" : "fbn-mm-rep",
-        targetAttrs(hub),
+        `${targetAttrs(hub)}${dndAttrs(hub)}`,
         this._t("mm.open_tip", { name: hub.name || kindName })
       );
     }
@@ -3073,9 +3197,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
       if (kindOf(h) === "LAN") parts.push("LAN");
       if (h.band) parts.push(`${h.band} GHz`);
       parts.push(h.link_mbit != null && Number(h.link_mbit) > 0 ? rateText(h.link_mbit) : "—");
+      if (h.manual_parent) parts.push(this._t("mm.pinned"));
       return parts.join(" · ");
     };
-    const row = (mac, name, value, icon = "") => `<div class="fbn-kv fbn-link" role="button" tabindex="0" data-open-mac="${escapeHtml(mac)}"
+    const row = (mac, name, value, icon = "", ref = "") => `<div class="fbn-kv fbn-link" role="button" tabindex="0" data-open-mac="${escapeHtml(mac)}"${
+      edit && ref ? ` data-dragref="${escapeHtml(ref)}" data-dragname="${escapeHtml(name)}"` : ""
+    }
           title="${escapeHtml(this._t("popup.open_tip"))}"><span>${icon ? `${escapeHtml(icon)} ` : ""}${escapeHtml(name)}</span>
           <b>${escapeHtml(value)}</b><ha-icon icon="mdi:chevron-right"></ha-icon></div>`;
     const detail = hubs
@@ -3085,11 +3212,12 @@ class FritzboxNetzwerkCard extends HTMLElement {
         if (!list.length && !kids.length) return "";
         const kidRows = kids
           .filter((k) => k.mac)
-          .map((k) => row(k.mac, k.name || k.mac, typeof k.link_mbit === "number" && k.link_mbit > 0 ? rateText(k.link_mbit) : "—", "↳"))
+          .map((k) => row(k.mac, k.name || k.mac, typeof k.link_mbit === "number" && k.link_mbit > 0 ? rateText(k.link_mbit) : "—", "↳", refOf(k)))
           .join("");
-        const body = `<div class="fbn-mm-list">${kidRows}${list.map((h) => row(h.mac, h.label || h.name || h.mac, valueOf(h))).join("")}</div>`;
+        const body = `<div class="fbn-mm-list">${kidRows}${list.map((h) => row(h.mac, h.label || h.name || h.mac, valueOf(h), "", macKeyOf(h.mac))).join("")}</div>`;
         const meta = hub === root ? this._t("mm.direct_total", { d: list.length, t: total }) : this._t("mm.devices", { n: list.length });
-        return this._accordion(`mesh:${hubKey(hub)}`, hub === root ? "mdi:router-wireless" : hub.role === "switch" ? (hub.cascade === true ? "mdi:router-network" : "mdi:switch") : "mdi:access-point-network", hub.name || "", meta, body, "", idx === 0);
+        const accHtml = this._accordion(`mesh:${hubKey(hub)}`, hub === root ? "mdi:router-wireless" : hub.role === "switch" ? (hub.cascade === true ? "mdi:router-network" : "mdi:switch") : "mdi:access-point-network", hub.name || "", meta, body, "", idx === 0);
+        return edit ? accHtml.replace("<details ", `<details data-droppref="${escapeHtml(refOf(hub))}" `) : accHtml;
       })
       .join("");
     // 2.1.0: Zoom und Verschieben wie in der Zigbee2MQTT-Manager-Karte. Die Breite der Zeichnung
@@ -3100,7 +3228,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
     const oldWrap = box.querySelector(".fbn-mm-wrap");
     const keepLeft = oldWrap ? oldWrap.scrollLeft : 0;
     const keepTop = oldWrap ? oldWrap.scrollTop : 0;
+    box.classList.toggle("fbn-mm-editing", edit);
     box.innerHTML = `
+      ${this._meshEditBar(edit)}
       ${this._meshZoomBar(zoom)}
       <div class="fbn-mm-wrap">
         <svg class="fbn-mm-svg" style="${svgStyle}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(this._t("tab.mesh"))}">${edges}${nodes}</svg>
@@ -3116,6 +3246,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
       newWrap.scrollTop = keepTop;
     }
     this._bindMeshZoom(box);
+    this._bindMeshDnd(box);
     if (!zoom) {
       // Noch kein gemerkter Zoom: auf die Kartenbreite einpassen (ohne zu speichern).
       this._meshZoomFit(false);
@@ -3688,6 +3819,7 @@ class FritzboxNetzwerkCard extends HTMLElement {
     } else {
       body.innerHTML = hosts.map((host) => this._renderRow(host, columns)).join("");
     }
+    this._hydrateImages(body);
 
     if (!body.dataset.bound) {
       body.dataset.bound = "1";
@@ -3857,7 +3989,11 @@ class FritzboxNetzwerkCard extends HTMLElement {
         if (host.lost) badges.push(`<span class="fbn-badge fbn-badge-lost">${escapeHtml(this._t("badge.lost"))}</span>`);
         return `
           <div class="fbn-namecell">
-            <ha-icon class="fbn-rowicon" icon="${connectionIcon(host)}"></ha-icon>
+            ${
+              host.image && realMac(host)
+                ? `<img class="fbn-rowimg" data-fbn-img="${escapeHtml(macKeyOf(host.mac))}" data-fbn-ver="${escapeHtml(String(host.image))}" alt="" loading="lazy">`
+                : ""
+            }<ha-icon class="fbn-rowicon" icon="${connectionIcon(host)}"></ha-icon>
             <span class="fbn-name">${escapeHtml(host.name)}</span>
             ${badges.join("")}
           </div>`;
@@ -4068,7 +4204,16 @@ class FritzboxNetzwerkCard extends HTMLElement {
         </div>
         <div class="fbn-modal-body"></div>
         <div class="fbn-modal-foot"></div>
-      </div>`;
+      </div>
+      ${
+        this._isAdmin()
+          ? `<input type="file" class="fbn-img-pick" accept="image/*" tabindex="-1" aria-hidden="true" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">${
+              cameraCapable()
+                ? `<input type="file" class="fbn-img-cam" accept="image/*" capture="environment" tabindex="-1" aria-hidden="true" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none">`
+                : ""
+            }`
+          : ""
+      }`;
     document.body.appendChild(overlay);
     this._popup = overlay;
 
@@ -4156,6 +4301,9 @@ class FritzboxNetzwerkCard extends HTMLElement {
       this._popupRows(host);
     this._popup.querySelector(".fbn-modal-foot").innerHTML =
       this._popupButtons(host);
+    this._bindAssign(host);
+    this._bindPhoto(host);
+    this._hydrateImages(this._popup);
 
     // Kopier-Knoepfe verkabeln.
     this._popup.querySelectorAll(".fbn-copy").forEach((button) => {
@@ -4797,6 +4945,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
     add(this._t("field.name"), this._nameFieldHtml(host));
     const noteRows = this._noteRowsHtml(host);
     if (noteRows) rows.push(noteRows);
+    const photoRow = this._photoRowHtml(host);
+    if (photoRow) rows.push(photoRow);
     const parentalRows = this._parentalRowsHtml(host);
     if (parentalRows) rows.push(parentalRows);
     const staticIpRows = this._staticIpRowsHtml(host);
@@ -4823,6 +4973,8 @@ class FritzboxNetzwerkCard extends HTMLElement {
       const rate = host.link_mbit ? ` (${formatSpeed(host.link_mbit)})` : "";
       add(this._t("field.connected_via"), escapeHtml(this._viaName(host) + rate));
     }
+    const assignRows = this._assignRowsHtml(host);
+    if (assignRows) rows.push(assignRows);
     add(
       this._t("field.status"),
       host.active ? this._t("state.connected") : this._t("state.disconnected")
@@ -5081,6 +5233,498 @@ class FritzboxNetzwerkCard extends HTMLElement {
   }
 
   /** Schliesst das Popup und raeumt Listener und Fokus auf. */
+  /* -- Mesh-Zuordnung per Drag & Drop, Geräte-Fotos (2.2.0) --------------------------- */
+
+  _isAdmin() {
+    const user = this._hass && this._hass.user;
+    return !!(user && user.is_admin);
+  }
+
+  _entryId() {
+    const state = this._stateObj();
+    return String((state && state.attributes && state.attributes.entry_id) || "");
+  }
+
+  _notify(message) {
+    this.dispatchEvent(new CustomEvent("hass-notification", { detail: { message }, bubbles: true, composed: true }));
+  }
+
+  _errText(err) {
+    const text = err && (err.message || (typeof err === "string" ? err : ""));
+    return text ? `${this._t("act.failed")}: ${text}` : this._t("act.failed");
+  }
+
+  _serviceData(data) {
+    const entry = this._entryId();
+    return entry ? { ...data, config_entry: entry } : data;
+  }
+
+  /** Die Station selbst und alles, was unter ihr hängt (diese Ziele sind beim Ziehen gesperrt). */
+  _meshDescendants(ref) {
+    const out = new Set([ref]);
+    const model = this._meshModel;
+    if (!model) return out;
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const hub of model.hubs) {
+        if (!out.has(hub.ref) && hub.parentRef && out.has(hub.parentRef)) {
+          out.add(hub.ref);
+          grew = true;
+        }
+      }
+    }
+    return out;
+  }
+
+  /** Hängt ein Gerät unter eine Station; leeres ``parentRef`` = wieder automatisch. */
+  _meshAssign(childRef, parentRef) {
+    if (!this._hass || !childRef) return Promise.resolve(false);
+    return this._hass
+      .callService("fritzbox_netzwerk", "set_mesh_parent", this._serviceData({ child: childRef, parent: parentRef || "" }))
+      .then(() => {
+        this._notify(this._t("mm.assigned"));
+        this._meshSig = "";
+        return true;
+      })
+      .catch((err) => {
+        this._notify(this._errText(err));
+        return false;
+      });
+  }
+
+  _meshResetAll() {
+    if (!this._hass) return;
+    if (typeof confirm === "function" && !confirm(this._t("mm.reset_confirm"))) return;
+    this._hass
+      .callService("fritzbox_netzwerk", "reset_mesh_topology", this._serviceData({}))
+      .then(() => {
+        this._notify(this._t("mm.reset_done"));
+        this._meshSig = "";
+      })
+      .catch((err) => this._notify(this._errText(err)));
+  }
+
+  _meshEditBar(edit) {
+    if (!this._isAdmin()) return "";
+    const t = (key) => escapeHtml(this._t(key));
+    return `<div class="fbn-mm-edit">
+      <button class="fbn-ctl-btn${edit ? " fbn-mm-edit-on" : ""}" type="button" data-mme="toggle" aria-pressed="${edit ? "true" : "false"}"><ha-icon icon="${edit ? "mdi:check" : "mdi:cursor-move"}"></ha-icon>${t(edit ? "mm.edit_done" : "mm.edit")}</button>
+      ${edit ? `<button class="fbn-ctl-btn" type="button" data-mme="reset"><ha-icon icon="mdi:restore"></ha-icon>${t("mm.reset_all")}</button>` : ""}
+    </div>${edit ? `<p class="fbn-om-hint">${t("mm.edit_hint")}</p>` : ""}`;
+  }
+
+  /**
+   * Bearbeiten-Modus: Stationen und Geräte mit gedrückter Maustaste auf eine andere Station ziehen
+   * (Touch: kurz halten, dann ziehen). Einmalig je Karte verkabelt.
+   */
+  _bindMeshDnd(box) {
+    if (box.dataset.dndBound) return;
+    box.dataset.dndBound = "1";
+    box.addEventListener("click", (event) => {
+      const button = event.target.closest && event.target.closest("[data-mme]");
+      if (!button) return;
+      if (button.getAttribute("data-mme") === "toggle") {
+        this._meshEdit = !this._meshEdit;
+        this._meshSig = "";
+        this._renderMeshMap();
+      } else if (button.getAttribute("data-mme") === "reset") {
+        this._meshResetAll();
+      }
+    });
+    // Capture: noch vor dem Verschieben der Karte (Maus), das sonst gleichzeitig starten würde.
+    box.addEventListener("pointerdown", (event) => this._dndStart(event, box), true);
+    box.addEventListener("contextmenu", (event) => {
+      if (this._dnd) event.preventDefault();
+    });
+  }
+
+  _dndStart(event, box) {
+    if (!this._meshEdit || !this._isAdmin() || this._dnd) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const src = event.target.closest && event.target.closest("[data-dragref]");
+    if (!src || !box.contains(src)) return;
+    const touch = event.pointerType !== "mouse";
+    const dnd = {
+      id: event.pointerId,
+      box,
+      src,
+      ref: src.getAttribute("data-dragref"),
+      name: src.getAttribute("data-dragname") || "",
+      x: event.clientX,
+      y: event.clientY,
+      x0: event.clientX,
+      y0: event.clientY,
+      touch,
+      active: false,
+      timer: null,
+      ghost: null,
+      cands: [],
+      over: null,
+    };
+    this._dnd = dnd;
+    if (!touch) event.stopImmediatePropagation();
+    dnd.onMove = (e) => this._dndMove(e);
+    dnd.onUp = (e) => this._dndEnd(e, true);
+    dnd.onCancel = (e) => this._dndEnd(e, false);
+    dnd.onKey = (e) => {
+      if (e.key === "Escape") this._dndEnd(e, false);
+    };
+    dnd.onTouch = (e) => {
+      if (dnd.active && e.cancelable) e.preventDefault();
+    };
+    window.addEventListener("pointermove", dnd.onMove);
+    window.addEventListener("pointerup", dnd.onUp);
+    window.addEventListener("pointercancel", dnd.onCancel);
+    window.addEventListener("keydown", dnd.onKey, true);
+    window.addEventListener("touchmove", dnd.onTouch, { passive: false });
+    if (touch) {
+      dnd.timer = setTimeout(() => {
+        if (this._dnd === dnd && !dnd.active) this._dndActivate();
+      }, 350);
+    }
+  }
+
+  _dndActivate() {
+    const dnd = this._dnd;
+    if (!dnd || dnd.active) return;
+    dnd.active = true;
+    const blocked = this._meshDescendants(dnd.ref);
+    dnd.cands = [...dnd.box.querySelectorAll("[data-droppref]")].filter((el) => !blocked.has(el.getAttribute("data-droppref")));
+    for (const el of dnd.cands) el.classList.add("fbn-mm-drop-cand");
+    dnd.src.classList.add("fbn-mm-dragsrc");
+    const ghost = document.createElement("div");
+    ghost.className = "fbn-mm-ghost";
+    ghost.textContent = dnd.name || dnd.ref;
+    ghost.style.cssText =
+      "position:fixed;left:0;top:0;z-index:2147483000;pointer-events:none;padding:6px 12px;border-radius:12px;" +
+      "background:var(--primary-color,#03a9f4);color:#fff;font:600 13px/1.2 sans-serif;max-width:240px;" +
+      "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 14px rgba(0,0,0,.35);opacity:.92";
+    document.body.appendChild(ghost);
+    dnd.ghost = ghost;
+    this._dndUpdate();
+    if (dnd.touch && typeof navigator !== "undefined" && navigator.vibrate) {
+      try {
+        navigator.vibrate(15);
+      } catch (_e) {
+        /* ohne Vibration */
+      }
+    }
+  }
+
+  /** Geisterbild nachführen und die Station unter dem Zeiger hervorheben. */
+  _dndUpdate() {
+    const dnd = this._dnd;
+    if (!dnd || !dnd.active) return;
+    if (dnd.ghost) dnd.ghost.style.transform = `translate(${Math.round(dnd.x + 14)}px, ${Math.round(dnd.y + 14)}px)`;
+    let best = null;
+    let bestArea = Infinity;
+    for (const el of dnd.cands) {
+      const r = el.getBoundingClientRect();
+      if (dnd.x >= r.left && dnd.x <= r.right && dnd.y >= r.top && dnd.y <= r.bottom) {
+        const area = Math.max(1, r.width * r.height);
+        if (area < bestArea) {
+          best = el;
+          bestArea = area;
+        }
+      }
+    }
+    if (best !== dnd.over) {
+      if (dnd.over) dnd.over.classList.remove("fbn-mm-drop-ok");
+      if (best) best.classList.add("fbn-mm-drop-ok");
+      dnd.over = best;
+    }
+  }
+
+  _dndMove(event) {
+    const dnd = this._dnd;
+    if (!dnd || event.pointerId !== dnd.id) return;
+    dnd.x = event.clientX;
+    dnd.y = event.clientY;
+    const dist = Math.hypot(dnd.x - dnd.x0, dnd.y - dnd.y0);
+    if (!dnd.active) {
+      if (dnd.touch) {
+        // Vor Ablauf des langen Drückens bewegt: der Finger will scrollen, nicht ziehen.
+        if (dist > 8) this._dndEnd(event, false);
+        return;
+      }
+      if (dist < 4) return;
+      this._dndActivate();
+    }
+    this._dndUpdate();
+    if (event.cancelable) event.preventDefault();
+  }
+
+  _dndEnd(event, drop) {
+    const dnd = this._dnd;
+    if (!dnd) return;
+    if (event && event.pointerId !== undefined && event.pointerId !== dnd.id && event.type && event.type.startsWith("pointer")) return;
+    this._dnd = null;
+    if (dnd.timer) clearTimeout(dnd.timer);
+    window.removeEventListener("pointermove", dnd.onMove);
+    window.removeEventListener("pointerup", dnd.onUp);
+    window.removeEventListener("pointercancel", dnd.onCancel);
+    window.removeEventListener("keydown", dnd.onKey, true);
+    window.removeEventListener("touchmove", dnd.onTouch, { passive: false });
+    if (!dnd.active) return;
+    this._meshDragEndedAt = Date.now();
+    const target = drop ? dnd.over : null;
+    const targetRef = target ? target.getAttribute("data-droppref") : "";
+    for (const el of dnd.cands) el.classList.remove("fbn-mm-drop-cand", "fbn-mm-drop-ok");
+    dnd.src.classList.remove("fbn-mm-dragsrc");
+    if (dnd.ghost && dnd.ghost.parentNode) dnd.ghost.parentNode.removeChild(dnd.ghost);
+    this._meshSig = "";
+    if (targetRef) this._meshAssign(dnd.ref, targetRef).then(() => this._renderMeshMap());
+    else this._renderMeshMap();
+  }
+
+  /** Popup: Zuordnung zu einer Station (Alternative zum Ziehen) und "als Zwischenstation behandeln". */
+  _assignInfo(host) {
+    const model = this._meshModel;
+    if (!model || !this._isAdmin() || !realMac(host)) return null;
+    if (host.ip && model.rootIp && host.ip === model.rootIp) return null;
+    const key = macKeyOf(host.mac);
+    const own = model.hubs.find((h) => h.macKey && h.macKey === key) || null;
+    const childRef = own ? own.ref : key;
+    const blocked = this._meshDescendants(own ? own.ref : "\u0000");
+    const options = model.hubs.filter((h) => !blocked.has(h.ref));
+    const current = host.manual_parent ? (own ? own.parentRef : model.clientHub.get(key)) || "" : "";
+    return { key, own, childRef, options, current };
+  }
+
+  _assignRowsHtml(host) {
+    const info = this._assignInfo(host);
+    if (!info) return "";
+    const t = (key) => escapeHtml(this._t(key));
+    const opts = info.options
+      .map(
+        (h) =>
+          `<option value="${escapeHtml(h.ref)}"${h.ref === info.current ? " selected" : ""}>${escapeHtml(h.name || h.ref)}</option>`
+      )
+      .join("");
+    const hubBox =
+      !info.own || info.own.manual
+        ? `<label class="fbn-note-reserved"><input class="fbn-assign-hub" type="checkbox"${info.own && info.own.manual ? " checked" : ""}><span>${t("assign.hub")}</span></label>
+           <div class="fbn-hint">${t("assign.hub_hint")}</div>`
+        : "";
+    return `<div class="fbn-drow fbn-assign"><div class="fbn-dt">${t("assign.title")}</div>
+      <div class="fbn-dd fbn-assign-box">
+        <select class="fbn-assign-select" aria-label="${t("assign.parent")}">
+          <option value=""${info.current ? "" : " selected"}>${t("assign.auto")}</option>${opts}
+        </select>
+        ${host.manual_parent ? `<div class="fbn-hint">${t("mm.pinned")}</div>` : ""}
+        ${hubBox}
+      </div></div>`;
+  }
+
+  _bindAssign(host) {
+    const info = this._assignInfo(host);
+    if (!info || !this._popup) return;
+    const select = this._popup.querySelector(".fbn-assign-select");
+    if (select) {
+      select.addEventListener("change", () => {
+        select.disabled = true;
+        this._meshAssign(info.childRef, select.value).then(() => {
+          select.disabled = false;
+        });
+      });
+    }
+    const hub = this._popup.querySelector(".fbn-assign-hub");
+    if (hub) {
+      hub.addEventListener("change", () => {
+        hub.disabled = true;
+        this._hass
+          .callService("fritzbox_netzwerk", "set_mesh_hub", this._serviceData({ mac: host.mac, enabled: hub.checked }))
+          .then(() => this._notify(this._t("assign.saved")))
+          .catch((err) => {
+            hub.checked = !hub.checked;
+            this._notify(this._errText(err));
+          })
+          .then(() => {
+            hub.disabled = false;
+            this._meshSig = "";
+          });
+      });
+    }
+  }
+
+  /* -- Geräte-Fotos ---------------------------------------------------- */
+
+  _imgPut(key, ver, blob) {
+    this._imgCache = this._imgCache || new Map();
+    const ck = `${key}:${ver}`;
+    for (const [other, url] of [...this._imgCache]) {
+      if (other.startsWith(`${key}:`)) {
+        URL.revokeObjectURL(url);
+        this._imgCache.delete(other);
+      }
+    }
+    this._imgCache.set(ck, URL.createObjectURL(blob));
+  }
+
+  _imgDrop(key) {
+    if (!this._imgCache) return;
+    for (const [other, url] of [...this._imgCache]) {
+      if (other.startsWith(`${key}:`)) {
+        URL.revokeObjectURL(url);
+        this._imgCache.delete(other);
+      }
+    }
+  }
+
+  /** Füllt <img data-fbn-img> aus dem Zwischenspeicher; fehlende Bilder werden einmalig geladen. */
+  _hydrateImages(root) {
+    if (!root || !this._hass || typeof this._hass.fetchWithAuth !== "function") return;
+    const entry = this._entryId();
+    if (!entry) return;
+    this._imgCache = this._imgCache || new Map();
+    this._imgLoading = this._imgLoading || new Set();
+    for (const img of root.querySelectorAll("img[data-fbn-img]")) {
+      const key = img.getAttribute("data-fbn-img");
+      const ver = img.getAttribute("data-fbn-ver") || "";
+      const ck = `${key}:${ver}`;
+      const cached = this._imgCache.get(ck);
+      if (cached) {
+        if (img.getAttribute("src") !== cached) img.setAttribute("src", cached);
+        continue;
+      }
+      if (this._imgLoading.has(ck)) continue;
+      this._imgLoading.add(ck);
+      this._hass
+        .fetchWithAuth(`/api/fritzbox_netzwerk/image/${encodeURIComponent(entry)}/${key}?v=${encodeURIComponent(ver)}`)
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.blob();
+        })
+        .then((blob) => {
+          this._imgPut(key, ver, blob);
+          this._imgLoading.delete(ck);
+          this._hydrateImages(this);
+          if (this._popup) this._hydrateImages(this._popup);
+        })
+        .catch(() => {
+          // Nach einer Minute erneut versuchen, nicht bei jedem Zeichnen.
+          setTimeout(() => this._imgLoading && this._imgLoading.delete(ck), 60000);
+        });
+    }
+  }
+
+  _photoRowHtml(host) {
+    if (!realMac(host)) return "";
+    const admin = this._isAdmin();
+    if (!host.image && !admin) return "";
+    const t = (key) => escapeHtml(this._t(key));
+    const thumb = host.image
+      ? `<img class="fbn-photo-img" data-fbn-img="${escapeHtml(macKeyOf(host.mac))}" data-fbn-ver="${escapeHtml(String(host.image))}" alt="${escapeHtml(host.name)}">`
+      : `<div class="fbn-photo-ph"><ha-icon icon="mdi:image-outline"></ha-icon></div>`;
+    const buttons = admin
+      ? `${
+          cameraCapable()
+            ? `<button class="fbn-btn fbn-photo-cam" type="button"><ha-icon icon="mdi:camera"></ha-icon>${t("photo.camera")}</button>`
+            : ""
+        }<button class="fbn-btn fbn-photo-up" type="button"><ha-icon icon="mdi:upload"></ha-icon>${t("photo.upload")}</button>${
+          host.image
+            ? `<button class="fbn-btn fbn-photo-del" type="button"><ha-icon icon="mdi:delete-outline"></ha-icon>${t("photo.remove")}</button>`
+            : ""
+        }`
+      : "";
+    return `<div class="fbn-drow fbn-photo"><div class="fbn-dt">${t("photo.title")}</div>
+      <div class="fbn-dd fbn-photo-box">${thumb}<div class="fbn-photo-actions">${buttons}</div>${
+        admin ? `<div class="fbn-hint fbn-photo-status" aria-live="polite">${t("photo.hint")}</div>` : ""
+      }</div></div>`;
+  }
+
+  _photoStatus(text) {
+    const el = this._popup && this._popup.querySelector(".fbn-photo-status");
+    if (el) el.textContent = text;
+  }
+
+  _bindPhoto(host) {
+    if (!this._popup || !this._isAdmin()) return;
+    const cam = this._popup.querySelector(".fbn-photo-cam");
+    const up = this._popup.querySelector(".fbn-photo-up");
+    const del = this._popup.querySelector(".fbn-photo-del");
+    const camInput = this._popup.querySelector(".fbn-img-cam");
+    const pickInput = this._popup.querySelector(".fbn-img-pick");
+    if (cam && camInput) {
+      cam.addEventListener("click", () => {
+        camInput.value = "";
+        camInput.click();
+      });
+    }
+    if (up && pickInput) {
+      up.addEventListener("click", () => {
+        pickInput.value = "";
+        pickInput.click();
+      });
+    }
+    for (const input of [camInput, pickInput]) {
+      if (!input || input.dataset.bound) continue;
+      input.dataset.bound = "1";
+      input.addEventListener("change", () => {
+        const file = input.files && input.files[0];
+        const target = this._popupHost();
+        if (file && target) this._uploadPhoto(target, file);
+      });
+    }
+    if (del) del.addEventListener("click", () => this._deletePhoto(host));
+  }
+
+  _photoUrl(host) {
+    const entry = this._entryId();
+    const key = macKeyOf(host.mac);
+    return entry && key.length === 12 ? `/api/fritzbox_netzwerk/image/${encodeURIComponent(entry)}/${key}` : "";
+  }
+
+  async _uploadPhoto(host, file) {
+    const url = this._photoUrl(host);
+    if (!url || !this._hass || typeof this._hass.fetchWithAuth !== "function") {
+      this._photoStatus(this._t("photo.failed"));
+      return;
+    }
+    this._photoStatus(this._t("photo.uploading"));
+    try {
+      const blob = await scaleImageFile(file, IMAGE_MAX_EDGE, 0.85);
+      const res = await this._hass.fetchWithAuth(url, {
+        method: "POST",
+        headers: { "Content-Type": "image/jpeg" },
+        body: blob,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (_e) {
+        data = {};
+      }
+      const ver = String(data.image || Date.now());
+      const key = macKeyOf(host.mac);
+      this._imgPut(key, ver, blob);
+      host.image = ver;
+      if (this._popup) this._renderPopupContent(host);
+      this._photoStatus(this._t("photo.saved"));
+      this._renderBody();
+    } catch (err) {
+      this._photoStatus(`${this._t("photo.failed")}${err && err.message ? ` (${err.message})` : ""}`);
+    }
+  }
+
+  async _deletePhoto(host) {
+    const url = this._photoUrl(host);
+    if (!url || !this._hass) return;
+    if (typeof confirm === "function" && !confirm(this._t("photo.remove_confirm"))) return;
+    try {
+      const res = await this._hass.fetchWithAuth(url, { method: "DELETE" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      this._imgDrop(macKeyOf(host.mac));
+      host.image = "";
+      if (this._popup) this._renderPopupContent(host);
+      this._photoStatus(this._t("photo.removed"));
+    } catch (err) {
+      this._photoStatus(`${this._t("photo.failed")}${err && err.message ? ` (${err.message})` : ""}`);
+    }
+  }
+
   _closePopup() {
     if (!this._popup) return;
     if (this._onPopupKeydown) {
@@ -5498,6 +6142,18 @@ class FritzboxNetzwerkCard extends HTMLElement {
       .fbn-mm-dash { stroke: var(--divider-color, #999); stroke-dasharray: 4 3; stroke-width: 1.5; }
       .fbn-mm-off.fbn-mm-edge { stroke: var(--fbn-blocked, #db4437); opacity: .5; }
       .fbn-meshmap .settings-accordion { margin: 8px 16px 0; }
+      .fbn-mm-edit { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 16px 2px; }
+      .fbn-mm-edit-on { background: var(--fbn-accent); color: var(--text-primary-color, #fff); }
+      .fbn-mm-editing [data-dragref] { cursor: move; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+      .fbn-mm-editing .fbn-mm-wrap { cursor: default; }
+      .fbn-mm-node.fbn-mm-drop-cand rect { stroke-dasharray: 3 3; stroke-width: 2.5; }
+      .fbn-mm-node.fbn-mm-drop-ok rect { stroke: var(--success-color, #43a047); stroke-width: 4; stroke-dasharray: none; }
+      details.fbn-mm-drop-cand > summary { outline: 2px dashed var(--fbn-accent); outline-offset: -2px; }
+      details.fbn-mm-drop-ok > summary { outline: 3px solid var(--success-color, #43a047); outline-offset: -3px; }
+      .fbn-mm-dragsrc { opacity: .4; }
+      .fbn-rowimg { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; display: none; }
+      .fbn-rowimg[src] { display: block; }
+      .fbn-rowimg[src] + .fbn-rowicon { display: none; }
       .fbn-ctl-verbox {
         display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-left: auto;
       }
@@ -5729,6 +6385,13 @@ class FritzboxNetzwerkCard extends HTMLElement {
         padding: 7px 0; border-bottom: 1px solid var(--divider-color, #ededed);
       }
       .fbn-drow:last-child { border-bottom: none; }
+      .fbn-photo-box { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+      .fbn-photo-img, .fbn-photo-ph { width: 96px; height: 96px; border-radius: 12px; object-fit: cover; background: rgba(127,127,127,.15); display: flex; align-items: center; justify-content: center; }
+      .fbn-photo-img:not([src]) { visibility: hidden; }
+      .fbn-photo-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+      .fbn-photo-status { flex-basis: 100%; }
+      .fbn-assign-select { width: 100%; max-width: 100%; padding: 6px 8px; border-radius: 8px; box-sizing: border-box; }
+      .fbn-hint { font-size: 0.8em; opacity: .75; margin-top: 4px; }
       .fbn-dt { color: var(--secondary-text-color, #727272); font-size: 0.9em; flex: 0 0 auto; }
       .fbn-dd {
         text-align: right; word-break: break-word;

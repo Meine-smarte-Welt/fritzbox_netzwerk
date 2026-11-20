@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 6e8b6c3cc521575355d386295a41430dee0e8f6c605acb703b29a8ddf3c1dc2c
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): bdd4fa53bc187692c6c720afb25b1c5f9ff503d0def9f59dfbf16bbc4ac2a853
 """Aufbereitung der FRITZ!Box-Hostliste.
 
 Dieses Modul enthaelt bewusst KEINE Home-Assistant- und keine
@@ -1106,6 +1106,8 @@ def mesh_members(
             "online": True,
             "mesh_id": box_id,
             "via_id": "",
+            # 2.2.0: Kennung fuer die manuelle Zuordnung (Dienst set_mesh_parent), die Box heisst "box".
+            "ref": "box",
         }
     ]
     repeaters = [
@@ -1127,6 +1129,9 @@ def mesh_members(
                 "connected_via": host.get("connected_via") or "",
                 "link_mbit": host.get("link_mbit"),
                 "link_type": host.get("link_type") or "",
+                "ref": str(host.get("mesh_id") or "") or mac_key(host.get("mac")),
+                "manual_parent": bool(host.get("manual_parent")),
+                "auto_connected_via": host.get("auto_connected_via") or "",
             }
         )
     for switch in sorted(
@@ -1149,6 +1154,11 @@ def mesh_members(
                 "link_type": switch.get("type") or "LAN",
                 # 2.1.2: nur gesetzt, wenn die experimentelle Kaskaden-Erkennung an ist (Router-Symbol).
                 "cascade": bool(switch.get("cascade")),
+                # 2.2.0: manuelle Zuordnung (siehe manual_topology.py).
+                "ref": str(switch.get("id") or "") or mac_key((host or {}).get("mac")),
+                "manual": bool(switch.get("manual")),
+                "manual_parent": bool(switch.get("manual_parent")),
+                "auto_connected_via": switch.get("auto_connected_via") or "",
             }
         )
     return members
@@ -1678,3 +1688,34 @@ def host_device_selection(
         and not host.get("repeater")
         and ip_matches_filter(host.get("ip"), filt)
     ]
+
+
+def tracker_selected(host: dict[str, Any], pattern: Any) -> bool:
+    """Bekommt dieses Geraet einen Device-Tracker? (2.2.0, Issue #42)
+
+    Ein leeres Muster waehlt - wie vor 2.2.0 - ALLE Geraete aus. Sonst gilt dieselbe
+    Platzhalter-Syntax wie beim Kartenfilter (``*``, ``?``, ``!`` schliesst aus, Trenner:
+    Komma, Semikolon, Leerzeichen), geprueft gegen IP-Adresse, MAC-Adresse (mit und ohne
+    Trennzeichen), Name, Hostname und Etikett. Ein Geraet ohne IP-Adresse (offline) kann
+    deshalb ueber MAC oder Name gewaehlt werden.
+    """
+    filt = parse_wildcard_filter(pattern)
+    if not filt:
+        return True
+    mac = str(host.get("mac") or "")
+    values = [
+        str(value).strip()
+        for value in (
+            host.get("ip"),
+            mac,
+            mac_key(mac),
+            host.get("name"),
+            host.get("host_name"),
+            host.get("label"),
+        )
+        if value
+    ]
+    include = filt.get("include") or []
+    if include and not any(regex.match(value) for regex in include for value in values):
+        return False
+    return not any(regex.match(value) for regex in filt.get("exclude") or [] for value in values)

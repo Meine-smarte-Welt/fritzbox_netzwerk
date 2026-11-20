@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 2cb446faea4d654296b9d86f362431a0e55bf6e968f561b4a24c68e9f0c33a1d
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): d60a2c968671b05655fd6c2bea38f9c465be0bd1841eb2745414fcb5420f527f
 """Konstanten der Integration fritzbox_netzwerk."""
 
 from typing import Final
@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 
 DOMAIN: Final = "fritzbox_netzwerk"
 MANUFACTURER: Final = "FRITZ!"
-VERSION: Final = "2.1.2"
+VERSION: Final = "2.2.0"
 
 PLATFORMS: Final = [
     Platform.SENSOR,
@@ -36,6 +36,8 @@ CONF_ADDRESS_SOURCE_INTERVAL: Final = "address_source_interval"
 CONF_TRACK_WLAN_BAND: Final = "track_wlan_band"
 CONF_GUEST_SERVICE: Final = "guest_service"
 CONF_ENABLE_DEVICE_TRACKER: Final = "enable_device_tracker"
+# 2.2.0 (Issue #42): Tracker nur fuer eine Auswahl (IP, MAC oder Name; leer = alle Geraete).
+CONF_DEVICE_TRACKER_FILTER: Final = "device_tracker_filter"
 CONF_ENABLE_CONTROLS: Final = "enable_controls"
 CONF_ENABLE_REPEATERS: Final = "enable_repeaters"
 CONF_PAIRING_MINUTES: Final = "pairing_minutes"
@@ -79,6 +81,7 @@ DEFAULT_ADDRESS_SOURCE_INTERVAL: Final = 15  # Minuten
 DEFAULT_TRACK_WLAN_BAND: Final = True
 DEFAULT_GUEST_SERVICE: Final = 0  # 0 = automatisch erkennen, 1-4 = fest (Issue #20)
 DEFAULT_ENABLE_DEVICE_TRACKER: Final = False
+DEFAULT_DEVICE_TRACKER_FILTER: Final = ""
 DEFAULT_ENABLE_CONTROLS: Final = False
 DEFAULT_ENABLE_REPEATERS: Final = True
 DEFAULT_PAIRING_MINUTES: Final = 5  # Minuten
@@ -162,6 +165,12 @@ SERVICE_SET_DNS_SETTINGS: Final = "set_dns_settings"
 SERVICE_SET_STATIC_IP: Final = "set_static_ip"
 SERVICE_MARK_RESERVED: Final = "mark_devices_reserved"
 SERVICE_REMOVE_UNUSED: Final = "remove_unused_connections"
+# 2.2.0: manuelle Mesh-Zuordnung (Drag und Drop in der Karte), nur fuer Administratoren.
+SERVICE_SET_MESH_PARENT: Final = "set_mesh_parent"
+SERVICE_SET_MESH_HUB: Final = "set_mesh_hub"
+SERVICE_RESET_MESH_TOPOLOGY: Final = "reset_mesh_topology"
+ATTR_CHILD: Final = "child"
+ATTR_PARENT: Final = "parent"
 ATTR_IP_FILTER: Final = "ip_filter"
 ATTR_SERVICE: Final = "service"
 ATTR_DRY_RUN: Final = "dry_run"
@@ -196,6 +205,7 @@ LAST_SEEN_STORAGE_VERSION: Final = 1
 FIRST_SEEN_STORAGE_VERSION: Final = 1
 PAIRING_STORAGE_VERSION: Final = 1
 NOTES_STORAGE_VERSION: Final = 1
+TOPOLOGY_STORAGE_VERSION: Final = 1
 
 # Ordner im Home-Assistant-Konfigurationsverzeichnis fuer Dateien, die ein
 # HACS-Update NICHT ueberschreibt: heruntergeladene Herstellerliste und die
@@ -203,6 +213,11 @@ NOTES_STORAGE_VERSION: Final = 1
 USER_DATA_DIRNAME: Final = "fritzbox_netzwerk"
 OUI_UPDATE_FILENAME: Final = "oui_update.txt"
 OUI_CUSTOM_FILENAME: Final = "oui_custom.txt"
+# 2.2.0: hochgeladene Geraetebilder liegen je Eintrag in <user_data>/images/<entry_id>/<mac>.jpg.
+IMAGES_DIRNAME: Final = "images"
+IMAGE_MAX_UPLOAD_BYTES: Final = 1_500_000
+IMAGE_MAX_EDGE: Final = 320
+IMAGE_URL_BASE: Final = f"/api/{DOMAIN}/image"
 
 # Filter "Neu (letzte N Tage)" in der Karte (Idee 2 aus feature-ideen.md).
 NEW_DEVICE_FILTER_DAYS: Final = 7

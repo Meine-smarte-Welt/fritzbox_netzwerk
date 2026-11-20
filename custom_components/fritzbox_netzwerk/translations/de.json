@@ -84,7 +84,8 @@
           "nc_types": "Gesendete Meldungsarten",
           "lost_after_days": "„Verloren“ nach (Tagen)",
           "enable_cleanup": "Ungenutzte Verbindungen entfernen erlauben (experimentell)",
-          "enable_cascade_detection": "Kaskadierte FRITZ!Boxen als Zwischenstation erkennen (experimentell)"
+          "enable_cascade_detection": "Kaskadierte FRITZ!Boxen als Zwischenstation erkennen (experimentell)",
+          "device_tracker_filter": "Auswahl der Tracker (IP, MAC oder Name)"
         },
         "data_description": {
           "track_address_source": "Diese Angabe steht nicht in der Geräteliste und kostet einen zusätzlichen Aufruf pro Gerät. Sie ändert sich selten, deshalb läuft sie in einem eigenen, langsameren Takt.",
@@ -109,7 +110,8 @@
           "nc_types": "Nur die angehakten Meldungsarten werden gesendet. Überwacht sind Repeater (Option „Repeater als eigene Geräte anlegen“) und die per IP-Muster ausgewählten Netzwerkgeräte.",
           "lost_after_days": "Ein Gerät, das offline ist und seit mehr als so vielen Tagen nicht mehr gesehen wurde, gilt als „verloren“ (Filter und Kennzeichnung in der Karte, Sensor „Verlorene Geräte“). 0 = Funktion aus. Grundlage ist der Zeitpunkt „zuletzt online“, den die Integration selbst mitschreibt; Geräte ohne diesen Zeitpunkt gelten nie als verloren. Je Gerät lässt sich das im Popup mit „Offline-Status ignorieren“ abschalten. Standard: 7.",
           "enable_cleanup": "Erlaubt dem Dienst „Ungenutzte Verbindungen entfernen“ und dem Knopf in der Karte, in der FRITZ!Box „Alle ungenutzten Verbindungen entfernen“ auszulösen (Heimnetz → Netzwerk → Netzwerkverbindungen). Die Box behält dabei Geräte mit individuellen Einstellungen; entfernte Einträge lassen sich nicht wiederherstellen. Nutzt die REST-Schnittstelle der Weboberfläche (FRITZ!OS 8), nicht TR-064 – die Anfrage wurde an einer FRITZ!Box 5690 Pro beobachtet, die Ausführung ist ungeprüft. Standardmäßig aus.",
-          "enable_cascade_detection": "Eine FRITZ!Box, die per Kabel hinter einer anderen hängt (Router-Betrieb), zählt in der Mesh-Karte schon mit einer Kabelverbindung als Zwischenstation und bekommt das Router-Symbol. Ungeprüft: nur gegen nachgebaute Daten getestet. In 2.1.1 galt diese Regel immer und stufte dabei jede per Kabel angeschlossene FRITZ!Box als Switch ein, auch reine Endgeräte; seit 2.1.2 ist sie nur noch mit dieser Option aktiv. Standardmäßig aus."
+          "enable_cascade_detection": "Eine FRITZ!Box, die per Kabel hinter einer anderen hängt (Router-Betrieb), zählt in der Mesh-Karte schon mit einer Kabelverbindung als Zwischenstation und bekommt das Router-Symbol. Ungeprüft: nur gegen nachgebaute Daten getestet. In 2.1.1 galt diese Regel immer und stufte dabei jede per Kabel angeschlossene FRITZ!Box als Switch ein, auch reine Endgeräte; seit 2.1.2 ist sie nur noch mit dieser Option aktiv. Standardmäßig aus.",
+          "device_tracker_filter": "Leer = ein Tracker für jedes Gerät. Sonst nur für passende Geräte: Muster mit * und ?, getrennt durch Komma, Semikolon oder Leerzeichen; ein vorangestelltes ! schließt aus. Beispiele: 192.168.178.2*  ·  AA:BB:CC:*  ·  handy*,!handy-gast. Bereits angelegte Tracker bleiben bestehen und lassen sich in Home Assistant löschen."
         }
       }
     }
@@ -229,6 +231,9 @@
       "verloren": {
         "name": "Verlorene Geräte",
         "unit_of_measurement": "Geräte"
+      },
+      "repeater_link_rate": {
+        "name": "Verbindungsrate"
       }
     },
     "binary_sensor": {
@@ -613,6 +618,52 @@
         "config_entry": {
           "name": "FRITZ!Box",
           "description": "Bei mehreren Boxen: welche Box gemeint ist."
+        }
+      }
+    },
+    "set_mesh_parent": {
+      "name": "Mesh-Zuordnung festlegen",
+      "description": "Hängt ein Gerät, einen Repeater oder einen Switch unter eine Station der Mesh-Gruppe (Box, Repeater, Switch). Nur in Home Assistant gespeichert, die FRITZ!Box wird nicht verändert. Nur für Administratoren. Ohne Ziel gilt wieder die automatische Erkennung.",
+      "fields": {
+        "child": {
+          "name": "Gerät",
+          "description": "MAC-Adresse oder Mesh-Kennung des Geräts, das verschoben wird."
+        },
+        "parent": {
+          "name": "Ziel",
+          "description": "MAC-Adresse oder Mesh-Kennung der Zielstation; „box“ steht für die FRITZ!Box. Leer = automatisch."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (Config Entry)",
+          "description": "Nur nötig, wenn mehrere FRITZ!Boxen eingerichtet sind."
+        }
+      }
+    },
+    "set_mesh_hub": {
+      "name": "Zwischenstation festlegen",
+      "description": "Erklärt ein Gerät (z. B. eine kaskadierte FRITZ!Box oder einen Switch mit IP-Adresse) zur Station der Mesh-Karte, unter die sich Geräte hängen lassen – oder nimmt das wieder zurück. Nur in Home Assistant gespeichert. Nur für Administratoren.",
+      "fields": {
+        "mac": {
+          "name": "MAC-Adresse",
+          "description": "MAC-Adresse des Geräts."
+        },
+        "enabled": {
+          "name": "Als Station anzeigen",
+          "description": "An = Station, aus = wieder ein normales Gerät."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (Config Entry)",
+          "description": "Nur nötig, wenn mehrere FRITZ!Boxen eingerichtet sind."
+        }
+      }
+    },
+    "reset_mesh_topology": {
+      "name": "Manuelle Mesh-Zuordnung zurücksetzen",
+      "description": "Verwirft alle von Hand festgelegten Zuordnungen und Zwischenstationen; es gilt wieder die automatische Erkennung. Nur für Administratoren.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box (Config Entry)",
+          "description": "Nur nötig, wenn mehrere FRITZ!Boxen eingerichtet sind."
         }
       }
     }

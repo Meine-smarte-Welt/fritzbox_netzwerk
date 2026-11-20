@@ -7,7 +7,7 @@
 
 Una integración de Home Assistant que muestra todos los dispositivos de la red doméstica de la FRITZ!Box en tu panel como una tabla ordenable – con dirección IP, dirección MAC, tipo de conexión y el nombre del dispositivo de Home Assistant correspondiente.
 
-![Version](https://img.shields.io/badge/Version-2.1.2-blue)
+![Version](https://img.shields.io/badge/Version-2.2.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Vídeo y guía de la tarjeta de red (en alemán):** [meinesmartewelt.de – FRITZ!Box Netzwerk para Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -83,6 +83,7 @@ Más en el vídeo y la guía (en alemán): [meinesmartewelt.de – FRITZ!Box Net
 - **Última vez visto**, **interruptor de acceso a Internet** (experimental), **tipo de IP** (fija o dinámica)
 - **Sensores de conexión** (velocidad de subida/bajada, velocidades de sincronización de la línea, IP externa, tiempo en línea, estado de la conexión) y **eventos** («dispositivo nuevo», «IP externa cambiada»)
 - **Grupo Mesh**: FRITZ!Box y repetidores como una unidad, botón «Reiniciar todos los dispositivos FRITZ!»
+- **Asignación mesh con arrastrar y soltar (desde 2.2.0):** cuelga dispositivos, switches y repetidores/FRITZ!Box en cascada de otra estación en el mapa mesh – solo se guarda en Home Assistant. **Fotos de dispositivos (desde 2.2.0):** sube una foto por dispositivo o hazla con la cámara del móvil; se reduce a 320 px.
 - **Filtro MAC Wi-Fi** activado/desactivado y liberación temporal («emparejamiento»)
 - **Control parental** (experimental): cambiar perfiles de acceso por dispositivo, también de forma temporal
 - **Ajustes DNS** de la caja (experimental, desde 1.8.0): lectura y modificación
@@ -166,6 +167,7 @@ Mediante *Configurar* en la integración:
 | «Perdido» tras (días) (desde 2.0.2) | 7 | Un dispositivo sin conexión y no visto desde hace más de estos días se considera «perdido» (filtro, marca, sensor). 0 = desactivado. Se puede desactivar por dispositivo en la ventana con «Ignorar estado sin conexión» |
 | Permitir eliminar conexiones no utilizadas (experimental, desde 2.0.2) | desactivado | Habilita el servicio `remove_unused_connections` y el botón «Liberar IP no utilizadas» de la tarjeta |
 | Detectar FRITZ!Box en cascada como estación intermedia (experimental, desde 2.1.2) | desactivado | Una FRITZ!Box conectada por cable detrás de otra cuenta en el mapa mesh como estación intermedia con una sola conexión por cable (símbolo de router). Sin verificar; sin la opción, la detección de switches funciona como en 2.1.0 |
+| Device trackers para dispositivos de red (patrón, desde 2.2.0) | vacío = todos | Como en «Dispositivos de red como dispositivos»: solo los dispositivos que coinciden con el patrón (IP, MAC, nombre, nombre de host, etiqueta; `*` comodín, `!` excluye) reciben un device tracker. Los existentes se conservan (issue #42). |
 
 ---
 
@@ -196,6 +198,21 @@ Desde 1.6.2: «dispositivo nuevo» en su primera aparición en la red doméstica
 ## Mesh y repetidores
 
 La FRITZ!Box y sus repetidores AVM forman el mesh. La integración los trata como **un solo grupo**: los repetidores aparecen como dispositivos propios bajo la caja, hay un contador en línea y el botón «Reiniciar todos los dispositivos FRITZ!» (primero los repetidores, la caja al final). Desde 1.6.3 la tarjeta muestra en «Conectado a través de» a qué vecino mesh está unido un dispositivo, con la velocidad del enlace. Sin intensidad de señal en dBm (la lista mesh no la ofrece). Desde 1.9.0 un dispositivo también se trata como repetidor si la topología mesh de la caja lo lista como miembro del mesh, la banda Wi-Fi de los dispositivos detrás de un repetidor se lee del nombre de la interfaz mesh (dos suposiciones sin probar en hardware real), a los repetidores que solo tienen contraseña (sin nombre de usuario) se les reintenta con un nombre de usuario vacío, y la lista puede agruparse por conexión mesh (`group_by: mesh`). Detalles: README alemán.
+
+## Asignación mesh y fotos de dispositivos (desde 2.2.0)
+
+**Asignación mesh.** Si la topología no se detecta bien (un switch, una FRITZ!Box en cascada), defínela tú en el mapa mesh. Se guarda **solo en Home Assistant**; la FRITZ!Box no se modifica.
+
+- **Editar (solo administradores):** abre la pestaña *Mesh* y pulsa **«Editar asignación»**. Arrastra repetidores, switches y dispositivos a otra estación (caja, repetidor, switch), en el dibujo o en las listas. Los destinos posibles tienen borde discontinuo; el destino bajo el puntero se pone verde. En el móvil: mantén pulsado un momento y arrastra. **«Listo»** termina el modo.
+- **Sin arrastrar:** la ventana del dispositivo tiene la sección **«Asignación mesh»** con un selector «Colgado de la estación» (por defecto «Automático»).
+- **Estación intermedia:** **«Tratar como estación intermedia»** convierte un dispositivo (switch, FRITZ!Box en cascada) en una estación de la que se pueden colgar otros (issue #41). La detección automática de FRITZ!Box en cascada sigue siendo una opción experimental.
+- **Protección contra bucles:** una estación no puede colgarse de sí misma ni de uno de sus hijos.
+- **Restablecer:** «Automático» restablece un dispositivo, **«Restablecer todo»** todas las asignaciones manuales. Las manuales se marcan como «manual».
+- **Servicios:** `set_mesh_parent`, `set_mesh_hub`, `reset_mesh_topology` (solo administradores).
+
+**Fotos de dispositivos.** La ventana del dispositivo tiene la sección **«Foto»** (subir/quitar solo administradores). El navegador reduce la imagen a 320 px como máximo (lado largo) y envía un JPEG; el servidor la recodifica y elimina EXIF/GPS. En Android e iOS/iPadOS hay además un botón **«Cámara»** que abre la app de cámara del dispositivo (`<input type="file" capture>`) – funciona con **http y https**, porque la página no necesita acceso propio a la cámara. En el escritorio solo hay **«Subir»**. Ruta: `<config>/fritzbox_netzwerk/images/<entry_id>/<mac>.jpg`.
+
+> **Estado de las pruebas:** lógica probada con datos simulados y en jsdom. Arrastrar, fotos y cámara **no están probados** en una FRITZ!Box real, un navegador real ni un móvil.
 
 ## Filtro MAC y emparejamiento
 
@@ -349,6 +366,7 @@ Si hay varias cajas configuradas, todos los servicios aceptan un campo opcional 
 | `reboot_mesh` (experimental) | Reiniciar repetidores y caja |
 | `gast_wlan_info` | Datos del Wi-Fi de invitados (para el código QR); desde 1.9.0 se detecta el servicio de invitados y un `service` opcional (1-4) puede forzarlo; desde 1.9.1 la tarjeta transmite el número conocido y el ajuste «Servicio Wi-Fi de invitados» puede fijarlo |
 | `set_device_note` | Etiqueta, nota y marca «reservado» (solo se guarda en Home Assistant) |
+| `set_mesh_parent`, `set_mesh_hub`, `reset_mesh_topology` (desde 2.2.0) | Asignación mesh manual (solo en Home Assistant, administradores) |
 | `remove_unused_connections` (experimental, desde 2.0.2) | Ejecuta «Eliminar todas las conexiones no utilizadas» en la caja; `dry_run` muestra una vista previa. Para escribir hace falta la opción *Permitir eliminar conexiones no utilizadas*. `set_device_note` también admite `lost_ignore` |
 | `mark_devices_reserved` | Marcar muchos dispositivos como «reservados» por patrón de IP (solo en Home Assistant; `dry_run` muestra una vista previa) |
 | `list_access_profiles`, `get_access_profile`, `set_access_profile` (experimental) | Perfiles del control parental |
@@ -386,6 +404,7 @@ Las funciones sin verificar, con pasos de prueba, figuran en [EXPERIMENTELL.md](
 - **Centro de notificaciones (desde 2.0.0)** solo está probado contra un bus de eventos simulado, no contra un centro de notificaciones real ni hardware real; los interruptores existen solo en el diálogo Configurar, no en la tarjeta, véase [Centro de notificaciones](#centro-de-notificaciones-opcional).
 - **La IP estática y la escritura de DNS son experimentales** y usan la interfaz web no documentada de la caja. La escritura no está verificada en ninguna caja real; la ruta REST de la IP estática sigue la descripción de un proyecto de terceros para FRITZ!OS 8.25. Pueden dejar de funcionar con cualquier actualización de FRITZ!OS.
 - **Reservas DHCP reconocidas solo en parte.** La caja no notifica por TR-064 las reservas *dentro* del rango DHCP. Desde 2.0.0 la integración las lee además de la interfaz web (mismo ciclo que el tipo de IP, `query.lua`, si no `netDev`); que tu FRITZ!OS entregue el indicador no está probado. Si no, esos dispositivos siguen apareciendo como «dinámicos» – la descarga de diagnóstico (`reservations`) indica qué vía funcionó. Como alternativa, márcalos a mano o en bloque (`mark_devices_reserved`).
+- **Asignación mesh y fotos (desde 2.2.0)** solo están probadas con datos simulados y en jsdom, no en una FRITZ!Box, navegador ni móvil reales. La detección automática de switches/cascada sigue siendo una heurística; la asignación manual la sustituye donde falla.
 - **Mesh solo en parte:** sin intensidad de señal en dBm.
 - **El volumen de datos por dispositivo** no lo ofrece la caja por TR-064.
 - **Dispositivos VPN (issue #29):** las entradas sin dirección MAC se descartaban antes como obsoletas; los pares que la caja marca como VPN (indicador `X_AVM-DE_VPN` o tipo de interfaz VPN/WireGuard/IPsec) y que tienen dirección IP se conservan ahora, con el identificador `VPN:<IP>`. Aparecen en la lista y en los contadores, pero no tienen entidades ni acciones que requieran una dirección MAC (despertar, bloquear, renombrar, IP estática). **No está probado que la caja liste así los pares WireGuard**; no existe una interfaz documentada para consultarlos por separado. La descarga de diagnóstico (`box_hosts.without_mac_samples`) muestra cómo marca la caja esas entradas.
@@ -415,6 +434,16 @@ Las pruebas del centro de notificaciones en 2.0.0 (`test_notification_bridge.py`
 El repositorio contiene las pruebas de 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); se ejecutan con datos sintéticos, no con hardware real. Las pruebas de 1.8.0 para `dns_settings.py` y `static_ip.py` no están incluidas.
 
 ## Historial de versiones
+
+### 2.2.0 – Asignación mesh con arrastrar y soltar, fotos de dispositivos, exportación CSV, issues #42–#44
+
+- **Nuevo – asignación mesh con arrastrar y soltar (issue #41):** modo de edición en la pestaña *Mesh* (administradores), selector y «Tratar como estación intermedia» en la ventana, protección contra bucles, «Restablecer todo». Nuevos servicios `set_mesh_parent`, `set_mesh_hub`, `reset_mesh_topology`. Solo en Home Assistant; la detección automática no cambia respecto a 2.1.2.
+- **Nuevo – fotos de dispositivos:** subir o hacer una foto (app de cámara mediante `capture`, con http y https); reducida a 320 px en el navegador y de nuevo en el servidor, sin EXIF. Escritorio: solo subir.
+- **Nuevo – opción «Device trackers para dispositivos de red» (patrón, issue #42).**
+- **Nuevo – sensor de velocidad de enlace por repetidor (issue #43)**, actualizado como máximo cada 5 minutos.
+- **Corregido – aviso de `via_device` (issue #44).**
+- **Corregido – exportación CSV con filtro «Todos»:** solo incluía los activos si «Ocultar dispositivos no conectados» (`hide_inactive`) estaba activado; ahora la exportación ignora ese ajuste. Reproducido solo con ese ajuste.
+- **Nota:** sin probar en una FRITZ!Box, navegador ni móvil reales (solo datos simulados y jsdom). Issue #41: la vista ahora se corrige a mano; la detección automática no ha mejorado.
 
 ### 2.1.2 – Detección de switches como en 2.1.0, detección en cascada solo como opción
 

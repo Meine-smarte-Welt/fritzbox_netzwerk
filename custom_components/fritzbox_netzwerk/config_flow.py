@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 260df767bfaf23d88bb76a19c84c90b98e4ec47e3aa701fb41735bc1d8ed3df9
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 7417e962d4955c8d8913b2f6b7db03a50578b53721c5fdf276aea5429f5ab7f3
 """Einrichtungsdialog fuer fritzbox_netzwerk."""
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ from .nc_catalog import NC_TYPE_ORDER
 from .const import (
     CONF_ADDRESS_SOURCE_INTERVAL,
     CONF_ENABLE_CONTROLS,
+    CONF_DEVICE_TRACKER_FILTER,
     CONF_ENABLE_DEVICE_TRACKER,
     CONF_ENABLE_HOST_DEVICES,
     CONF_CHECK_UPDATES,
@@ -71,6 +72,7 @@ from .const import (
     CONF_USE_TLS,
     DEFAULT_ADDRESS_SOURCE_INTERVAL,
     DEFAULT_ENABLE_CONTROLS,
+    DEFAULT_DEVICE_TRACKER_FILTER,
     DEFAULT_ENABLE_DEVICE_TRACKER,
     DEFAULT_ENABLE_HOST_DEVICES,
     DEFAULT_ENABLE_REPEATERS,
@@ -398,6 +400,13 @@ class FritzboxNetzwerkOptionsFlow(OptionsFlowWithReload):
                         CONF_ENABLE_DEVICE_TRACKER, DEFAULT_ENABLE_DEVICE_TRACKER
                     ),
                 ): bool,
+                # Seit 2.2.0 (Issue #42): Tracker nur fuer eine Auswahl von Geraeten.
+                vol.Optional(
+                    CONF_DEVICE_TRACKER_FILTER,
+                    default=options.get(
+                        CONF_DEVICE_TRACKER_FILTER, DEFAULT_DEVICE_TRACKER_FILTER
+                    ),
+                ): selector.TextSelector(),
                 vol.Optional(
                     CONF_ENABLE_REPEATERS,
                     default=options.get(

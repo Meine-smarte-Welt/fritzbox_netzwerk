@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): a4ed48fd85cabb6d3b1ffdec384246616aefade1956f3e05cff9cb6a0112b729
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): 0adf7eb53f64c3baf037b09770d4fcf7b817492fa5dcc02d2e10875c49b1708e
 """Gemeinsame Bausteine fuer Repeater als eigene Home-Assistant-Geraete.
 
 AVM-Repeater im Mesh tauchen in der Hostliste der FRITZ!Box als ganz normale
@@ -61,7 +61,7 @@ def repeater_identifier(entry: FritzboxNetzwerkConfigEntry, key: str) -> str:
     return f"{entry.entry_id}_repeater_{key}"
 
 
-def _via_device(
+def via_device_info(
     hass: HomeAssistant, entry: FritzboxNetzwerkConfigEntry
 ) -> dict[str, Any]:
     """Verweis auf die Haupt-FRITZ!Box - versionsuebergreifend.
@@ -103,7 +103,7 @@ def repeater_device_info(
     )
     if url:
         info["configuration_url"] = url
-    info.update(_via_device(hass, entry))  # type: ignore[typeddict-item]
+    info.update(via_device_info(hass, entry))  # type: ignore[typeddict-item]
     return info
 
 
@@ -160,5 +160,5 @@ def host_device_info(
     url = str(host.get("url") or "").strip()
     if url.lower().startswith(("http://", "https://")):
         info["configuration_url"] = url
-    info.update(_via_device(hass, entry))  # type: ignore[typeddict-item]
+    info.update(via_device_info(hass, entry))  # type: ignore[typeddict-item]
     return info

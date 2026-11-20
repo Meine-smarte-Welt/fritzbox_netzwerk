@@ -84,7 +84,8 @@
           "nc_types": "Te verzenden soorten meldingen",
           "lost_after_days": "Als „verloren” markeren na (dagen)",
           "enable_cleanup": "Ongebruikte verbindingen verwijderen toestaan (experimenteel)",
-          "enable_cascade_detection": "Gecascadeerde FRITZ!Boxen als tussenstation herkennen (experimenteel)"
+          "enable_cascade_detection": "Gecascadeerde FRITZ!Boxen als tussenstation herkennen (experimenteel)",
+          "device_tracker_filter": "Selectie van trackers (IP, MAC of naam)"
         },
         "data_description": {
           "track_address_source": "Deze waarde staat niet in de hostlijst en kost één extra verzoek per apparaat. Ze verandert zelden en loopt daarom op een eigen, langzamer schema.",
@@ -109,7 +110,8 @@
           "nc_types": "Alleen de aangevinkte soorten meldingen worden verzonden. Bewaakt worden repeaters (optie \"Repeaters als eigen apparaten aanmaken\") en de via het IP-patroon gekozen netwerkapparaten.",
           "lost_after_days": "Een apparaat dat offline is en al langer dan dit aantal dagen niet is gezien, geldt als „verloren” (filter en markering in de kaart, sensor „Verloren apparaten”). 0 = uit. Gebaseerd op het tijdstip „laatst online”, dat de integratie zelf bijhoudt; apparaten zonder dat tijdstip gelden nooit als verloren. Per apparaat is dit in de pop-up uit te zetten met „Offline-status negeren”. Standaard: 7.",
           "enable_cleanup": "Staat de dienst „Ongebruikte verbindingen verwijderen” en de knop in de kaart toe om in de FRITZ!Box „Alle ongebruikte verbindingen verwijderen” uit te voeren (Thuisnetwerk → Netwerk → Netwerkverbindingen). De box behoudt apparaten met individuele instellingen; verwijderde items zijn niet te herstellen. Gebruikt de REST-interface van de webinterface (FRITZ!OS 8), niet TR-064 – het verzoek is waargenomen op een FRITZ!Box 5690 Pro, de uitvoering is niet getest. Standaard uit.",
-          "enable_cascade_detection": "Een FRITZ!Box die via een kabel achter een andere hangt (routermodus) telt in de meshkaart al met één kabelverbinding als tussenstation en krijgt het routersymbool. Niet getest: alleen gecontroleerd met nagebouwde gegevens. In 2.1.1 gold deze regel altijd en behandelde elke via kabel aangesloten FRITZ!Box als switch, ook gewone eindapparaten; sinds 2.1.2 is hij alleen actief met deze optie. Standaard uit."
+          "enable_cascade_detection": "Een FRITZ!Box die via een kabel achter een andere hangt (routermodus) telt in de meshkaart al met één kabelverbinding als tussenstation en krijgt het routersymbool. Niet getest: alleen gecontroleerd met nagebouwde gegevens. In 2.1.1 gold deze regel altijd en behandelde elke via kabel aangesloten FRITZ!Box als switch, ook gewone eindapparaten; sinds 2.1.2 is hij alleen actief met deze optie. Standaard uit.",
+          "device_tracker_filter": "Leeg = een tracker voor elk apparaat. Anders alleen voor passende apparaten: patronen met * en ?, gescheiden door komma, puntkomma of spatie; een voorafgaand ! sluit uit. Voorbeelden: 192.168.178.2*  ·  AA:BB:CC:*  ·  telefoon*,!telefoon-gast. Al aangemaakte trackers blijven bestaan en kunnen in Home Assistant worden verwijderd."
         }
       }
     }
@@ -229,6 +231,9 @@
       "verloren": {
         "name": "Verloren apparaten",
         "unit_of_measurement": "apparaten"
+      },
+      "repeater_link_rate": {
+        "name": "Verbindingssnelheid"
       }
     },
     "binary_sensor": {
@@ -613,6 +618,52 @@
         "config_entry": {
           "name": "FRITZ!Box",
           "description": "Bij meerdere boxen: welke box bedoeld is."
+        }
+      }
+    },
+    "set_mesh_parent": {
+      "name": "Mesh-toewijzing instellen",
+      "description": "Hangt een apparaat, repeater of switch onder een station van de meshgroep (box, repeater, switch). Alleen in Home Assistant opgeslagen; de FRITZ!Box wordt niet gewijzigd. Alleen voor beheerders. Zonder doel geldt weer de automatische herkenning.",
+      "fields": {
+        "child": {
+          "name": "Apparaat",
+          "description": "MAC-adres of mesh-ID van het apparaat dat wordt verplaatst."
+        },
+        "parent": {
+          "name": "Doel",
+          "description": "MAC-adres of mesh-ID van het doelstation; \"box\" staat voor de FRITZ!Box. Leeg = automatisch."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Alleen nodig als meerdere FRITZ!Boxen zijn ingesteld."
+        }
+      }
+    },
+    "set_mesh_hub": {
+      "name": "Tussenstation instellen",
+      "description": "Verklaart een apparaat (bijv. een gecascadeerde FRITZ!Box of een switch met IP-adres) tot station van de meshkaart waaronder apparaten kunnen hangen, of maakt dat ongedaan. Alleen in Home Assistant opgeslagen. Alleen voor beheerders.",
+      "fields": {
+        "mac": {
+          "name": "MAC-adres",
+          "description": "MAC-adres van het apparaat."
+        },
+        "enabled": {
+          "name": "Als station tonen",
+          "description": "Aan = station, uit = weer een gewoon apparaat."
+        },
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Alleen nodig als meerdere FRITZ!Boxen zijn ingesteld."
+        }
+      }
+    },
+    "reset_mesh_topology": {
+      "name": "Handmatige mesh-toewijzing resetten",
+      "description": "Verwerpt alle handmatige toewijzingen en tussenstations; de automatische herkenning geldt weer. Alleen voor beheerders.",
+      "fields": {
+        "config_entry": {
+          "name": "FRITZ!Box (config entry)",
+          "description": "Alleen nodig als meerdere FRITZ!Boxen zijn ingesteld."
         }
       }
     }

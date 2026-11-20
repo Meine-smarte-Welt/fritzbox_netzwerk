@@ -1,4 +1,4 @@
-# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): a978415291400cddc589d4344d54b04f0b7d232ef209e17fae239dc602c71c83
+# SHA256 (Inhalt ab Zeile 2, d.h. dieser Datei ohne diese erste Zeile): a7fa4a7315731f7023c55a7a9f064f805f08ada74a7772a7b18f8ddc3b9cc78f
 """Device-Tracker der Integration fritzbox_netzwerk.
 
 Erzeugt - wenn in den Optionen aktiviert - je Netzwerkgeraet einen
@@ -26,13 +26,15 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+    CONF_DEVICE_TRACKER_FILTER,
     CONF_ENABLE_DEVICE_TRACKER,
+    DEFAULT_DEVICE_TRACKER_FILTER,
     DEFAULT_ENABLE_DEVICE_TRACKER,
     DOMAIN,
     MANUFACTURER,
 )
 from .coordinator import FritzboxNetzwerkCoordinator
-from .hosts import mac_key, normalize_mac
+from .hosts import mac_key, normalize_mac, tracker_selected
 
 if TYPE_CHECKING:
     from . import FritzboxNetzwerkConfigEntry
@@ -60,6 +62,12 @@ async def async_setup_entry(
             key = mac_key(host.get("mac"))
             # VPN-Gegenstellen ohne MAC-Adresse (Issue #29) bekommen keinen Tracker.
             if not key or key in known or host.get("mac_synthetic"):
+                continue
+            # 2.2.0 (Issue #42): nur die Auswahl der Optionen (leer = alle Geraete wie bisher).
+            if not tracker_selected(
+                host,
+                entry.options.get(CONF_DEVICE_TRACKER_FILTER, DEFAULT_DEVICE_TRACKER_FILTER),
+            ):
                 continue
             known.add(key)
             new_entities.append(FritzboxNetzwerkTracker(coordinator, entry, host["mac"]))

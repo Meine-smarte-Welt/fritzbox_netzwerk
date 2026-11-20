@@ -7,7 +7,7 @@
 
 A Home Assistant integration that puts every device in the FRITZ!Box home network on your dashboard as a sortable table – with IP address, MAC address, connection type and the matching Home Assistant device name.
 
-![Version](https://img.shields.io/badge/Version-2.1.2-blue)
+![Version](https://img.shields.io/badge/Version-2.2.0-blue)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange)
 
 📺 **Video and guide for the network card (German):** [meinesmartewelt.de – FRITZ!Box Netzwerk for Home Assistant](https://meinesmartewelt.de/fritzbox-netzwerk-home-assistant/)
@@ -28,6 +28,7 @@ A Home Assistant integration that puts every device in the FRITZ!Box home networ
 - [Sensors](#sensors)
 - [Events](#events)
 - [Mesh and repeaters](#mesh-and-repeaters)
+- [Mesh assignment and device photos](#mesh-assignment-and-device-photos-since-220)
 - [MAC filter and pairing](#mac-filter-and-pairing)
 - [Parental control: access profiles (experimental)](#parental-control-access-profiles-experimental)
 - [CPU and RAM of the box (experimental)](#cpu-and-ram-of-the-box-experimental)
@@ -83,6 +84,7 @@ More in the video and guide (German): [meinesmartewelt.de – FRITZ!Box Netzwerk
 - **Last seen**, **internet access switch** (experimental), **IP type** (fixed or dynamic)
 - **Connection sensors** (down/upload rate, line sync rates, external IP, online time, connection state) and **events** (“new device”, “external IP changed”)
 - **Mesh group**: FRITZ!Box and repeaters as one unit, button “Restart all FRITZ! devices”
+- **Mesh assignment by drag & drop (since 2.2.0):** attach devices, switches and cascaded repeaters/FRITZ!Boxes to another station in the mesh map – stored in Home Assistant only. **Device photos (since 2.2.0):** upload a photo per device or take one with the phone camera; scaled to 320 px.
 - **Wi-Fi MAC filter** on/off and temporary release (“pairing”)
 - **Parental control** (experimental): switch access profiles per device, also temporarily
 - **DNS settings** of the box (experimental, since 1.8.0): read and change
@@ -166,6 +168,7 @@ Via *Configure* on the integration:
 | Mark as “lost” after (days) (since 2.0.2) | 7 | A device that is offline and has not been seen for more than this many days counts as “lost” (filter, mark, sensor). 0 = off. Switch it off per device in the popup with “Ignore offline status” |
 | Allow removing unused connections (experimental, since 2.0.2) | off | Enables the `remove_unused_connections` service and the “Release unused IPs” button in the card |
 | Detect cascaded FRITZ!Boxes as intermediate stations (experimental, since 2.1.2) | off | A FRITZ!Box connected by cable behind another one counts as an intermediate station in the mesh map with a single cable link (router icon). Unverified; without the option the switch detection works as in 2.1.0 |
+| Device trackers for network devices (pattern, since 2.2.0) | empty = all | Like “Network devices as devices”: only devices matching the pattern (IP, MAC, name, host name, label; `*` wildcard, `!` excludes) get a device tracker. Existing trackers stay (issue #42). |
 
 ---
 
@@ -196,6 +199,21 @@ Since 1.6.2: “new device” on first appearance in the home network and “ext
 ## Mesh and repeaters
 
 The FRITZ!Box and its AVM repeaters form the mesh. The integration treats them as **one group**: repeaters appear as own devices below the box, there is an online counter and the button “Restart all FRITZ! devices” (repeaters first, box last). Since 1.6.3 the card shows in “Connected via” which mesh neighbour a device uses, with the link rate. No signal strength in dBm (the mesh list does not provide it). Since 1.9.0 a device is also treated as a repeater if the box's mesh topology lists it as a mesh member, the Wi-Fi band of devices behind a repeater is read from the mesh interface name (both assumptions untested on real hardware), repeaters that only have a password (no user name) are retried with an empty user name, and the list can be grouped by mesh connection (`group_by: mesh`). Details: German README.
+
+## Mesh assignment and device photos (since 2.2.0)
+
+**Mesh assignment.** If the topology is not detected correctly (a switch, a cascaded FRITZ!Box), set it yourself in the mesh map. Stored **in Home Assistant only**; the FRITZ!Box is not changed.
+
+- **Edit (administrators only):** open the *Mesh* tab and tap **“Edit assignment”**. Drag repeaters, switches and devices onto another station (box, repeater, switch), in the drawing or in the lists. Possible targets get a dashed outline, the target under the pointer turns green. On a phone: press and hold briefly, then drag. **“Done”** leaves the mode.
+- **Without dragging:** the device popup has a **“Mesh assignment”** section with a selector “Attached to station” (default “Automatic”).
+- **Intermediate station:** **“Treat as intermediate station”** turns a device (switch, cascaded FRITZ!Box) into a station that others can be attached to (issue #41). Automatic detection of cascaded FRITZ!Boxes stays an experimental option.
+- **Loop protection:** a station cannot be attached below itself or one of its own children.
+- **Reset:** “Automatic” resets one device, **“Reset all”** all manual assignments. Manual ones are marked “manual”.
+- **Services:** `set_mesh_parent`, `set_mesh_hub`, `reset_mesh_topology` (administrators only).
+
+**Device photos.** The device popup has a **“Photo”** section (upload/remove for administrators only). The browser scales the image to at most 320 px (longest edge) and sends a JPEG; the server re-encodes it and strips EXIF/GPS. On Android and iOS/iPadOS there is also a **“Camera”** button that opens the device's camera app (`<input type="file" capture>`) – this works over **http and https** because the page needs no camera access of its own. On desktop there is only **“Upload”**. Stored in `<config>/fritzbox_netzwerk/images/<entry_id>/<mac>.jpg`.
+
+> **Test status:** logic tested against simulated data and in jsdom. Dragging, photos and the camera are **untested** on a real FRITZ!Box, in a real browser or on a phone.
 
 ## MAC filter and pairing
 
@@ -366,6 +384,7 @@ If several boxes are set up, all services accept an optional field `config_entry
 | `reboot_mesh` (experimental) | Restart repeaters and box |
 | `gast_wlan_info` | Guest Wi-Fi data (for the QR code); since 1.9.0 the guest service is detected and an optional `service` (1-4) can force it; since 1.9.1 the card passes the known number and the setting “Guest Wi-Fi service” can fix it |
 | `set_device_note` | Label, note and “reserved” marker (stored in Home Assistant only) |
+| `set_mesh_parent`, `set_mesh_hub`, `reset_mesh_topology` (since 2.2.0) | Manual mesh assignment (stored in Home Assistant only, administrators) |
 | `remove_unused_connections` (experimental, since 2.0.2) | Run “Remove all unused connections” in the box; `dry_run` previews. The option *Allow removing unused connections* is required to write. `set_device_note` also takes `lost_ignore` |
 | `mark_devices_reserved` | Mark many devices as “reserved” by IP pattern (stored in Home Assistant only; `dry_run` previews) |
 | `list_access_profiles`, `get_access_profile`, `set_access_profile` (experimental) | Parental-control profiles |
@@ -403,6 +422,7 @@ Unverified features with test steps are listed in [EXPERIMENTELL.md](EXPERIMENTE
 - **Notification Center (since 2.0.0)** is only tested against a simulated event bus, not a real Notification Center or real hardware; the switches exist only in the Configure dialog, not in the card, see [Notification Center](#notification-center-optional).
 - **Static IP and DNS write access are experimental** and use the undocumented web interface of the box. Writing is not verified on any real box; the REST route for the static IP follows a third-party description for FRITZ!OS 8.25. They may break with any FRITZ!OS update.
 - **DHCP reservations only partly recognised.** The box does not report reservations *inside* the DHCP range via TR-064. Since 2.0.0 the integration additionally reads them from the web interface (same cycle as the IP type, `query.lua`, otherwise `netDev`); whether your FRITZ!OS delivers the flag is untested. If not, such devices still show as “dynamic” – the diagnostics download (`reservations`) says which way worked. Alternatively mark devices by hand or in bulk (`mark_devices_reserved`).
+- **Mesh assignment and photos (since 2.2.0)** are only tested against simulated data and in jsdom, not on a real FRITZ!Box, browser or phone. Automatic switch/cascade detection remains a heuristic; manual assignment replaces it where it is wrong.
 - **Mesh only in parts:** no signal strength in dBm.
 - **Data volume per device** is not provided by the box via TR-064.
 - **VPN devices (issue #29), VPN button:** entries without a MAC address used to be dropped as stale; peers the box marks as VPN (flag `X_AVM-DE_VPN` or a VPN/WireGuard/IPsec interface type) and that have an IP address are now kept, with the identifier `VPN:<IP>`. They show up in the list and the counters but get no entities and none of the actions that need a MAC address (wake, block, rename, static IP). **Whether the box lists WireGuard peers this way is untested**; there is no documented interface to query them separately. The diagnostics download (`box_hosts.without_mac_samples`) shows how the box marks such entries.
@@ -432,6 +452,16 @@ The tests for the Notification Center in 2.0.0 (`test_notification_bridge.py`, `
 The repository contains the tests for 1.9.0 (`tests/test_issues_1_9_0.py`, `tests/conftest.py`, `tests/test_card_editor_title.js`); they run against synthetic data, not real hardware. The 1.8.0 tests for `dns_settings.py` and `static_ip.py` are not checked in.
 
 ## Version history
+
+### 2.2.0 – Mesh assignment by drag & drop, device photos, CSV export, issues #42–#44
+
+- **New – mesh assignment by drag & drop (issue #41):** edit mode in the *Mesh* tab (administrators), a selector and “Treat as intermediate station” in the popup, loop protection, “Reset all”. New services `set_mesh_parent`, `set_mesh_hub`, `reset_mesh_topology`. Stored in Home Assistant only; automatic detection unchanged from 2.1.2.
+- **New – device photos:** upload or take a photo (camera app via `capture`, over http and https); scaled to 320 px in the browser and again on the server, EXIF removed. Desktop: upload only.
+- **New – option “Device trackers for network devices” (pattern, issue #42).**
+- **New – link-rate sensor per repeater (issue #43)**, updated at most every 5 minutes.
+- **Fixed – `via_device` deprecation warning (issue #44).**
+- **Fixed – CSV export with filter “All”** exported only active devices when “Hide disconnected devices” (`hide_inactive`) was set; the export now ignores that setting. Reproduced only with that setting.
+- **Note:** untested on a real FRITZ!Box, browser or phone (simulated data and jsdom only). Issue #41: the display can now be corrected by hand; automatic detection is not improved.
 
 ### 2.1.2 – Switch detection as in 2.1.0, cascade detection only as an option
 
